@@ -1,6 +1,9 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+const webReaderExternalMessage =
+    'Linux chưa hỗ trợ trình đọc web trong ứng dụng. Trang sẽ mở trong trình duyệt hệ thống; các công cụ đọc và viết trong ứng dụng không khả dụng.';
+
 /// Linux has no registered webview_flutter backend. Keep the user in a usable
 /// Flutter route and explicitly hand navigation to their system browser.
 class LinuxExternalBrowserScreen extends StatefulWidget {
@@ -9,11 +12,15 @@ class LinuxExternalBrowserScreen extends StatefulWidget {
     this.initialInput = '',
     required this.normalizeInput,
     this.launch,
+    this.message = webReaderExternalMessage,
+    this.editable = true,
   });
 
   final String initialInput;
   final String Function(String) normalizeInput;
   final Future<bool> Function(Uri)? launch;
+  final String message;
+  final bool editable;
 
   @override
   State<LinuxExternalBrowserScreen> createState() =>
@@ -30,6 +37,15 @@ class _LinuxExternalBrowserScreenState
   void initState() {
     super.initState();
     _input = TextEditingController(text: widget.initialInput);
+  }
+
+  @override
+  void didUpdateWidget(covariant LinuxExternalBrowserScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialInput != widget.initialInput) {
+      _input.text = widget.initialInput;
+      _failed = false;
+    }
   }
 
   @override
@@ -77,10 +93,11 @@ class _LinuxExternalBrowserScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Linux chưa hỗ trợ trình đọc web trong ứng dụng. Trang sẽ mở trong trình duyệt hệ thống; các công cụ đọc và viết trong ứng dụng không khả dụng.'),
+                  Text(widget.message),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _input,
+                    readOnly: !widget.editable,
                     decoration: InputDecoration(
                       labelText: context.uiText('Địa chỉ web hoặc từ khóa'),
                     ),

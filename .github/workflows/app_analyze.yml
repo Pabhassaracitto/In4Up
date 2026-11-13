@@ -106,10 +106,13 @@ jobs:
             echo "Không có test Linux shell trên nhánh này — bỏ qua."
             exit 0
           fi
-          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart test/web_reader/linux_external_browser_test.dart \
+          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart test/web_reader/linux_external_browser_test.dart test/web_reader/linux_youtube_external_test.dart \
             -r expanded > linux_shell_regression_test.log 2>&1
           code=$?
           cat linux_shell_regression_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py linux_shell_regression_test.log "Linux shell tests" 4
+          fi
           exit $code
 
       - name: Wordlist playback and lazy tab regression tests

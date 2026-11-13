@@ -29,6 +29,8 @@ on:
       # 1.28.0 — KHÔNG tự publish bản chưa kiểm lên Pages. Cần xem web của beta:
       # chạy workflow_dispatch trên nhánh này (dispatch không bị luật này chặn).
       - '!arena/60e35d65-in4up'
+      # L5 beta validation: never publish or cancel Pages deployments on push.
+      - '!arena/8c2da0b1-in4up'
   workflow_dispatch:
 
 permissions:

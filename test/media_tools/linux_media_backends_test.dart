@@ -140,4 +140,46 @@ void main() {
           reason: 'Bản web không được import dart:io');
     });
   });
+
+  group('PSRC-220 — cắm backend VIDEO cho Linux', () {
+    String readSource(String path) => File(path).readAsStringSync();
+
+    test('đăng ký VideoPlayerPlatform SAU khi biết máy có libmpv', () {
+      final source = readSource('lib/services/linux_media_backends_io.dart');
+      final probe = source.indexOf('final libmpv = locateLibMpv();');
+      final initVideo =
+          source.indexOf('VideoPlayerMediaKit.ensureInitialized');
+      expect(initVideo, isNonNegative,
+          reason: 'Thiếu lệnh này thì video_player vẫn UnimplementedError '
+              'trên Linux (PSRC-220)');
+      expect(probe, lessThan(initVideo));
+    });
+
+    test('chỉ bật Linux — không kéo libs video của nền tảng khác', () {
+      final pubspec = pubspecDependencyLines();
+      expect(pubspec.contains('video_player_media_kit:'), isTrue);
+      expect(
+        pubspec.contains('media_kit_libs_android_video') ||
+            pubspec.contains('media_kit_libs_ios_video') ||
+            pubspec.contains('media_kit_libs_macos_video') ||
+            pubspec.contains('media_kit_libs_windows_video'),
+        isFalse,
+        reason: 'Android/iOS/macOS dùng backend gốc của video_player; kéo '
+            'libmpv của các nền tảng đó chỉ tăng dung lượng vô ích.',
+      );
+      final source = readSource('lib/services/linux_media_backends_io.dart');
+      expect(source.contains('VideoPlayerMediaKit.ensureInitialized(linux: true)'),
+          isTrue);
+      expect(source.contains('windows: true'), isFalse,
+          reason: 'Windows chưa thêm media_kit_libs_windows_video');
+    });
+
+    test('VideoPlaybackSupport hỏi cờ RUNTIME cho Linux', () {
+      final support =
+          readSource('lib/features/video/services/video_playback_support.dart');
+      expect(support.contains('LinuxMediaBackends.ready'), isTrue,
+          reason: 'Máy ĐÃ có libmpv thì phải phát trong app, không được hiện '
+              'màn hình "mở bằng trình phát ngoài".');
+    });
+  });
 }

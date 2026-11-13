@@ -45,6 +45,13 @@ dependencies:
   just_audio_media_kit: ^2.1.0
   media_kit: ^1.2.6
   media_kit_libs_linux: any
+  # PSRC-220 (beta 1.29.0, lane L2) — Linux/Windows KHÔNG có implementation
+  # của `video_player` (mọi method của `VideoPlayerPlatform` mặc định ném
+  # `UnimplementedError`). `video_player_media_kit` đăng ký media_kit làm
+  # backend cho ĐÚNG package `video_player` ⇒ màn hình phát video không phải
+  # viết lại. Cũng chỉ bật cho Linux (xem `LinuxMediaBackends.install()`),
+  # KHÔNG kéo libs video của Android/iOS/macOS/Windows.
+  video_player_media_kit: ^2.0.0
   audio_session: ^0.2.2
 
   # FFI for Native C++ Engine

@@ -46,6 +46,57 @@ Người dùng chọn được **in4up** trong *Cài đặt Android → Ngôn ng
 feat(PSRC-221): in4up là giọng đọc hệ thống Android [L8]
 ```
 
+## Kết quả lane (2026-11-13)
+
+Đã land trong commit `feat(PSRC-221): in4up là giọng đọc hệ thống Android [L8]`.
+**Chưa có ai cầm máy thật kiểm** — bốn ô nghiệm thu đầu ở trên vẫn để trống cho tới khi chạy xong bảng dưới.
+
+### Kiến trúc đã chọn
+
+```
+Android (Cài đặt / app khác)
+   │ bind  action android.intent.action.TTS_SERVICE
+   ▼
+com.in4up.systemtts.In4UpTtsService        (Kotlin — TextToSpeechService)
+   │ MethodChannel "in4up/system_tts"
+   ▼
+engine Flutter NỀN, entrypoint in4upSystemTtsMain
+   lib/core/platform/system_tts/system_tts_worker.dart
+   ├─ PiperTtsEngine   (sherpa-onnx, có sẵn)
+   └─ VieneuTtsEngine  (audio.cpp, có sẵn; chỉ vi-VN)
+```
+
+- **Chạy khi app không mở: có** — service tự dựng engine Flutter nền, không dùng engine UI.
+- Không gọi native thẳng vì Piper/VieNeu của app đi qua Dart FFI, không có lớp JNI.
+- Tên service là `com.in4up.systemtts.In4UpTtsService` (không phải `.In4UpTtsService` như gợi ý ở § Hướng điều tra) để nằm cùng gói với runtime + 3 activity.
+- Không thêm chuỗi UI: tên engine trong Cài đặt là nhãn app theo flavor.
+
+### Kiểm tay trên máy thật (chưa làm)
+
+Chuẩn bị: cài APK, mở app, import **ít nhất một giọng Piper** có tên mang mã ngôn ngữ (vd. `vi_VN-vais1000-medium`) kèm `espeak-ng-data`, đọc thử một câu trong tab Đọc để chắc giọng chạy.
+
+| # | Bước | Mong đợi |
+|---|---|---|
+| 1 | Cài đặt ▸ Ngôn ngữ & nhập ▸ Chuyển văn bản thành giọng nói ▸ Công cụ ưa thích | Có mục **In4Up** |
+| 2 | Chọn In4Up, chọn ngôn ngữ của giọng đã import | Ngôn ngữ đó có trong danh sách |
+| 3 | Bấm **Nghe thử** | Có tiếng bằng giọng Piper |
+| 4 | Vuốt in4up khỏi màn gần đây, rồi làm lại bước 3 | Vẫn có tiếng (chậm hơn vài giây lần đầu) |
+| 5 | App đọc sách / TalkBack dùng engine In4Up đọc 1 câu | Có tiếng |
+| 6 | Đang đọc đoạn dài thì bấm dừng | Dừng trong vòng ~1 đoạn, không treo |
+| 7 | Gỡ hết giọng Piper trong app rồi mở lại màn Cài đặt TTS | In4Up vẫn hiện; "Nghe thử" bị khoá, không crash |
+| 8 | Bấm bánh răng cạnh In4Up | Mở app in4up |
+
+Khi lỗi: `adb logcat -s In4UpSystemTts flutter` — service ghi lý do (`không có giọng offline cho …`, `engine Flutter nền chưa sẵn sàng`, `worker: failed …`).
+
+### Giới hạn đã biết
+
+- Chưa import giọng ⇒ mọi ngôn ngữ trả "không hỗ trợ".
+- Giọng Piper tên không mang mã ngôn ngữ (vd. `calmwoman3688`) chỉ hiện nếu đã được gán cho một ngôn ngữ trong Cài đặt giọng Piper của app.
+- Chỉ giọng offline (Piper, VieNeu). Giọng online để đợt sau, đúng § Không làm.
+- Lần đọc đầu sau khởi động nguội phải chờ engine nền + nạp model — chưa đo trên máy.
+
 ## Phát hiện thêm
 
-_(trống)_
+1. **`vieneu_engine_build.yml` không chạy khi chỉ đổi Kotlin/manifest/res** (README § 6 ghi `android/**`, thực tế chỉ `cpp/**` + `build.gradle.kts`). Lane này đã thêm 3 đường dẫn kích hoạt vì không còn cách nào khác để CI biên dịch service mới (`workflow_dispatch` từ token agent trả 403). → hub xem lại nếu không muốn build APK ở mọi thay đổi Kotlin.
+2. **Chưa kiểm:** manifest của app không có `<queries>` cho `android.intent.action.TTS_SERVICE`. Nếu plugin `flutter_tts` không tự khai, trên Android 11+ engine "giọng hệ thống" trong app có thể không thấy engine TTS của hãng khác. Ngoài phạm vi L8, chưa mở issue.
+3. Khi in4up là engine mặc định của máy **và** app đang mở, engine "giọng hệ thống" trong app (`OfflineTtsEngine`) sẽ đi vòng về chính service này. Không lặp vô hạn (worker không dùng `flutter_tts`), nhưng model Piper có thể bị nạp ở hai isolate. Đề xuất đợt sau: ẩn lựa chọn "giọng hệ thống" trong app khi engine mặc định là chính in4up.

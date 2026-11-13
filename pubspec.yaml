@@ -35,6 +35,16 @@ dependencies:
   just_audio_platform_interface: ^4.0.0
   just_audio: ^0.10.5
   just_audio_windows: ^0.2.3 #0.2.1   # ← THÊM DÒNG NÀY!
+  # PSRC-219 (beta 1.29.0, lane L2) — Linux KHÔNG có plugin âm thanh của
+  # just_audio (`linux/flutter/generated_plugin_registrant.cc` không có trình
+  # phát nào) ⇒ cắm backend media_kit (libmpv) qua `just_audio_media_kit`.
+  # `media_kit_libs_linux` CHỈ dành cho Linux (không kéo .so của Android/iOS/
+  # Windows) và KHÔNG nhúng libmpv vào bundle — máy người dùng cần libmpv:
+  # `sudo apt install libmpv2` / `dnf install mpv-libs` / `pacman -S mpv`.
+  # Thiếu libmpv ⇒ app giữ fallback "mở bằng trình phát của hệ thống".
+  just_audio_media_kit: ^2.1.0
+  media_kit: ^1.2.6
+  media_kit_libs_linux: any
   audio_session: ^0.2.2
 
   # FFI for Native C++ Engine

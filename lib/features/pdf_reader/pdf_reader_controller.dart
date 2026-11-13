@@ -35,6 +35,7 @@ import 'services/pdf_text_layer_probe.dart';
 import 'services/pdf_tts_machine.dart';
 import 'services/pdf_reading_pages.dart';
 import 'services/reader_follow_policy.dart';
+import 'services/reader_speed.dart';
 
 // `PdfTtsState` nay sống trong `services/pdf_tts_machine.dart` cùng máy trạng
 // thái đọc to (I4U18-PDF-OCR-TTS-001 F3). Re-export để mọi widget đang
@@ -158,6 +159,8 @@ class PdfReaderController extends ChangeNotifier {
   bool get showRecallMarkers => _showRecallMarkers;
 
   PdfReaderController({required this.pdfPath}) {
+    _ttsSpeed = readerSpeed(_tts.speed);
+    _tts.addListener(_onTtsSettingsChanged);
     _init();
     ReaderDisplaySettings().addListener(_onDisplaySettingsChanged);
   }
@@ -237,7 +240,7 @@ class PdfReaderController extends ChangeNotifier {
   /// "câu 3/12 · trang 5" cho thanh TTS.
   /// '0.9x · EN' cho nhãn phụ ở thanh TTS.
   String get ttsSpeedLabel =>
-      '${_ttsSpeed.toStringAsFixed(1)}x · ${_ttsLanguage == 'vi-VN' ? 'VI' : 'EN'}';
+      '${readerSpeedLabel(_ttsSpeed)} · ${_ttsLanguage == 'vi-VN' ? 'VI' : 'EN'}';
 
   String get readingProgressLabel {
     if (_readingCues.isEmpty) return '';
@@ -955,6 +958,11 @@ class PdfReaderController extends ChangeNotifier {
 
   Future<void> resumeReading() async {
     if (!_ttsMachine.isPaused) return;
+    if (_rateChangedWhilePaused) {
+      _rateChangedWhilePaused = false;
+      await _restartAtCurrentRate();
+      return;
+    }
     if (!_ttsMachine.beginTransition()) return;
     final session = _ttsMachine.session;
     try {
@@ -1070,10 +1078,33 @@ class PdfReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTtsSpeed(double speed) {
-    _ttsSpeed = speed.clamp(0.25, 2.0);
-    _tts.configure(speed: _ttsSpeed);
+  Timer? _speedRestart;
+  bool _rateChangedWhilePaused = false;
+
+  void _onTtsSettingsChanged() {
+    final next = readerSpeed(_tts.speed);
+    if (next == _ttsSpeed) return;
+    _ttsSpeed = next;
+    _rateChangedWhilePaused = _ttsMachine.isPaused;
+    if (_ttsMachine.isPlaying) {
+      _speedRestart?.cancel();
+      _speedRestart = Timer(const Duration(milliseconds: 100), () {
+        if (_ttsMachine.isPlaying) unawaited(_restartAtCurrentRate());
+      });
+    }
     notifyListeners();
+  }
+
+  Future<void> _restartAtCurrentRate() async {
+    final page = _readingPageIndex;
+    final cue = _readingCueIndex < 0 ? 0 : _readingCueIndex;
+    await stopReading();
+    await startReading(fromPage: page, fromCue: cue);
+  }
+
+  void setTtsSpeed(double speed) {
+    // The service notifies this controller and any open settings panel.
+    _tts.configure(speed: readerSpeed(speed));
   }
 
   /// Trích text trang hiện tại (dùng cho TTS + lưu hàng loạt).
@@ -1714,6 +1745,8 @@ class PdfReaderController extends ChangeNotifier {
   void dispose() {
     // Đổi phiên trước khi tháo: callback TTS đến muộn không được đụng vào
     // controller đã dispose (notifyListeners sau dispose = crash).
+    _speedRestart?.cancel();
+    _tts.removeListener(_onTtsSettingsChanged);
     _ttsMachine.markStopped();
     ReaderDisplaySettings().removeListener(_onDisplaySettingsChanged);
     _tts.stop();

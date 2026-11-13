@@ -1,3 +1,4 @@
+import '../pdf_reader/services/reader_speed.dart';
 import 'js/reader_follow_js.dart';
 // ignore_for_file: use_build_context_synchronously
 //
@@ -1395,7 +1396,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(context.uiText('${_controller.ttsSpeed.toStringAsFixed(1)}x'), style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          Text(readerSpeedLabel(_controller.ttsSpeed), style: const TextStyle(color: Colors.white60, fontSize: 11)),
           IconButton(
             tooltip: paused ? 'Tiếp tục' : 'Tạm dừng',
             icon: Icon(paused ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 21),
@@ -1406,7 +1407,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             tooltip: 'Tốc độ đọc',
             icon: const Icon(Icons.speed, color: Colors.white70, size: 19),
             onPressed: () {
-              final next = _controller.ttsSpeed >= 1.75 ? 0.75 : _controller.ttsSpeed + 0.25;
+              final next = nextReaderSpeed(_controller.ttsSpeed);
               _controller.setTtsSpeed(next);
             },
             visualDensity: VisualDensity.compact,

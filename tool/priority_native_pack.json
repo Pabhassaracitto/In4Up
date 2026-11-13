@@ -79,6 +79,76 @@
     "th": "นำเข้าผิดพลาด: {value0}",
     "ja": "インポートエラー: {value0}"
   },
+  "Đã import {value0} · engine sẵn sàng": {
+    "en": "Imported {value0} · engine ready",
+    "hi": "{value0} आयात हुआ · इंजन तैयार",
+    "zh": "已导入 {value0} · 引擎已就绪",
+    "zh_TW": "已匯入 {value0} · 引擎已就緒",
+    "si": "{value0} ආයාත විය · එන්ජිම සූදානම්",
+    "my": "{value0} ထည့်သွင်းပြီး · အင်ဂျင် အသင့်ဖြစ်သည်",
+    "th": "นำเข้า {value0} แล้ว · เอนจินพร้อมใช้งาน",
+    "ja": "{value0} をインポートしました · エンジン準備完了"
+  },
+  "Đã import {value0} nhưng engine chưa sẵn sàng: {value1}": {
+    "en": "Imported {value0} but the engine is not ready yet: {value1}",
+    "hi": "{value0} आयात हुआ, पर इंजन अभी तैयार नहीं: {value1}",
+    "zh": "已导入 {value0}，但引擎尚未就绪：{value1}",
+    "zh_TW": "已匯入 {value0}，但引擎尚未就緒：{value1}",
+    "si": "{value0} ආයාත විය, නමුත් එන්ජිම තවම සූදානම් නැත: {value1}",
+    "my": "{value0} ထည့်သွင်းပြီးပါပြီ၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value1}",
+    "th": "นำเข้า {value0} แล้ว แต่เอนจินยังไม่พร้อม: {value1}",
+    "ja": "{value0} をインポートしましたが、エンジンはまだ準備できていません: {value1}"
+  },
+  "Đã import {value0} giọng mẫu": {
+    "en": "Imported {value0} sample voices",
+    "hi": "{value0} नमूना वाणी आयात हुईं",
+    "zh": "已导入 {value0} 个示例音色",
+    "zh_TW": "已匯入 {value0} 個範例音色",
+    "si": "නියැදි හඬ {value0}ක් ආයාත විය",
+    "my": "နမူနာ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ",
+    "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว",
+    "ja": "サンプル音声 {value0} 件をインポートしました"
+  },
+  "Đã import {value0} · {value1} giọng mẫu": {
+    "en": "Imported {value0} · {value1} sample voices",
+    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी",
+    "zh": "已导入 {value0} · {value1} 个示例音色",
+    "zh_TW": "已匯入 {value0} · {value1} 個範例音色",
+    "si": "{value0} ආයාත විය · නියැදි හඬ {value1}",
+    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1}",
+    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ",
+    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件"
+  },
+  "Đã import {value0} · {value1} giọng mẫu · engine sẵn sàng": {
+    "en": "Imported {value0} · {value1} sample voices · engine ready",
+    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी · इंजन तैयार",
+    "zh": "已导入 {value0} · {value1} 个示例音色 · 引擎已就绪",
+    "zh_TW": "已匯入 {value0} · {value1} 個範例音色 · 引擎已就緒",
+    "si": "{value0} ආයාත විය · නියැදි හඬ {value1} · එන්ජිම සූදානම්",
+    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1} · အင်ဂျင် အသင့်ဖြစ်သည်",
+    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ · เอนจินพร้อมใช้งาน",
+    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件 · エンジン準備完了"
+  },
+  "Đã import {value0} · {value1} giọng mẫu nhưng engine chưa sẵn sàng: {value2}": {
+    "en": "Imported {value0} · {value1} sample voices but the engine is not ready yet: {value2}",
+    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी, पर इंजन अभी तैयार नहीं: {value2}",
+    "zh": "已导入 {value0} · {value1} 个示例音色，但引擎尚未就绪：{value2}",
+    "zh_TW": "已匯入 {value0} · {value1} 個範例音色，但引擎尚未就緒：{value2}",
+    "si": "{value0} ආයාත විය · නියැදි හඬ {value1}, නමුත් එන්ජිම තවම සූදානම් නැත: {value2}",
+    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1}၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value2}",
+    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ แต่เอนจินยังไม่พร้อม: {value2}",
+    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件。ただしエンジンはまだ準備できていません: {value2}"
+  },
+  "Đã import {value0} giọng mẫu nhưng engine chưa sẵn sàng: {value1}": {
+    "en": "Imported {value0} sample voices but the engine is not ready yet: {value1}",
+    "hi": "{value0} नमूना वाणी आयात हुई, पर इंजन अभी तैयार नहीं: {value1}",
+    "zh": "已导入 {value0} 个示例音色，但引擎尚未就绪：{value1}",
+    "zh_TW": "已匯入 {value0} 個範例音色，但引擎尚未就緒：{value1}",
+    "si": "නියැදි හඬ {value0}ක් ආයාත විය, නමුත් එන්ජිම තවම සූදානම් නැත: {value1}",
+    "my": "နမူနာ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value1}",
+    "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว แต่เอนจินยังไม่พร้อม: {value1}",
+    "ja": "サンプル音声 {value0} 件をインポートしましたが、エンジンはまだ準備できていません: {value1}"
+  },
   "Chưa được cấp quyền đọc video.": {
     "en": "Video access has not been granted.",
     "hi": "वीडियो पढ़ने की अनुमति नहीं दी गई है।",

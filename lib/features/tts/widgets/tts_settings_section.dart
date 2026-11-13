@@ -1967,11 +1967,60 @@ class _VieneuModelImportSectionState
     if (!mounted) return;
     setState(() {
       _importing = false;
-      _status = _ImportStatus(
-        'Đã import {value0} giọng từ thư mục',
-        args: <String>['$count'],
-      );
+      // `0` = các giọng đó đã có sẵn trong app (không phải lỗi) — PSRC-217.
+      _status = count == 0
+          ? const _ImportStatus('Các giọng này đã có trong ứng dụng')
+          : _ImportStatus(
+              'Đã import {value0} giọng từ thư mục',
+              args: <String>['$count'],
+            );
       _statusIsError = false;
+    });
+  }
+
+  /// "Khởi tạo engine" — PSRC-216.
+  ///
+  /// Trước 1.29 nút này gọi `init()` rồi, nếu thất bại, hiện MỘT câu chung
+  /// ("kiểm tra file .gguf và thư viện native") cho mọi nguyên nhân khác nhau:
+  /// chưa có model / file hỏng / bản cài thiếu lib native / thiếu
+  /// `sea_g2p.bin`. Nay hỏi [VieneuTtsEngine.probe] TRƯỚC, nêu đúng mảnh còn
+  /// thiếu + nút tải từ điển ngay bên dưới, và khi native báo lỗi thì hiện
+  /// nguyên văn lỗi đó.
+  Future<void> _initializeEngine(VieneuModelVariant variant) async {
+    final engine = VieneuTtsEngine.instance;
+    final probe = await engine.probe(modelVariant: variant);
+    if (!mounted) return;
+    if (probe.blocker != null) {
+      setState(() {
+        _engineReady = false;
+        // `args` rỗng ⇒ mảnh còn thiếu (blockerKey) chính là {value0}.
+        _status = _ImportStatus(
+          'Chưa khởi tạo được engine: {value0}',
+          blockerKey: probe.message,
+        );
+        _statusIsError = true;
+      });
+      return;
+    }
+
+    await engine.init(modelVariant: variant);
+    if (!mounted) return;
+    final nativeError = engine.lastInitError;
+    setState(() {
+      _engineReady = engine.isInitialized;
+      if (_engineReady) {
+        _status = _ImportStatus(
+          'Đã khởi tạo engine VieNeu-TTS ({value0})',
+          args: <String>[variant.label],
+        );
+      } else {
+        // Lỗi native nguyên văn (nếu có) — để log/issue biết chính xác thiếu gì.
+        _status = _ImportStatus(
+          'Khởi tạo engine thất bại: {value0}',
+          args: <String>[nativeError ?? 'native'],
+        );
+      }
+      _statusIsError = !_engineReady;
     });
   }
 
@@ -2220,22 +2269,7 @@ class _VieneuModelImportSectionState
             if (selectedImported) ...[
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: () async {
-                  final engine = VieneuTtsEngine.instance;
-                  await engine.init(modelVariant: _selectedVariant);
-                  if (!mounted) return;
-                  setState(() {
-                    _engineReady = engine.isInitialized;
-                    _status = _engineReady
-                        ? _ImportStatus(
-                            'Đã khởi tạo engine VieNeu-TTS ({value0})',
-                            args: <String>[_selectedVariant.label],
-                          )
-                        : _ImportStatus(
-                            'Chưa khởi tạo được engine — kiểm tra file .gguf và thư viện native');
-                    _statusIsError = !_engineReady;
-                  });
-                },
+                onPressed: () => _initializeEngine(_selectedVariant),
                 icon: const Icon(Icons.play_circle, size: 16),
                 label: const Text('Khởi tạo engine',
                     style: TextStyle(fontSize: 11)),

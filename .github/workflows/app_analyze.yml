@@ -1420,8 +1420,23 @@ jobs:
               l7_files_clean.log | head -120 | while IFS= read -r line; do
               echo "::error title=L7 files contract fail::$line"
             done || true
+            exit $code
           fi
-          exit $code
+          if command -v kotlinc >/dev/null 2>&1 && [ -f "${ANDROID_HOME:-}/platforms/android-36/android.jar" ]; then
+            kt_files="android/app/src/main/kotlin/com/in4up/ExportStorageHelper.kt"
+            if [ -f android/app/src/main/kotlin/com/in4up/IncomingFileResolver.kt ]; then
+              kt_files="$kt_files android/app/src/main/kotlin/com/in4up/IncomingFileResolver.kt"
+            fi
+            kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
+              $kt_files -d "$RUNNER_TEMP/in4up-l7-kotlin.jar" > l7_kotlin_compile.log 2>&1
+            kcode=$?
+            cat l7_kotlin_compile.log
+            if [ "$kcode" -ne 0 ]; then
+              msg=$(head -c 4000 l7_kotlin_compile.log | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=L7 Kotlin helpers compile fail::$msg"
+              exit $kcode
+            fi
+          fi
 
       - name: Upload L7 files contract test log
         if: always()

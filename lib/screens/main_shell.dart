@@ -1,17 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
+import '../core/files/incoming_file_classifier.dart';
+import '../core/files/incoming_file_router.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/dictionary/widgets/dictionary_screen.dart';
 import '../features/dictionary/widgets/dict_pack_screen.dart';
+import '../features/video/models/video_info.dart';
+import '../features/video/services/video_library_logic.dart';
+import '../features/video/services/video_library_service.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../features/media_tools/screens/media_tools_screen.dart';
@@ -40,6 +49,8 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/models/recent_file.dart';
+import 'read_mode/services/recent_files_service.dart';
 import 'read_mode/sheets/read_settings_sheet.dart';
 import 'read_mode/services/read_text_action_runner.dart';
 import 'read_mode/widgets/read_top_bar.dart';
@@ -109,6 +120,8 @@ class _MainShellState extends State<MainShell> {
   bool _modeSwitchExpanded = false;
   Timer? _modeSwitchHideTimer;
   Timer? _shellHintTimer;
+  late final _MainShellIncomingFileHost _incomingFileHost =
+      _MainShellIncomingFileHost(this);
 
   @override
   void initState() {
@@ -121,8 +134,10 @@ class _MainShellState extends State<MainShell> {
     ReadChromeLayoutStore.instance.layout.addListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
+      unawaited(IncomingFileRouter.instance.attachHost(_incomingFileHost));
       _scheduleShellHintIfNeeded();
       // BATTERY-OPT-001: xin miễn tối ưu pin (models STT/AI chạy ngầm).
       unawaited(BatteryOptimizationService.maybeRequestOnStartup(context));
@@ -135,6 +150,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    IncomingFileRouter.instance.detachHost(_incomingFileHost);
     ReadChromeLayoutStore.instance.layout
         .removeListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
@@ -462,6 +478,127 @@ class _MainShellState extends State<MainShell> {
     if (!mounted || !loaded) return false;
     _setListenMode(0);
     return true;
+  }
+
+  void _popOverlaysToShellRoot() {
+    final nav = Navigator.maybeOf(context);
+    if (nav != null && nav.canPop()) {
+      nav.popUntil((route) => route.isFirst);
+    }
+  }
+
+  Future<void> _openIncomingPdf(String localPath) async {
+    if (!mounted) return;
+    await RecentFilesService().addOrUpdate(RecentFile.fromLocalPdf(localPath));
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    setState(() {
+      _currentTab = _PrimaryTab.read;
+      _readModeIndex = 0;
+      _readSource = ReadContentSource.document;
+      _syncModeSwitchVisibility();
+    });
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PdfReaderScreen(pdfPath: localPath),
+      ),
+    );
+  }
+
+  Future<void> _openIncomingTextDocument(
+    String localPath,
+    String displayName,
+  ) async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    setState(() {
+      _currentTab = _PrimaryTab.read;
+      _readModeIndex = 0;
+      _readSource = ReadContentSource.document;
+      _syncModeSwitchVisibility();
+    });
+    final textProvider = context.read<TextProvider>();
+    final loaded = await textProvider.loadTextFile(localPath);
+    if (!mounted) return;
+    if (!loaded) {
+      _showIncomingSnack('Không mở được tệp: $displayName');
+      return;
+    }
+    await RecentFilesService().addOrUpdate(
+      RecentFile.fromLocalText(localPath).copyWith(
+        totalLines: textProvider.lines.length,
+      ),
+    );
+  }
+
+  Future<void> _openIncomingAudio(String localPath, String displayName) async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    _setListenMode(0);
+    final title = p.basenameWithoutExtension(displayName).trim();
+    final loaded = await context.read<PlayerProvider>().loadSong(
+          path: localPath,
+          title: title.isEmpty ? displayName : title,
+          autoPlay: true,
+        );
+    if (!mounted) return;
+    if (!loaded) {
+      _showIncomingSnack('Không mở được tệp: $displayName');
+    }
+  }
+
+  Future<void> _openIncomingVideo(String localPath, String displayName) async {
+    if (!mounted) return;
+    final stat = await File(localPath).stat();
+    final rawTitle = p.basenameWithoutExtension(displayName).trim();
+    final title = rawTitle.isEmpty ? displayName : rawTitle;
+    final id = md5
+        .convert(
+          utf8.encode('$localPath:${stat.modified.millisecondsSinceEpoch}'),
+        )
+        .toString();
+    final video = VideoInfo(
+      id: id,
+      title: title,
+      filePath: VideoLibraryLogic.normalizeUri(localPath),
+      duration: Duration.zero,
+      addedAt: DateTime.now(),
+      sizeBytes: stat.size,
+      folder: VideoLibraryLogic.folderLabel(localPath),
+      source: VideoSource.picked,
+    );
+    await VideoLibraryService.instance.addVideo(video);
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    _setListenMode(2);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VideoPlayerScreen(
+          video: video,
+          onOpenAudioInListen: _openVideoExportInListen,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openIncomingDictionary() async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DictManagerScreen(),
+      ),
+    );
+  }
+
+  void _showIncomingSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(message)),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _setListenMode(int index) {
@@ -2673,4 +2810,71 @@ Widget build(BuildContext context) {
     ), // <-- Đóng ConstrainedBox
   ); // <-- Đóng Semantics và kết thúc hàm build
 }
+}
+
+/// PSRC-222: triển khai `IncomingFileOpenHost` gắn vào `_MainShellState` để
+/// định tuyến tệp mở từ ngoài ứng dụng (cả khởi động lạnh lẫn `onNewIntent`).
+class _MainShellIncomingFileHost implements IncomingFileOpenHost {
+  const _MainShellIncomingFileHost(this._shell);
+
+  final _MainShellState _shell;
+
+  @override
+  bool get isReady => _shell.mounted;
+
+  @override
+  Future<void> openPdf({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingPdf(localPath);
+
+  @override
+  Future<void> openTextDocument({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingTextDocument(localPath, displayName);
+
+  @override
+  Future<void> openAudio({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingAudio(localPath, displayName);
+
+  @override
+  Future<void> openVideo({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingVideo(localPath, displayName);
+
+  @override
+  Future<void> openDictionary({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingDictionary();
+
+  @override
+  void showUnsupportedMessage({
+    required IncomingUnsupportedReason reason,
+    required String displayName,
+  }) {
+    if (reason == IncomingUnsupportedReason.legacyDoc) {
+      _shell._showIncomingSnack(
+        'Định dạng .doc (Word 97–2003) chưa hỗ trợ — hãy lưu lại thành .docx hoặc .txt.',
+      );
+      return;
+    }
+    _shell._showIncomingSnack(
+      'Định dạng tệp này chưa được In4Up hỗ trợ ($displayName).',
+    );
+  }
+
+  @override
+  void showOpenError({required String displayName}) {
+    _shell._showIncomingSnack('Không mở được tệp: $displayName');
+  }
 }

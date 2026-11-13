@@ -20,6 +20,7 @@ import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/files/incoming_file_router.dart';
 import 'core/responsive/app_responsive.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
@@ -156,6 +157,12 @@ Future<void> main(List<String> args) async {
   // tới khi `navigatorKey` có Navigator. `args` là `argv` trên Windows/Linux
   // (`in4up.exe "C:\a.mdx"`); Android/iOS để trống.
   unawaited(DictDeepLinkRouter.instance.start(args));
+  if (!kIsWeb) {
+    DictDeepLinkRouter.instance.attachFileOpenHandler(
+      IncomingFileRouter.instance.handleOpenPathLink,
+    );
+    unawaited(IncomingFileRouter.instance.start(args));
+  }
 
   // IN4-15 (LOGIN-CRASH-002): chẩn đoán lúc khởi động — logcat trả lời
   // ngay: bản nào đang chạy (flavor), phiên đã khôi phục được chưa, và

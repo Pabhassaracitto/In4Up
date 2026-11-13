@@ -4,8 +4,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/utils/audio_converter.dart';
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
+import '../../screens/listen_mode/services/transcript_route_policy.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../../services/offline_model_gate.dart';
 import '../../services/source_artifact_store.dart';
@@ -217,7 +221,12 @@ mixin PlayerSttMixin on ChangeNotifier {
 
       _lastSttOutput = output;
       _lastSttAudioPath = path;
-      _lastSttError = output.success ? null : output.errorMessage;
+      // PSRC-205: pipeline VAD giờ LUÔN kèm lý do khi thất bại ⇒ hiện đúng
+      // nguyên nhân thay vì "Lỗi không xác định".
+      _lastSttError = output.success
+          ? null
+          : (output.errorMessage ??
+              'Không tạo được lời cho tệp này. Hãy thử lại hoặc chọn model khác.');
       if (output.success) {
         _trackScriptWarning(language: language, result: output.result);
       } else {
@@ -244,18 +253,25 @@ mixin PlayerSttMixin on ChangeNotifier {
           debugPrint('✅ VAD Pipeline loaded ${lrcLines.length} LRC lines');
         }
         _lrcJustGenerated = true;
-        // Diarization is an offline overlay: persist it beside the LRC so
-        // reopening the audio does not require running STT again.
-        if (output.lrcFilePath != null) {
+        // PSRC-205: pipeline VAD trả kết quả nhưng KHÔNG tự ghi tệp LRC (dù
+        // đường ngắn vẫn ghi). Hệ quả: file dài "tạo lời xong" mà không có
+        // lời lưu lại — mở lại phải chạy lại vài chục phút, và hộp thoại
+        // "Đã có lời thoại" không bao giờ xuất hiện. Ghi LRC cùng chuẩn với
+        // đường ngắn (SttLrcConverter + SourceArtifactStore).
+        final vadLrcPath = await _saveVadLrc(path, output);
+        if (vadLrcPath != null) {
+          _lastGeneratedLrcPath = vadLrcPath;
+          // Diarization is an offline overlay: persist it beside the LRC so
+          // reopening the audio does not require running STT again.
           final annotations = await const HeuristicDiarizationService()
               .diarize(output.result);
           await SpeakerSidecar.save(
-            lrcPath: output.lrcFilePath!,
+            lrcPath: vadLrcPath,
             audioFingerprint: output.result.audioFingerprint,
             annotations: annotations,
           );
+          await _rememberGeneratedLrc(path, vadLrcPath);
         }
-        await _rememberGeneratedLrc(path, output.lrcFilePath);
       }
 
       return output;
@@ -368,19 +384,32 @@ mixin PlayerSttMixin on ChangeNotifier {
       }
     }
 
-    // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
+    // Handover tối ưu: file DÀI dùng VAD pipeline để giảm 20p -> 8-10p
     // (chỉ cho Whisper: VAD pipeline tự chọn model Whisper — chế độ sherpa đi
     // thẳng đường sherpa bên dưới).
+    //
+    // PSRC-205: trước đây điều kiện là DUNG LƯỢNG (`size > 5 MB`). Dung lượng
+    // phụ thuộc bitrate nên cùng một độ dài mà .m4a/.opus (bitrate thấp) rơi
+    // vào đường chunk thường còn .mp3/.wav (bitrate cao) rơi vào VAD ⇒ "một
+    // số file m4a cũng đôi khi lỗi, nhưng không phải tất cả". Nay quyết định
+    // theo ĐỘ DÀI (probe); chỉ khi không probe được mới phỏng đoán theo dung
+    // lượng, và lý do được ghi log.
     try {
       final file = File(path);
       if (!preferSherpa && await file.exists()) {
-        // Nếu file >60s, tự động dùng VAD pipeline tối ưu
-        // Probe duration đơn giản qua file size hoặc dùng AudioConverter
-        // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
         final size = await file.length();
         if (!_isCurrentAudio(path, generation)) return null;
-        if (size > 5 * 1024 * 1024) {
-          debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
+        final durationMs = await AudioConverter.probeDurationMs(path);
+        if (!_isCurrentAudio(path, generation)) return null;
+        final decision = decideTranscriptRoute(
+          durationMs: durationMs,
+          fileSizeBytes: size,
+          preferSherpa: preferSherpa,
+        );
+        debugPrint('[SttMixin] route=${decision.route.name} '
+            'reason=${decision.reason} durationMs=${decision.durationMs} '
+            'size=$size');
+        if (decision.route == TranscriptRoute.vadLong) {
           return await generateLrcWithVadPipeline(
             level: level,
             language: language,
@@ -634,6 +663,36 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   /// Ghi nhớ LRC vừa tạo vào SourceArtifactStore (fingerprint size|duration|tên)
   /// để mở lại file sau này tìm thấy mà không cần tạo lời lại.
+  /// PSRC-205 — ghi LRC cho kết quả của pipeline VAD.
+  ///
+  /// `SttServiceFacade` ghi LRC ở `documents/.in4up_lrc` (xem
+  /// `_resolveLrcDirectory`); pipeline VAD không đi qua đường đó nên phải
+  /// ghi cùng thư mục để `peekCachedLrc` (SourceArtifactStore) tìm lại được.
+  /// Lỗi ghi KHÔNG làm hỏng job: lời đã hiện trên màn hình, chỉ là lần sau
+  /// phải chạy lại.
+  Future<String?> _saveVadLrc(
+    String audioPath,
+    SttTranscribeOutput output,
+  ) async {
+    if (output.lrcFilePath != null && output.lrcFilePath!.isNotEmpty) {
+      return output.lrcFilePath;
+    }
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final dir = p.join(docs.path, '.in4up_lrc');
+      final saved = await SttLrcConverter().saveLrcFile(
+        output.result,
+        audioPath,
+        outputDirectory: dir,
+      );
+      debugPrint('[SttMixin] VAD LRC saved: $saved');
+      return saved;
+    } catch (e) {
+      debugPrint('⚠️ _saveVadLrc error: $e');
+      return null;
+    }
+  }
+
   Future<void> _rememberGeneratedLrc(String audioPath, String? lrcPath) async {
     if (lrcPath == null || lrcPath.isEmpty) return;
     try {

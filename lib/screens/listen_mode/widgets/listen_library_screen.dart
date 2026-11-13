@@ -11,6 +11,7 @@ import '../../../services/audio_import_service.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
 import 'audio_library_view.dart';
+import 'playback_problem_snack.dart';
 import 'playback_queue_sheet.dart';
 import 'recent_audio_card.dart';
 
@@ -435,9 +436,15 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               ),
               title: Text(context.uiText('Danh sách đang phát'),
                   style: const TextStyle(color: Colors.white70)),
+              // PSRC-219: nêu ĐÚNG nguyên nhân (file bị dọn cache / codec /
+              // nền tảng không có bộ phát) thay vì câu chung.
               subtitle: player.queueFailedIndices.isEmpty
                   ? null
-                  : Text(context.uiText('Không phát được bài này'),
+                  : Text(
+                      context.uiText(
+                        playbackFailureMessageKey(player.lastLoadError) ??
+                            'Không phát được bài này',
+                      ),
                       style: const TextStyle(color: Colors.orangeAccent)),
               trailing: const Icon(Icons.chevron_right, color: Colors.white54),
               onTap: () => showPlaybackQueueSheet(context),

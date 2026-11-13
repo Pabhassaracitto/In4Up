@@ -14,6 +14,7 @@ import '../../../models/audio_queue_item.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/audio_import_service.dart';
 import 'google_drive_browser.dart';
+import 'playback_problem_snack.dart';
 import 'playback_queue_sheet.dart';
 
 /// Một file đã chọn & đã đảm bảo path persistent (SHADOW-FILE-001):
@@ -277,11 +278,15 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
         );
     if (!mounted) return;
     final player = context.read<PlayerProvider>();
-    // Path cache cũ (nếu file đã bị dọn trước khi import kịp) → hướng dẫn,
-    // không crash.
-    if (player.lastLoadError == AudioLoadErrorKind.missingFile) {
-      _showSnack(
-          'File đã bị hệ thống dọn cache — hãy chọn lại file để lưu vào thư viện.');
+    // PSRC-219: mọi lỗi nạp có KIỂU riêng ⇒ nói đúng nguyên nhân (file bị dọn
+    // cache / codec hỏng / nền tảng không có bộ phát) và, với ca cuối, mời mở
+    // bằng trình phát của hệ thống.
+    if (player.lastLoadError != AudioLoadErrorKind.none) {
+      showPlaybackProblemSnack(
+        context,
+        player.lastLoadError,
+        path: item.path,
+      );
       return;
     }
     widget.onClose();
@@ -331,7 +336,13 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
       skipFailures: true,
     );
     if (!mounted) return;
-    if (!loaded) _showSnack('Không phát được bài này');
+    if (!loaded) {
+      showPlaybackProblemSnack(
+        context,
+        context.read<PlayerProvider>().lastLoadError,
+        path: valid.first.path,
+      );
+    }
     // Keep the drawer open so the shared queue remains visible.
   }
 

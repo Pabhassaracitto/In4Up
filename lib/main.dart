@@ -43,6 +43,7 @@ import 'screens/read_mode/services/tts_service.dart';
 import 'services/ai_settings_cloud_sync.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_rest_auth.dart';
+import 'services/linux_media_backends.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
@@ -118,6 +119,12 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // PSRC-219/220 (beta 1.29.0, L2) — Linux không có plugin âm thanh/video của
+  // Flutter. Cắm backend media_kit (libmpv) TRƯỚC khi tạo AudioPlayer/
+  // VideoPlayerController đầu tiên. Không có libmpv ⇒ hàm trả false và app
+  // giữ nguyên hành vi cũ (báo đúng nguyên nhân + mở bằng trình phát hệ thống).
+  LinuxMediaBackends.install();
 
   // ★ Chỉ Firebase là bắt buộc trước runApp
   await _initializeFirebaseSafely();

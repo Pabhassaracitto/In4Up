@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up/audio/audio_backend_support.dart';
 import 'package:in4up/audio/audio_player_service.dart';
 import 'package:in4up/models/audio_queue_item.dart';
 import 'package:in4up/models/playback_state.dart';
@@ -39,6 +40,12 @@ enum AudioLoadErrorKind {
   missingFile,
   /// File tồn tại nhưng decode/load thất bại.
   loadFailed,
+  /// PSRC-219 — NỀN TẢNG không có backend phát trong app (Linux: just_audio
+  /// không có plugin). Khác hẳn "file hỏng": cùng một file mở được trên
+  /// Android/Windows, và người dùng vẫn xem được bằng trình phát của hệ
+  /// thống. Trước đây ca này bị gộp vào [loadFailed] nên UI chỉ nói
+  /// "Không phát được bài này".
+  backendUnsupported,
 }
 
 /// Path-keyed data from before URI-safe caching is retained, but its source
@@ -136,6 +143,22 @@ class PlayerProvider extends ChangeNotifier
 
   // === LOAD ERROR (SHADOW-FILE-001) ===
   AudioLoadErrorKind _lastLoadError = AudioLoadErrorKind.none;
+
+  /// PSRC-219 — PHÂN LOẠI một lần nạp thất bại.
+  ///
+  /// Trên nền tảng không có backend phát trong app (Linux: just_audio không
+  /// có plugin), `loadFile` thất bại vì THIẾU PLUGIN chứ không phải vì tệp
+  /// hỏng — nói đúng điều đó để UI mở đường thay thế (trình phát của hệ
+  /// thống) thay vì câu chung "Không phát được bài này".
+  ///
+  /// Cố ý KHÔNG chặn trước lời gọi nạp: nền tảng "trông như" thiếu backend
+  /// vẫn có thể nạp được (vd. bản build Linux tự cắm backend media_kit, và
+  /// test trên host Linux mô phỏng player) — chỉ đổi cách GIẢI THÍCH khi
+  /// thất bại thật.
+  AudioLoadErrorKind _loadFailureKind() =>
+      AudioPlaybackSupport.isInAppSupported
+          ? AudioLoadErrorKind.loadFailed
+          : AudioLoadErrorKind.backendUnsupported;
   String? _lastLoadErrorPath;
 
   // === VIP MODE ===
@@ -633,7 +656,7 @@ class PlayerProvider extends ChangeNotifier
       final success = await _audioService.loadFile(normalizedPath);
       if (!isCurrent()) return false;
       if (!success) {
-        _lastLoadError = AudioLoadErrorKind.loadFailed;
+        _lastLoadError = _loadFailureKind();
         _lastLoadErrorPath = normalizedPath;
         notifyListeners();
         return false;
@@ -680,7 +703,7 @@ class PlayerProvider extends ChangeNotifier
     } catch (error, stack) {
       debugPrint('Error preparing queued audio: $error\n$stack');
       if (isCurrent()) {
-        _lastLoadError = AudioLoadErrorKind.loadFailed;
+        _lastLoadError = _loadFailureKind();
         _lastLoadErrorPath = item.source;
         notifyListeners();
       }

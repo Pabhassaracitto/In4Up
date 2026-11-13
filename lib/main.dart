@@ -57,6 +57,12 @@ import 'services/whisper_service.dart';
 // ignore: unused_import
 import 'features/screen_translate/screen_translate_entrypoint.dart';
 
+// PSRC-221: entrypoint của engine nền cho "in4up làm giọng đọc hệ thống"
+// (In4UpTtsService tra `in4upSystemTtsMain` bằng chuỗi) — cùng lý do bắt buộc
+// import như dòng trên.
+// ignore: unused_import
+import 'core/platform/system_tts/system_tts_entrypoint.dart';
+
 // ADR-0018 (P1) — link/tệp từ ngoài app (in4up://dict?w=…, "Mở bằng In4Up").
 import 'features/dictionary/services/dict_deep_link_router.dart';
 import 'features/dharma/services/dharma_provider.dart';

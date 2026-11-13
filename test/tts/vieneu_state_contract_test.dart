@@ -9,6 +9,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/vieneu_l6_checks.dart';
+
 String _read(String path) => File(path).readAsStringSync();
 
 /// Bỏ comment nguyên dòng để source-scan không bắt nhầm tên biến cũ nằm
@@ -24,6 +26,9 @@ final RegExp _viOnly = RegExp(
 );
 
 void main() {
+  // BETA-1.29.0 · lane L6 — PSRC-214…218 (máy bắt của bốn issue còn lại).
+  registerVieneuL6Checks();
+
   group('worker protocol — PSRC-183/184', () {
     final core = _codeOnly(_read('packages/in4up_stt/lib/tts/vieneu_tts_core.dart'));
     test('response đi qua replyPort của main isolate', () {

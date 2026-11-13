@@ -12566,6 +12566,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'เพิ่มเข้าบทท่องจำไม่ได้: {value0}',
     'ja': '暗記リストに追加できません: {value0}',
   },
+  'Không thể tạo giọng: {value0}': {
+    'en': 'Could not create the voice: {value0}',
+    'zh': '无法创建音色：{value0}',
+    'zh_TW': '無法建立音色：{value0}',
+    'hi': 'वाणी नहीं बन सकी: {value0}',
+    'si': 'හඬ සෑදිය නොහැක: {value0}',
+    'my': 'အသံ ဖန်တီး၍ မရပါ: {value0}',
+    'th': 'สร้างเสียงไม่ได้: {value0}',
+    'ja': '音声を作成できません: {value0}',
+  },
   'Không thể tải trang': {
     'en': 'Unable to load the page',
     'zh': '无法加载页面',
@@ -34605,6 +34615,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'my': 'ဖတ်ခြင်း ရပ်ထားသည်',
     'th': 'หยุดอ่านชั่วคราวแล้ว',
     'ja': '読み上げを一時停止しました',
+  },
+  'Đã tạo giọng {value0} nhưng bằng embedding tạm (chưa có bộ mã hoá giọng) — giọng đọc gần giọng mặc định': {
+    'en': 'Created voice {value0} with a temporary embedding (no voice encoder yet) — it sounds close to the default voice',
+    'zh': '已创建音色 {value0}，但使用的是临时嵌入（尚无音色编码器）——听起来接近默认音色',
+    'zh_TW': '已建立音色 {value0}，但使用的是臨時嵌入（尚無音色編碼器）——聽起來接近預設音色',
+    'hi': 'वाणी {value0} बन गई, पर अस्थायी एम्बेडिंग से (अभी वॉइस एनकोडर नहीं) — यह डिफ़ॉल्ट वाणी जैसी सुनाई देगी',
+    'si': 'හඬ {value0} සාදන ලදී, නමුත් තාවකාලික එම්බෙඩින්ග් එකකින් (හඬ එන්කෝඩරයක් තවම නැත) — පෙරනිමි හඬට සමීපව ශ්‍රව්‍ය වේ',
+    'my': 'အသံ {value0} ကို ဖန်တီးပြီးပါပြီ၊ သို့သော် ယာယီ embedding ဖြင့်သာ (အသံ အင်ကုတ်ဒါ မရှိသေး) — မူလအသံနှင့် နီးစပ်စွာ ကြားရမည်',
+    'th': 'สร้างเสียง {value0} แล้ว แต่ใช้ embedding ชั่วคราว (ยังไม่มีตัวเข้ารหัสเสียง) — จะฟังใกล้เคียงเสียงเริ่มต้น',
+    'ja': '音声 {value0} を作成しましたが、一時的な埋め込みを使用しています（音声エンコーダーが未導入）。既定の音声に近い響きになります',
   },
   'Đã tạo segment "{value0}"': {
     'en': 'Created segment "{value0}"',

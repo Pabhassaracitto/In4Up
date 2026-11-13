@@ -9,7 +9,7 @@ import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/shadowing_widget.dart';
 import '../../providers/player_provider.dart';
 
-class SpeakModeScreen extends StatelessWidget {
+class SpeakModeScreen extends StatefulWidget {
   final VoidCallback onOpenYouGlish;
   final VoidCallback onOpenQuickActions;
   final VoidCallback onOpenUnderstand;
@@ -20,6 +20,29 @@ class SpeakModeScreen extends StatelessWidget {
     required this.onOpenQuickActions,
     required this.onOpenUnderstand,
   });
+
+  @override
+  State<SpeakModeScreen> createState() => _SpeakModeScreenState();
+}
+
+class _SpeakModeScreenState extends State<SpeakModeScreen> {
+  /// PSRC-225: trạng thái bung/gộp từng khối — sống trong State của màn hình
+  /// nên giữ nguyên khi Consumer rebuild và khi quay lại tab (IndexedStack
+  /// giữ element), không bị reset về mặc định.
+  final Map<String, bool> _openSections = <String, bool>{
+    'hero': false,
+    'stats': false,
+    'preset': false,
+    'history': false,
+    'tipFlow': false,
+    'tipDesign': false,
+  };
+
+  bool _isOpen(String id) => _openSections[id] ?? false;
+
+  void _toggleSection(String id) {
+    setState(() => _openSections[id] = !(_openSections[id] ?? false));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +58,16 @@ class SpeakModeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HeroCard(hasAudio: hasAudio, title: player.currentSongTitle),
+                  // PSRC-225: Shadowing Mode LUÔN đứng đầu tab Nói — vừa
+                  // 360×640 thấy ngay, không cần cuộn.
+                  KeyedSubtree(
+                    key: const Key('speak-shadowing-section'),
+                    child: hasAudio
+                        ? const ShadowingWidget()
+                        : _EmptyAudioCard(
+                            onOpenQuickActions: widget.onOpenQuickActions,
+                          ),
+                  ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
@@ -45,52 +77,71 @@ class SpeakModeScreen extends StatelessWidget {
                         icon: Icons.record_voice_over,
                         label: 'YouGlish',
                         color: const Color(0xFF00BCD4),
-                        onTap: onOpenYouGlish,
+                        onTap: widget.onOpenYouGlish,
                       ),
                       _QuickActionChip(
                         icon: Icons.auto_awesome,
                         label: 'Công cụ nhanh',
                         color: const Color(0xFF7C4DFF),
-                        onTap: onOpenQuickActions,
+                        onTap: widget.onOpenQuickActions,
                       ),
                       _QuickActionChip(
                         icon: Icons.lightbulb_outline,
                         label: 'Qua tab Hiểu',
                         color: const Color(0xFFFFB300),
-                        onTap: onOpenUnderstand,
+                        onTap: widget.onOpenUnderstand,
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _SpeakingStatsRow(shadowing: shadowing),
+                  _HeroCard(
+                    hasAudio: hasAudio,
+                    title: player.currentSongTitle,
+                    expanded: _isOpen('hero'),
+                    onToggle: () => _toggleSection('hero'),
+                  ),
                   const SizedBox(height: 16),
-                  _SpeakingPresetCard(shadowing: shadowing),
+                  _SpeakingStatsRow(
+                    shadowing: shadowing,
+                    expanded: _isOpen('stats'),
+                    onToggle: () => _toggleSection('stats'),
+                  ),
                   const SizedBox(height: 16),
-                  _SpeakingHistoryCard(shadowing: shadowing),
-                  const SizedBox(height: 20),
-                  if (!hasAudio) ...[
-                    _EmptyAudioCard(onOpenQuickActions: onOpenQuickActions),
-                  ] else ...[
-                    const ShadowingWidget(),
-                  ],
-                  const SizedBox(height: 20),
-                  const _TipCard(
+                  _SpeakingPresetCard(
+                    shadowing: shadowing,
+                    expanded: _isOpen('preset'),
+                    onToggle: () => _toggleSection('preset'),
+                  ),
+                  const SizedBox(height: 16),
+                  _SpeakingHistoryCard(
+                    shadowing: shadowing,
+                    expanded: _isOpen('history'),
+                    onToggle: () => _toggleSection('history'),
+                  ),
+                  const SizedBox(height: 16),
+                  _TipCard(
+                    id: 'tipFlow',
                     title: 'Luồng luyện nói đề xuất',
-                    bullets: [
+                    bullets: const [
                       '1. Chọn audio ở tab Nghe hoặc Công cụ nhanh — file được lưu vào thư viện app, không sợ bị dọn cache.',
                       '2. Không bắt buộc A-B: luyện cả bài; nếu có lời (LRC) app tự gợi ý từng câu.',
                       '3. Chỉnh tay A-B ngay trong tab Nói (±0.5s hoặc đặt tại vị trí phát).',
                       '4. Nghe mẫu → Ghi âm → xem chấm điểm; YouGlish để đối chiếu phát âm.',
                     ],
+                    expanded: _isOpen('tipFlow'),
+                    onToggle: () => _toggleSection('tipFlow'),
                   ),
                   const SizedBox(height: 16),
-                  const _TipCard(
+                  _TipCard(
+                    id: 'tipDesign',
                     title: 'Thiết kế hiện tại',
-                    bullets: [
+                    bullets: const [
                       'Nói là không gian thực hành phát âm và lặp lại có chủ đích.',
                       'Preset nhanh giúp đổi nhịp luyện tập mà không cần chui sâu vào cài đặt.',
                       'Các chức năng sâu hơn như AI chấm phát âm sẽ tiếp tục gom về đây.',
                     ],
+                    expanded: _isOpen('tipDesign'),
+                    onToggle: () => _toggleSection('tipDesign'),
                   ),
                 ],
               ),
@@ -102,11 +153,78 @@ class SpeakModeScreen extends StatelessWidget {
   }
 }
 
+/// Header bung/gộp dùng chung cho các khối của tab Nói (PSRC-225).
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.sectionKey,
+    required this.title,
+    required this.expanded,
+    required this.onToggle,
+    this.trailing,
+    this.leading,
+  });
+
+  final String sectionKey;
+  final String title;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget? trailing;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      label: context.uiText(expanded ? 'Thu gọn' : 'Mở rộng'),
+      child: InkWell(
+        key: Key(sectionKey),
+        onTap: onToggle,
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            if (trailing != null) trailing!,
+            const SizedBox(width: 8),
+            Icon(
+              expanded
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+              color: Colors.white54,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HeroCard extends StatelessWidget {
   final bool hasAudio;
   final String? title;
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _HeroCard({required this.hasAudio, this.title});
+  const _HeroCard({
+    required this.hasAudio,
+    this.title,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -130,69 +248,75 @@ class _HeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.mic_rounded,
-                  color: Color(0xFFB388FF),
-                ),
+          _SectionHeader(
+            sectionKey: 'speak-section-hero-header',
+            title: 'Nói · Speaking Studio',
+            expanded: expanded,
+            onToggle: onToggle,
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nói · Speaking Studio',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Luyện shadowing, phát âm và phản xạ đầu ra.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ],
-                ),
+              child: const Icon(
+                Icons.mic_rounded,
+                color: Color(0xFFB388FF),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  hasAudio ? Icons.music_note : Icons.warning_amber_rounded,
-                  size: 18,
-                  color: hasAudio ? const Color(0xFF4CAF50) : Colors.orange,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    context.uiText(hasAudio
-                        ? (title?.trim().isNotEmpty == true
-                            ? 'Nguồn đang dùng: $title'
-                            : 'Đã có audio, có thể bắt đầu luyện nói.')
-                        : 'Chưa có audio hoạt động. Hãy mở nguồn từ tab Nghe hoặc Công cụ nhanh.'),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
+          // PSRC-225: thân card bung/gộp — trạng thái do State cha quyết định.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Luyện shadowing, phát âm và phản xạ đầu ra.',
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              hasAudio
+                                  ? Icons.music_note
+                                  : Icons.warning_amber_rounded,
+                              size: 18,
+                              color: hasAudio
+                                  ? const Color(0xFF4CAF50)
+                                  : Colors.orange,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                context.uiText(hasAudio
+                                    ? (title?.trim().isNotEmpty == true
+                                        ? 'Nguồn đang dùng: $title'
+                                        : 'Đã có audio, có thể bắt đầu luyện nói.')
+                                    : 'Chưa có audio hoạt động. Hãy mở nguồn từ tab Nghe hoặc Công cụ nhanh.'),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
           ),
         ],
       ),
@@ -277,12 +401,18 @@ class _QuickActionChip extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            // PSRC-225: label đã dịch có thể dài ("Go to the Understand
+            // tab") — co lại với ellipsis thay vì tràn 360×640.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -294,47 +424,92 @@ class _QuickActionChip extends StatelessWidget {
 
 class _SpeakingStatsRow extends StatelessWidget {
   final ShadowingProvider shadowing;
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _SpeakingStatsRow({required this.shadowing});
+  const _SpeakingStatsRow({
+    required this.shadowing,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     final lastScore = shadowing.lastScorePercent;
     final bestScore = shadowing.bestScorePercent;
-    return Row(
-      children: [
-        Expanded(
-          child: _MiniStatCard(
-            label: 'Lượt luyện',
-            value: '${shadowing.totalPracticeCount}',
-            color: const Color(0xFFB388FF),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(
+            sectionKey: 'speak-section-stats-header',
+            title: 'Thống kê',
+            expanded: expanded,
+            onToggle: onToggle,
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MiniStatCard(
-            label: 'Điểm gần nhất',
-            value: lastScore == null ? '--' : '$lastScore%',
-            color: const Color(0xFF42A5F5),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? KeyedSubtree(
+                    key: const Key('speak-stats-body'),
+                    child: Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _MiniStatCard(
+                            label: 'Lượt luyện',
+                            value: '${shadowing.totalPracticeCount}',
+                            color: const Color(0xFFB388FF),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _MiniStatCard(
+                            label: 'Điểm gần nhất',
+                            value: lastScore == null ? '--' : '$lastScore%',
+                            color: const Color(0xFF42A5F5),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _MiniStatCard(
+                            label: 'Điểm tốt nhất',
+                            value: bestScore == null ? '--' : '$bestScore%',
+                            color: const Color(0xFF66BB6A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MiniStatCard(
-            label: 'Điểm tốt nhất',
-            value: bestScore == null ? '--' : '$bestScore%',
-            color: const Color(0xFF66BB6A),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _SpeakingPresetCard extends StatelessWidget {
   final ShadowingProvider shadowing;
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _SpeakingPresetCard({required this.shadowing});
+  const _SpeakingPresetCard({
+    required this.shadowing,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -352,25 +527,27 @@ class _SpeakingPresetCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Preset luyện nói nâng cao',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => _showSavePresetDialog(context, shadowing),
-                icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                label: const Text('Lưu preset'),
-              ),
-            ],
+          _SectionHeader(
+            sectionKey: 'speak-section-preset-header',
+            title: 'Preset luyện nói nâng cao',
+            expanded: expanded,
+            onToggle: onToggle,
+            trailing: TextButton.icon(
+              onPressed: () => _showSavePresetDialog(context, shadowing),
+              icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+              label: const Text('Lưu preset'),
+            ),
           ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? KeyedSubtree(
+                    key: const Key('speak-preset-body'),
+                    child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
           const SizedBox(height: 6),
           const Text(
             'Chọn nhanh preset theo mục tiêu, hoặc lưu cấu hình hiện tại thành preset cá nhân.',
@@ -462,6 +639,11 @@ class _SpeakingPresetCard extends StatelessWidget {
                     _confirmDeletePreset(context, shadowing, preset),
               ),
             ),
+                    ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
@@ -632,8 +814,14 @@ class _PresetTile extends StatelessWidget {
 
 class _SpeakingHistoryCard extends StatelessWidget {
   final ShadowingProvider shadowing;
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _SpeakingHistoryCard({required this.shadowing});
+  const _SpeakingHistoryCard({
+    required this.shadowing,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -650,39 +838,48 @@ class _SpeakingHistoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Lịch sử luyện nói',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              if (shadowing.savedHistory.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => _confirmClear(context),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Xóa'),
-                ),
-            ],
+          _SectionHeader(
+            sectionKey: 'speak-section-history-header',
+            title: 'Lịch sử luyện nói',
+            expanded: expanded,
+            onToggle: onToggle,
+            trailing: shadowing.savedHistory.isNotEmpty
+                ? TextButton.icon(
+                    onPressed: () => _confirmClear(context),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Xóa'),
+                  )
+                : null,
           ),
-          const SizedBox(height: 8),
-          Text(
-            shadowing.savedHistory.isEmpty
-                ? 'Chưa có phiên shadowing nào được lưu. Sau khi luyện xong, kết quả sẽ xuất hiện ở đây.'
-                : 'Xem nhanh các phiên gần đây để theo dõi tiến bộ phát âm và độ bám câu.',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? KeyedSubtree(
+                    key: const Key('speak-history-body'),
+                    child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        shadowing.savedHistory.isEmpty
+                            ? 'Chưa có phiên shadowing nào được lưu. Sau khi luyện xong, kết quả sẽ xuất hiện ở đây.'
+                            : 'Xem nhanh các phiên gần đây để theo dõi tiến bộ phát âm và độ bám câu.',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12),
+                      ),
+                      if (shadowing.savedHistory.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        _HistoryOverviewRow(shadowing: shadowing),
+                        const SizedBox(height: 14),
+                        ...history.map((entry) => _HistoryTile(entry: entry)),
+                      ],
+                    ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
           ),
-          if (shadowing.savedHistory.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            _HistoryOverviewRow(shadowing: shadowing),
-            const SizedBox(height: 14),
-            ...history.map((entry) => _HistoryTile(entry: entry)),
-          ],
         ],
       ),
     );
@@ -1206,10 +1403,19 @@ class _MiniStatCard extends StatelessWidget {
 }
 
 class _TipCard extends StatelessWidget {
+  final String id;
   final String title;
   final List<String> bullets;
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _TipCard({required this.title, required this.bullets});
+  const _TipCard({
+    required this.id,
+    required this.title,
+    required this.bullets,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1224,14 +1430,20 @@ class _TipCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
+          _SectionHeader(
+            sectionKey: 'speak-section-$id-header',
+            title: title,
+            expanded: expanded,
+            onToggle: onToggle,
           ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
           const SizedBox(height: 12),
           ...bullets.map(
             (bullet) => Padding(
@@ -1258,6 +1470,10 @@ class _TipCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
           ),
         ],
       ),

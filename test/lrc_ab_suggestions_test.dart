@@ -36,11 +36,8 @@ void main() {
       expect(sugg[1].start, const Duration(seconds: 5));
       expect(sugg[1].end, const Duration(seconds: 12));
 
-      // Câu gần cuối có B = timestamp câu cuối (trừ pad 50ms).
-      expect(
-        sugg[2].end,
-        const Duration(seconds: 30) - const Duration(milliseconds: 50),
-      );
+      // Câu gần cuối dừng đúng đầu câu kế, không đọc lấn câu sau.
+      expect(sugg[2].end, const Duration(seconds: 30));
 
       // Câu cuối kéo tới duration bài.
       expect(sugg[3].start, const Duration(seconds: 30));
@@ -65,7 +62,7 @@ void main() {
       expect(sugg[1].start, const Duration(seconds: 5));
     });
 
-    test('câu kế quá sát → đoạn vẫn đủ dài tối thiểu để luyện', () {
+    test('PSRC-226: câu kế quá sát không bị kéo dài lấn sang câu sau', () {
       final tight = [
         line(10, 'A'),
         line(10, 'B'), // cùng timestamp — sát nhau bất thường
@@ -75,12 +72,10 @@ void main() {
         lines: tight,
         trackDuration: const Duration(seconds: 60),
       );
-      for (final s in sugg) {
-        expect(
-          s.end - s.start,
-          greaterThanOrEqualTo(LrcAbSuggestions.minSegmentLength),
-        );
-      }
+      expect(sugg[0].end, sugg[1].start);
+      expect(sugg[1].end, sugg[2].start);
+      expect(sugg[0].duration, Duration.zero);
+      expect(sugg[1].duration, const Duration(seconds: 10));
     });
 
     test('list rỗng → không gợi ý', () {

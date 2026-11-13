@@ -45,6 +45,7 @@ import '../translation/translation_service.dart';
 import 'screen_translate_geometry.dart';
 import 'screen_translate_models.dart';
 import 'screen_translate_overlay_layout.dart';
+import 'screen_translate_text_flow.dart';
 
 /// Chạy OCR trên một frame đã chuẩn hoá (BGRA đặc).
 typedef ScreenOcrRunner = Future<OcrBlocksResult> Function({
@@ -427,7 +428,13 @@ class ScreenTranslateController {
         ? AppLanguageCatalog.normalizeTranslationCode(targetRaw, fallback: 'VI')
         : 'VI';
 
-    final selected = selectBlocksToTranslate(ocr.blocks, _maxBlocks);
+    // PSRC-211: ML Kit có lúc tách MỘT đoạn văn thành nhiều khối 1 dòng. Dịch
+    // từng dòng cụt vừa sai nghĩa vừa tạo ra chuỗi bong bóng đẩy nhau lệch
+    // khỏi chữ gốc ⇒ gộp các dòng CÙNG ĐOẠN thành một khối trước khi chọn.
+    // Điều kiện gộp rất chặt (xem `belongToSameParagraph`); không khớp thì
+    // danh sách giữ nguyên như trước.
+    final paragraphs = mergeWrappedBlocks(ocr.blocks);
+    final selected = selectBlocksToTranslate(paragraphs, _maxBlocks);
     final translatable = <int>[
       for (var i = 0; i < selected.length; i++)
         if (hasTranslatableLetters(selected[i].text) &&
@@ -466,7 +473,7 @@ class ScreenTranslateController {
         rect: rect,
         original: block.text,
         translation: '',
-        textSizeSp: suggestedTextSizeSp(rect, geometry.devicePixelRatio),
+        textSizeSp: _blockTextSizeSp(rect, block.text, geometry),
       );
     }
 
@@ -493,13 +500,18 @@ class ScreenTranslateController {
         offsetOcrRect(block.rect, dx: offsetX, dy: offsetY),
         geometry,
       );
-      final text = block.text.trim();
+      // PSRC-211: gửi cho engine CÂU đã nối lại, không phải các dòng bị màn
+      // hình ngắt giữa chừng (`\n` của OCR). Xuống dòng THẬT (mục danh sách,
+      // hết câu) vẫn giữ.
+      final text = reflowOcrText(block.text);
       var translation = '';
       if (hasTranslatableLetters(text)) {
         try {
           final result = await translateOnce(text);
           if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-            translation = result.translatedText.trim();
+            // Native vẽ mỗi `\n` thành một lần xuống dòng ⇒ bỏ dòng trống /
+            // khoảng trắng thừa engine trả về, kẻo khung có khoảng trống.
+            translation = normalizeOverlayText(result.translatedText);
             anyTranslated = true;
             if (engines.isEmpty) engines.add(result.engineName);
           } else {
@@ -514,7 +526,7 @@ class ScreenTranslateController {
         rect: rect,
         original: block.text,
         translation: translation,
-        textSizeSp: suggestedTextSizeSp(rect, geometry.devicePixelRatio),
+        textSizeSp: _blockTextSizeSp(rect, block.text, geometry),
       );
       doneCount++;
       _report(
@@ -574,6 +586,19 @@ class ScreenTranslateController {
 
     stopwatch.stop();
 
+    // PSRC-211 — số liệu để truy "bỏ sót khối" trên máy thật (logcat): mỗi
+    // bước của phễu OCR → gộp đoạn → chọn (trần [kScreenTranslateMaxBlocks])
+    // → có chữ để dịch → dịch được → VẼ được. Hai số cuối lệch nhau = layout
+    // phải bỏ khối vì hết chỗ.
+    final translatedCount = rawBlocks.where((b) => b.hasTranslation).length;
+    final drawnCount = blocks.where((b) => b.hasTranslation).length;
+    debugPrint(
+      'ℹ️ screen translate blocks: ocr=${ocr.blocks.length} '
+      'paragraphs=${paragraphs.length} selected=${selected.length} '
+      'translatable=${translatable.length} translated=$translatedCount '
+      'drawn=$drawnCount',
+    );
+
     if (!anyTranslated && missing.isNotEmpty) {
       // Luật vàng: KHÔNG tự tải model. Nói rõ thiếu gì để user vào Cài đặt
       // dịch bấm "Tải về".
@@ -603,6 +628,25 @@ class ScreenTranslateController {
       elapsed: stopwatch.elapsed,
     );
   }
+}
+
+/// Cỡ chữ gốc (sp) của một khối OCR: chiều cao MỘT dòng, đã chia `fontScale`.
+///
+/// PSRC-211: trước đây lấy chiều cao CẢ KHỐI và bỏ qua `fontScale` ⇒ đoạn văn
+/// nhiều dòng bị gán 28sp, máy bật cỡ chữ lớn vẽ bản dịch to hơn chữ gốc.
+/// `layoutTranslatedBlocks` tính lại đúng công thức này; giá trị ở đây là để
+/// khối KHÔNG qua layout (frame giả, khối không dịch) vẫn mang số đúng.
+double _blockTextSizeSp(
+  OverlayRect rect,
+  String ocrText,
+  ScreenCaptureGeometry geometry,
+) {
+  return suggestedTextSizeSp(
+    rect,
+    geometry.devicePixelRatio,
+    lineCount: countTextLines(ocrText),
+    fontScale: geometry.fontScale,
+  );
 }
 
 /// Khối chữ có gì để dịch không?

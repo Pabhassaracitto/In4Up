@@ -20,6 +20,7 @@ class CabinSessionRecorder {
   CabinSession _session;
   CabinWavWriter? _wav;
   IOSink? _journal;
+  Future<void> _journalWork = Future<void>.value();
   final Stopwatch _clock = Stopwatch();
   final List<CabinTranscriptEntry> _entries = [];
   Timer? _flushTimer;
@@ -71,7 +72,7 @@ class CabinSessionRecorder {
     final r = CabinSessionRecorder._(session, wav, journal);
     r._flushTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       unawaited(r._wav?.flush());
-      unawaited(r._journal?.flush().catchError((_) {}));
+      r._enqueueJournal(() async => r._journal?.flush());
     });
     return r;
   }
@@ -101,11 +102,44 @@ class CabinSessionRecorder {
   void addEntry(CabinTranscriptEntry e) {
     if (_finished) return;
     _entries.add(e);
-    try {
-      _journal?.writeln(jsonEncode(e.toJson()));
-    } catch (err) {
+    _enqueueJournal(() async => _journal?.writeln(jsonEncode(e.toJson())));
+  }
+
+  // IOSink rejects writes while an asynchronous flush is in progress. Serialize
+  // writes and flushes so rapid edits and the periodic flush cannot race.
+  void _enqueueJournal(Future<void> Function() action) {
+    _journalWork = _journalWork.then((_) => action()).catchError((Object err) {
       debugPrint('⚠️ CabinSessionRecorder journal: $err');
+    });
+  }
+
+  /// Record the mutation in the same append-only journal as recognized text.
+  bool mutateEntry(String id, {String? sourceText, String? translatedText, bool delete = false}) {
+    if (_finished) return false;
+    final index = _entries.indexWhere((entry) => entry.id == id);
+    if (index < 0) return false;
+    final old = _entries[index];
+    if (delete) {
+      _entries.removeAt(index);
+    } else {
+      _entries[index] = CabinTranscriptEntry(
+        id: old.id,
+        offset: old.offset,
+        sourceText: sourceText ?? old.sourceText,
+        translatedText: translatedText ?? old.translatedText,
+      );
     }
+    final event = jsonEncode({
+      'op': delete ? 'delete' : 'edit',
+      'id': id,
+      if (!delete) 'src': sourceText,
+      if (!delete) 'tgt': translatedText,
+    });
+    _enqueueJournal(() async {
+      _journal?.writeln(event);
+      await _journal?.flush();
+    });
+    return true;
   }
 
   /// Kết thúc ghi: đóng WAV (vá header), đóng journal, viết LRC/TXT tạm theo
@@ -121,6 +155,7 @@ class CabinSessionRecorder {
       await _wav?.close();
     } catch (_) {}
     try {
+      await _journalWork;
       await _journal?.flush();
       await _journal?.close();
     } catch (_) {}

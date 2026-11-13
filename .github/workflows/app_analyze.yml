@@ -748,6 +748,7 @@ jobs:
                    test/pdf_reader/pdf_reading_pages_test.dart \
                    test/web_reader/reader_cues_test.dart \
                    test/pdf_reader/reader_follow_policy_test.dart \
+                   test/pdf_reader/reader_speed_test.dart \
                    test/pdf_reader/pdf_batch_ocr_test.dart \
                    test/pdf_reader/pdf_page_translate_test.dart; do
             [ -f "$f" ] && files="$files $f"

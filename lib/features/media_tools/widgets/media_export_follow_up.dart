@@ -41,6 +41,26 @@ enum ExportFollowUpChoice {
   dismissed,
 }
 
+/// Kết quả của một lần chia sẻ.
+///
+/// PSRC-203: trước đây `shareExportedFiles` trả `void` và có nhánh
+/// `if (files.isEmpty) return;` ⇒ bấm "Chia sẻ" không thấy phản ứng gì, người
+/// dùng không biết vì sao. Nay mọi nhánh đều trả một giá trị để UI báo lý do
+/// + mở thư mục chứa tệp.
+enum ExportShareOutcome {
+  /// OS đã nhận tệp (share sheet đã mở).
+  shared,
+
+  /// Không còn tệp nào trên đĩa (bị dời/xoá sau khi xuất).
+  noFiles,
+
+  /// Nền tảng không có share sheet cho tệp (ví dụ Linux không có backend).
+  unsupported,
+
+  /// share_plus ném lỗi khác.
+  failed,
+}
+
 /// Hỏi người dùng muốn làm gì tiếp với file vừa xuất.
 ///
 /// [openInListenTab]: lối vào tự cung cấp (null = không có nút "Mở ...").
@@ -49,7 +69,7 @@ Future<ExportFollowUpChoice> offerExportFollowUp(
   BuildContext context,
   MediaExportResult result, {
   Future<void> Function(String path)? openInListenTab,
-  Future<void> Function(MediaExportResult result)? share,
+  Future<ExportShareOutcome> Function(MediaExportResult result)? share,
 }) async {
   if (result.isEmpty) return ExportFollowUpChoice.dismissed;
 
@@ -145,7 +165,10 @@ Future<ExportFollowUpChoice> offerExportFollowUp(
   switch (choice) {
     case ExportFollowUpChoice.share:
       if (!context.mounted) return choice;
-      await (share ?? shareExportedFiles)(result);
+      final outcome = await (share ?? shareExportedFiles)(result);
+      if (outcome != ExportShareOutcome.shared && context.mounted) {
+        await showShareProblem(context, result, outcome);
+      }
     case ExportFollowUpChoice.open:
       if (openInListenTab == null || !context.mounted) return choice;
       // PSRC-202: file có thể đã bị dời/xoá sau khi xuất (thư viện dọn, người
@@ -198,8 +221,14 @@ Future<List<String>> missingExportFiles(MediaExportResult result) async {
   return missing;
 }
 
-/// Chia sẻ các file đã xuất (+ LRC đi kèm). Bỏ qua file không còn tồn tại.
-Future<void> shareExportedFiles(MediaExportResult result) async {
+/// Chia sẻ các file đã xuất (+ LRC đi kèm) và NÓI RÕ kết quả.
+///
+/// Bỏ qua tệp không còn tồn tại — nhưng nếu không còn tệp nào thì trả
+/// [ExportShareOutcome.noFiles] thay vì im lặng (PSRC-203).
+Future<ExportShareOutcome> shareExportedFiles(
+  MediaExportResult result, {
+  Future<void> Function(ShareParams params)? presenter,
+}) async {
   final files = <XFile>[];
   for (final path in [...result.outputPaths, ...result.lrcPaths]) {
     if (path.isEmpty) continue; // LRC rỗng = chặng không có lời
@@ -209,8 +238,81 @@ Future<void> shareExportedFiles(MediaExportResult result) async {
       if (File(path).existsSync()) files.add(XFile(path));
     } catch (_) {}
   }
-  if (files.isEmpty) return;
-  await SharePlus.instance.share(ShareParams(files: files));
+  if (files.isEmpty) return ExportShareOutcome.noFiles;
+  final params = ShareParams(files: files);
+  try {
+    if (presenter != null) {
+      await presenter(params);
+    } else {
+      await SharePlus.instance.share(params);
+    }
+    return ExportShareOutcome.shared;
+  } on UnimplementedError {
+    return ExportShareOutcome.unsupported;
+  } catch (e) {
+    debugPrint('[MediaTools] share failed: $e');
+    return ExportShareOutcome.failed;
+  }
+}
+
+/// Báo lý do không chia sẻ được + đường thay thế ("Mở thư mục chứa tệp").
+Future<void> showShareProblem(
+  BuildContext context,
+  MediaExportResult result,
+  ExportShareOutcome outcome,
+) {
+  final reason = switch (outcome) {
+    ExportShareOutcome.noFiles =>
+      'Không còn tệp nào để chia sẻ — tệp đã bị dời hoặc xoá sau khi xuất.',
+    ExportShareOutcome.unsupported =>
+      'Máy này không có share sheet cho tệp. Hãy mở thư mục chứa tệp để lấy bản xuất.',
+    ExportShareOutcome.failed =>
+      'Không mở được share sheet. Hãy mở thư mục chứa tệp để lấy bản xuất.',
+    ExportShareOutcome.shared => '',
+  };
+  if (reason.isEmpty) return Future<void>.value();
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: const Color(0xFF1A2235),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        dialogContext.uiText('Chưa chia sẻ được'),
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            dialogContext.uiText(reason),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            result.primaryPath,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white30, fontSize: 10),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(dialogContext.uiText('Đóng')),
+        ),
+        FilledButton.icon(
+          onPressed: () async {
+            Navigator.of(dialogContext).pop();
+            await openExportFolder(result.primaryPath);
+          },
+          icon: const Icon(Icons.folder_open_rounded, size: 18),
+          label: Text(dialogContext.uiText('Mở thư mục chứa tệp')),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Báo file của bản xuất đã biến mất, kèm đường thay thế.

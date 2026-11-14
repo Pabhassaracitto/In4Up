@@ -10,6 +10,8 @@ import '../../../screens/understand_mode/understand_provider.dart';
 import '../../shadowing/models/shadowing_result.dart';
 import '../providers/shadowing_provider.dart';
 import '../services/lrc_ab_suggestions.dart';
+import 'shadowing_analysis_notice.dart';
+import 'shadowing_sentence_picker.dart';
 import 'waveform_comparison_painter.dart';
 
 /// Widget chính cho Shadowing Mode
@@ -31,6 +33,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
   // (đã nạp ở tab Nghe/Hiểu) hoặc lazy-load từ cache LRC theo file đang phát.
   List<LrcLine> _cachedLrcLines = const [];
   String? _lrcFetchedForPath;
+  bool _sentenceSyncScheduled = false;
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     final path = player.currentSongPath;
     if (path == null || path == _lrcFetchedForPath) return;
     _lrcFetchedForPath = path;
+    setState(() => _cachedLrcLines = const []);
     () async {
       try {
         final hit = await player.peekCachedLrc(path: path);
@@ -75,6 +79,34 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         // Không có LRC cache → không gợi ý, không lỗi.
       }
     }();
+  }
+
+  void _scheduleSentenceSync(
+    PlayerProvider player,
+    UnderstandProvider understand,
+    ShadowingProvider shadowing,
+    List<AbSuggestion> suggestions,
+    Duration? trackDuration,
+  ) {
+    if (_sentenceSyncScheduled) return;
+    _sentenceSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sentenceSyncScheduled = false;
+      if (!mounted) return;
+      if (understand.lrcLines.isEmpty) _maybeLoadCachedSuggestions(player);
+      shadowing.setSentenceSuggestions(
+        audioPath: player.currentSongPath,
+        suggestions: suggestions,
+      );
+      final start = player.loopStart;
+      final end = player.loopEnd;
+      final index = suggestions.indexWhere((s) => s.start == start && s.end == end);
+      if (index >= 0 && index != shadowing.selectedSentenceIndex) {
+        shadowing.selectSentence(index);
+      } else if (index < 0 && shadowing.selectedSentenceIndex >= 0) {
+        shadowing.setLoopRegion(start ?? Duration.zero, end ?? Duration.zero);
+      }
+    });
   }
 
   @override
@@ -219,15 +251,15 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     final lrcLines = understand.lrcLines.isNotEmpty
         ? understand.lrcLines
         : _cachedLrcLines;
-    if (hasAudio && lrcLines.isEmpty) {
-      _maybeLoadCachedSuggestions(player);
-    }
     final suggestions = lrcLines.isEmpty
         ? const <AbSuggestion>[]
         : LrcAbSuggestions.buildSentenceSuggestions(
             lines: lrcLines,
             trackDuration: trackDuration,
           );
+    _scheduleSentenceSync(
+      player, understand, shadowing, suggestions, trackDuration,
+    );
 
     final missingSource =
         player.lastLoadError == AudioLoadErrorKind.missingFile ||
@@ -258,6 +290,10 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           if (missingSource) ...[
             const SizedBox(height: 12),
             _buildMissingSourceBanner(context),
+          ],
+          if (shadowing.analysisError != null) ...[
+            const SizedBox(height: 12),
+            ShadowingAnalysisNotice(code: shadowing.analysisError!),
           ],
 
           // Vùng đang luyện: đoạn A-B hoặc toàn bài.
@@ -362,7 +398,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     );
   }
 
-  // ── Gợi ý AB theo câu ────────────────────────────────────────
+  // ── Gợi ý AB theo câu: cùng widget với tab Hiểu (PSRC-228). ──
   Widget _buildSuggestionSection({
     required List<AbSuggestion> suggestions,
     required List<LrcLine> lrcLines,
@@ -370,137 +406,18 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     required ShadowingProvider shadowing,
     required PlayerProvider player,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Color(0xFF2196F3).withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.lyrics_outlined,
-                  size: 15, color: Color(0xFF64B5F6)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  context.uiText('Gợi ý theo câu (lời bài)'),
-                  style: const TextStyle(
-                    color: Color(0xFF64B5F6),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              // Nút nhanh: lấy đúng câu đang phát làm đoạn luyện.
-              GestureDetector(
-                onTap: () {
-                  final hit = LrcAbSuggestions.suggestionAtPosition(
-                    lines: lrcLines,
-                    position: player.state.position,
-                    trackDuration: trackDuration,
-                  );
-                  if (hit != null) {
-                    _selectSuggestion(hit, player, shadowing);
-                  }
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF2196F3).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    context.uiText('Dùng câu đang phát'),
-                    style: const TextStyle(
-                      color: Color(0xFF64B5F6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 132,
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: ListView.builder(
-                itemCount: suggestions.length,
-                itemBuilder: (context, i) {
-                  final s = suggestions[i];
-                  final selected = player.loopStart == s.start;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _selectSuggestion(s, player, shadowing),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? Color(0xFF2196F3).withValues(alpha: 0.16)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 42,
-                            child: Text(
-                              _formatDuration(s.start),
-                              style: TextStyle(
-                                color: selected
-                                    ? const Color(0xFF64B5F6)
-                                    : Colors.grey[500],
-                                fontSize: 10,
-                                fontWeight: selected
-                                    ? FontWeight.w700
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          // Nội dung LRC = dữ liệu user — KHÔNG dịch (rule 5).
-                          Expanded(
-                            child: Text(
-                              s.text,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: selected ? Colors.white : Colors.white70,
-                                fontSize: 12,
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            selected
-                                ? Icons.check_circle
-                                : Icons.chevron_right,
-                            size: 14,
-                            color: selected
-                                ? const Color(0xFF64B5F6)
-                                : Colors.grey[700],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ShadowingSentencePicker(
+      suggestions: suggestions,
+      selectedIndex: shadowing.selectedSentenceIndex,
+      onSelected: (s) => _selectSuggestion(s, player, shadowing),
+      onUseCurrent: () {
+        final hit = LrcAbSuggestions.suggestionAtPosition(
+          lines: lrcLines,
+          position: player.state.position,
+          trackDuration: trackDuration,
+        );
+        if (hit != null) _selectSuggestion(hit, player, shadowing);
+      },
     );
   }
 
@@ -512,13 +429,14 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     HapticFeedback.selectionClick();
     // Đặt A-B trên chính PlayerProvider — tab Nghe cũng thấy đoạn này
     // (một nguồn sự thật thay vì 2 bản A-B riêng lẻ).
-    player.setLoop(suggestion.start, suggestion.end);
-    shadowing.setSegment(
-      start: suggestion.start,
-      end: suggestion.end,
-      audioPath: player.currentSongPath ?? '',
+    player.setLoop(
+      suggestion.start,
+      suggestion.end,
+      repeatCount: player.maxLoopCount,
+      gapSeconds: player.gapDuration,
+      startImmediately: false,
     );
-    shadowing.setPracticeText(suggestion.text);
+    shadowing.selectSentence(suggestion.index);
   }
 
   // ── Chỉnh tay A-B ────────────────────────────────────────────
@@ -1118,8 +1036,13 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                 onPressed: canPractice
                     ? () {
                         HapticFeedback.lightImpact();
-                        _syncPracticeSource(player, shadowing);
-                        shadowing.playOriginal();
+                        final index = shadowing.selectedSentenceIndex;
+                        if (index >= 0) {
+                          shadowing.speakSentence(index);
+                        } else {
+                          _syncPracticeSource(player, shadowing);
+                          shadowing.playOriginal();
+                        }
                       }
                     : null,
                 icon: const Icon(Icons.headphones, size: 18),

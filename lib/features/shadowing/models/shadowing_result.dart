@@ -11,6 +11,7 @@ class ShadowingResult {
   final String originalText;
   final String? recognizedText;
   final List<WordResult> wordResults;
+  final int extraWordCount;
   final AcousticAnalysis? acousticAnalysis;
   final List<double> originalWaveform;
   final List<double> userWaveform;
@@ -23,6 +24,7 @@ class ShadowingResult {
     required this.originalText,
     this.recognizedText,
     required this.wordResults,
+    this.extraWordCount = 0,
     this.acousticAnalysis,
     required this.originalWaveform,
     required this.userWaveform,
@@ -32,18 +34,20 @@ class ShadowingResult {
   })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         timestamp = timestamp ?? DateTime.now();
 
-  /// Điểm trung bình các từ
+  /// Độ phủ trên toàn bộ câu mẫu; từ đọc thừa cũng làm giảm điểm.
   double get averageWordScore {
-    if (wordResults.isEmpty) return 0.0;
+    final denominator = wordResults.length + extraWordCount;
+    if (denominator == 0) return 0.0;
     final sum = wordResults.fold(0.0, (sum, w) => sum + w.score);
-    return sum / wordResults.length;
+    return (sum / denominator).clamp(0.0, 1.0).toDouble();
   }
 
-  /// Điểm tổng hợp (kết hợp text và acoustic)
+  /// Acoustic chỉ điều biến trong trần điểm chữ, không kéo điểm thiếu từ lên.
   double get overallScore {
     final textScore = averageWordScore;
-    final acousticScore = acousticAnalysis?.overallScore ?? textScore;
-    return (textScore * 0.7 + acousticScore * 0.3);
+    final acoustic = acousticAnalysis;
+    if (acoustic == null) return textScore;
+    return textScore * (0.7 + 0.3 * acoustic.overallScore.clamp(0.0, 1.0).toDouble());
   }
 
   int get overallScorePercent => (overallScore * 100).round();
@@ -88,6 +92,12 @@ class ShadowingResult {
 
   /// Feedback message
   String get feedbackMessage {
+    if (correctWordCount < totalWordCount) {
+      return 'Một số từ bị thiếu hoặc đọc sai. Hãy luyện tiếp!';
+    }
+    if (extraWordCount > 0) {
+      return 'Bạn đọc thừa từ so với câu mẫu. Hãy luyện tiếp!';
+    }
     final score = overallScorePercent;
     if (score >= 95) {
       return 'Outstanding! Nearly perfect! 🎯';
@@ -118,6 +128,7 @@ class ShadowingResult {
         'feedbackMessage': feedbackMessage,
         'correctWordCount': correctWordCount,
         'totalWordCount': totalWordCount,
+        'extraWordCount': extraWordCount,
         'tempoRatio': tempoRatio,
         'timestamp': timestamp.toIso8601String(),
         'acoustic': acousticAnalysis == null

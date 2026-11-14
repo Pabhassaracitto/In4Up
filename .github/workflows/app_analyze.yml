@@ -1377,6 +1377,37 @@ jobs:
           path: safe_inset_test.log
           if-no-files-found: ignore
 
+      - name: "BETA-1.29.0 / L9 — shadowing samples, hints and scoring"
+        id: shadowing-tests
+        timeout-minutes: 5
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          if [ ! -d test/shadowing ]; then
+            echo "No L9 shadowing tests on this branch — skipping."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/shadowing/ test/lrc_ab_suggestions_test.dart \
+            --timeout 45s -r expanded > shadowing_test.log 2>&1
+          code=$?
+          cat shadowing_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B2 -A8 'Expected:|Actual:|Which:|\[E\]' shadowing_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=L9 shadowing detail::$line"
+            done || true
+            python3 scripts/ci/emit_failure_annotation.py shadowing_test.log "L9 shadowing"
+          fi
+          exit $code
+
+      - name: Upload L9 shadowing test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shadowing-test-log
+          path: shadowing_test.log
+          if-no-files-found: ignore
+
       # BETA-1.29.0 · lane L6: engine VieNeu chỉ chạy được khi đủ 3 mảnh
       # (libvieneu_tts.so + libsea_g2p_rs.so + sea_g2p.bin). Test này khoá hợp
       # đồng trộn stereo→mono, cách truyền SEA-G2P, .gitmodules và workflow

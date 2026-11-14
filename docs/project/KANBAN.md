@@ -9830,3 +9830,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   thiết bị, xác minh quyền bản MDX Anh–Việt; cập nhật catalog main khi phát hành.
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | sửa đường dẫn, test và bàn giao; chờ CI.
+  - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI run 43612552890 xanh trên `7f766d2`; chờ QA máy thật, renderer CSS/MDD và xác minh license.

@@ -100,3 +100,12 @@ không dùng test giả như bằng chứng đã hỗ trợ MDD/CSS hoặc mọi
   UTF-8, zlib; `retain`, `meditation`, `hello` có mục và nội dung. Đây không
   thay thế Flutter import/lookup end-to-end, không chứng minh tương thích
   Longman/Lạc Việt/Oxford. Không ghi nội dung từ điển có bản quyền vào repo.
+
+### Kiểm thử 2026-11-09 (đợt sửa catalog/Read)
+
+- [CI 43612552890](https://github.com/Pabhassaracitto/In4Up/actions/runs/43612552890)
+  xanh tại `7f766d2`: analyze, Rule 5, test catalog/snapshot/source view,
+  WordInsight, I4U18 MDX và kiểm tra wiring tab Đọc. Test phần Read chủ yếu
+  kiểm logic + wiring, chưa phải thao tác pop→sheet trên thiết bị.
+- Flutter SDK không có ở sandbox; file thật được kiểm bằng GitHub blob API và
+  reader Python độc lập, chưa chạy import/download thực trên Android/iOS.

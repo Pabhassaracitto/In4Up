@@ -351,25 +351,60 @@ Future<void> runPdfOcrBatchFlow({
     );
     return;
   }
-  final doc = controller.document;
-  if (doc == null || request.pages.isEmpty) return;
+  if (request.pages.isEmpty) return;
 
   final messenger = ScaffoldMessenger.of(context);
   final token = OcrCancelToken();
   final progress = ValueNotifier<PdfBatchOcrProgress?>(null);
   final stopwatch = Stopwatch()..start();
 
+  PdfDocument? openedFallbackDoc;
+  Future<PdfDocument?> ensureFallbackDoc() async {
+    if (openedFallbackDoc != null) return openedFallbackDoc;
+    if (controller.pdfPath.isEmpty) return null;
+    try {
+      openedFallbackDoc = await PdfDocument.openFile(controller.pdfPath);
+    } catch (_) {
+      openedFallbackDoc = null;
+    }
+    return openedFallbackDoc;
+  }
+
   final progressRoute = _BatchProgressRoute.show(context, token, progress);
-  final outcome = await runPdfBatchOcr(
-    pages: request.pages,
-    hasTextLayer: controller.pageHasExtractableText,
-    skipPagesWithTextLayer: request.skipPagesWithTextLayer,
-    cancelToken: token,
-    onProgress: (p) => progress.value = p,
-    recognize: (pageIndex) => _recognizePage(doc, token, pageIndex),
-  );
-  progressRoute.close();
-  stopwatch.stop();
+  late final PdfBatchOcrOutcome outcome;
+  try {
+    outcome = await runPdfBatchOcr(
+      pages: request.pages,
+      hasTextLayer: controller.pageHasExtractableText,
+      extractExistingText: (pageIndex) async =>
+          controller.extractPageTextByIndex(
+        pageIndex,
+        fallbackDocument: openedFallbackDoc,
+      ),
+      skipPagesWithTextLayer: request.skipPagesWithTextLayer,
+      cancelToken: token,
+      onProgress: (p) => progress.value = p,
+      recognize: (pageIndex) async {
+        final primaryDoc = controller.document;
+        if (primaryDoc != null) {
+          final firstTry = await _recognizePage(primaryDoc, token, pageIndex);
+          if (firstTry.status != PdfPageOcrStatus.failed ||
+              firstTry.error != 'render failed') {
+            return firstTry;
+          }
+        }
+        final fallback = await ensureFallbackDoc();
+        if (fallback == null) {
+          return PdfPageOcrOutcome.failure(pageIndex, 'render failed');
+        }
+        return _recognizePage(fallback, token, pageIndex);
+      },
+    );
+  } finally {
+    progressRoute.close();
+    stopwatch.stop();
+    await openedFallbackDoc?.dispose();
+  }
   if (!context.mounted) return;
 
   if (outcome.cancelled) {
@@ -405,6 +440,11 @@ Future<void> runPdfOcrBatchFlow({
     return;
   }
 
+  if (controller.viewMode == PdfViewMode.textMode &&
+      request.pages.length > 1) {
+    controller.applyMergedOcrText(outcome.joinedText);
+  }
+
   await OcrFlow.presentResult(
     context,
     OcrResult(
@@ -423,6 +463,11 @@ Future<PdfPageOcrOutcome> _recognizePage(
   final raster = await rasterizePdfPage(doc, pageIndex);
   if (raster == null) {
     return PdfPageOcrOutcome.failure(pageIndex, 'render failed');
+  }
+  // PSRC-210 — trang giấy trắng (bìa, trang chèn, trang chỉ có lề) không cần
+  // đẩy sang ML Kit: nhận dạng trên nền trống chỉ sinh khối rỗng/nhiễu.
+  if (raster.isVisuallyBlank) {
+    return PdfPageOcrOutcome.empty(pageIndex);
   }
   final result = await OcrService.instance.recognizeBitmap(
     pixels: raster.pixels,

@@ -24,6 +24,7 @@ import 'dart:typed_data';
 
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
+import '../../ocr/ocr_block.dart';
 import 'pdf_snapshot_burn.dart';
 
 /// Nền trắng — OCR muốn nền trắng chữ đen, khớp `kPdfSnapshotBackgroundArgb`
@@ -49,6 +50,15 @@ class PdfPageRaster {
   /// True khi pixels khớp kích thước — điều kiện tiên quyết trước khi đưa
   /// sang native, nếu không ML Kit sẽ đọc tràn bộ nhớ.
   bool get isConsistent => pixels.length == expectedBytes;
+
+  /// True khi trang raster ra hoàn toàn trống/đồng màu (không có nét chữ).
+  bool get isVisuallyBlank =>
+      !isConsistent ||
+      isVisuallyBlankBgraBitmap(
+        pixels: pixels,
+        width: width,
+        height: height,
+      );
 }
 
 /// Render trang [pageIndex] (0-based) của [doc] ra [PdfPageRaster].

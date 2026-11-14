@@ -33716,6 +33716,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'บันทึกเซสชัน Cabin แล้ว',
     'ja': 'Cabinセッションを保存しました',
   },
+  'Đã lưu phiên Cabin, nhưng đồng bộ Nghe thất bại': {
+    'en': 'Cabin session saved, but Listen sync failed',
+    'zh': 'Cabin 会话已保存，但同步到听力失败',
+    'zh_TW': 'Cabin 工作階段已儲存，但同步至聆聽失敗',
+    'hi': 'Cabin सत्र सहेजा गया, लेकिन सुनने के लिए सिंक विफल हुआ',
+    'si': 'Cabin සැසිය සුරැකි නමුත් සවන්දීමට සමමුහුර්ත කිරීම අසාර්ථක විය',
+    'my': 'Cabin အစီအစဉ်ကို သိမ်းပြီးဖြစ်သော်လည်း နားထောင်ရန် ထပ်တူပြုခြင်း မအောင်မြင်ပါ',
+    'th': 'บันทึกเซสชัน Cabin แล้ว แต่ซิงค์ไปยังการฟังไม่สำเร็จ',
+    'ja': 'Cabin セッションは保存されましたが、リスニングへの同期に失敗しました',
+  },
   'Đã lưu phụ đề ({value0} dòng): {value1}': {
     'en': 'Saved subtitles ({value0} lines): {value1}',
     'zh': '已保存字幕（{value0} 行）：{value1}',

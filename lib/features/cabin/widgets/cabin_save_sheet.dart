@@ -8,6 +8,7 @@ import '../../../core/files/export_destination_service.dart';
 import '../../../core/files/widgets/export_destination_tile.dart';
 import '../models/cabin_session.dart';
 import '../services/cabin_read_bridge.dart';
+import '../services/cabin_listen_bridge.dart';
 import '../services/cabin_session_settings.dart';
 import '../services/cabin_session_store.dart';
 
@@ -52,9 +53,10 @@ Future<void> handleFinishedCabinSession(
       title: session.title,
       textMode: settings.textMode,
     );
+    final syncOk = await syncSavedCabinForListen(saved, enabled: true);
     if (saved != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.uiText('Đã lưu phiên Cabin')),
+        content: Text(context.uiText(syncOk ? 'Đã lưu phiên Cabin' : 'Đã lưu phiên Cabin, nhưng đồng bộ Nghe thất bại')),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: context.uiText('Mở trong Tab Đọc'),
@@ -100,6 +102,8 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
   late CabinTextMode _mode = CabinSessionSettings.instance.textMode;
   bool _keepAudio = true;
   bool _keepText = true;
+  bool _syncListen = true;
+  bool _syncOk = true;
   bool _busy = false;
 
   @override
@@ -108,14 +112,18 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
     super.dispose();
   }
 
-  Future<CabinSession?> _save() {
-    return CabinSessionStore.instance.save(
+  Future<CabinSession?> _save() async {
+    final saved = await CabinSessionStore.instance.save(
       widget.session,
       title: _title.text,
       textMode: _mode,
       keepAudio: _keepAudio,
       keepText: _keepText,
     );
+    // Saving may remove files according to the user's choices. A later sync
+    // failure must not leave the sheet open to re-save the stale session.
+    _syncOk = await syncSavedCabinForListen(saved, enabled: _syncListen);
+    return saved;
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -123,6 +131,9 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
     setState(() => _busy = true);
     try {
       await action();
+    } catch (error) {
+      debugPrint('Cabin save/sync: $error');
+      _snack('Lỗi');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -213,6 +224,16 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               activeThumbColor: _accent,
+              value: s.hasAudio && _keepAudio && _syncListen,
+              onChanged: s.hasAudio && _keepAudio
+                  ? (v) => setState(() => _syncListen = v)
+                  : null,
+              title: Text('${context.uiText('Đồng bộ')} · ${context.uiText('Nghe')}',
+                  style: const TextStyle(color: Colors.white)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: _accent,
               value: _keepText,
               onChanged: (v) => setState(() => _keepText = v),
               title: Text(context.uiText('Giữ văn bản'),
@@ -247,6 +268,7 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
                         final saved = await _save();
                         if (!mounted) return;
                         Navigator.of(context).pop();
+                        if (!_syncOk) _snack('Đã lưu phiên Cabin, nhưng đồng bộ Nghe thất bại');
                         final host = widget.hostContext;
                         if (saved == null || !host.mounted) return;
                         final ok =
@@ -269,7 +291,9 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
                               final saved = await _save();
                               if (!mounted) return;
                               Navigator.of(context).pop();
-                              if (saved != null) _snack('Đã lưu phiên Cabin');
+                              if (saved != null) {
+                                _snack(_syncOk ? 'Đã lưu phiên Cabin' : 'Đã lưu phiên Cabin, nhưng đồng bộ Nghe thất bại');
+                              }
                             }),
                   ),
                 ),
@@ -284,6 +308,7 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
                               final saved = await _save();
                               if (!mounted) return;
                               Navigator.of(context).pop();
+                              if (!_syncOk) _snack('Đã lưu phiên Cabin, nhưng đồng bộ Nghe thất bại');
                               if (saved != null) await shareCabinSession(saved);
                             }),
                   ),
@@ -300,6 +325,7 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
                         final saved = await _save();
                         if (!mounted) return;
                         Navigator.of(context).pop();
+                        if (!_syncOk) _snack('Đã lưu phiên Cabin, nhưng đồng bộ Nghe thất bại');
                         final host = widget.hostContext;
                         if (saved != null && host.mounted) {
                           await showCabinExportSheet(host, saved);

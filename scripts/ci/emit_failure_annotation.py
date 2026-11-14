@@ -43,6 +43,20 @@ ERROR_LINE = (
     r"|Caused by"
     r"|Execution failed"
     r"|No matching client"
+    # Xcode/Swift: `** BUILD FAILED **`, `error: ...`, `The following build
+    # commands failed`, `<unknown>:0: error:`
+    r"|\*\* BUILD FAILED \*\*"
+    r"|The following build commands failed"
+    # MSVC (Windows): `error C2039:`, `error LNK2019:`, `error MSB3073:`
+    r"|error (?:C|LNK|MSB|RC)\d+"
+    # Gradle/Kotlin
+    r"|^e: "
+    r"|What went wrong"
+    # `flutter test` không nạp được file test (lỗi biên dịch) — dòng này là
+    # thứ DUY NHẤT phân biệt "test hỏng" với "test không compile được".
+    r"|Failed to load"
+    r"|Compilation failed"
+    r"|Error: "
 )
 
 
@@ -71,7 +85,13 @@ def _priority_lines(lines: list[str]) -> list[str]:
     # 3. Mọi dòng lỗi biên dịch/liên kết rời.
     for index, line in enumerate(lines):
         if re.search(ERROR_LINE, line):
-            add(index, 2)
+            add(index, 3)
+
+    # 3b. `flutter test` báo "loading <file>" rồi in lỗi biên dịch NGAY SAU đó
+    # (không có tiền tố `error:`), nên phải kèm theo 10 dòng sau dòng "loading".
+    for index, line in enumerate(lines):
+        if re.search(r"loading |: loading ", line):
+            add(index, 10)
 
     # 4. Đuôi log (thường có "BUILD FAILED in", thống kê).
     add(max(0, len(lines) - 8), 8)
@@ -101,7 +121,8 @@ def main(argv: list[str]) -> int:
         return 0
 
     selected = _priority_lines(lines)
-    escaped = [line[:300].replace("%", "%25") for line in selected]
+    # 600 ký tự: dòng lỗi MSVC/Xcode thường dài (đường dẫn + mã lỗi + gợi ý).
+    escaped = [line[:600].replace("%", "%25") for line in selected]
     parts = _chunks("%0A".join(escaped))[:max_chunks]
 
     for ordinal, part in enumerate(parts, start=1):

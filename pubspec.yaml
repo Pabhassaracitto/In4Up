@@ -141,7 +141,20 @@ dependencies:
   webview_windows: ^0.4.0   # Chỉ cho Windows
   # Youtube
   youtube_explode_dart: ^3.0.5
-  pdfrx: ^2.2.1 #Hạ từ ^2.2.20   # Hạ từ 2.2.24 xuống bản ổn định thấp hơn một chút
+  # PIN CHÍNH XÁC 2.2.24 (beta 1.29.0, sửa lỗi build 4 nền tảng 14/11):
+  #   * `pdfium_dart` bị ghim 0.1.2 + `pdfium_flutter` là path dep ⇒ cả cây
+  #     PDFium đi theo bản fork trong `third_party/pdfium_flutter`.
+  #   * `^2.2.1` cho phép pub nâng lên 2.4.8 (kéo pdfrx_engine 0.4.7), mà
+  #     bản engine đó gọi `getPdfium(modulePath: ...)` — API chỉ có ở
+  #     pdfium_dart mới hơn ⇒ lỗi biên dịch:
+  #       pdfrx_engine-0.4.7/lib/src/native/pdfium.dart:11:41: Error: No named
+  #       parameter with the name 'modulePath'.
+  #     và hỏng cả bước build native của pdfrx (Windows 2 Errors, iOS
+  #     BUILD FAILED).
+  #   * Không chỗ nào trong app dùng API pdfrx > 2.2.24 (đã grep
+  #     renderForDisplay / selectedTextIfLoaded / releaseCachedImages /
+  #     stopTextSearch / pageImageColorFilter / processWidePdfiumGate = 0).
+  pdfrx: 2.2.24
   graphview: ^1.2.0  
   animations: ^2.1.2
   flutter_animate: ^4.5.2

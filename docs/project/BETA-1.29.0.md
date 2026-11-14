@@ -174,10 +174,18 @@ Linux/Windows/iOS giờ `tee` log ra `/tmp/build_*.log` rồi khi đỏ chạy
 `error LNK####`/`error MSB####`/`** BUILD FAILED **`/`Failed to load` + 10 dòng sau dòng `loading `
 (`2bcac0b`).
 
-**Trạng thái xác nhận:** `app_analyze` trên `4db1a40` = run **43631309682** 🟢 4/4 job (đã hết lỗi biên dịch,
-2 test `linux_shell_regression_test` / `linux_web_external_browser` nạp và chạy bình thường). **Build 4 nền
-tảng chưa chạy lại** — token của sandbox không có quyền `actions:write` (`gh workflow run` → 403) nên owner
-phải bấm *Run workflow* trên tip mới.
+**Trạng thái xác nhận:**
+
+- `app_analyze` trên `4db1a40` = run **43631309682** 🟢 4/4 job (đã hết lỗi biên dịch; 2 test
+  `linux_shell_regression_test` / `linux_web_reader/linux_external_browser_test` nạp và chạy bình thường).
+- **Build 4 nền tảng lần 2 trên `86f7e35` = run [43632940769](https://github.com/Pabhassaracitto/In4Up/actions/runs/43632940769) 🟢
+  4/4 job** (Android · Windows · iOS · Linux). Asset trên prerelease `1.29.0-Beta` đều được cập nhật:
+  `in4up-Android-arm64-v8a-1.29.0-Beta-86f7e.apk` (204 MB) · `in4up-iOS-1.29.0-Beta.ipa` (95 MB) ·
+  `in4up-Windows-1.29.0-Beta.zip` (54 MB) · `in4up-Linux-1.29.0-Beta.tar.gz` (51 MB).
+  Bước `Build SEA-G2P (C ABI) cho arm64-v8a` 🟢 ⇒ engine phoneme nay thật sự nằm trong APK.
+
+**Còn nợ trước G4:** `pubspec.yaml` vẫn `1.28.0+28` ⇒ APK/IPA mang version nội bộ **1.28.0 (28)**, chỉ tên
+file là 1.29.0-Beta. Phải bump `1.29.0+29` rồi build lại lần cuối trước khi tag chính thức.
 
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 

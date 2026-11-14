@@ -104,18 +104,92 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
           selection: TextSelection.collapsed(offset: refined.length),
         );
       });
-    } catch (_) {
+    } on OcrAiRefineException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Không thể tinh chỉnh lúc này. Kiểm tra cấu hình AI và kết nối rồi thử lại.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      _showRefineFailure(error);
+    } catch (error) {
+      if (!mounted) return;
+      _showRefineFailure(
+        OcrAiRefineException(OcrAiRefineError.requestFailed, '$error'),
       );
     } finally {
       if (mounted) setState(() => _isRefining = false);
+    }
+  }
+
+  /// PSRC-209: mỗi mã lỗi có ĐÚNG một câu hướng dẫn — người dùng biết ngay
+  /// thiếu gì (provider / model / API key / mạng / routing), không còn câu
+  /// chung "kiểm tra cấu hình AI".
+  void _showRefineFailure(OcrAiRefineException error) {
+    debugPrint(
+      'OCR refine lỗi: ${error.code.name}'
+      '${error.detail == null ? '' : ' — ${error.detail}'}',
+    );
+    final label = (error.detail ?? '').trim();
+    var message = context.uiText(_refineFailureMessage(error.code));
+    if (label.isNotEmpty && _mentionsProvider(error.code)) {
+      message = '$message ($label)';
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 7),
+      ),
+    );
+  }
+
+  /// Nhãn tiếng Việt = KEY trong `tool/priority_native_pack.json` (rule vàng
+  /// #5) — sửa chữ ở đây thì phải sửa cả pack rồi chạy lại máy sinh.
+  ///
+  /// Mỗi thông điệp phải là MỘT literal trên một dòng: bộ quét i18n
+  /// (`test/ocr/ocr_i18n_coverage_test.dart`) tra từng literal trong catalog,
+  /// nên chuỗi bị nối bằng `+` sẽ không khớp key và bị coi là thiếu bản dịch.
+  static String _refineFailureMessage(OcrAiRefineError code) {
+    switch (code) {
+      case OcrAiRefineError.noProvider:
+        return 'Chưa bật nhà cung cấp AI nào. Mở Cài đặt → Quản lý Model AI → Server & API để thêm và bật một nhà cung cấp.';
+      case OcrAiRefineError.noModel:
+        return 'Nhà cung cấp AI đang bật nhưng chưa chọn model. Mở Cài đặt → Quản lý Model AI → Server & API để chọn model.';
+      case OcrAiRefineError.offlineOnly:
+        return 'Định tuyến AI Chat đang đặt “Chỉ offline”. Đổi sang “Ưu tiên online” trong Cài đặt → Quản lý Model AI → Server & API.';
+      case OcrAiRefineError.noNetwork:
+        return 'Không có kết nối mạng. Kết nối Wi-Fi hoặc dữ liệu di động rồi thử lại.';
+      case OcrAiRefineError.missingApiKey:
+        return 'Nhà cung cấp AI chưa có API key. Nhập API key trong Cài đặt → Quản lý Model AI → Server & API.';
+      case OcrAiRefineError.unauthorized:
+        return 'API key của nhà cung cấp AI không hợp lệ hoặc đã hết hạn. Kiểm tra lại trong Cài đặt → Quản lý Model AI → Server & API.';
+      case OcrAiRefineError.rateLimited:
+        return 'Nhà cung cấp AI đang giới hạn truy vấn. Chờ một lát rồi thử lại.';
+      case OcrAiRefineError.timeout:
+        return 'Hết thời gian chờ nhà cung cấp AI. Kiểm tra kết nối rồi thử lại.';
+      case OcrAiRefineError.tooLong:
+        return 'Văn bản quá dài để tinh chỉnh một lần. Chọn ít dòng hơn rồi thử lại.';
+      case OcrAiRefineError.emptyOutput:
+        return 'AI không trả về nội dung nào. Thử lại hoặc chọn model khác trong Cài đặt → Quản lý Model AI → Server & API.';
+      case OcrAiRefineError.emptyInput:
+      case OcrAiRefineError.requestFailed:
+        return 'Không thể tinh chỉnh lúc này. Kiểm tra cấu hình AI và kết nối rồi thử lại.';
+    }
+  }
+
+  /// Chỉ ghép nhãn provider khi nhãn đó là thứ người dùng cần đối chiếu.
+  static bool _mentionsProvider(OcrAiRefineError code) {
+    switch (code) {
+      case OcrAiRefineError.noModel:
+      case OcrAiRefineError.missingApiKey:
+      case OcrAiRefineError.unauthorized:
+      case OcrAiRefineError.rateLimited:
+        return true;
+      case OcrAiRefineError.emptyInput:
+      case OcrAiRefineError.noProvider:
+      case OcrAiRefineError.offlineOnly:
+      case OcrAiRefineError.noNetwork:
+      case OcrAiRefineError.timeout:
+      case OcrAiRefineError.tooLong:
+      case OcrAiRefineError.emptyOutput:
+      case OcrAiRefineError.requestFailed:
+        return false;
     }
   }
 

@@ -104,6 +104,44 @@ void main() {
         isNull,
       );
     });
+
+    test('payload chỉ thêm `collapsed` khi khối THU GỌN', () {
+      const plain = ScreenBlock(
+        rect: OverlayRect(left: 0, top: 0, right: 10, bottom: 10),
+        original: 'a',
+        translation: 'b',
+      );
+      expect(plain.toMap().containsKey('collapsed'), isFalse);
+
+      const chip = ScreenBlock(
+        rect: OverlayRect(left: 0, top: 0, right: 20, bottom: 20),
+        original: 'a',
+        translation: 'bản dịch dài',
+        collapsed: true,
+      );
+      expect(chip.toMap()['collapsed'], isTrue);
+      expect(chip.hasTranslation, isTrue, reason: 'chip vẫn là đầu ra hợp lệ');
+      expect(chip.isExpanded, isFalse);
+      expect(ScreenBlock.fromMap(chip.toMap())!.collapsed, isTrue);
+    });
+
+    test('result.toMap: pendingBlocks/ocrBlocks chỉ có mặt khi > 0', () {
+      const none = ScreenTranslateResult(status: ScreenTranslateStatus.ok);
+      expect(none.toMap().containsKey('pendingBlocks'), isFalse);
+      expect(none.hasPending, isFalse);
+
+      const some = ScreenTranslateResult(
+        status: ScreenTranslateStatus.ok,
+        pendingBlocks: 7,
+        ocrBlocks: 39,
+      );
+      expect(some.toMap()['pendingBlocks'], 7);
+      expect(some.toMap()['ocrBlocks'], 39);
+      expect(some.hasPending, isTrue);
+      final back = ScreenTranslateResult.fromMap(some.toMap());
+      expect(back.pendingBlocks, 7);
+      expect(back.ocrBlocks, 39);
+    });
   });
 
   group('ScreenTranslateWorkerBinding', () {
@@ -151,6 +189,71 @@ void main() {
         const MethodCall(ScreenTranslateProtocol.methodOnStopped),
       );
       expect(stopped, isTrue);
+    });
+
+    // ── PSRC-211 vòng 2 — hai lối vào mới của native ──────────────────
+    test('translatePending: native hỏi lượt "Dịch tiếp" ⇒ trả payload map',
+        () async {
+      var calls = 0;
+      final binding = ScreenTranslateWorkerBinding(
+        onFrame: (_) async =>
+            const ScreenTranslateResult(status: ScreenTranslateStatus.ok),
+        onTranslatePending: () async {
+          calls++;
+          return const ScreenTranslateResult(
+            status: ScreenTranslateStatus.ok,
+            blocks: <ScreenBlock>[
+              ScreenBlock(
+                rect: OverlayRect(left: 0, top: 0, right: 10, bottom: 10),
+                original: 'còn lại',
+                translation: 'remaining',
+              ),
+            ],
+          );
+        },
+      );
+      final out = await binding.handleCall(
+        const MethodCall(ScreenTranslateProtocol.methodTranslatePending),
+      );
+      expect(calls, 1);
+      final payload = out! as Map;
+      expect(payload['status'], 'ok');
+      expect(payload['blocks'] as List, hasLength(1));
+    });
+
+    test('translatePending khi hết phần dư ⇒ null (native ẩn chip)', () async {
+      final binding = ScreenTranslateWorkerBinding(
+        onFrame: (_) async =>
+            const ScreenTranslateResult(status: ScreenTranslateStatus.ok),
+        onTranslatePending: () async => null,
+      );
+      final out = await binding.handleCall(
+        const MethodCall(ScreenTranslateProtocol.methodTranslatePending),
+      );
+      expect(out, isNull);
+    });
+
+    test('expandBlock trả bản dịch NGUYÊN VẸN của khối được chạm', () async {
+      final binding = ScreenTranslateWorkerBinding(
+        onFrame: (_) async =>
+            const ScreenTranslateResult(status: ScreenTranslateStatus.ok),
+        onExpandBlock: (index) => <String, Object?>{
+          'original': 'gốc $index',
+          'translation': 'đầy đủ $index',
+        },
+      );
+      final out = await binding.handleCall(
+        const MethodCall(
+          ScreenTranslateProtocol.methodExpandBlock,
+          <Object?, Object?>{'blockIndex': 3},
+        ),
+      );
+      expect((out! as Map)['translation'], 'đầy đủ 3');
+      // Thiếu index ⇒ null, không ném (native không mở popup rỗng).
+      final missing = await binding.handleCall(
+        const MethodCall(ScreenTranslateProtocol.methodExpandBlock),
+      );
+      expect(missing, isNull);
     });
 
     test('method lạ ⇒ MissingPluginException', () async {

@@ -105,6 +105,81 @@ void main() {
     test('hạn mức 0 ⇒ rỗng', () {
       expect(selectBlocksToTranslate(<OcrBlock>[block('a')], 0), isEmpty);
     });
+
+    // ── PSRC-211 vòng 2 · mục 4 — trần 32 KHÔNG bỏ vĩnh viễn phần dư ──
+    test('70 khối vào ⇒ 32 dịch + 38 pending, đúng thứ tự đọc, không trùng',
+        () {
+      final blocks = <OcrBlock>[
+        for (var i = 0; i < 70; i++)
+          block('dòng $i', top: i * 30, size: 10 + i),
+      ];
+      final selection = rankBlocksForTranslate(
+        blocks,
+        kScreenTranslateMaxBlocks,
+        viewportTop: 0,
+        viewportBottom: 2400,
+      );
+      expect(selection.selected, hasLength(32),
+          reason: 'trần 32 khối MỖI LƯỢT giữ nguyên (không nâng 64)');
+      expect(selection.pendingBlocks, 38,
+          reason: 'phần dư phải ĐẾM ĐƯỢC, không biến mất');
+
+      // Thứ tự đọc được giữ: top tăng dần.
+      final tops = selection.selected.map((b) => b.rect.top).toList();
+      expect(tops, orderedEquals(List<int>.of(tops)..sort()));
+
+      // Không khối nào xuất hiện hai lần, và không khối nào vừa chọn vừa dư.
+      final ids = selection.selected.map((b) => identityHashCode(b)).toSet();
+      expect(ids, hasLength(32));
+      for (final pending in selection.pending) {
+        expect(ids.contains(identityHashCode(pending)), isFalse);
+      }
+      expect(
+        selection.selected.length + selection.pendingBlocks,
+        70,
+        reason: 'chọn + dư = toàn bộ khối có chữ ⇒ không bỏ im lặng',
+      );
+    });
+
+    test('viewport cắt nửa trên màn hình ⇒ khối ĐANG NHÌN được chọn trước',
+        () {
+      // 40 khối: 20 khối đầu nằm trên viewport, 20 khối sau nằm trong.
+      final blocks = <OcrBlock>[
+        for (var i = 0; i < 40; i++) block('dòng $i', top: i * 60, size: 40),
+      ];
+      final selection = rankBlocksForTranslate(
+        blocks,
+        10,
+        viewportTop: 1200,
+        viewportBottom: 2400,
+      );
+      expect(selection.selected, hasLength(10));
+      for (final picked in selection.selected) {
+        expect(picked.rect.top, greaterThanOrEqualTo(1200),
+            reason: 'khối ngoài viewport không được chiếm suất khi còn khối '
+                'trong viewport');
+      }
+      expect(selection.pendingBlocks, 30);
+    });
+
+    test('màn hình thật: hết khối thì pending = 0, không báo dư giả', () {
+      final selection = rankBlocksForTranslate(<OcrBlock>[
+        block('a', top: 0),
+        block('bb', top: 100),
+      ], kScreenTranslateMaxBlocks);
+      expect(selection.pendingBlocks, 0);
+      expect(selection.selected, hasLength(2));
+    });
+
+    test('hạn mức 0 vẫn đếm phần dư (không bỏ im lặng)', () {
+      final selection = rankBlocksForTranslate(<OcrBlock>[
+        block('a'),
+        block('12:30', top: 50), // không có chữ cái ⇒ không tính là phần dư
+        block('bb', top: 100),
+      ], 0);
+      expect(selection.selected, isEmpty);
+      expect(selection.pendingBlocks, 2);
+    });
   });
 
   group('ScreenTranslateController.handleFrame', () {
@@ -294,6 +369,190 @@ void main() {
       );
       expect(calls, 2);
       expect(result.blocks, hasLength(2));
+    });
+
+    // ── PSRC-211 vòng 2 · mục 4 — "còn N khối · Dịch tiếp" ─────────────
+    test('trần 32: pending giữ ĐỦ phần dư, không cắt còn 32', () async {
+      // 70 khối ⇒ 38 chờ. Bản trước cắt hàng đợi còn đúng `maxBlocks` ⇒ lượt
+      // "Dịch tiếp" chỉ cứu được 32, 6 khối biến mất vĩnh viễn.
+      final blocks = <OcrBlock>[
+        for (var i = 0; i < 70; i++) block('dòng số $i', top: i * 10, size: 8),
+      ];
+      final selection = rankBlocksForTranslate(blocks, 32);
+      expect(selection.pending, hasLength(38),
+          reason: 'hàng đợi phải giữ đủ 38 khối dư');
+      expect(selection.pendingBlocks, 38);
+    });
+
+    test('vượt trần 32 ⇒ result báo pendingBlocks > 0 (không bỏ im lặng)',
+        () async {
+      // Frame CỠ THẬT (>= 200px) để layout không bị bỏ qua.
+      final controller = build(
+        maxBlocks: 2,
+        blocks: <OcrBlock>[
+          block('một', top: 0, size: 20),
+          block('hai', top: 100, size: 20),
+          block('ba', top: 200, size: 20),
+          block('bốn', top: 300, size: 20),
+        ],
+      );
+      final result = await controller.handleFrame(
+        fakeFrame(width: 50, height: 200, screenWidth: 100, screenHeight: 400),
+      );
+      expect(result.status, ScreenTranslateStatus.ok);
+      expect(result.pendingBlocks, 2,
+          reason: '2 khối dịch + 2 khối dư ⇒ chip "còn 2 khối · Dịch tiếp"');
+      expect(result.hasPending, isTrue);
+      expect(controller.pendingCount, 2);
+      expect(result.toMap()['pendingBlocks'], 2,
+          reason: 'native đọc đúng tên khoá này để hiện chip');
+    });
+
+    test('70 khối: lượt đầu 32 + lượt "Dịch tiếp" 32 + còn 6 (KHÔNG mất khối)',
+        () async {
+      var now = DateTime(2026, 11, 13, 12);
+      var calls = 0;
+      final controller = build(
+        maxBlocks: 32,
+        gate: CaptureGate(now: () => now),
+        blocks: <OcrBlock>[
+          for (var i = 0; i < 70; i++) block('dòng số $i', top: i * 10, size: 8),
+        ],
+        translator: (text, target) async {
+          calls++;
+          return TranslationResult.success(
+            original: text,
+            translated: 'VI $text',
+            engine: 'fake',
+          );
+        },
+      );
+      final frame0 =
+          fakeFrame(width: 50, height: 200, screenWidth: 100, screenHeight: 400);
+
+      final first = await controller.handleFrame(frame0);
+      expect(first.pendingBlocks, 38);
+      expect(calls, 32);
+
+      now = now.add(const Duration(seconds: 4));
+      final second = await controller.translatePendingBlocks();
+      expect(second!.blocks, hasLength(32));
+      expect(second.pendingBlocks, 6,
+          reason: '"Dịch tiếp" chỉ dịch thêm MỘT lượt trần 32, không tự lặp');
+      expect(calls, 64);
+      expect(controller.pendingCount, 6);
+
+      now = now.add(const Duration(seconds: 4));
+      final third = await controller.translatePendingBlocks();
+      expect(third!.blocks, hasLength(6),
+          reason: 'phần dư cuối cùng vẫn dịch được — 32+32+6 = 70 khối');
+      expect(third.pendingBlocks, 0);
+      expect(calls, 70);
+      expect(controller.pendingCount, 0);
+    });
+
+    test('lượt "Dịch tiếp" dịch nốt phần dư rồi trả về, pending về 0',
+        () async {
+      // Đồng hồ giả: `CaptureGate.complete()` tính lại mốc debounce từ lúc
+      // KẾT THÚC lượt (chống spam bấm), nên lượt "Dịch tiếp" ngay sau lượt đầu
+      // sẽ bị bỏ nếu không tua đồng hồ. Trên máy thật người dùng bấm chip sau
+      // vài giây nên đây mới đúng là kịch bản cần test.
+      var now = DateTime(2026, 11, 13, 12);
+      final controller = build(
+        maxBlocks: 2,
+        gate: CaptureGate(now: () => now),
+        blocks: <OcrBlock>[
+          block('một', top: 0, size: 20),
+          block('hai', top: 100, size: 20),
+          block('ba', top: 200, size: 20),
+        ],
+      );
+      final first = await controller.handleFrame(
+        fakeFrame(width: 50, height: 200, screenWidth: 100, screenHeight: 400),
+      );
+      expect(first.pendingBlocks, 1);
+
+      now = now.add(const Duration(seconds: 4));
+      final second =
+          await controller.translatePendingBlocks(targetLanguage: 'VI');
+      expect(second, isNotNull);
+      expect(second!.status, ScreenTranslateStatus.ok);
+      expect(second.blocks, hasLength(1));
+      expect(second.blocks.single.hasTranslation, isTrue);
+      // Hết phần dư ⇒ chip tự ẩn ở lượt sau.
+      expect(controller.pendingCount, 0);
+      expect(await controller.translatePendingBlocks(), isNull,
+          reason: 'không còn phần dư ⇒ null để native ẩn chip');
+    });
+
+    // ── mục 7.3 — lọc số/ký hiệu/link TRƯỚC khi cắt hạn mức ──────────────
+    test('khối rác KHÔNG chiếm suất của trần 32 (lọc trước khi cắt)',
+        () async {
+      // Màn hình dày chữ: 3 khối chữ thật chen giữa rất nhiều khối rác. Bản
+      // cũ cắt 2 khối đầu rồi mới lọc ⇒ cả 2 suất rơi vào khối rác và màn
+      // hình có chữ nhưng không khối nào được dịch.
+      final controller = build(
+        maxBlocks: 2,
+        blocks: <OcrBlock>[
+          block('12:30', top: 0, size: 20),
+          block('100%', top: 40, size: 20),
+          block('https://ví-dụ.com/rat/dai', top: 80, size: 20),
+          block('Chữ thật một', top: 120, size: 20),
+          block('Chữ thật hai', top: 160, size: 20),
+        ],
+      );
+      final result = await controller.handleFrame(
+        fakeFrame(width: 50, height: 200, screenWidth: 100, screenHeight: 400),
+      );
+      expect(result.status, ScreenTranslateStatus.ok);
+      final translated = result.blocks
+          .where((b) => b.hasTranslation)
+          .map((b) => b.original)
+          .toList();
+      expect(translated, containsAll(<String>['Chữ thật một', 'Chữ thật hai']),
+          reason: 'suất hạn mức phải dành cho khối CÓ CHỮ, không phải giờ/URL');
+      // Khối rác vẫn có mặt (bản dịch rỗng) ⇒ native không vẽ ô trống nhưng
+      // bên gọi vẫn biết đủ vị trí khối OCR.
+      expect(result.blocks, hasLength(5));
+    });
+
+    test('hạn mức tính trên khối có chữ: 5 chữ + 40 rác ⇒ 2 dịch, 3 dư',
+        () async {
+      final controller = build(
+        maxBlocks: 2,
+        blocks: <OcrBlock>[
+          for (var i = 0; i < 40; i++)
+            block('${i % 60}:${(i * 7) % 60}', top: i * 10, size: 5),
+          for (var i = 0; i < 5; i++)
+            block('dòng chữ $i', top: 500 + i * 40, size: 20),
+        ],
+      );
+      final result = await controller.handleFrame(
+        fakeFrame(width: 50, height: 200, screenWidth: 100, screenHeight: 400),
+      );
+      expect(result.pendingBlocks, 3,
+          reason: '5 khối chữ, hạn mức 2 ⇒ còn 3; 40 khối số không tính');
+    });
+
+    test('"Dịch tiếp" không tự lặp vô hạn: cổng chặn bấm dồn', () async {
+      var now = DateTime(2026, 11, 13, 12);
+      final controller = build(
+        maxBlocks: 1,
+        gate: CaptureGate(now: () => now),
+        blocks: <OcrBlock>[
+          block('một', top: 0, size: 20),
+          block('hai', top: 100, size: 20),
+        ],
+      );
+      await controller.handleFrame(
+        fakeFrame(width: 50, height: 200, screenWidth: 100, screenHeight: 400),
+      );
+      now = now.add(const Duration(seconds: 4));
+      final first = await controller.translatePendingBlocks();
+      final second = await controller.translatePendingBlocks();
+      expect(first, isNotNull);
+      // Lượt thứ hai (bấm liên tiếp) bị CaptureGate bỏ ⇒ không đốt quota engine.
+      expect(second?.status, ScreenTranslateStatus.skipped);
     });
   });
 }

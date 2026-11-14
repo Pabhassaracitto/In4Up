@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PSRC-211 vòng 2 — chuỗi chip thu gọn / "còn N khối · Dịch tiếp".
+     Nguồn: tool/priority_native_pack.json (cùng 8 locale với pack ưu tiên).
+     values/strings_screen_translate.xml là bản tiếng Anh mặc định. -->
+<resources>
+    <string name="screen_translate_collapsed_title">此文字區塊的譯文</string>
+    <string name="screen_translate_collapsed_note">此文字區塊空間不足，已折疊——點按小標籤可查看完整譯文。</string>
+    <string name="screen_translate_pending_chip">還有 %1$d 個文字區塊 · 繼續翻譯</string>
+    <string name="screen_translate_pending_tap">繼續翻譯剩餘的 %1$d 個文字區塊</string>
+</resources>

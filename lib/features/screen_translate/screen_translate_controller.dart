@@ -144,6 +144,64 @@ const int kScreenTranslateConcurrency = 3;
 /// Ngôn ngữ nguồn mặc định: để engine tự nhận diện.
 const String kScreenTranslateAutoSource = 'AUTO';
 
+/// Một khối còn dư của lượt trước, đã quy về TOẠ ĐỘ MÀN HÌNH.
+///
+/// PSRC-211 vòng 2 (mục 4): trần [kScreenTranslateMaxBlocks] giữ nguyên, phần
+/// dư không bị bỏ mà để dành cho lượt "Dịch tiếp". Toạ độ đã map sẵn nên lượt
+/// sau không phải đoán lại ảnh chụp cũ (ảnh đó không còn).
+class PendingScreenBlock {
+  const PendingScreenBlock({
+    required this.rect,
+    required this.original,
+    required this.text,
+    required this.textSizeSp,
+  });
+
+  /// Khung trên màn hình (pixel) tại lượt phát hiện ra nó.
+  final OverlayRect rect;
+
+  /// Chữ gốc như OCR đọc được (hiện khi user bật "xem bản gốc").
+  final String original;
+
+  /// Chữ đã nối dòng (gửi cho engine).
+  final String text;
+
+  final double textSizeSp;
+
+  Map<String, Object?> toMap() => <String, Object?>{
+        ...rect.toMap(),
+        'original': original,
+        'text': text,
+        'textSizeSp': textSizeSp,
+      };
+
+  static PendingScreenBlock? fromMap(Map<Object?, Object?> map) {
+    int? toInt(Object? v) {
+      if (v is int) return v;
+      if (v is num) return v.round();
+      if (v is String) return int.tryParse(v);
+      return null;
+    }
+
+    final left = toInt(map['left']);
+    final top = toInt(map['top']);
+    final right = toInt(map['right']);
+    final bottom = toInt(map['bottom']);
+    final text = map['text'];
+    if (left == null || top == null || right == null || bottom == null) {
+      return null;
+    }
+    if (text is! String || text.trim().isEmpty) return null;
+    final size = map['textSizeSp'];
+    return PendingScreenBlock(
+      rect: OverlayRect(left: left, top: top, right: right, bottom: bottom),
+      original: (map['original'] as String?) ?? text,
+      text: text,
+      textSizeSp: size is num ? size.toDouble() : 14.0,
+    );
+  }
+}
+
 /// Bộ điều phối một lượt dịch màn hình.
 class ScreenTranslateController {
   ScreenTranslateController({
@@ -173,6 +231,10 @@ class ScreenTranslateController {
   final CaptureGate _gate;
   final ScreenProgressReporter? _onProgress;
   final int _maxBlocks;
+
+  /// Phần dư của lượt gần nhất (tối đa [_maxBlocks] khối, đã ở toạ độ màn
+  /// hình) — nguồn cho lượt "Dịch tiếp" (PSRC-211 vòng 2, mục 4).
+  List<PendingScreenBlock> _pending = const <PendingScreenBlock>[];
   final int _concurrency;
   String _localeCode;
   String _sourceLanguage;
@@ -188,6 +250,12 @@ class ScreenTranslateController {
 
   /// Ngôn ngữ nguồn hiện hành ('AUTO' hoặc mã dịch như 'EN').
   String get sourceLanguage => _sourceLanguage;
+
+  /// Số khối còn dư của lượt gần nhất (chưa dịch, đang chờ "Dịch tiếp").
+  int get pendingCount => _pending.length;
+
+  /// Phần dư đang chờ — chỉ để test/chẩn đoán, không gửi xuống native.
+  List<PendingScreenBlock> get pendingBlocks => _pending;
 
   /// Mốc báo tiến trình gần nhất — chặn spam (mỗi khối xong mà đẩy
   /// notification + vẽ lại bong bóng 32 lần thì chính việc báo tiến trình lại
@@ -304,6 +372,167 @@ class ScreenTranslateController {
     } finally {
       _gate.complete();
     }
+  }
+
+  /// Lượt "Dịch tiếp": dịch phần dư [pendingBlocks] của lượt gần nhất.
+  ///
+  /// PSRC-211 vòng 2 (mục 4 của `L4-hub-tra-loi.md`): chip "còn N khối · Dịch
+  /// tiếp" của native gọi vào đây. Toạ độ khối đã ở hệ màn hình nên KHÔNG cần
+  /// chụp lại — ảnh của lượt trước đã được giải phóng, và chụp mới sẽ là một
+  /// lượt khác (có thể ra tập khối khác) chứ không phải "dịch tiếp phần dư".
+  ///
+  /// Không có phần dư ⇒ null (native coi như đã hết, ẩn chip).
+  /// Cổng [CaptureGate]: bấm liên tục vẫn bị chặn như lượt chụp thường, nên
+  /// không tự vòng lặp vô hạn và không đốt quota engine.
+  Future<ScreenTranslateResult?> translatePendingBlocks({
+    String? targetLanguage,
+  }) async {
+    if (_pending.isEmpty) return null;
+    if (!_gate.tryAcquire()) {
+      return ScreenTranslateResult.skipped(_t('Đang dịch màn hình, chờ chút…'));
+    }
+    final stopwatch = Stopwatch()..start();
+    try {
+      return await _runPending(
+        targetLanguage ??
+            AppLanguageCatalog.normalizeTranslationCode('VI', fallback: 'VI'),
+        stopwatch,
+      );
+    } catch (e) {
+      debugPrint('❌ screen translate translatePendingBlocks: $e');
+      return ScreenTranslateResult(
+        status: ScreenTranslateStatus.error,
+        message: _t('Dịch màn hình thất bại'),
+        elapsed: stopwatch.elapsed,
+      );
+    } finally {
+      _gate.complete();
+    }
+  }
+
+  /// Phần thân của lượt "Dịch tiếp" — thuần Dart, test được trên host VM.
+  Future<ScreenTranslateResult> _runPending(
+    String target,
+    Stopwatch stopwatch,
+  ) async {
+    // Mỗi lượt vẫn giữ trần [kScreenTranslateMaxBlocks] (mốc 3 giây + quota
+    // engine). Phần dư còn lại ở yên trong hàng đợi cho lần bấm tiếp theo ⇒
+    // không bao giờ mất khối, cũng không tự lặp vô hạn.
+    final limit = math.max(0, _maxBlocks);
+    final batch = _pending.take(limit).toList(growable: false);
+    final rest = _pending.skip(limit).toList(growable: false);
+    final missing = <String>{};
+    final engines = <String>[];
+    var anyTranslated = false;
+    var doneCount = 0;
+
+    _report(
+      ScreenTranslateStage.translating,
+      done: 0,
+      total: batch.length,
+    );
+
+    final inflight = <String, Future<TranslationResult>>{};
+    Future<TranslationResult> translateOnce(String text) {
+      final key = text.trim();
+      return inflight.putIfAbsent(
+        key,
+        () => _translateBlock(key, target, _sourceLanguage),
+      );
+    }
+
+    final out = List<ScreenBlock?>.filled(batch.length, null);
+    Future<void> runOne(int index) async {
+      final pending = batch[index];
+      var translation = '';
+      try {
+        final result = await translateOnce(pending.text);
+        if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+          translation = normalizeOverlayText(result.translatedText);
+          anyTranslated = true;
+          if (engines.isEmpty) engines.add(result.engineName);
+        } else {
+          final codes = result.missingModelCodes;
+          if (codes != null) missing.addAll(codes);
+        }
+      } catch (e) {
+        debugPrint('❌ screen translate khối dư "${pending.text}": $e');
+      }
+      out[index] = ScreenBlock(
+        rect: pending.rect,
+        original: pending.original,
+        translation: translation,
+        textSizeSp: pending.textSizeSp,
+      );
+      doneCount++;
+      _report(
+        ScreenTranslateStage.translating,
+        done: doneCount,
+        total: batch.length,
+        force: doneCount >= batch.length,
+      );
+    }
+
+    var next = 0;
+    final workerCount = math.max(1, math.min(_concurrency, batch.length));
+    Future<void> worker() async {
+      while (true) {
+        final slot = next;
+        if (slot >= batch.length) return;
+        next = slot + 1;
+        await runOne(slot);
+      }
+    }
+
+    await Future.wait(
+      List<Future<void>>.generate(workerCount, (_) => worker()),
+    );
+
+    _report(ScreenTranslateStage.finishing);
+
+    // Lượt này xong `batch`; phần còn lại (nếu có) vẫn chờ ⇒ chip "còn N
+    // khối" tự cập nhật đúng số, về 0 khi đã dịch hết.
+    _pending = rest;
+
+    final rawBlocks = <ScreenBlock>[
+      for (final block in out)
+        if (block != null) block,
+    ];
+    final translatedCount = rawBlocks.where((b) => b.hasTranslation).length;
+    debugPrint(
+      'ℹ️ screen translate pending round: pending=${batch.length} '
+      'translated=$translatedCount',
+    );
+
+    if (!anyTranslated) {
+      if (missing.isNotEmpty) {
+        return ScreenTranslateResult(
+          status: ScreenTranslateStatus.missingModel,
+          blocks: rawBlocks,
+          message: _t('Chưa tải gói dịch ngoại tuyến cho ngôn ngữ này'),
+          missingModelCodes: missing.toList(growable: false),
+          elapsed: stopwatch.elapsed,
+          pendingBlocks: rest.length,
+        );
+      }
+      return ScreenTranslateResult(
+        status: ScreenTranslateStatus.error,
+        blocks: rawBlocks,
+        message: _t('Dịch màn hình thất bại'),
+        elapsed: stopwatch.elapsed,
+        pendingBlocks: rest.length,
+      );
+    }
+
+    return ScreenTranslateResult(
+      status: ScreenTranslateStatus.ok,
+      blocks: rawBlocks,
+      engine: engines.isEmpty ? '' : engines.first,
+      missingModelCodes: missing.toList(growable: false),
+      elapsed: stopwatch.elapsed,
+      // Vẫn còn khối chờ (màn hình > 2× trần 32) ⇒ chip tiếp tục hiện đúng số.
+      pendingBlocks: rest.length,
+    );
   }
 
   /// Chuẩn hoá mã ngôn ngữ nguồn. Lạ/không hỗ trợ ⇒ AUTO (không đoán bừa).
@@ -434,16 +663,54 @@ class ScreenTranslateController {
     // Điều kiện gộp rất chặt (xem `belongToSameParagraph`); không khớp thì
     // danh sách giữ nguyên như trước.
     final paragraphs = mergeWrappedBlocks(ocr.blocks);
-    final selected = selectBlocksToTranslate(paragraphs, _maxBlocks);
-    final translatable = <int>[
-      for (var i = 0; i < selected.length; i++)
-        if (hasTranslatableLetters(selected[i].text) &&
+
+    // PSRC-211 (mục 7.3 của `L4-hub-tra-loi.md`) - LỌC RÁC TRƯỚC KHI CẮT HẠN
+    // MỨC. Bản trước cắt `take(32)` rồi mới loại số/ký hiệu/link, nên trên màn
+    // hình dày chữ những khối rác (giờ, icon, URL) vẫn chiếm suất của khối chữ
+    // thật ⇒ khối thật bị bỏ. Giờ rác bị loại trước, hạn mức chỉ tính khối có
+    // chữ; TRẦN VẪN LÀ [kScreenTranslateMaxBlocks] (không nâng lên 64).
+    final worthTranslating = <OcrBlock>[
+      for (final block in paragraphs)
+        if (hasTranslatableLetters(block.text) &&
             // AUDIT-1.21.0 #6: thanh địa chỉ / link trong trang không phải
             // nội dung cần dịch (trước đây overlay hiện nguyên URL như "bản
             // dịch" và đốt 1 request engine cho mỗi link).
+            !isLinkOnlyText(block.text))
+          block,
+    ];
+
+    // Mục 4: khối đang nằm trong viewport được dịch trước; phần dư trả về
+    // `pendingBlocks` thay vì biến mất.
+    //
+    // Xếp hạng chạy trên ĐÚNG tập ĐÁNG dịch (mục 7.3): nếu xếp hạng cả khối
+    // số/ký hiệu/link thì trên màn hình dày chữ chúng vẫn chiếm suất của trần
+    // 32 ⇒ khối chữ thật rơi vào phần dư. Khối rác KHÔNG bị bỏ: nó vẫn có mặt
+    // trong kết quả với bản dịch rỗng (native bỏ qua khi vẽ) như hành vi cũ,
+    // chỉ là không tính vào hạn mức.
+    final selection = rankBlocksForTranslate(
+      worthTranslating,
+      _maxBlocks,
+      viewportTop: 0,
+      viewportBottom: geometry.screenHeight,
+    );
+    final keptForTranslate = selection.selected.toSet();
+    final worthSet = worthTranslating.toSet();
+    // Giữ NGUYÊN thứ tự đọc của màn hình (trần 32 chỉ quyết định khối nào
+    // được dịch, không đổi thứ tự trả về).
+    final selected = <OcrBlock>[
+      for (final block in paragraphs)
+        if (keptForTranslate.contains(block) || !worthSet.contains(block)) block,
+    ];
+    final translatable = <int>[
+      for (var i = 0; i < selected.length; i++)
+        if (hasTranslatableLetters(selected[i].text) &&
             !isLinkOnlyText(selected[i].text))
           i,
     ];
+
+    // Số khối CÓ CHỮ còn lại sau lượt này (đã trừ rác/link) — chip "còn N
+    // khối · Dịch tiếp" ở native đọc đúng số này.
+    final pendingBlocks = selection.pendingBlocks;
     if (translatable.isEmpty) {
       // Có khung chữ nhưng toàn số/ký hiệu ⇒ không có gì để dịch. Nói rõ
       // thay vì trả `ok` với màn hình trống.
@@ -451,6 +718,7 @@ class ScreenTranslateController {
         status: ScreenTranslateStatus.noText,
         message: _t('Không thấy chữ nào cần dịch trên màn hình'),
         elapsed: stopwatch.elapsed,
+        ocrBlocks: ocr.blocks.length,
       );
     }
 
@@ -596,8 +864,33 @@ class ScreenTranslateController {
       'ℹ️ screen translate blocks: ocr=${ocr.blocks.length} '
       'paragraphs=${paragraphs.length} selected=${selected.length} '
       'translatable=${translatable.length} translated=$translatedCount '
-      'drawn=$drawnCount',
+      'drawn=$drawnCount pending=$pendingBlocks',
     );
+
+    // Mục 4: ghi lại TOÀN BỘ phần dư (ĐÃ map sang toạ độ màn hình) để lượt
+    // "Dịch tiếp" không phải chụp lại ảnh cũ. KHÔNG cắt ở đây: hạn mức
+    // [kScreenTranslateMaxBlocks] áp cho MỖI lượt, còn hàng đợi phải giữ đủ
+    // phần dư (70 khối ⇒ 32 dịch + 38 chờ; cắt ngay 32 thì 6 khối biến mất
+    // sau lượt thứ hai — đúng lỗi "bỏ khối im lặng" mà mục 4 cấm).
+    _pending = <PendingScreenBlock>[
+      for (final block in selection.pending)
+        PendingScreenBlock(
+          rect: mapCaptureRectToOverlay(
+            offsetOcrRect(block.rect, dx: offsetX, dy: offsetY),
+            geometry,
+          ),
+          original: block.text,
+          text: reflowOcrText(block.text),
+          textSizeSp: _blockTextSizeSp(
+            mapCaptureRectToOverlay(
+              offsetOcrRect(block.rect, dx: offsetX, dy: offsetY),
+              geometry,
+            ),
+            block.text,
+            geometry,
+          ),
+        ),
+    ];
 
     if (!anyTranslated && missing.isNotEmpty) {
       // Luật vàng: KHÔNG tự tải model. Nói rõ thiếu gì để user vào Cài đặt
@@ -608,6 +901,8 @@ class ScreenTranslateController {
         message: _t('Chưa tải gói dịch ngoại tuyến cho ngôn ngữ này'),
         missingModelCodes: missing.toList(growable: false),
         elapsed: stopwatch.elapsed,
+        pendingBlocks: pendingBlocks,
+        ocrBlocks: ocr.blocks.length,
       );
     }
     if (!anyTranslated) {
@@ -616,6 +911,8 @@ class ScreenTranslateController {
         blocks: blocks,
         message: _t('Dịch màn hình thất bại'),
         elapsed: stopwatch.elapsed,
+        pendingBlocks: pendingBlocks,
+        ocrBlocks: ocr.blocks.length,
       );
     }
 
@@ -626,6 +923,10 @@ class ScreenTranslateController {
       message: '',
       missingModelCodes: missing.toList(growable: false),
       elapsed: stopwatch.elapsed,
+      // Mục 4: phần dư của trần 32 vẫn ĐẾM ĐƯỢC (native hiện "còn N khối ·
+      // Dịch tiếp"), không bị bỏ vĩnh viễn.
+      pendingBlocks: pendingBlocks,
+      ocrBlocks: ocr.blocks.length,
     );
   }
 }
@@ -657,18 +958,109 @@ double _blockTextSizeSp(
 bool hasTranslatableLetters(String text) =>
     text.trim().isNotEmpty && RegExp(r'\p{L}', unicode: true).hasMatch(text);
 
+/// Kết quả chọn khối của MỘT lượt: phần dịch ngay + phần dư ĐẾM ĐƯỢC.
+///
+/// PSRC-211 vòng 2 (mục 4 của `L4-hub-tra-loi.md`): trần
+/// [kScreenTranslateMaxBlocks] giữ nguyên, nhưng phần dư KHÔNG bị bỏ vĩnh
+/// viễn — nó thành [pendingBlocks] để native hiện chip "còn N khối · Dịch
+/// tiếp". Nhờ vậy không còn đường nào bỏ khối im lặng.
+class ScreenBlockSelection {
+  const ScreenBlockSelection({
+    required this.selected,
+    required this.pendingBlocks,
+    this.pending = const <OcrBlock>[],
+  });
+
+  /// Khối dịch trong lượt này — GIỮ NGUYÊN thứ tự đọc của màn hình.
+  final List<OcrBlock> selected;
+
+  /// Số khối CÓ CHỮ còn lại, chưa dịch trong lượt này.
+  final int pendingBlocks;
+
+  /// Chính các khối đó, theo thứ tự ưu tiên của lượt kế tiếp.
+  final List<OcrBlock> pending;
+
+  bool get isEmpty => selected.isEmpty;
+}
+
 /// Chọn tối đa [maxBlocks] khối ĐÁNG dịch nhất, GIỮ thứ tự đọc.
 ///
-/// Tiêu chí "đáng": diện tích khung × độ dài chữ — khối to và nhiều chữ là
-/// nội dung chính; icon/nhãn một ký tự rơi xuống cuối.
-List<OcrBlock> selectBlocksToTranslate(List<OcrBlock> blocks, int maxBlocks) {
-  if (maxBlocks <= 0) return const <OcrBlock>[];
-  if (blocks.length <= maxBlocks) return List<OcrBlock>.of(blocks);
+/// Tiêu chí "đáng" (thứ tự ưu tiên, dừng ngay khi đủ):
+///  1. Khối **đang nằm trong viewport** ([viewTop]..[viewBottom]) trước — dịch
+///     cái người dùng đang nhìn thấy trước đã.
+///  2. Rồi tới "diện tích khung × độ dài chữ" như cũ: khối to nhiều chữ là nội
+///     dung chính, icon/nhãn một ký tự rơi xuống cuối.
+///
+/// [viewport] = null (mặc định) ⇒ chỉ xếp theo độ "đáng" như hành vi cũ; đây
+/// là bản giữ tương thích của [rankBlocksForTranslate].
+List<OcrBlock> selectBlocksToTranslate(List<OcrBlock> blocks, int maxBlocks) =>
+    rankBlocksForTranslate(blocks, maxBlocks).selected;
 
+/// Chọn khối cho MỘT lượt dịch + đếm phần dư (xem [ScreenBlockSelection]).
+///
+/// [viewport] là khung nhìn hiện tại theo pixel màn hình (thường là `0..screenHeight`);
+/// truyền `null` để bỏ tiêu chí "đang nhìn thấy".
+ScreenBlockSelection rankBlocksForTranslate(
+  List<OcrBlock> blocks,
+  int maxBlocks, {
+  int? viewportTop,
+  int? viewportBottom,
+}) {
+  if (blocks.isEmpty) {
+    return const ScreenBlockSelection(
+      selected: <OcrBlock>[],
+      pendingBlocks: 0,
+    );
+  }
+  if (maxBlocks <= 0) {
+    // Hạn mức 0 = không dịch gì; vẫn ĐẾM phần dư (không được bỏ im lặng).
+    final withLetters =
+        blocks.where((b) => hasTranslatableLetters(b.text)).length;
+    return ScreenBlockSelection(
+      selected: const <OcrBlock>[],
+      pendingBlocks: withLetters,
+      pending: const <OcrBlock>[],
+    );
+  }
+  if (blocks.length <= maxBlocks) {
+    return ScreenBlockSelection(
+      selected: List<OcrBlock>.of(blocks),
+      pendingBlocks: 0,
+    );
+  }
+
+  final top = viewportTop ?? 0;
+  final bottom = viewportBottom;
+  bool inViewport(OcrBlock block) =>
+      bottom == null ||
+      (block.rect.bottom > top && block.rect.top < bottom);
+
+  // `index` phá thế hoà để kết quả ỔN ĐỊNH giữa hai lần chạy (không phụ thuộc
+  // thứ tự của `sort` Dart khi điểm bằng nhau).
+  final order = <OcrBlock, int>{
+    for (var i = 0; i < blocks.length; i++) blocks[i]: i,
+  };
   final ranked = List<OcrBlock>.of(blocks)
-    ..sort((a, b) => _weight(b).compareTo(_weight(a)));
+    ..sort((a, b) {
+      final visibleA = inViewport(a);
+      final visibleB = inViewport(b);
+      if (visibleA != visibleB) return visibleA ? -1 : 1;
+      final byWeight = _weight(b).compareTo(_weight(a));
+      if (byWeight != 0) return byWeight;
+      return order[a]!.compareTo(order[b]!);
+    });
+
   final keep = ranked.take(maxBlocks).toSet();
-  return blocks.where(keep.contains).toList(growable: false);
+  final selected = blocks.where(keep.contains).toList(growable: false);
+  final pending = <OcrBlock>[
+    for (final block in ranked)
+      if (!keep.contains(block) && hasTranslatableLetters(block.text)) block,
+  ];
+  return ScreenBlockSelection(
+    selected: selected,
+    pendingBlocks: pending.length,
+    pending: pending,
+  );
 }
 
 int _weight(OcrBlock block) =>

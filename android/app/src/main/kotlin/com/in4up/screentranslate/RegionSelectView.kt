@@ -93,6 +93,7 @@ class RegionSelectView(
     private val dimBottom = Rect()
     private val dimLeft = Rect()
     private val dimRight = Rect()
+    private val windowLocation = IntArray(2)
 
     init {
         // View toàn màn hình, nhận chạm (khác overlay bản dịch — cái đó
@@ -225,6 +226,10 @@ class RegionSelectView(
             } else if (tooSmall) {
                 onCancelled(true)
             } else {
+                // Quy đổi về toạ độ màn hình vật lý (khớp MediaProjection khi
+                // ROM đẩy overlay xuống dưới tai thỏ/thanh trạng thái).
+                getLocationOnScreen(windowLocation)
+                area.offset(windowLocation[0], windowLocation[1])
                 onRegionSelected(area)
             }
         } catch (e: Exception) {

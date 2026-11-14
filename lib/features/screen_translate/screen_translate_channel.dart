@@ -159,6 +159,8 @@ class ScreenTranslateWorkerBinding {
     MethodChannel? channel,
     required this.onFrame,
     this.onStopped,
+    this.onTranslatePending,
+    this.onExpandBlock,
   }) : _channel = channel ??
             const MethodChannel(ScreenTranslateProtocol.workerChannel);
 
@@ -166,6 +168,12 @@ class ScreenTranslateWorkerBinding {
   final Future<ScreenTranslateResult> Function(Map<Object?, Object?> frame)
       onFrame;
   final void Function()? onStopped;
+
+  /// PSRC-211 vòng 2 — lượt "Dịch tiếp" cho phần dư của trần 32 khối.
+  final Future<ScreenTranslateResult?> Function()? onTranslatePending;
+
+  /// PSRC-211 vòng 2 — trả bản dịch đầy đủ của một khối (native mở popup).
+  final Map<String, Object?>? Function(int index)? onExpandBlock;
 
   /// Gắn handler và báo cho native biết engine nền đã sẵn sàng.
   Future<void> attach() async {
@@ -192,10 +200,39 @@ class ScreenTranslateWorkerBinding {
       case ScreenTranslateProtocol.methodOnStopped:
         onStopped?.call();
         return null;
+      case ScreenTranslateProtocol.methodTranslatePending:
+        final handler = onTranslatePending;
+        if (handler == null) return null;
+        final result = await handler();
+        // `null` = không còn phần dư ⇒ native coi như xong, ẩn chip.
+        return result?.toMap();
+      case ScreenTranslateProtocol.methodExpandBlock:
+        final expand = onExpandBlock;
+        if (expand == null) return null;
+        final args = call.arguments;
+        final index = args is Map ? args[ScreenTranslateProtocol.argBlockIndex] : null;
+        if (index is! num) return null;
+        return expand(index.toInt());
       default:
         throw MissingPluginException(
           'screentranslate worker: method ${call.method} không hỗ trợ',
         );
+    }
+  }
+
+  /// Báo số khối CÒN DƯ để native hiện chip "còn N khối · Dịch tiếp"
+  /// (PSRC-211 vòng 2). Lỗi channel bị nuốt: chip là trang trí so với việc
+  /// đã dịch xong các khối chính.
+  Future<void> reportPending(int pending) async {
+    try {
+      await _channel.invokeMethod<void>(
+        ScreenTranslateProtocol.methodReportPending,
+        <String, Object?>{'pending': pending},
+      );
+    } on PlatformException catch (_) {
+      // build cũ chưa có method — bỏ qua.
+    } on MissingPluginException catch (_) {
+      // Test chạy không có native.
     }
   }
 

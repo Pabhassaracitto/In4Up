@@ -35,6 +35,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../translation/translation_service.dart';
 import 'screen_translate_channel.dart';
 import 'screen_translate_controller.dart';
+import 'screen_translate_models.dart';
 
 /// Giữ tham chiếu để binding không bị GC khi `main` kết thúc.
 ScreenTranslateWorkerBinding? screenTranslateWorkerBinding;
@@ -77,10 +78,50 @@ Future<void> prepareScreenTranslateWorker({
       );
   screenTranslateWorkerController = ctrl;
 
+  // PSRC-211 vòng 2 (mục 3 + 4 của `L4-hub-tra-loi.md`): hai lối vào mới của
+  // native — "Dịch tiếp" phần dư và "mở đủ" một khối thu gọn. Khối gần nhất
+  // được giữ lại đây để popup có nội dung NGUYÊN VẸN (layout không cắt chữ).
+  var lastBlocks = const <ScreenBlock>[];
+
   bind = binding ??
       ScreenTranslateWorkerBinding(
-        onFrame: ctrl.handleFrame,
+        onFrame: (frame) async {
+          final result = await ctrl.handleFrame(frame);
+          lastBlocks = result.blocks;
+          final target = bind;
+          if (target != null) unawaited(target.reportPending(result.pendingBlocks));
+          return result;
+        },
         onStopped: () => debugPrint('ℹ️ screen translate worker: service dừng'),
+        onTranslatePending: () async {
+          final result = await ctrl.translatePendingBlocks();
+          if (result == null) return null;
+          // Lượt "Dịch tiếp" chỉ vẽ phần dư ⇒ gộp vào kết quả đang hiện để
+          // người dùng thấy đủ mọi khối, không mất phần vừa dịch trước đó.
+          final merged = <ScreenBlock>[...lastBlocks, ...result.blocks];
+          lastBlocks = merged;
+          // Còn phần dư nữa (màn hình > 2× trần 32) ⇒ báo lại số cho native để
+          // chip "còn N khối" không bị ẩn sớm khi vẫn còn khối chưa dịch.
+          unawaited(target.reportPending(result.pendingBlocks));
+          return ScreenTranslateResult(
+            status: result.status,
+            blocks: merged,
+            message: result.message,
+            engine: result.engine,
+            missingModelCodes: result.missingModelCodes,
+            elapsed: result.elapsed,
+            pendingBlocks: result.pendingBlocks,
+          );
+        },
+        onExpandBlock: (index) {
+          if (index < 0 || index >= lastBlocks.length) return null;
+          final block = lastBlocks[index];
+          return <String, Object?>{
+            'original': block.original,
+            // Bản dịch NGUYÊN VẸN — native vẽ ở cỡ chữ đọc được (>= 10sp).
+            'translation': block.translation,
+          };
+        },
       );
   screenTranslateWorkerBinding = bind;
   await bind.attach();

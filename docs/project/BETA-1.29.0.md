@@ -267,6 +267,13 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
   mức). Chi tiết: `beta-1.29.0/L4-hub-tra-loi.md` §7. L8 mang trigger `android/app/src/main/kotlin/**`
   vào `vieneu_engine_build.yml` ⇒ từ nay sửa Kotlin có oracle biên dịch (không cần `workflow_dispatch`).
   Chưa nghiệm thu máy thật (G3).
+- 2026-11-14 | land L2 | agent `arena/60e35d65-in4up` | `arena/377f5fa5-in4up` rebase 6 commit →
+  `558e1587` (PSRC-202/203/205/219/220). Hợp nhất xung đột với L7 trong `media_export_follow_up.dart`
+  (giữ "Mở thư mục" của ADR-0029 + luồng kiểm file bị dời của L2). Chốt **không nhúng libmpv**: package
+  `media_kit_libs_linux` trên Linux không bundle lib (set rỗng) ⇒ yêu cầu `libmpv2` từ hệ điều hành, kèm
+  fallback "mở ngoài". Còn nợ G4: cập nhật `pubspec.lock` (chưa ai chạy được `flutter pub get` trong
+  sandbox) + pin `media_kit_libs_linux`. Chưa kiểm Linux thật (G3). Chi tiết:
+  `beta-1.29.0/L2-hub-nghiem-thu.md`.
 
 ## 9. Prompt riêng từng lane (dán **sau** khối §3)
 

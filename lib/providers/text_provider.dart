@@ -962,9 +962,17 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       ));
     }
 
+    // PSRC-233: LRC SONG NGỮ có 2 dòng CÙNG một mốc thời gian (câu gốc +
+    // bản dịch). Bản cũ gán `endTime = startTime` của dòng KẾ cho mọi dòng ⇒
+    // dòng đầu của cặp có cửa sổ 0 giây (`start == end`) nên «đồng bộ tự
+    // động» gần như không bao giờ khớp nó, còn dòng thứ hai (bản dịch) chiếm
+    // trọn khoảng ⇒ highlight rơi vào câu không phát.
+    // Nay: chỉ đặt `endTime` khi mốc kế THẬT SỰ lớn hơn; bằng nhau ⇒ để null
+    // (cửa sổ mở, mọi consumer coi dòng là đang phát tới mốc kế).
     for (int i = 0; i < _lines.length - 1; i++) {
+      final start = _lines[i].startTime;
       final nextStart = _lines[i + 1].startTime;
-      if (nextStart != null) {
+      if (start != null && nextStart != null && nextStart > start) {
         _lines[i] = _lines[i].copyWith(endTime: nextStart);
       }
     }

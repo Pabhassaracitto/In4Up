@@ -11,6 +11,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -232,6 +233,23 @@ class ScreenTranslateService : Service() {
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var overlayView: TranslationOverlayView? = null
 
+    /**
+     * PSRC-211 vòng 2 — bản dịch của lượt gần nhất, giữ để mở popup khi user
+     * chạm một CHIP THU GỌN (mục 3). Chỉ là dữ liệu hiển thị, không giữ bitmap.
+     */
+    private var lastBlocks: List<TranslationOverlayView.TranslatedBlock> =
+        emptyList()
+
+    /**
+     * Lớp chạm TRONG SUỐT đặt đúng trên từng CHIP THU GỌN.
+     *
+     * Overlay bản dịch là `FLAG_NOT_TOUCHABLE` (để user vẫn cuộn/bấm app bên
+     * dưới), nên chip không tự nhận được chạm. Thay vì bật chạm cho CẢ overlay
+     * (sẽ chặn toàn màn hình), chỉ đặt một view nhỏ đúng bằng chip — không che
+     * gì, không chặn chỗ khác.
+     */
+    private val chipTouchTargets = mutableListOf<View>()
+
     // ── Phản hồi khi bấm bong bóng (XLAT-SCR-005) ────────────────────
     private var bubbleState: BubbleState = BubbleState.SETUP
     private var bubblePulse: ValueAnimator? = null
@@ -239,6 +257,16 @@ class ScreenTranslateService : Service() {
     /** Nhãn nhỏ ngay dưới bong bóng: "Đang nhận dạng chữ…", "Đang dịch 3/12…". */
     private var statusChip: TextView? = null
     private var statusChipParams: WindowManager.LayoutParams? = null
+
+    /**
+     * PSRC-211 vòng 2 (mục 4) — chip "còn N khối · Dịch tiếp" ở đáy màn hình.
+     * Chỉ hiện khi lượt vừa rồi còn phần dư (trần 32 khối). Chạm = dịch tiếp,
+     * KHÔNG tự vòng lặp (giữ mốc 3 giây + quota engine).
+     */
+    private var pendingChip: TextView? = null
+    private var pendingChipParams: WindowManager.LayoutParams? = null
+    private var pendingCount = 0
+    private var pendingInFlight = false
 
     /** Khung kéo chọn vùng đang hiển thị (null = không ở chế độ chọn vùng). */
     private var regionView: RegionSelectView? = null
@@ -440,6 +468,7 @@ class ScreenTranslateService : Service() {
         hideOverlay()
         endRegionSelect()
         hideStatusChip()
+        hidePendingChip()
         stopBubblePulse()
         removeBubble()
         destroyEngine()
@@ -454,6 +483,26 @@ class ScreenTranslateService : Service() {
         stopSelf()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (overlayView != null) hideOverlay()
+        if (regionView != null) endRegionSelect()
+        val bubble = bubbleView
+        val params = bubbleParams
+        val wm = windowManager
+        if (bubble != null && params != null && wm != null) {
+            val metrics = screenMetrics()
+            val size = dp(52)
+            params.x = params.x.coerceIn(0, max(0, metrics.widthPixels - size))
+            params.y = params.y.coerceIn(0, max(0, metrics.heightPixels - size))
+            try {
+                wm.updateViewLayout(bubble, params)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     override fun onDestroy() {
         isStopping = true
         isRunning = false
@@ -462,6 +511,7 @@ class ScreenTranslateService : Service() {
         hideOverlay()
         endRegionSelect()
         hideStatusChip()
+        hidePendingChip()
         stopBubblePulse()
         removeBubble()
         destroyEngine()
@@ -525,6 +575,14 @@ class ScreenTranslateService : Service() {
                     // khi đã có kết quả.
                     if (bubbleState == BubbleState.WORKING) showStatusChip(stage)
                 }
+                result.success(null)
+            }
+
+            // PSRC-211 vòng 2 (mục 4): phần dư của trần 32 khối KHÔNG bị bỏ —
+            // native hiện chip "còn N khối · Dịch tiếp" để user dịch tiếp.
+            "reportPending" -> {
+                val pending = call.argument<Int>("pending") ?: 0
+                showPendingChip(pending)
                 result.success(null)
             }
 
@@ -750,6 +808,158 @@ class ScreenTranslateService : Service() {
         }
     }
 
+    // ── Chip "còn N khối · Dịch tiếp" (PSRC-211 vòng 2) ────────────────
+
+    /**
+     * Hiện/ẩn chip "còn N khối · Dịch tiếp".
+     *
+     * Mục 4 của `L4-hub-tra-loi.md`: trần [32 khối] giữ nguyên vì mốc 3 giây và
+     * quota engine, NHƯNG phần dư không được biến mất. Chip chỉ xuất hiện khi
+     * `pending > 0` và tự ẩn khi đã dịch hết.
+     */
+    private fun showPendingChip(pending: Int) {
+        pendingCount = pending
+        if (pending <= 0) {
+            hidePendingChip()
+            return
+        }
+        if (!hasOverlayPermission(this)) return
+        val wm = windowManager ?: return
+        val chip = pendingChip ?: TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            maxLines = 2
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(Color.argb(238, 20, 110, 160))
+                setStroke(dp(1), Color.argb(190, 255, 255, 255))
+            }
+            isClickable = true
+            setOnClickListener { onPendingChipTapped() }
+        }
+        chip.text = if (pending == 1) {
+            getString(R.string.screen_translate_pending_chip_one, pending)
+        } else {
+            getString(R.string.screen_translate_pending_chip, pending)
+        }
+        // Trình đọc màn hình: nói RÕ bấm để làm gì (chuỗi riêng, đủ 8 locale).
+        chip.contentDescription =
+            getString(R.string.screen_translate_pending_tap, pending)
+        val params = pendingChipParams ?: WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            overlayWindowType(),
+            // NHẬN chạm (khác overlay bản dịch): đây là nút bấm thật.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = dp(96)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                fitInsetsTypes = 0
+            }
+        }
+        if (pendingChip == null) {
+            try {
+                wm.addView(chip, params)
+                pendingChip = chip
+                pendingChipParams = params
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else {
+            try {
+                wm.updateViewLayout(chip, params)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun hidePendingChip() {
+        val chip = pendingChip ?: return
+        pendingChip = null
+        pendingChipParams = null
+        try {
+            windowManager?.removeView(chip)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Chạm chip "Dịch tiếp" ⇒ nhờ engine nền dịch phần dư của lượt trước.
+     *
+     * Không tự lặp: mỗi lần chạm là MỘT lượt (đúng luật "mỗi lần bấm = một lượt"
+     * của service), và engine nền đã có `CaptureGate` chặn bấm dồn.
+     */
+    private fun onPendingChipTapped() {
+        val channel = workerChannel
+        if (channel == null || pendingInFlight) {
+            tellUser(getString(R.string.screen_translate_busy), haptic = false)
+            return
+        }
+        vibrate()
+        pendingInFlight = true
+        setBubbleState(BubbleState.WORKING)
+        showStatusChip(getString(R.string.screen_translate_working))
+        channel.invokeMethod(
+            "translatePending",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    pendingInFlight = false
+                    hideStatusChip()
+                    refreshBubbleLook()
+                    val map = result as? Map<*, *>
+                    if (map == null) {
+                        // Không còn phần dư ⇒ ẩn chip, không báo lỗi.
+                        hidePendingChip()
+                        return
+                    }
+                    handleResult(map)
+                }
+
+                override fun error(code: String, message: String?, details: Any?) {
+                    pendingInFlight = false
+                    hideStatusChip()
+                    refreshBubbleLook()
+                    val text = message ?: getString(R.string.screen_translate_error)
+                    reportFailureToBubble(text)
+                    tellUser(text)
+                }
+
+                override fun notImplemented() {
+                    pendingInFlight = false
+                    hideStatusChip()
+                    refreshBubbleLook()
+                    val message = getString(R.string.screen_translate_error)
+                    reportFailureToBubble(message)
+                    tellUser(message)
+                }
+            },
+        )
+    }
+
+    /**
+     * PSRC-211 vòng 2 (mục 3) — mở popup bản dịch ĐẦY ĐỦ của một khối thu gọn.
+     *
+     * Nội dung lấy từ [lastBlocks] (bản dịch nguyên vẹn native vừa nhận), nên
+     * không phải gọi lại engine và không bao giờ hiện chữ đã bị cắt.
+     */
+    private fun expandCollapsedBlock(block: TranslationOverlayView.TranslatedBlock) {
+        // Nhãn i18n lấy ở SERVICE (có `R`), truyền xuống overlay: overlay được
+        // biên dịch riêng bằng kotlinc trong CI nên không đọc được `R`.
+        overlayView?.showCollapsedTranslation(
+            block,
+            getString(R.string.screen_translate_collapsed_title),
+            getString(R.string.screen_translate_collapsed_note),
+            getString(R.string.screen_translate_collapsed_close),
+        )
+    }
+
     private fun hideStatusChip() {
         val chip = statusChip ?: return
         statusChip = null
@@ -812,6 +1022,7 @@ class ScreenTranslateService : Service() {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            applyFullscreenOverlayParams(this)
         }
         try {
             wm.addView(view, params)
@@ -1279,6 +1490,49 @@ class ScreenTranslateService : Service() {
         return true
     }
 
+    private fun syncWarmDisplayIfSizeChanged(): Boolean {
+        val vd = virtualDisplay ?: return false
+        val old = captureMetrics ?: return false
+        val current = screenMetrics()
+        if (current.widthPixels == old.widthPixels &&
+            current.heightPixels == old.heightPixels &&
+            current.densityDpi == old.densityDpi
+        ) {
+            return false
+        }
+        val scale = captureScale(current.widthPixels, current.heightPixels)
+        val newW = max(1, (current.widthPixels * scale).toInt())
+        val newH = max(1, (current.heightPixels * scale).toInt())
+        val newReader = try {
+            ImageReader.newInstance(newW, newH, PixelFormat.RGBA_8888, 3)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+        try {
+            vd.resize(newW, newH, current.densityDpi)
+            vd.setSurface(newReader.surface)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                newReader.close()
+            } catch (_: Exception) {
+            }
+            return false
+        }
+        val oldReader = imageReader
+        imageReader = newReader
+        captureWidth = newW
+        captureHeight = newH
+        captureMetrics = current
+        try {
+            oldReader?.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return true
+    }
+
     private fun captureOnce() {
         if (capturing) return
         val reader = imageReader
@@ -1296,12 +1550,14 @@ class ScreenTranslateService : Service() {
         showStatusChip(getString(R.string.screen_translate_working))
         updateNotification(getString(R.string.screen_translate_working))
 
-        val image = acquire(reader)
+        val resized = syncWarmDisplayIfSizeChanged()
+        val activeReader = imageReader ?: reader
+        val image = if (resized) null else acquire(activeReader)
         if (image == null) {
-            // VirtualDisplay vừa tạo chưa kịp có frame ⇒ thử lại MỘT lần.
+            // VirtualDisplay vừa tạo hoặc vừa đổi kích thước chưa kịp có frame ⇒ thử lại MỘT lần.
             mainHandler.postDelayed(
                 {
-                    val retry = acquire(reader)
+                    val retry = acquire(activeReader)
                     if (retry == null) {
                         capturing = false
                         // Bỏ vùng chọn đã dùng: không được để nó áp nhầm cho
@@ -1418,7 +1674,7 @@ class ScreenTranslateService : Service() {
         val metrics = DisplayMetrics()
         val wm = windowManager ?: getSystemService(Context.WINDOW_SERVICE) as WindowManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val bounds = wm.currentWindowMetrics.bounds
+            val bounds = wm.maximumWindowMetrics.bounds
             val config = resources.displayMetrics
             metrics.widthPixels = bounds.width()
             metrics.heightPixels = bounds.height()
@@ -1550,9 +1806,17 @@ class ScreenTranslateService : Service() {
                 // ⇒ lấy đúng giá trị cũ (tô kín khung, cỡ chữ `textSizeSp`).
                 maxTextSizeSp = (map["maxTextSizeSp"] as? Number)?.toFloat() ?: textSizeSp,
                 coverBottom = (map["coverBottom"] as? Number)?.toInt() ?: bottom,
+                // PSRC-211 vòng 2 — khối thu gọn (không đủ chỗ): vẽ chip.
+                collapsed = map["collapsed"] == true,
             )
         }
+        lastBlocks = blocks
         showOverlay(blocks)
+        // Mục 3: mỗi chip thu gọn cần một vùng chạm nhỏ đúng bằng nó.
+        syncChipTouchTargets(blocks)
+        // Mục 4: chip "còn N khối · Dịch tiếp" chỉ hiện khi còn phần dư.
+        val pending = (result["pendingBlocks"] as? Number)?.toInt() ?: 0
+        showPendingChip(pending)
         val engineName = result["engine"] as? String ?: ""
         updateNotification(
             if (engineName.isEmpty()) {
@@ -1566,7 +1830,9 @@ class ScreenTranslateService : Service() {
     // ───────────────────────── overlay bản dịch ───────────────────────
 
     private fun showOverlay(blocks: List<TranslationOverlayView.TranslatedBlock>) {
-        if (blocks.isEmpty()) {
+        if (blocks.none { it.translation.isNotBlank() || it.collapsed }) {
+            // Không có gì để vẽ (toàn khối dịch hỏng) ⇒ đừng để lại overlay
+            // rỗng + lớp chạm chip mồ côi.
             hideOverlay()
             return
         }
@@ -1591,6 +1857,7 @@ class ScreenTranslateService : Service() {
                 PixelFormat.TRANSLUCENT,
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
+                applyFullscreenOverlayParams(this)
             }
             try {
                 wm.addView(view, params)
@@ -1621,7 +1888,69 @@ class ScreenTranslateService : Service() {
         view.setBlocks(blocks)
     }
 
+    /**
+     * Đặt lại các lớp chạm cho CHIP THU GỌN (PSRC-211 vòng 2, mục 3).
+     *
+     * Gọi sau mỗi lượt vẽ. Không có chip ⇒ chỉ dọn lớp cũ.
+     */
+    private fun syncChipTouchTargets(
+        blocks: List<TranslationOverlayView.TranslatedBlock>,
+    ) {
+        val wm = windowManager ?: return
+        for (target in chipTouchTargets) {
+            try {
+                wm.removeView(target)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        chipTouchTargets.clear()
+        if (!hasOverlayPermission(this)) return
+        for (block in blocks) {
+            if (!block.collapsed) continue
+            val w = (block.right - block.left).coerceAtLeast(1)
+            val h = (block.bottom - block.top).coerceAtLeast(1)
+            val target = View(this).apply {
+                setBackgroundColor(Color.TRANSPARENT)
+                isClickable = true
+                contentDescription =
+                    getString(R.string.screen_translate_collapsed_title)
+                setOnClickListener { expandCollapsedBlock(block) }
+            }
+            val params = WindowManager.LayoutParams(
+                w,
+                h,
+                overlayWindowType(),
+                // Nhận chạm + không lấy focus: chỉ chiếm đúng hình chip.
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = block.left
+                y = block.top
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    fitInsetsTypes = 0
+                }
+            }
+            try {
+                wm.addView(target, params)
+                chipTouchTargets.add(target)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private fun hideOverlay() {
+        for (target in chipTouchTargets) {
+            try {
+                windowManager?.removeView(target)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        chipTouchTargets.clear()
+        overlayView?.dismissCollapsedDialogs()
         val view = overlayView ?: return
         try {
             windowManager?.removeView(view)
@@ -1629,6 +1958,21 @@ class ScreenTranslateService : Service() {
             e.printStackTrace()
         }
         overlayView = null
+    }
+
+    /**
+     * Ép cửa sổ overlay/chọn vùng phủ trọn từ (0,0) vật lý kể cả vùng tai thỏ
+     * và thanh trạng thái — khớp hệ toạ độ ảnh chụp của MediaProjection.
+     */
+    private fun applyFullscreenOverlayParams(params: WindowManager.LayoutParams) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            params.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            params.fitInsetsTypes = 0
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            params.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
     }
 
     private fun overlayWindowType(): Int =

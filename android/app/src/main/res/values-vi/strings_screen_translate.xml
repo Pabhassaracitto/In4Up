@@ -28,4 +28,10 @@
     <string name="screen_translate_region_capturing">Đang dịch vùng đã chọn…</string>
     <string name="screen_translate_region_too_small">Vùng chọn quá nhỏ — hãy kéo khung lớn hơn</string>
     <string name="screen_translate_region_cancelled">Đã huỷ chọn vùng</string>
+    <string name="screen_translate_collapsed_title">Bản dịch khối này</string>
+    <string name="screen_translate_collapsed_note">Khối này không đủ chỗ nên thu gọn — chạm chip để đọc đủ bản dịch.</string>
+    <string name="screen_translate_collapsed_close">Đóng</string>
+    <string name="screen_translate_pending_chip">Còn %1$d khối · Dịch tiếp</string>
+    <string name="screen_translate_pending_chip_one">Còn %1$d khối · Dịch tiếp</string>
+    <string name="screen_translate_pending_tap">Dịch tiếp %1$d khối còn lại</string>
 </resources>

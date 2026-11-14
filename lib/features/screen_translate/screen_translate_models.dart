@@ -40,6 +40,17 @@ class ScreenBlock {
   /// gốc lòi ra dưới nền. `null` = phủ kín cả [rect] (hành vi cũ).
   final int? coverBottom;
 
+  /// PSRC-211 vòng 2 (mục 3 của `L4-hub-tra-loi.md`) - khối bị **THU GỌN**.
+  ///
+  /// `true` = khung không đủ chỗ cho bản dịch ngay cả ở sàn
+  /// [kOverlayMinReadableSp], nên thay vì BỎ VẼ (mất chữ - đúng lỗi owner báo)
+  /// native vẽ một **chip nhỏ** ở góc trên-phải khối gốc; chạm chip mở popup
+  /// hiện đủ bản dịch ở cỡ chữ đọc được.
+  ///
+  /// Hai luật cũ KHÔNG bị phá: chữ vẫn >= 10sp (trong popup) và KHÔNG bị cắt
+  /// giữa từ (chip chỉ là dấu hiệu, không phải chữ đã cắt).
+  final bool collapsed;
+
   const ScreenBlock({
     required this.rect,
     required this.original,
@@ -47,11 +58,19 @@ class ScreenBlock {
     this.textSizeSp = 14.0,
     this.maxTextSizeSp,
     this.coverBottom,
+    this.collapsed = false,
   });
 
-  bool get hasTranslation => translation.trim().isNotEmpty;
+  /// Có đầu ra để vẽ: bong bóng đầy đủ **hoặc** chip thu gọn.
+  ///
+  /// Luôn dùng cờ này (đừng tự so `translation.isNotEmpty`) khi đếm
+  /// "khối được vẽ": từ vòng 2, khối thu gọn vẫn là đầu ra hợp lệ.
+  bool get hasTranslation => collapsed || translation.trim().isNotEmpty;
 
-  /// Hai khoá PSRC-211 CHỈ có mặt khi layout đặt giá trị: payload của khối
+  /// Bản dịch đang hiện ĐẦY ĐỦ trong khung gốc (không phải chip thu gọn).
+  bool get isExpanded => !collapsed && translation.trim().isNotEmpty;
+
+  /// Các khoá PSRC-211 CHỈ có mặt khi layout đặt giá trị: payload của khối
   /// không qua layout giữ nguyên 7 khoá cũ (native đọc thiếu ⇒ hành vi cũ).
   Map<String, Object?> toMap() => <String, Object?>{
         ...rect.toMap(),
@@ -60,6 +79,7 @@ class ScreenBlock {
         'textSizeSp': textSizeSp,
         if (maxTextSizeSp != null) 'maxTextSizeSp': maxTextSizeSp,
         if (coverBottom != null) 'coverBottom': coverBottom,
+        if (collapsed) 'collapsed': true,
       };
 
   static ScreenBlock? fromMap(Map<Object?, Object?> map) {
@@ -86,6 +106,7 @@ class ScreenBlock {
       textSizeSp: size is num ? size.toDouble() : 14.0,
       maxTextSizeSp: maxSize is num ? maxSize.toDouble() : null,
       coverBottom: toInt(map['coverBottom']),
+      collapsed: map['collapsed'] == true,
     );
   }
 }
@@ -131,6 +152,17 @@ class ScreenTranslateResult {
   /// Tổng thời gian OCR + dịch.
   final Duration elapsed;
 
+  /// PSRC-211 vòng 2 (mục 4 của `L4-hub-tra-loi.md`) - **số khối CÒN LẠI**
+  /// chưa dịch vì trần [kScreenTranslateMaxBlocks] của lượt này.
+  ///
+  /// Trần 32 mỗi lượt GIỮ NGUYÊN (mốc 3 giây + quota engine), nhưng phần dư
+  /// không bị bỏ vĩnh viễn: native hiện chip "còn N khối · Dịch tiếp", bấm là
+  /// lượt kế tiếp dịch tiếp phần đó. `0` = đã dịch hết khối có chữ.
+  final int pendingBlocks;
+
+  /// Tổng số khối OCR đọc được trong frame (kể cả số/ký hiệu/link đã lọc).
+  final int ocrBlocks;
+
   const ScreenTranslateResult({
     required this.status,
     this.blocks = const <ScreenBlock>[],
@@ -138,9 +170,14 @@ class ScreenTranslateResult {
     this.engine = '',
     this.missingModelCodes = const <String>[],
     this.elapsed = Duration.zero,
+    this.pendingBlocks = 0,
+    this.ocrBlocks = 0,
   });
 
   bool get isOk => status == ScreenTranslateStatus.ok;
+
+  /// Còn khối chưa dịch ⇒ native hiện chip "còn N khối · Dịch tiếp".
+  bool get hasPending => pendingBlocks > 0;
 
   /// Payload gửi qua MethodChannel. Chỉ dùng kiểu chuẩn (String/int/double/
   /// bool/List/Map) — StandardMessageCodec không nhận enum hay class.
@@ -151,6 +188,10 @@ class ScreenTranslateResult {
         'elapsedMs': elapsed.inMilliseconds,
         'missingModelCodes': missingModelCodes,
         'blocks': blocks.map((b) => b.toMap()).toList(growable: false),
+        // Hai khoá tuỳ chọn của vòng 2: chỉ gửi khi có nghĩa, để payload của
+        // lượt không có phần dư giống hệt bản cũ.
+        if (pendingBlocks > 0) 'pendingBlocks': pendingBlocks,
+        if (ocrBlocks > 0) 'ocrBlocks': ocrBlocks,
       };
 
   static ScreenTranslateResult fromMap(Map<Object?, Object?> map) {
@@ -176,6 +217,8 @@ class ScreenTranslateResult {
           if (code != null) code.toString(),
     ];
     final elapsedMs = map['elapsedMs'];
+    final pendingRaw = map['pendingBlocks'];
+    final ocrRaw = map['ocrBlocks'];
     return ScreenTranslateResult(
       status: status,
       blocks: blocks,
@@ -183,6 +226,8 @@ class ScreenTranslateResult {
       engine: (map['engine'] as String?) ?? '',
       missingModelCodes: missing,
       elapsed: Duration(milliseconds: elapsedMs is num ? elapsedMs.toInt() : 0),
+      pendingBlocks: pendingRaw is num ? pendingRaw.toInt() : 0,
+      ocrBlocks: ocrRaw is num ? ocrRaw.toInt() : 0,
     );
   }
 
@@ -237,9 +282,24 @@ class ScreenTranslateProtocol {
   static const String methodOnFrame = 'onFrame';
   static const String methodOnStopped = 'onStopped';
 
+  /// PSRC-211 vòng 2 — native gọi khi user chạm chip "còn N khối · Dịch tiếp"
+  /// ⇒ engine nền dịch phần dư của lượt trước (không chụp lại).
+  static const String methodTranslatePending = 'translatePending';
+
+  /// PSRC-211 vòng 2 — native gọi khi user chạm CHIP THU GỌN: trả bản dịch
+  /// đầy đủ + chữ gốc của một khối (native mở popup).
+  static const String methodExpandBlock = 'expandBlock';
+
+  // Khoá payload của hai method trên.
+  static const String argBlockIndex = 'blockIndex';
+
   // Dart (engine nền) → native
   static const String methodWorkerReady = 'workerReady';
   static const String methodReportProgress = 'reportProgress';
+
+  /// PSRC-211 vòng 2 — engine nền BÁO số khối còn dư để native hiện chip
+  /// "còn N khối · Dịch tiếp" (mục 4). Không gửi ⇒ native coi như 0.
+  static const String methodReportPending = 'reportPending';
 
   // Khoá payload frame (native → Dart). Khoá vùng kéo chọn phải KHỚP
   // `ScreenRegion.fromMap` — lệch tên là "kéo chọn vùng" im lặng thành

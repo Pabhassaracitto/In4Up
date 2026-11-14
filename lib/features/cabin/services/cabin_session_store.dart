@@ -93,6 +93,8 @@ class CabinSessionStore {
             out[index] = CabinTranscriptEntry(
               id: old.id,
               offset: old.offset,
+              sourceLang: old.sourceLang,
+              targetLang: old.targetLang,
               sourceText: (j['src'] as String?) ?? old.sourceText,
               translatedText: (j['tgt'] as String?) ?? old.translatedText,
             );

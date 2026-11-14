@@ -139,5 +139,10 @@ chất lượng bản dịch, không chỉ vá hiển thị; (3) mặt test rộ
 Push này chạm `android/app/src/main/kotlin/**` nên `vieneu_engine_build` **tự chạy** — đúng cái
 oracle mà agent L4 trước đó bị chặn (§ 2), không cần ai bấm `workflow_dispatch`.
 
+**CI trên tip đã land `5ed57656` (2026-11-14):** `app_analyze` **43575629305** 🟢 ·
+`listen_queue_tests` **43575629308** 🟢 · `vieneu_engine_build` **43575629299** 🟢 (biên dịch Kotlin
++ đóng gói 3 `.so`). Tức là ngay sau khi land, `ScreenTranslateService.kt` **đã** được biên dịch —
+điểm chặn số 2 ở đầu file này coi như đóng, không cần owner bấm dispatch.
+
 **Chưa nghiệm thu được ở đây:** hiển thị thật trên máy (tai thỏ, xoay ngang, font scale 2.0×,
 màn hình dày chữ) — thuộc cổng **G3**, cần ảnh của owner gắn vào `PSRC-211`.

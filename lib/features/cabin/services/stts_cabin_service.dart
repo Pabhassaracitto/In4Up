@@ -8,6 +8,7 @@ import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/tts/tts_service.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
 import 'package:in4up/features/cabin/services/cabin_asr_plan.dart';
+import 'package:in4up/features/cabin/services/cabin_record_config.dart';
 import 'package:in4up/features/cabin/services/cabin_finalization_dedup.dart';
 import 'package:in4up/features/cabin/models/cabin_session.dart';
 import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
@@ -347,10 +348,8 @@ class SttsCabinService extends ChangeNotifier {
         final recorder = AudioRecorder();
         _audioRecorder = recorder;
         final rawPcm = await recorder.startStream(
-          const RecordConfig(
-            encoder: AudioEncoder.pcm16bits,
-            sampleRate: 16000,
-            numChannels: 1,
+          cabinRecordConfig(
+            isAndroid: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
           ),
         );
 

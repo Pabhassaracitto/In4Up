@@ -88,7 +88,9 @@ void main() {
   group('selectBlocksToTranslate', () {
     test('ít hơn hạn mức ⇒ giữ nguyên tất cả', () {
       final blocks = <OcrBlock>[block('a'), block('bb', top: 50)];
-      expect(selectBlocksToTranslate(blocks, 10).length, 2);
+      final selection = selectBlocksToTranslate(blocks, 10);
+      expect(selection.selected.length, 2);
+      expect(selection.pending, isEmpty);
     });
 
     test('vượt hạn mức ⇒ giữ khối to/nhiều chữ nhất, ĐÚNG thứ tự đọc', () {
@@ -97,13 +99,18 @@ void main() {
         block('nội dung chính dài', top: 100, size: 200),
         block('tiêu đề', top: 300, size: 120),
       ];
-      final kept = selectBlocksToTranslate(blocks, 2);
-      expect(kept.map((b) => b.text).toList(),
+      final selection = selectBlocksToTranslate(blocks, 2);
+      expect(selection.selected.map((b) => b.text).toList(),
           <String>['nội dung chính dài', 'tiêu đề']);
+      // PSRC-211 (hub 2026-11-13): khối không được chọn KHÔNG mất — nó chờ
+      // lượt "Dịch tiếp".
+      expect(selection.pending.map((b) => b.text).toList(), <String>['x']);
     });
 
-    test('hạn mức 0 ⇒ rỗng', () {
-      expect(selectBlocksToTranslate(<OcrBlock>[block('a')], 0), isEmpty);
+    test('hạn mức 0 ⇒ không chọn gì, mọi khối chờ lượt sau', () {
+      final selection = selectBlocksToTranslate(<OcrBlock>[block('a')], 0);
+      expect(selection.selected, isEmpty);
+      expect(selection.pending.map((b) => b.text).toList(), <String>['a']);
     });
   });
 

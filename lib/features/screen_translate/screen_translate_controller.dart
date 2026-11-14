@@ -102,11 +102,19 @@ class CaptureGate {
 
   /// True nếu lượt này được chạy. Caller BẮT BUỘC gọi [complete] sau đó
   /// (dùng try/finally) nếu không cổng sẽ kẹt ở trạng thái bận.
-  bool tryAcquire() {
+  ///
+  /// [ignoreInterval] = true: chỉ chặn khi đang BẬN, bỏ qua khoảng nghỉ chống
+  /// bấm liên tục. Dùng cho "Dịch tiếp" (PSRC-211) — đó là thao tác có chủ ý
+  /// trên một chip riêng, không phải bấm trùng bong bóng.
+  bool tryAcquire({bool ignoreInterval = false}) {
     if (_busy) return false;
     final now = _now();
     final last = _lastAccepted;
-    if (last != null && now.difference(last) < minInterval) return false;
+    if (!ignoreInterval &&
+        last != null &&
+        now.difference(last) < minInterval) {
+      return false;
+    }
     _lastAccepted = now;
     _busy = true;
     return true;
@@ -131,7 +139,11 @@ class CaptureGate {
 ///
 /// Màn hình dày chữ (trang web dài) có thể ra 60–80 block; dịch hết sẽ vượt
 /// mốc 3 giây của tiêu chí nghiệm thu #2 và đốt quota engine online. Ưu tiên
-/// khối TO nhất (chữ chính), phần còn lại giữ nguyên bản gốc.
+/// khối trong vùng nhìn rồi tới khối TO nhất (chữ chính).
+///
+/// PSRC-211 (hub 2026-11-13): trần này là cho MỖI LƯỢT, không phải bỏ vĩnh
+/// viễn — phần dư thành "còn N khối", người dùng bấm "Dịch tiếp" để chạy lượt
+/// kế (`ScreenTranslateController.translatePending`). KHÔNG nâng lên 64.
 const int kScreenTranslateMaxBlocks = 32;
 
 /// Số request dịch chạy SONG SONG trong một lượt.
@@ -196,6 +208,20 @@ class ScreenTranslateController {
   static const Duration _progressMinInterval = Duration(milliseconds: 250);
 
   String _t(String source) => AppUITranslations.translate(source, _localeCode);
+
+  /// PSRC-211 — phiên dịch gần nhất CÒN khối chờ (vượt trần một lượt). `null`
+  /// khi không còn gì để dịch tiếp. Frame mới ⇒ phiên cũ bị bỏ (ảnh đã khác).
+  _TranslateSession? _session;
+
+  /// Số khối đang chờ "Dịch tiếp" (0 = không có).
+  int get pendingBlockCount => _session?.pending.length ?? 0;
+
+  /// Nhãn chip "Còn N khối · Dịch tiếp" theo locale chrome; rỗng khi N ≤ 0.
+  String pendingLabel(int count) =>
+      count > 0 ? _t('Còn $count khối · Dịch tiếp') : '';
+
+  /// Tiêu đề popup của chip thu gọn, theo locale chrome.
+  String get collapsedPopupTitle => _t('Bản dịch đầy đủ');
 
   static Future<OcrBlocksResult> _defaultOcrRunner({
     required Uint8List pixels,
@@ -291,11 +317,65 @@ class ScreenTranslateController {
     if (!_gate.tryAcquire()) {
       return ScreenTranslateResult.skipped(_t('Đang dịch màn hình, chờ chút…'));
     }
+    // Ảnh chụp mới ⇒ khối chờ của ảnh cũ không còn đúng vị trí nữa.
+    _session = null;
     final stopwatch = Stopwatch()..start();
     try {
       return await _run(frame, stopwatch);
     } catch (e) {
       debugPrint('❌ screen translate handleFrame: $e');
+      return ScreenTranslateResult(
+        status: ScreenTranslateStatus.error,
+        message: _t('Dịch màn hình thất bại'),
+        elapsed: stopwatch.elapsed,
+      );
+    } finally {
+      _gate.complete();
+    }
+  }
+
+  /// PSRC-211 — dịch LƯỢT KẾ TIẾP của các khối còn chờ (bấm chip "Còn N khối
+  /// · Dịch tiếp"). Không chụp/OCR lại: dùng đúng ảnh và toạ độ của lượt đầu.
+  ///
+  /// Mỗi lần gọi dịch tối đa một trần ([kScreenTranslateMaxBlocks]) rồi DỪNG —
+  /// không tự lặp tới hết (giữ mốc thời gian + quota engine); còn dư thì kết
+  /// quả lại mang `pendingCount > 0` để người dùng bấm tiếp.
+  ///
+  /// `blocks` của kết quả gồm CẢ khối các lượt trước (đã xếp chỗ lại chung) ⇒
+  /// native chỉ việc thay danh sách đang vẽ. Lượt này hỏng (engine lỗi) ⇒
+  /// trạng thái lỗi, các khối chờ được GIỮ NGUYÊN để bấm lại.
+  Future<ScreenTranslateResult> translatePending() async {
+    final session = _session;
+    if (session == null || session.pending.isEmpty) {
+      return ScreenTranslateResult.skipped(_t('Không còn khối nào chờ dịch'));
+    }
+    if (!_gate.tryAcquire(ignoreInterval: true)) {
+      return ScreenTranslateResult.skipped(_t('Đang dịch màn hình, chờ chút…'));
+    }
+    final stopwatch = Stopwatch()..start();
+    final before = session.pending;
+    try {
+      final selection = selectBlocksToTranslate(
+        before,
+        _maxBlocks,
+        viewport: session.viewport,
+      );
+      session.pending = selection.pending;
+      final result = await _translateBatch(
+        session,
+        selection.selected,
+        stopwatch,
+        firstPass: false,
+      );
+      if (!result.isOk) {
+        session.pending = before;
+      } else if (session.pending.isEmpty) {
+        _session = null;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('❌ screen translate translatePending: $e');
+      session.pending = before;
       return ScreenTranslateResult(
         status: ScreenTranslateStatus.error,
         message: _t('Dịch màn hình thất bại'),
@@ -434,7 +514,55 @@ class ScreenTranslateController {
     // Điều kiện gộp rất chặt (xem `belongToSameParagraph`); không khớp thì
     // danh sách giữ nguyên như trước.
     final paragraphs = mergeWrappedBlocks(ocr.blocks);
-    final selected = selectBlocksToTranslate(paragraphs, _maxBlocks);
+
+    // PSRC-211 (hub 2026-11-13): vượt trần một lượt thì phần dư KHÔNG mất —
+    // nó nằm trong phiên, chờ người dùng bấm "Dịch tiếp". Khối trong vùng
+    // nhìn (màn hình trừ thanh hệ thống) được dịch trước.
+    final viewport = viewportInOcrSpace(
+      screenViewportFromFrame(frame, geometry),
+      geometry,
+      offsetX: offsetX,
+      offsetY: offsetY,
+    );
+    final selection =
+        selectBlocksToTranslate(paragraphs, _maxBlocks, viewport: viewport);
+    final session = _TranslateSession(
+      geometry: geometry,
+      offsetX: offsetX,
+      offsetY: offsetY,
+      target: target,
+      viewport: viewport,
+      ocrCount: ocr.blocks.length,
+      paragraphCount: paragraphs.length,
+      pending: selection.pending,
+    );
+    final result = await _translateBatch(
+      session,
+      selection.selected,
+      stopwatch,
+      firstPass: true,
+    );
+    if (result.isOk && session.pending.isNotEmpty) _session = session;
+    return result;
+  }
+
+  /// Dịch + xếp chỗ MỘT lượt khối [selected] của [session].
+  ///
+  /// [firstPass] = lượt ngay sau khi chụp. Lượt "Dịch tiếp" khác ở hai điểm:
+  /// không trả `noText` khi lượt đó toàn số/ký hiệu (màn hình vẫn đang có bản
+  /// dịch của lượt trước), và nếu engine hỏng thì KHÔNG ghi gì vào phiên (bên
+  /// gọi trả các khối về hàng chờ).
+  Future<ScreenTranslateResult> _translateBatch(
+    _TranslateSession session,
+    List<OcrBlock> selected,
+    Stopwatch stopwatch, {
+    required bool firstPass,
+  }) async {
+    final geometry = session.geometry;
+    final offsetX = session.offsetX;
+    final offsetY = session.offsetY;
+    final target = session.target;
+
     final translatable = <int>[
       for (var i = 0; i < selected.length; i++)
         if (hasTranslatableLetters(selected[i].text) &&
@@ -444,9 +572,11 @@ class ScreenTranslateController {
             !isLinkOnlyText(selected[i].text))
           i,
     ];
-    if (translatable.isEmpty) {
+    if (firstPass && translatable.isEmpty && session.pending.isEmpty) {
       // Có khung chữ nhưng toàn số/ký hiệu ⇒ không có gì để dịch. Nói rõ
-      // thay vì trả `ok` với màn hình trống.
+      // thay vì trả `ok` với màn hình trống. (Còn khối chờ thì KHÔNG kết luận
+      // vội: lượt này toàn số nhưng phần dư có thể có chữ ⇒ trả `ok` kèm chip
+      // "Dịch tiếp".)
       return ScreenTranslateResult(
         status: ScreenTranslateStatus.noText,
         message: _t('Không thấy chữ nào cần dịch trên màn hình'),
@@ -565,10 +695,36 @@ class ScreenTranslateController {
 
     _report(ScreenTranslateStage.finishing);
 
-    final rawBlocks = <ScreenBlock>[
+    final batchBlocks = <ScreenBlock>[
       for (final block in out)
         if (block != null) block,
     ];
+
+    // Lượt "Dịch tiếp" mà engine không dịch nổi khối nào ⇒ đừng ghi vào phiên
+    // (bên gọi trả các khối này về hàng chờ để người dùng bấm lại).
+    if (!firstPass && translatable.isNotEmpty && !anyTranslated) {
+      final missingModel = missing.isNotEmpty;
+      return ScreenTranslateResult(
+        status: missingModel
+            ? ScreenTranslateStatus.missingModel
+            : ScreenTranslateStatus.error,
+        message: missingModel
+            ? _t('Chưa tải gói dịch ngoại tuyến cho ngôn ngữ này')
+            : _t('Dịch màn hình thất bại'),
+        missingModelCodes: missing.toList(growable: false),
+        elapsed: stopwatch.elapsed,
+      );
+    }
+
+    // Xếp chỗ CHUNG cho mọi khối của phiên (lượt trước + lượt này) để khung
+    // mới không đè lên khung đã vẽ.
+    session.raw.addAll(batchBlocks);
+    if (translatable.isNotEmpty) session.attempted = true;
+    if (anyTranslated) session.anyTranslated = true;
+    if (session.engine.isEmpty && engines.isNotEmpty) {
+      session.engine = engines.first;
+    }
+    final rawBlocks = session.raw;
 
     // AUDIT-1.21.0 #1 (XLAT-SCR-005 hồi quy): bản dịch dài hơn chữ gốc ⇒
     // native trước đây phình ô xuống dưới, đè lên khối kế tiếp ⇒ chữ chồng
@@ -588,18 +744,22 @@ class ScreenTranslateController {
 
     // PSRC-211 — số liệu để truy "bỏ sót khối" trên máy thật (logcat): mỗi
     // bước của phễu OCR → gộp đoạn → chọn (trần [kScreenTranslateMaxBlocks])
-    // → có chữ để dịch → dịch được → VẼ được. Hai số cuối lệch nhau = layout
-    // phải bỏ khối vì hết chỗ.
+    // → có chữ để dịch → dịch được → VẼ tại chỗ / THU GỌN thành chip / còn
+    // CHỜ lượt sau. `translated = drawn + collapsed` (trừ bản OCR lặp);
+    // không còn nhánh nào làm mất khối mà không để lại dấu.
     final translatedCount = rawBlocks.where((b) => b.hasTranslation).length;
-    final drawnCount = blocks.where((b) => b.hasTranslation).length;
+    final drawnCount = blocks.where((b) => b.isShownInPlace).length;
+    final collapsedCount = blocks.where((b) => b.collapsed).length;
+    final pendingCount = session.pending.length;
     debugPrint(
-      'ℹ️ screen translate blocks: ocr=${ocr.blocks.length} '
-      'paragraphs=${paragraphs.length} selected=${selected.length} '
+      'ℹ️ screen translate blocks: ocr=${session.ocrCount} '
+      'paragraphs=${session.paragraphCount} selected=${selected.length} '
       'translatable=${translatable.length} translated=$translatedCount '
-      'drawn=$drawnCount',
+      'drawn=$drawnCount collapsed=$collapsedCount pending=$pendingCount',
     );
 
-    if (!anyTranslated && missing.isNotEmpty) {
+    if (!session.anyTranslated && missing.isNotEmpty) {
+      // (lượt đầu) thiếu gói dịch ngoại tuyến.
       // Luật vàng: KHÔNG tự tải model. Nói rõ thiếu gì để user vào Cài đặt
       // dịch bấm "Tải về".
       return ScreenTranslateResult(
@@ -610,7 +770,7 @@ class ScreenTranslateController {
         elapsed: stopwatch.elapsed,
       );
     }
-    if (!anyTranslated) {
+    if (!session.anyTranslated && session.attempted) {
       return ScreenTranslateResult(
         status: ScreenTranslateStatus.error,
         blocks: blocks,
@@ -622,12 +782,52 @@ class ScreenTranslateController {
     return ScreenTranslateResult(
       status: ScreenTranslateStatus.ok,
       blocks: blocks,
-      engine: engines.isEmpty ? '' : engines.first,
+      engine: session.engine,
       message: '',
       missingModelCodes: missing.toList(growable: false),
       elapsed: stopwatch.elapsed,
+      pendingCount: pendingCount,
+      pendingLabel: pendingLabel(pendingCount),
+      popupTitle: collapsedPopupTitle,
     );
   }
+}
+
+/// Trạng thái của MỘT ảnh chụp qua nhiều lượt dịch (PSRC-211 — "Dịch tiếp").
+class _TranslateSession {
+  _TranslateSession({
+    required this.geometry,
+    required this.offsetX,
+    required this.offsetY,
+    required this.target,
+    required this.viewport,
+    required this.ocrCount,
+    required this.paragraphCount,
+    required this.pending,
+  });
+
+  final ScreenCaptureGeometry geometry;
+  final int offsetX;
+  final int offsetY;
+  final String target;
+
+  /// Vùng nhìn theo toạ độ khối OCR (`null` = không phân biệt).
+  final OcrBlockRect? viewport;
+
+  final int ocrCount;
+  final int paragraphCount;
+
+  /// Khối CHƯA dịch, theo thứ tự đọc.
+  List<OcrBlock> pending;
+
+  /// Khối đã qua các lượt (chưa xếp chỗ), theo thứ tự các lượt.
+  final List<ScreenBlock> raw = <ScreenBlock>[];
+
+  /// Đã từng có khối CẦN dịch gửi cho engine chưa (để phân biệt "engine
+  /// hỏng" với "các lượt tới giờ toàn số/ký hiệu").
+  bool attempted = false;
+  bool anyTranslated = false;
+  String engine = '';
 }
 
 /// Cỡ chữ gốc (sp) của một khối OCR: chiều cao MỘT dòng, đã chia `fontScale`.
@@ -657,18 +857,61 @@ double _blockTextSizeSp(
 bool hasTranslatableLetters(String text) =>
     text.trim().isNotEmpty && RegExp(r'\p{L}', unicode: true).hasMatch(text);
 
-/// Chọn tối đa [maxBlocks] khối ĐÁNG dịch nhất, GIỮ thứ tự đọc.
+/// Chia [blocks] thành lượt dịch NÀY (`selected`, tối đa [maxBlocks]) và phần
+/// CHỜ lượt sau (`pending`). Cả hai GIỮ thứ tự đọc; hợp của chúng đúng bằng
+/// [blocks] — không khối nào mất, không khối nào xuất hiện hai lần.
 ///
-/// Tiêu chí "đáng": diện tích khung × độ dài chữ — khối to và nhiều chữ là
-/// nội dung chính; icon/nhãn một ký tự rơi xuống cuối.
-List<OcrBlock> selectBlocksToTranslate(List<OcrBlock> blocks, int maxBlocks) {
-  if (maxBlocks <= 0) return const <OcrBlock>[];
-  if (blocks.length <= maxBlocks) return List<OcrBlock>.of(blocks);
+/// Thứ tự ưu tiên khi phải chọn (PSRC-211, hub 2026-11-13):
+///  1. khối giao với vùng nhìn [viewport] (cùng hệ toạ độ với khối; `null` =
+///     mọi khối đều đang nhìn thấy);
+///  2. "đáng dịch": diện tích khung × độ dài chữ — khối to và nhiều chữ là
+///     nội dung chính; icon/nhãn một ký tự rơi xuống cuối;
+///  3. hoà thì khối đọc trước.
+///
+/// Trước đây hàm này `take(maxBlocks)` rồi VỨT phần dư ⇒ màn hình hơn 32 khối
+/// là có khối không bao giờ được dịch mà không ai báo.
+({List<OcrBlock> selected, List<OcrBlock> pending}) selectBlocksToTranslate(
+  List<OcrBlock> blocks,
+  int maxBlocks, {
+  OcrBlockRect? viewport,
+}) {
+  if (maxBlocks <= 0) {
+    return (selected: const <OcrBlock>[], pending: List<OcrBlock>.of(blocks));
+  }
+  if (blocks.length <= maxBlocks) {
+    return (selected: List<OcrBlock>.of(blocks), pending: const <OcrBlock>[]);
+  }
 
-  final ranked = List<OcrBlock>.of(blocks)
-    ..sort((a, b) => _weight(b).compareTo(_weight(a)));
+  // Xếp hạng theo CHỈ SỐ (không theo giá trị): hai khối giống hệt nhau vẫn là
+  // hai khối, không khối nào bị chọn hai lần hay rơi mất.
+  final ranked = List<int>.generate(blocks.length, (i) => i)
+    ..sort((a, b) {
+      final seenA = _intersectsViewport(blocks[a], viewport) ? 0 : 1;
+      final seenB = _intersectsViewport(blocks[b], viewport) ? 0 : 1;
+      if (seenA != seenB) return seenA.compareTo(seenB);
+      final byWeight = _weight(blocks[b]).compareTo(_weight(blocks[a]));
+      if (byWeight != 0) return byWeight;
+      return a.compareTo(b); // hoà ⇒ khối đọc trước được ưu tiên
+    });
   final keep = ranked.take(maxBlocks).toSet();
-  return blocks.where(keep.contains).toList(growable: false);
+  final selected = <OcrBlock>[];
+  final pending = <OcrBlock>[];
+  for (var i = 0; i < blocks.length; i++) {
+    (keep.contains(i) ? selected : pending).add(blocks[i]);
+  }
+  return (selected: selected, pending: pending);
+}
+
+/// Khối có nằm (dù chỉ một phần) trong vùng nhìn không? Không có vùng nhìn ⇒
+/// mọi khối đều tính là nhìn thấy.
+bool _intersectsViewport(OcrBlock block, OcrBlockRect? viewport) {
+  if (viewport == null) return true;
+  final rect = block.rect;
+  final w = math.min(rect.right, viewport.right) -
+      math.max(rect.left, viewport.left);
+  final h = math.min(rect.bottom, viewport.bottom) -
+      math.max(rect.top, viewport.top);
+  return w > 0 && h > 0;
 }
 
 int _weight(OcrBlock block) =>

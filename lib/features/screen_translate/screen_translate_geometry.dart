@@ -384,6 +384,108 @@ class ScreenRegion {
   String toString() => 'ScreenRegion($left,$top,$right,$bottom)';
 }
 
+/// PSRC-211 — vùng NỘI DUNG đang nhìn thấy (pixel màn hình): cả màn hình trừ
+/// các lề hệ thống [insetLeft]/[insetTop]/[insetRight]/[insetBottom] (thanh
+/// trạng thái, thanh điều hướng, tai thỏ) mà native đọc từ `WindowMetrics`.
+///
+/// Phép tính là phép CỘNG lề vào mép màn hình, viết ở Dart để test được với
+/// lề giả (dọc: lề trên/dưới; ngang: tai thỏ thành lề trái/phải). Lề âm coi
+/// là 0; lề nuốt hết màn hình ⇒ `null` (không có vùng nhìn hợp lệ).
+ScreenRegion? screenViewportFromInsets({
+  required int screenWidth,
+  required int screenHeight,
+  int insetLeft = 0,
+  int insetTop = 0,
+  int insetRight = 0,
+  int insetBottom = 0,
+}) {
+  if (screenWidth <= 0 || screenHeight <= 0) return null;
+  final region = ScreenRegion(
+    left: math.max(0, insetLeft),
+    top: math.max(0, insetTop),
+    right: screenWidth - math.max(0, insetRight),
+    bottom: screenHeight - math.max(0, insetBottom),
+  );
+  return region.isValid ? region : null;
+}
+
+/// Đọc vùng nhìn từ frame native gửi (khoá `insetLeft/Top/Right/Bottom`, pixel
+/// màn hình). Không có khoá lề nào ⇒ `null` = không phân biệt (native cũ,
+/// test) — KHÁC với "lề = 0" (cả màn hình là vùng nhìn).
+ScreenRegion? screenViewportFromFrame(
+  Map<Object?, Object?> map,
+  ScreenCaptureGeometry geometry,
+) {
+  int? asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  final left = asInt(map['insetLeft']);
+  final top = asInt(map['insetTop']);
+  final right = asInt(map['insetRight']);
+  final bottom = asInt(map['insetBottom']);
+  if (left == null && top == null && right == null && bottom == null) {
+    return null;
+  }
+  if (!geometry.isValid) return null;
+  return screenViewportFromInsets(
+    screenWidth: geometry.screenWidth,
+    screenHeight: geometry.screenHeight,
+    insetLeft: left ?? 0,
+    insetTop: top ?? 0,
+    insetRight: right ?? 0,
+    insetBottom: bottom ?? 0,
+  );
+}
+
+/// PSRC-211 — đổi một khung từ toạ độ MÀN HÌNH sang toạ độ CỬA SỔ overlay có
+/// gốc ([originX], [originY]) trên màn hình (native: `getLocationOnScreen`).
+///
+/// Cửa sổ overlay không phải lúc nào cũng nằm ở (0,0): xoay ngang có tai thỏ,
+/// ROM chèn lề ⇒ gốc cửa sổ bị dời đúng bằng lề đó. Không trừ gốc thì mọi
+/// bong bóng lệch đúng bằng độ dời. Native làm đúng phép này trong
+/// `TranslationOverlayView.onDraw` (`canvas.translate(-origin)`).
+OverlayRect screenRectToWindow(
+  OverlayRect rect, {
+  required int originX,
+  required int originY,
+}) =>
+    OverlayRect(
+      left: rect.left - originX,
+      top: rect.top - originY,
+      right: rect.right - originX,
+      bottom: rect.bottom - originY,
+    );
+
+/// Đổi vùng nhìn [viewport] (pixel MÀN HÌNH) sang hệ toạ độ của khối OCR:
+/// pixel ẢNH đã đưa vào OCR, tức ảnh chụp sau khi cắt đi ([offsetX],
+/// [offsetY]) của vùng kéo chọn. Phép NGƯỢC của
+/// `mapCaptureRectToOverlay(offsetOcrRect(...))`.
+///
+/// `null` khi không có vùng nhìn hoặc hình học không hợp lệ.
+OcrBlockRect? viewportInOcrSpace(
+  ScreenRegion? viewport,
+  ScreenCaptureGeometry geometry, {
+  int offsetX = 0,
+  int offsetY = 0,
+}) {
+  if (viewport == null || !viewport.isValid || !geometry.isValid) return null;
+  final sx = geometry.scaleX;
+  final sy = geometry.scaleY;
+  if (sx <= 0 || sy <= 0) return null;
+  // Nới ra ngoài (floor/ceil): thà coi một khối ở mép là "trong vùng nhìn".
+  final rect = OcrBlockRect(
+    left: (viewport.left / sx).floor() - offsetX,
+    top: (viewport.top / sy).floor() - offsetY,
+    right: (viewport.right / sx).ceil() - offsetX,
+    bottom: (viewport.bottom / sy).ceil() - offsetY,
+  );
+  return rect.isValid ? rect : null;
+}
+
 /// Vùng cắt trên ẢNH CHỤP (pixel ảnh, gốc trên-trái).
 class CaptureRegion {
   final int left;

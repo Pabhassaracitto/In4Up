@@ -35,6 +35,7 @@ import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.TextView
 import android.widget.Toast
@@ -231,6 +232,24 @@ class ScreenTranslateService : Service() {
     private var bubbleView: TextView? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var overlayView: TranslationOverlayView? = null
+
+    // ── PSRC-211 (hub 2026-11-13): không khối nào bị bỏ im lặng ───────
+    /** Cửa sổ CHẠM của overlay: chip thu gọn, popup, chip "Dịch tiếp". */
+    private var chipLayer: OverlayChipLayer? = null
+
+    /** Số khối còn chờ dịch của ảnh đang hiển thị + nhãn chip (Dart đã dịch). */
+    private var pendingBlockCount = 0
+    private var pendingBlockLabel = ""
+
+    /** Đang chạy một lượt "Dịch tiếp" (không chụp lại màn hình). */
+    private var translatingPending = false
+
+    /**
+     * Tăng mỗi lần ẩn overlay. Kết quả "Dịch tiếp" về trễ, sau khi người dùng
+     * đã ẩn bản dịch (hoặc đã chụp màn hình khác), sẽ bị bỏ qua thay vì vẽ
+     * khối cũ đè lên màn hình mới.
+     */
+    private var overlayGeneration = 0
 
     // ── Phản hồi khi bấm bong bóng (XLAT-SCR-005) ────────────────────
     private var bubbleState: BubbleState = BubbleState.SETUP
@@ -1430,6 +1449,25 @@ class ScreenTranslateService : Service() {
         return metrics
     }
 
+    /**
+     * Lề hệ thống [trái, trên, phải, dưới] (pixel) của màn hình hiện tại, hoặc
+     * `null` khi máy không cho biết (API < 30) — khi đó Dart coi cả màn hình
+     * là vùng nhìn, đúng hành vi cũ.
+     */
+    private fun systemInsets(): IntArray? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        return try {
+            val wm = windowManager ?: getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val insets = wm.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+            )
+            intArrayOf(insets.left, insets.top, insets.right, insets.bottom)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     // ───────────────────────── cầu sang Dart ──────────────────────────
 
     private fun sendFrameToDart(
@@ -1470,6 +1508,16 @@ class ScreenTranslateService : Service() {
             "sourceLanguage" to sourceLanguage,
             "locale" to localeCode,
         )
+        // PSRC-211: lề hệ thống (thanh trạng thái / điều hướng / tai thỏ) từ
+        // `WindowMetrics` — Dart cộng vào mép màn hình để biết vùng NỘI DUNG và
+        // ưu tiên khối trong đó khi vượt trần một lượt. Khoá PHẢI khớp
+        // `screenViewportFromFrame` (`insetLeft/Top/Right/Bottom`).
+        systemInsets()?.let { insets ->
+            args["insetLeft"] = insets[0]
+            args["insetTop"] = insets[1]
+            args["insetRight"] = insets[2]
+            args["insetBottom"] = insets[3]
+        }
         // Vùng chọn chỉ dùng cho ĐÚNG một lượt chụp — không để dính sang lượt
         // sau (người dùng bấm lần nữa mà vẫn bị cắt theo vùng cũ).
         val region = pendingRegion
@@ -1529,6 +1577,16 @@ class ScreenTranslateService : Service() {
             )
             return
         }
+        showTranslatedResult(result)
+    }
+
+    /**
+     * Vẽ một kết quả `ok`: khung dịch, chip thu gọn, chip "Dịch tiếp". Dùng
+     * chung cho lượt đầu ([handleResult]) và các lượt "Dịch tiếp"
+     * ([handlePendingResult]) — `blocks` của Dart luôn là TOÀN BỘ khối đã dịch
+     * của ảnh đang hiển thị nên chỉ việc thay danh sách đang vẽ.
+     */
+    private fun showTranslatedResult(result: Map<*, *>) {
         // Thành công: ✓ xanh trên bong bóng + nhãn biến mất.
         hideStatusChip()
         setBubbleState(BubbleState.DONE, BUBBLE_RESULT_HOLD_MS)
@@ -1550,9 +1608,16 @@ class ScreenTranslateService : Service() {
                 // ⇒ lấy đúng giá trị cũ (tô kín khung, cỡ chữ `textSizeSp`).
                 maxTextSizeSp = (map["maxTextSizeSp"] as? Number)?.toFloat() ?: textSizeSp,
                 coverBottom = (map["coverBottom"] as? Number)?.toInt() ?: bottom,
+                // PSRC-211 (hub 2026-11-13) — khối Dart đã thu gọn thành chip.
+                collapsed = map["collapsed"] == true,
             )
         }
         showOverlay(blocks)
+        // PSRC-211: chip chạm được + "Còn N khối · Dịch tiếp". Mọi chữ hiển
+        // thị ở đây do Dart dịch sẵn (đủ locale), native không tự đặt chữ.
+        pendingBlockCount = (result["pendingCount"] as? Number)?.toInt() ?: 0
+        pendingBlockLabel = result["pendingLabel"] as? String ?: ""
+        syncChipLayer(popupTitle = result["popupTitle"] as? String ?: "")
         val engineName = result["engine"] as? String ?: ""
         updateNotification(
             if (engineName.isEmpty()) {
@@ -1561,6 +1626,136 @@ class ScreenTranslateService : Service() {
                 getString(R.string.screen_translate_done_engine, engineName)
             },
         )
+    }
+
+    // ─────────────── PSRC-211: chip thu gọn + "Dịch tiếp" ─────────────
+
+    /**
+     * Dựng lại các cửa sổ CHẠM cho đúng những gì overlay đang vẽ. Overlay
+     * không hiển thị ⇒ gỡ hết (không để cửa sổ chạm mồ côi trên màn hình).
+     */
+    private fun syncChipLayer(popupTitle: String) {
+        val wm = windowManager
+        val view = overlayView
+        if (wm == null || view == null) {
+            chipLayer?.clear()
+            return
+        }
+        val layer = chipLayer ?: OverlayChipLayer(this, wm, overlayWindowType()).also {
+            chipLayer = it
+        }
+        layer.showChips(view.chips, popupTitle)
+        showPendingChip()
+    }
+
+    /**
+     * Chip "Còn N khối · Dịch tiếp" dưới bong bóng; hết khối chờ ⇒ ẩn.
+     *
+     * Nằm THẤP hơn chỗ của chip trạng thái ([showStatusChip], `y + 58dp`) một
+     * hàng: lượt "Dịch tiếp" hỏng thì thông báo lỗi và chip này cùng hiện, cái
+     * này không được che cái kia.
+     */
+    private fun showPendingChip() {
+        val layer = chipLayer ?: return
+        if (pendingBlockCount <= 0 || overlayView == null) {
+            layer.hidePending()
+            return
+        }
+        // Nhãn do Dart dịch; thiếu (không nên xảy ra) vẫn phải cho thấy CÒN
+        // khối chưa dịch thay vì im lặng.
+        val label = pendingBlockLabel.ifEmpty { "+$pendingBlockCount" }
+        val bubble = bubbleParams
+        val x = if (bubble != null) max(0, bubble.x) else dp(12)
+        val y = if (bubble != null) bubble.y + dp(58 + 40) else dp(220 + 40)
+        layer.showPending(label, x, y) { onTranslatePendingTapped() }
+    }
+
+    /**
+     * Bấm chip "Dịch tiếp": chạy MỘT lượt cho phần dư trên chính ảnh đã chụp
+     * (không chụp lại, không tự lặp — giữ mốc thời gian + quota engine).
+     * Mọi nhánh đều có phản hồi nhìn thấy được.
+     */
+    private fun onTranslatePendingTapped() {
+        vibrate()
+        if (capturing || translatingPending) {
+            tellUser(getString(R.string.screen_translate_busy), haptic = false)
+            return
+        }
+        val channel = workerChannel
+        if (channel == null) {
+            val message = getString(R.string.screen_translate_error)
+            reportFailureToBubble(message)
+            tellUser(message)
+            return
+        }
+        translatingPending = true
+        val generation = overlayGeneration
+        chipLayer?.hidePending()
+        setBubbleState(BubbleState.WORKING)
+        showStatusChip(getString(R.string.screen_translate_working))
+        channel.invokeMethod(
+            "translatePending",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    translatingPending = false
+                    handlePendingResult(result as? Map<*, *>, generation)
+                }
+
+                override fun error(code: String, message: String?, details: Any?) {
+                    translatingPending = false
+                    failPending(
+                        message ?: getString(R.string.screen_translate_error),
+                        generation,
+                    )
+                }
+
+                override fun notImplemented() {
+                    translatingPending = false
+                    failPending(getString(R.string.screen_translate_error), generation)
+                }
+            },
+        )
+    }
+
+    private fun handlePendingResult(result: Map<*, *>?, generation: Int) {
+        if (generation != overlayGeneration || overlayView == null) {
+            // Người dùng đã ẩn bản dịch (hoặc chụp màn hình khác) trong lúc
+            // chờ ⇒ kết quả này không còn chỗ để vẽ.
+            if (bubbleState == BubbleState.WORKING && !capturing) {
+                hideStatusChip()
+                refreshBubbleLook()
+            }
+            return
+        }
+        val status = result?.get("status") as? String ?: "error"
+        if (result == null || status != "ok") {
+            val message = result?.get("message") as? String ?: ""
+            failPending(
+                message.ifEmpty { getString(R.string.screen_translate_error) },
+                generation,
+                alert = status == "missingModel",
+            )
+            return
+        }
+        showTranslatedResult(result)
+    }
+
+    /**
+     * Lượt "Dịch tiếp" hỏng: báo lỗi nhưng GIỮ bản dịch đang hiển thị và chip
+     * "Dịch tiếp" (Dart giữ nguyên các khối chờ) để người dùng bấm lại.
+     */
+    private fun failPending(text: String, generation: Int, alert: Boolean = false) {
+        if (generation != overlayGeneration) {
+            if (bubbleState == BubbleState.WORKING && !capturing) {
+                hideStatusChip()
+                refreshBubbleLook()
+            }
+            return
+        }
+        reportFailureToBubble(text)
+        tellUser(text, alert = alert, haptic = false)
+        showPendingChip()
     }
 
     // ───────────────────────── overlay bản dịch ───────────────────────
@@ -1622,6 +1817,12 @@ class ScreenTranslateService : Service() {
     }
 
     private fun hideOverlay() {
+        // PSRC-211: cửa sổ chạm (chip, popup, "Dịch tiếp") đi cùng overlay —
+        // gỡ TRƯỚC, kể cả khi overlay đã mất, để không sót cửa sổ nào.
+        overlayGeneration++
+        pendingBlockCount = 0
+        pendingBlockLabel = ""
+        chipLayer?.clear()
         val view = overlayView ?: return
         try {
             windowManager?.removeView(view)

@@ -158,6 +158,7 @@ class ScreenTranslateWorkerBinding {
   ScreenTranslateWorkerBinding({
     MethodChannel? channel,
     required this.onFrame,
+    this.onTranslatePending,
     this.onStopped,
   }) : _channel = channel ??
             const MethodChannel(ScreenTranslateProtocol.workerChannel);
@@ -165,6 +166,10 @@ class ScreenTranslateWorkerBinding {
   final MethodChannel _channel;
   final Future<ScreenTranslateResult> Function(Map<Object?, Object?> frame)
       onFrame;
+
+  /// PSRC-211 — bấm chip "Còn N khối · Dịch tiếp": chạy lượt kế tiếp của phần
+  /// dư (không có frame mới). `null` = binding cũ/test không hỗ trợ.
+  final Future<ScreenTranslateResult> Function()? onTranslatePending;
   final void Function()? onStopped;
 
   /// Gắn handler và báo cho native biết engine nền đã sẵn sàng.
@@ -189,6 +194,14 @@ class ScreenTranslateWorkerBinding {
         }
         final result = await onFrame(args);
         return result.toMap();
+      case ScreenTranslateProtocol.methodTranslatePending:
+        final handler = onTranslatePending;
+        if (handler == null) {
+          throw MissingPluginException(
+            'screentranslate worker: translatePending chưa được gắn',
+          );
+        }
+        return (await handler()).toMap();
       case ScreenTranslateProtocol.methodOnStopped:
         onStopped?.call();
         return null;

@@ -59,13 +59,26 @@ Dịch màn hình **không** dùng node accessibility. Luồng thật: MediaProj
 
 Bằng chứng tái hiện: bài test nghiệm thu `test/screen_translate/psrc_211_bubble_coverage_test.dart` chạy trên code CŨ ⇒ đỏ ở "đủ 10 bong bóng" (CI run `43492520476`).
 
+### Vòng 2 (hub 2026-11-13, `L4-hub-tra-loi.md`) — không khối nào bị bỏ im lặng
+
+- **§ 3 — trạng thái "thu gọn".** Khối không còn chỗ cho NGUYÊN bản dịch ở sàn 10sp ⇒ `layoutTranslatedBlocks` trả `collapsed: true` (bản dịch nguyên vẹn, `rect` = chỗ vẽ chip 28×20dp) thay vì `translation: ''`. Native: `buildLayout` trả `FittedText` (không còn `null`), vẽ chip "…", mỗi chip có một cửa sổ chạm riêng (`OverlayChipLayer`), chạm ⇒ popup đủ bản dịch 16sp + chữ gốc, cuộn được. Chip ưu tiên góc trên-phải chữ gốc; chỗ đó đã bị khung khác chiếm (màn hình bị đẩy kín tới đáy) thì chip xuống một hàng dành riêng sát đáy màn hình — **khác chữ "ở góc trên-phải" trong phiếu hub**, vì đặt ở góc lúc đó là đè lên khung khác.
+- **§ 4 — trần 32 khối.** `selectBlocksToTranslate` trả `(selected, pending)`; ưu tiên khối giao vùng nhìn (màn hình trừ lề hệ thống, native gửi `insetLeft/Top/Right/Bottom` từ `WindowMetrics`), rồi diện tích × độ dài. Phần dư nằm trong phiên; kết quả mang `pendingCount` + `pendingLabel`; native hiện chip "Còn N khối · Dịch tiếp", bấm ⇒ `translatePending` dịch thêm tối đa 32 khối trên CÙNG ảnh (không tự lặp). Lượt hỏng ⇒ báo lỗi, giữ nguyên khối chờ.
+- **Khung đè nhau khi hai HÀNG khác nhau giao ngang một dải hẹp** (lỗi có từ trước lane, ngưỡng "cùng cột" 25%): `_pack` giờ coi hai khối khác hàng có giao ngang (dù hẹp) là xếp chồng dọc. Hai khối CÙNG hàng giao vài pixel giữ hành vi cũ.
+- 3 chuỗi UI mới đủ 8 locale trong `tool/priority_native_pack.json` (đã regenerate).
+- Test: `test/screen_translate/psrc_211_no_silent_drop_test.dart` (4 test § 3, 3 test § 4 + nhiều lượt / lượt hỏng / frame mới, 8 locale, lề 0/24/48dp dọc + ngang, nối dây Kotlin); sửa `overlay_layout_audit_test.dart` và `screen_translate_controller_test.dart` theo hợp đồng mới.
+
 ### Chưa kiểm được / còn lại
 
-- **Chưa chạy trên máy thật.** Sandbox không có Flutter/Android SDK — mọi thứ kiểm qua CI (analyze + test Dart + kotlinc + build APK). Cần owner thử trên máy và chụp **screenshot** cho mục nghiệm thu 1 (lane không tự chụp được).
-- **Bù vị trí cửa sổ overlay** (`getLocationOnScreen` trong `TranslationOverlayView.onDraw`): trên máy cửa sổ nằm đúng (0,0) thì không đổi gì; chỉ máy có tai thỏ khi xoay ngang / ROM chèn lề mới thấy khác. Chưa có máy để xác nhận.
-- **Cỡ chữ hệ thống 2.0× + màn hình dày chữ**: vẫn có khối bị lệch / bỏ vẽ (mô phỏng màn hình bài viết 10 khối: vẽ 8, hai nút cuối bị bỏ). Lý do: luật owner XLAT-SCR-006 cấm vẽ dưới 10sp và cấm cắt chữ, mà 10sp × 2.0 đã to hơn chữ gốc. Muốn hết phải đổi luật (cho phép < 10sp khi fontScale lớn) — cần owner quyết.
-- **Trần 32 khối/lượt** (`kScreenTranslateMaxBlocks`, quyết định cũ vì mốc 3 giây + quota engine): màn hình ra > 32 khối sau khi gộp đoạn thì các khối nhỏ nhất vẫn không được dịch. Không đổi trong lane này; logcat giờ in phễu `screen translate blocks: ocr= paragraphs= selected= translatable= translated= drawn=` để đo trên máy thật trước khi quyết.
+- **Vòng 2 chưa có kết quả CI tại thời điểm commit.** Cổng § 2 của hub đã mở: L8 đã land, `grep -c "android/app/src/main/kotlin" .github/workflows/vieneu_engine_build.yml` trên tip beta `5ed5765` = 1. Sandbox không có Flutter/Dart SDK ⇒ trước khi push, **mã Dart và test Dart của vòng 2 chưa từng được biên dịch hay chạy** (chỉ kiểm cú pháp bằng tree-sitter); Kotlin mới biên dịch bằng kotlinc dựng tạm trong sandbox với stub Flutter/`R` viết tay — gần đúng, KHÔNG thay được build Gradle. Chỉ coi là xong khi `App Analyze`, `Listen queue` và `VieNeu engine build` xanh trên nhánh lane.
+- **Vòng 1** đã được hub land vào beta (`5ed5765`, cùng nội dung với `c2f1a14`): xanh ở `App Analyze` 43493738612 (analyze + test Dart) và `Listen queue` 43493738401 (kotlinc cho `TranslationOverlayView.kt`). Vì vậy vòng 2 là **một commit riêng nằm trên** commit đó (không amend được commit đã ở beta) — hub squash khi land nếu muốn giữ đúng một commit. Trước vòng 2 **chưa có lần build APK nào** biên dịch `ScreenTranslateService.kt` (dòng "build APK" ở bản trước của phiếu này là sai).
+- **Chưa chạy trên máy thật.** Cần owner thử và chụp ảnh ở cổng G3 (mục nghiệm thu 1). Riêng vòng 2 cần nhìn tận mắt: chip chạm có trúng không, popup, chip "Dịch tiếp", vị trí chip khi xoay ngang / máy có tai thỏ.
+- **Bù vị trí cửa sổ overlay** (`getLocationOnScreen`): máy cửa sổ nằm đúng (0,0) thì không đổi gì; chỉ máy có tai thỏ khi xoay ngang / ROM chèn lề mới thấy khác. Phép cộng lề đã có test với lề giả; chưa có máy để xác nhận.
+- **Lề hệ thống chỉ lấy được từ API 30** (`currentWindowMetrics`). Máy cũ hơn không gửi lề ⇒ mọi khối tính là "đang nhìn", chỉ còn xếp theo diện tích × độ dài (hành vi cũ) — phần dư vẫn không mất.
+- **Khối dịch HỎNG lẻ** (engine lỗi ở một khối trong khi các khối khác dịch được) vẫn không có bong bóng lẫn chip, và không quay lại hàng chờ — hành vi cũ, chưa đổi ở vòng này. Chỉ lượt "Dịch tiếp" hỏng TOÀN BỘ mới được giữ lại để bấm lại.
+- **Hai khối CÙNG hàng mà khung OCR gốc đã giao nhau** thì khung dịch vẫn giao đúng dải đó (không tách được nếu không cắt chữ).
+- **Quá nhiều chip** (hơn 4 hàng chip sát đáy, cỡ > 50 chip trên màn dọc): chip thừa bị đặt ở góc chữ gốc dù có đè — chưa gặp trong mô phỏng, không có test.
+- **Popup** dùng cửa sổ `FLAG_NOT_FOCUSABLE`: đóng bằng chạm ra ngoài thẻ, nút Back không đóng.
 - **Tần suất ML Kit tách đoạn** chưa đo trên máy thật; điều kiện gộp đặt rất chặt (cùng cỡ chữ, cùng lề trái, sát nhau, câu đang dở) nên sai thì nghiêng về "không gộp" = hành vi cũ.
 - **Tiêu đề viết hoa từng từ / tiếng Đức** bị ngắt dòng sẽ không được nối (dòng dưới viết hoa) — chấp nhận, xem `isSoftWrap`.
-- `lib/features/ocr/**` (lane L3) không bị sửa.
-- **PSRC-194** (đợt 2) chưa làm.
+- `lib/features/ocr/**` (lane L3) không bị sửa. File chung đã đụng: `tool/priority_native_pack.json` + `lib/core/language/generated_priority_native_pack.dart` (thêm 3 khoá ở cuối).
+- **PSRC-194** (đợt 2) chưa làm — hub hoãn, ngoài cổng beta.

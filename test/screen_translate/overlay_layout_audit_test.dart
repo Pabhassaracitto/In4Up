@@ -12,10 +12,13 @@
 //
 // Hợp đồng hiện tại — 5 bất biến, đo bằng ĐÚNG bộ ước lượng của layout:
 //   1. KHÔNG hai khung nào giao nhau.
-//   2. Khối CÒN VẼ thì khung CAO ĐỦ cho chính chuỗi nó vẽ (đúng `textSizeSp`).
+//   2. Khối vẽ TẠI CHỖ thì khung CAO ĐỦ cho chính chuỗi nó vẽ (đúng
+//      `textSizeSp`).
 //   3. Cỡ chữ không dưới `kOverlayMinReadableSp` (native kẹp cứng cùng sàn —
-//      layout không bao giờ cấp khung đo theo cỡ nhỏ hơn, vì native sẽ bỏ).
-//   4. Giữ NGUYÊN số khối + thứ tự (khối bỏ vẽ ⇒ `translation` rỗng).
+//      layout không bao giờ cấp khung đo theo cỡ nhỏ hơn).
+//   4. Giữ NGUYÊN số khối + thứ tự. Khối không còn chỗ ⇒ THU GỌN thành chip
+//      (`collapsed`, bản dịch nguyên vẹn) — hub 2026-11-13: không khối nào bị
+//      bỏ im lặng. Trước đó khối như vậy bị bỏ vẽ (`translation` rỗng).
 //   5. Cùng bộ dữ liệu, tăng `fontScale` ⇒ không bao giờ có thêm khối bị cắt.
 //
 // Test THUẦN trên host VM — không cần thiết bị / MediaProjection.
@@ -79,7 +82,8 @@ List<String> _tooShort(
   final pxPerSp = _dpr * effectiveOverlayFontScale(fontScale);
   for (var i = 0; i < blocks.length; i++) {
     final block = blocks[i];
-    if (!block.hasTranslation) continue;
+    // Chip thu gọn không vẽ chữ dịch trong khung của nó (chữ nằm ở popup).
+    if (!block.isShownInPlace) continue;
     final need = estimateTranslationTextHeightPx(
           block.translation,
           math.max(1.0, block.rect.width - 2 * kOverlayTextPaddingPx),
@@ -117,7 +121,7 @@ List<String> _alteredText(
   final bad = <String>[];
   for (var i = 0; i < output.length && i < input.length; i++) {
     final shown = output[i].translation;
-    if (shown.isEmpty) continue; // khối bị bỏ vẽ
+    if (shown.isEmpty) continue; // khối không có bản dịch / bản OCR lặp
     if (shown != input[i].translation) {
       bad.add('#$i nội dung bị sửa: \'$shown\' ≠ \'${input[i].translation}\'');
     }
@@ -450,8 +454,9 @@ void main() {
 
     test('tràn đáy màn hình (30 khối) ⇒ KHÔNG chồng, KHÔNG chữ cụt', () {
       // 30 khối, mỗi khối cách 30px: bản dịch cần ~120px/khối ở cỡ chữ nhỏ
-      // nhất ⇒ tổng vượt xa 2400px ⇒ buộc phải BỎ BỚT (không thể vẽ đủ) —
-      // nhưng khối nào còn lại vẫn NGUYÊN chữ, không cắt.
+      // nhất ⇒ tổng vượt xa 2400px ⇒ không thể vẽ đủ tại chỗ. Khối hết chỗ
+      // THU GỌN thành chip (hub 2026-11-13) — không khối nào biến mất; khối
+      // nào vẽ tại chỗ vẫn NGUYÊN chữ, không cắt.
       final blocks = <ScreenBlock>[];
       var y = 100;
       for (var i = 0; i < 30; i++) {
@@ -475,13 +480,18 @@ void main() {
       expect(_tooShort(out), isEmpty,
           reason: 'khối nào còn vẽ thì phải hiện đủ chữ của chính nó');
       expect(_alteredText(blocks, out), isEmpty,
-          reason: 'không được cắt/bóp nội dung — chỉ được bỏ khối');
+          reason: 'không được cắt/bóp nội dung — chỉ được thu gọn khối');
       expect(_outside(out), isEmpty);
-      // Số khối bị bỏ phải > 0 (chứng minh nhánh tràn có tác dụng) nhưng
-      // không bỏ hết.
-      final drawn = out.where((b) => b.hasTranslation).length;
+      // Số khối thu gọn phải > 0 (chứng minh nhánh tràn có tác dụng) nhưng
+      // không thu gọn hết — và KHÔNG khối nào mất.
+      final drawn = out.where((b) => b.isShownInPlace).length;
+      final collapsed = out.where((b) => b.collapsed).length;
       expect(drawn, greaterThan(0));
-      expect(drawn, lessThan(30), reason: 'phải bỏ bớt khi không thể vẽ đủ');
+      expect(drawn, lessThan(30),
+          reason: 'không thể vẽ đủ 30 khung tại chỗ trên màn hình này');
+      expect(collapsed, greaterThan(0));
+      expect(drawn + collapsed, 30,
+          reason: 'mỗi khối: hoặc khung đủ chữ, hoặc chip — không bỏ khối nào');
       for (final block in out) {
         if (!block.hasTranslation) continue;
         expect(block.textSizeSp, greaterThanOrEqualTo(kOverlayMinReadableSp));
@@ -509,18 +519,20 @@ void main() {
       );
       expect(_overlaps(out), isEmpty);
       expect(_tooShort(out, fontScale: 2.0), isEmpty);
-      final drawn = out.where((b) => b.hasTranslation).toList();
+      final drawn = out.where((b) => b.isShownInPlace).toList();
       expect(drawn, isNotEmpty,
-          reason: 'chia ngân sách đều mà bỏ sạch thì phải lùi về "lấp từ trên"');
+          reason: 'không được thu gọn SẠCH: vẫn phải còn khung đọc được tại chỗ');
+      expect(out.where((b) => b.hasTranslation), hasLength(30),
+          reason: 'khối không còn chỗ thành chip, không biến mất');
       for (final block in drawn) {
         // Native kẹp cứng `MIN_READABLE_SP = 10f` ⇒ Dart cũng không được cấp
-        // khung nào đo theo cỡ nhỏ hơn (khung đó sẽ bị native bỏ).
+        // khung nào đo theo cỡ nhỏ hơn.
         expect(block.textSizeSp,
             greaterThanOrEqualTo(kOverlayMinReadableSp));
       }
     });
 
-    test('KHÔNG rút gọn chữ: khối không vừa thì bỏ vẽ, không thêm `…`', () {
+    test('KHÔNG rút gọn chữ: không vừa ⇒ thành chip, không thêm `…`', () {
       // Owner 2026-11-11: "không vẽ chữ cụt". Trước đây (bản thử) nhánh tràn
       // cắt bớt chữ theo từ rồi thêm `…` ⇒ vi phạm hợp đồng này.
       final blocks = <ScreenBlock>[];

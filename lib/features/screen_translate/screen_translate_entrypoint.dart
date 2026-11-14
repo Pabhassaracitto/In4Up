@@ -80,6 +80,7 @@ Future<void> prepareScreenTranslateWorker({
   bind = binding ??
       ScreenTranslateWorkerBinding(
         onFrame: ctrl.handleFrame,
+        onTranslatePending: ctrl.translatePending,
         onStopped: () => debugPrint('ℹ️ screen translate worker: service dừng'),
       );
   screenTranslateWorkerBinding = bind;

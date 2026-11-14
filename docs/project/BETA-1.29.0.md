@@ -31,15 +31,15 @@ Link issue dùng dạng rút gọn `https://linear.app/in4up/issue/PSRC-<số>`.
 
 | L | Nhóm | Issue | Vùng code chính | Nhánh agent | Trạng thái |
 |---|---|---|---|---|---|
-| L1 | Live cabin | [199](https://linear.app/in4up/issue/PSRC-199) sửa/xoá nội dung · [200](https://linear.app/in4up/issue/PSRC-200) chọn chủ→đích khi chuyển sang tài liệu đọc · [201](https://linear.app/in4up/issue/PSRC-201) tuỳ chọn đồng bộ phiên sang Đọc/Nghe/Hiểu (cả phiên đã lưu) · [223](https://linear.app/in4up/issue/PSRC-223) cabin offline Sherpa dừng sau dòng đầu | `lib/features/cabin/**` (`live_cabin_screen`, `cabin_session_store`, `stts_cabin_service`, `cabin_read_bridge`) · `lib/screens/listen_mode/**` (audio phiên) · `lib/screens/read_mode/**` + `lib/screens/text_library/**` (đích) | — | ⬜ chưa nhận |
-| L2 | Âm thanh & video | [202](https://linear.app/in4up/issue/PSRC-202) audio tách từ video không tự mở rồi bị "dish" · [203](https://linear.app/in4up/issue/PSRC-203) chia sẻ sau xuất A–B không phản hồi (kiểm cả tab Video) · [205](https://linear.app/in4up/issue/PSRC-205) tạo lời file dài + m4a · [219](https://linear.app/in4up/issue/PSRC-219) Linux "could not play this track" · [220](https://linear.app/in4up/issue/PSRC-220) Linux `.mp4` ở tab View | `lib/features/video/**` · `lib/features/media_tools/**` (`media_export_service`) · `lib/screens/listen_mode/**` (player, tạo lời) · `linux/**` | — | ⬜ chưa nhận |
-| L3 | Tab Đọc & PDF/OCR | [206](https://linear.app/in4up/issue/PSRC-206) quét thư mục nhiều tài liệu ⇒ treo/lag · [207](https://linear.app/in4up/issue/PSRC-207) `.docx` không mở · [208](https://linear.app/in4up/issue/PSRC-208) chế độ TT chỉ ra chữ trang 2 · [209](https://linear.app/in4up/issue/PSRC-209) tinh chỉnh AI sau OCR báo sai cấu hình · [210](https://linear.app/in4up/issue/PSRC-210) OCR từ TT quét vùng trống | `lib/screens/read_mode/**` · `lib/screens/text_library/**` · `lib/services/text_source_loader.dart` · `lib/features/pdf_reader/**` · `lib/features/ocr/**` | — | ⬜ chưa nhận |
-| L4 | Bong bóng dịch | [211](https://linear.app/in4up/issue/PSRC-211) bỏ sót khối, border dư dưới, bản dịch sai chỗ | `lib/features/screen_translate/**` · `android/app/src/main/kotlin/com/in4up/screentranslate/**` (`TranslationOverlayView`, `ScreenTranslateService`) | — | ⬜ chưa nhận |
-| L5 | Web & YouTube trên Linux | [212](https://linear.app/in4up/issue/PSRC-212) biểu tượng Web ⇒ màn hình đen · [213](https://linear.app/in4up/issue/PSRC-213) chọn kết quả YouTube ⇒ màn hình đen | `lib/features/web_reader/**` · `lib/features/youtube/**` · `linux/**` | — | ⬜ chưa nhận |
-| L6 | VieNeu / Vieu-TTS | [214](https://linear.app/in4up/issue/PSRC-214) import phía trên không nhận model · [215](https://linear.app/in4up/issue/PSRC-215) import Q8_0 "thành công" nhưng thiếu engine · [216](https://linear.app/in4up/issue/PSRC-216) không khởi tạo engine · [217](https://linear.app/in4up/issue/PSRC-217) import giọng lỗi · [218](https://linear.app/in4up/issue/PSRC-218) tạo giọng từ mẫu thu lỗi | `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` (+ worker isolate) · `lib/features/tts/engines/vieneu_tts_engine.dart` · `lib/screens/settings/**` (TTS) · `native/tts_vieneu/**` + CMake | — | 🔨 doing — **owner chốt ship engine** (ADR-0028); hub đã pin submodule + workflow build |
-| L7 | Tệp, nơi lưu & "Mở bằng" | [204](https://linear.app/in4up/issue/PSRC-204) **đã chốt mô hình** (ADR-0029): mặc định `Download/In4Up` + đổi từng lần xuất · [222](https://linear.app/in4up/issue/PSRC-222) mở `.txt/.pdf/.docx/.md/.mp3/.m4a/.mp4` bằng In4Up | `android/app/src/main/AndroidManifest.xml` · `ios/Runner/Info.plist` · `lib/services/**` (nhận tệp) · `lib/features/media_tools/services/media_export_service.dart` (nơi lưu) · `lib/screens/text_library/**` · `linux/**` + `windows/**` (liên kết tệp) | — | ⬜ chưa nhận — **hợp đồng đã có: ADR-0029** |
-| L8 | Giọng đọc hệ thống Android | [221](https://linear.app/in4up/issue/PSRC-221) In4Up thành TTS engine của hệ thống (như Sherpa APK), lấy Piper làm cơ sở | `android/app/src/main/kotlin/**` (service TTS mới + engine XML + manifest) · `lib/screens/settings/**` (công tắc/hướng dẫn) | — | ⬜ chưa nhận |
-| L9 | Shadowing & UI tab Nói/Hiểu | [224](https://linear.app/in4up/issue/PSRC-224) rà và bỏ mục Shadow ở "tạo lời" tab Nghe nếu vô dụng · [225](https://linear.app/in4up/issue/PSRC-225) thu gọn nội dung tab Nói, ưu tiên Shadowing · [226](https://linear.app/in4up/issue/PSRC-226) "Nghe mẫu" trôi quá dòng đã chọn · [227](https://linear.app/in4up/issue/PSRC-227) chấm điểm sai (tab Nói + tab Hiểu) · [228](https://linear.app/in4up/issue/PSRC-228) tab Hiểu thiếu gợi ý + đọc hết nội dung | `lib/features/shadowing/**` · `lib/screens/listen_mode/speak_mode_screen.dart` · `lib/screens/understand_mode/**` · `lib/screens/listen_mode/**` (mục Shadow) | — | ⬜ chưa nhận |
+| L1 | Live cabin | [199](https://linear.app/in4up/issue/PSRC-199) sửa/xoá nội dung · [200](https://linear.app/in4up/issue/PSRC-200) chọn chủ→đích khi chuyển sang tài liệu đọc · [201](https://linear.app/in4up/issue/PSRC-201) tuỳ chọn đồng bộ phiên sang Đọc/Nghe/Hiểu (cả phiên đã lưu) · [223](https://linear.app/in4up/issue/PSRC-223) cabin offline Sherpa dừng sau dòng đầu | `lib/features/cabin/**` (`live_cabin_screen`, `cabin_session_store`, `stts_cabin_service`, `cabin_read_bridge`) · `lib/screens/listen_mode/**` (audio phiên) · `lib/screens/read_mode/**` + `lib/screens/text_library/**` (đích) | — | ✅ land `96cf043a` `f3f65d89` `23c096e9` `6fcc7936` `70ca3a4a` |
+| L2 | Âm thanh & video | [202](https://linear.app/in4up/issue/PSRC-202) audio tách từ video không tự mở rồi bị "dish" · [203](https://linear.app/in4up/issue/PSRC-203) chia sẻ sau xuất A–B không phản hồi (kiểm cả tab Video) · [205](https://linear.app/in4up/issue/PSRC-205) tạo lời file dài + m4a · [219](https://linear.app/in4up/issue/PSRC-219) Linux "could not play this track" · [220](https://linear.app/in4up/issue/PSRC-220) Linux `.mp4` ở tab View | `lib/features/video/**` · `lib/features/media_tools/**` (`media_export_service`) · `lib/screens/listen_mode/**` (player, tạo lời) · `linux/**` | — | ✅ land `bc8392ac`→`558e1587` (6 commit) |
+| L3 | Tab Đọc & PDF/OCR | [206](https://linear.app/in4up/issue/PSRC-206) quét thư mục nhiều tài liệu ⇒ treo/lag · [207](https://linear.app/in4up/issue/PSRC-207) `.docx` không mở · [208](https://linear.app/in4up/issue/PSRC-208) chế độ TT chỉ ra chữ trang 2 · [209](https://linear.app/in4up/issue/PSRC-209) tinh chỉnh AI sau OCR báo sai cấu hình · [210](https://linear.app/in4up/issue/PSRC-210) OCR từ TT quét vùng trống | `lib/screens/read_mode/**` · `lib/screens/text_library/**` · `lib/services/text_source_loader.dart` · `lib/features/pdf_reader/**` · `lib/features/ocr/**` | — | ✅ land `8ae45100`→`bd8e788f` (7 commit) |
+| L4 | Bong bóng dịch | [211](https://linear.app/in4up/issue/PSRC-211) bỏ sót khối, border dư dưới, bản dịch sai chỗ | `lib/features/screen_translate/**` · `android/app/src/main/kotlin/com/in4up/screentranslate/**` (`TranslationOverlayView`, `ScreenTranslateService`) | — | ✅ land `5ed57656` + `6d596c6d` (vòng 2: chip thu gọn, pending 32, insets) |
+| L5 | Web & YouTube trên Linux | [212](https://linear.app/in4up/issue/PSRC-212) biểu tượng Web ⇒ màn hình đen · [213](https://linear.app/in4up/issue/PSRC-213) chọn kết quả YouTube ⇒ màn hình đen | `lib/features/web_reader/**` · `lib/features/youtube/**` · `linux/**` | — | ✅ land `0bfadd3a` `d74c1cfb` |
+| L6 | VieNeu / Vieu-TTS | [214](https://linear.app/in4up/issue/PSRC-214) import phía trên không nhận model · [215](https://linear.app/in4up/issue/PSRC-215) import Q8_0 "thành công" nhưng thiếu engine · [216](https://linear.app/in4up/issue/PSRC-216) không khởi tạo engine · [217](https://linear.app/in4up/issue/PSRC-217) import giọng lỗi · [218](https://linear.app/in4up/issue/PSRC-218) tạo giọng từ mẫu thu lỗi | `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` (+ worker isolate) · `lib/features/tts/engines/vieneu_tts_engine.dart` · `lib/screens/settings/**` (TTS) · `native/tts_vieneu/**` + CMake | — | ✅ land `a518b5b4` `ecea19b5` `ab827a20` `b6ef3853` `312ad17e` |
+| L7 | Tệp, nơi lưu & "Mở bằng" | [204](https://linear.app/in4up/issue/PSRC-204) **đã chốt mô hình** (ADR-0029): mặc định `Download/In4Up` + đổi từng lần xuất · [222](https://linear.app/in4up/issue/PSRC-222) mở `.txt/.pdf/.docx/.md/.mp3/.m4a/.mp4` bằng In4Up | `android/app/src/main/AndroidManifest.xml` · `ios/Runner/Info.plist` · `lib/services/**` (nhận tệp) · `lib/features/media_tools/services/media_export_service.dart` (nơi lưu) · `lib/screens/text_library/**` · `linux/**` + `windows/**` (liên kết tệp) | — | ✅ land `0c19c57c` `7bc0d645` |
+| L8 | Giọng đọc hệ thống Android | [221](https://linear.app/in4up/issue/PSRC-221) In4Up thành TTS engine của hệ thống (như Sherpa APK), lấy Piper làm cơ sở | `android/app/src/main/kotlin/**` (service TTS mới + engine XML + manifest) · `lib/screens/settings/**` (công tắc/hướng dẫn) | — | ✅ land `d3819528` `fe0832ac` |
+| L9 | Shadowing & UI tab Nói/Hiểu | [224](https://linear.app/in4up/issue/PSRC-224) rà và bỏ mục Shadow ở "tạo lời" tab Nghe nếu vô dụng · [225](https://linear.app/in4up/issue/PSRC-225) thu gọn nội dung tab Nói, ưu tiên Shadowing · [226](https://linear.app/in4up/issue/PSRC-226) "Nghe mẫu" trôi quá dòng đã chọn · [227](https://linear.app/in4up/issue/PSRC-227) chấm điểm sai (tab Nói + tab Hiểu) · [228](https://linear.app/in4up/issue/PSRC-228) tab Hiểu thiếu gợi ý + đọc hết nội dung | `lib/features/shadowing/**` · `lib/screens/listen_mode/speak_mode_screen.dart` · `lib/screens/understand_mode/**` · `lib/screens/listen_mode/**` (mục Shadow) | — | ✅ land `0f8fbcc7` `12e71c42` `7bd01805` `e7e1c7d5` + PSRC-224 `18fe1711` |
 
 **Ngoài phạm vi sửa:** [PSRC-8](https://linear.app/in4up/issue/PSRC-8) đã **Done** — giữ làm mốc
 hồi quy (Microsoft Edge đọc tốt ở 1.28.0, Sherpa phát được, nguồn Piper đầy đủ). Nếu lane
@@ -98,6 +98,37 @@ Thay đổi so với bảng §2 (bảng §2 vẫn là bản đồ gốc, **số 
 - **L11 mới** — chốt In Review (PSRC-6, PSRC-14) + phân loại backlog cũ ≤ PSRC-196. **Ngoài cổng beta.**
 - Issue audit đợt 2 **PSRC-224…233** đã được gán: 224/225/226/227/228 → **L9**, 229 → **L10**, 230 → **L3**, 231/232 → **L10**, 233 → **L3**.
 - Tổng trong cổng: **35 issue** (PSRC-199…233), mỗi issue đúng một lane; đợt 2 cũ (172, 174, 178, 179, 180, 193, 194, 195, 196) đã gán lane nhưng **không** thuộc cổng.
+
+### 2.4 Trạng thái land thật (2026-11-14, hub) — đọc mục này, đừng tin Linear
+
+**Tip beta:** `0f71657b`. **43+ commit, 0 merge commit** ⇒ lịch sử tuyến tính.
+**11/11 lane đã land**, đủ **35/35 issue cổng** PSRC-199…233 (PSRC-224 land muộn, `18fe1711`).
+
+| Lane | Commit trên beta | Issue |
+|---|---|---|
+| L1 | `96cf043a` `f3f65d89` `23c096e9` `6fcc7936` + docs `70ca3a4a` | 199, 223, 200, 201 |
+| L2 | `bc8392ac` `10d58cd8` `629108bb` `a9fa7d42` `bb2ecbfb` + docs | 202, 203, 205, 219, 220 |
+| L3 | `8ae45100` `2f26847f` `180b7cd7` `cc1a4274` `072b1fcd` `5fb4bf66` `bd8e788f` | 206–210, 230, 233 |
+| L4 | `5ed57656` (vòng 1) `6d596c6d` (vòng 2) | 211 |
+| L5 | `0bfadd3a` `d74c1cfb` | 212, 213 |
+| L6 | `a518b5b4` `ecea19b5` `ab827a20` `b6ef3853` `312ad17e` | 214–218 |
+| L7 | `0c19c57c` `7bc0d645` | 204, 222 |
+| L8 | `d3819528` `fe0832ac` | 221 |
+| L9 | `0f8fbcc7` `12e71c42` `7bd01805` `e7e1c7d5` + `18fe1711` | 226, 228, 227, 225, **224** |
+| L10 | `75776b9b` `8e1c7679` `6fbd0ea1` + docs `332ee4a5` | 229, 231, 232 |
+| L11 | `f97f849c` `b56ec259` `0f71657b` | PSRC-6, PSRC-14 + phân loại ≤196 (ngoài cổng) |
+
+Hai việc hub sửa cùng đợt:
+
+- **PSRC-224** (`18fe1711`): nút "Shadowing" ở phần tạo lời **không phải** Shadowing mà là mic
+  trực tiếp (`startConversation`, chỗ duy nhất trong app gọi hàm này) ⇒ giữ chức năng, đổi nhãn
+  thành "Mic trực tiếp"/"Dừng mic" + i18n 8 locale. Không xoá để khỏi mất chức năng thật.
+- **deploy-web** (`16a93f9f`): step publish thêm `if: github.ref == 'refs/heads/main'`, và
+  `concurrency.group` đổi thành `github-pages-${{ github.ref }}` ⇒ nhánh lane không còn publish
+  đè site thật và không huỷ run của nhau.
+
+**Đừng tin Linear/doc cũ để biết trạng thái**: Linear còn nhiều issue ở Backlog dù code đã land.
+Nguồn sự thật là `git log` trên nhánh này.
 
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 

@@ -18,6 +18,7 @@ import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
 import '../providers/text_provider.dart';
 import '../services/text_library_service.dart';
+import '../services/text_source_loader.dart';
 //news
 import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
@@ -408,17 +409,19 @@ class _LocalTab extends StatelessWidget {
     );
     if (result == null || result.files.single.path == null) return;
 
-    final path = result.files.single.path!;
+    final pickedFile = result.files.single;
+    final path = pickedFile.path!;
     if (!context.mounted) return;
 
     final tp = context.read<TextProvider>();
-    final loaded = await tp.loadTextFile(path);
+    final loaded = await tp.loadTextFile(
+      path,
+      title: pickedFile.name.isNotEmpty ? pickedFile.name : null,
+    );
     if (!loaded && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
-          ),
+        SnackBar(
+          content: Text(tp.lastLoadError ?? TextSourceLoader.openFailedHint),
           behavior: SnackBarBehavior.floating,
         ),
       );

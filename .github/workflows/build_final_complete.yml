@@ -91,7 +91,28 @@ jobs:
           set -euo pipefail
           rustup target add aarch64-linux-android
           cargo install cargo-ndk --locked
-          export ANDROID_NDK_HOME="${ANDROID_SDK_ROOT}/ndk/28.2.13676358"
+          # Đừng hard-code đường dẫn NDK: runner chỉ cài sẵn MỘT bản (hiện là
+          # 27.3.13750724) và `ANDROID_NDK_ROOT` trỏ vào bản đó, còn
+          # `ANDROID_NDK_HOME` do bước này tự đặt ⇒ cargo-ndk thấy 2 biến lệch
+          # nhau và báo:
+          #   warning: Environment variable ANDROID_NDK_HOME = ".../ndk/28.2..." doesn't match
+          #            ANDROID_NDK_ROOT = ".../ndk/27.3..."
+          #   error: No such file or directory (os error 2)   ← bản 28.2 CHƯA cài
+          # Bước "Install NDKs" nằm SAU bước này nên 28.2 chưa tồn tại ở đây.
+          # ⇒ lấy NDK đang có thật, và nếu chưa có bản nào thì cài 27 rồi dùng nó.
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          NDK_DIR="$(ls -d "$SDK"/ndk/* 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "${NDK_DIR:-}" ]; then
+            echo "Chưa có NDK nào trong $SDK/ndk — cài ndk;27.0.11902837"
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.0.11902837"
+            NDK_DIR="$SDK/ndk/27.0.11902837"
+          fi
+          # cargo-ndk đọc cả 3 biến; đặt TẤT CẢ về cùng một đường dẫn để không
+          # còn cảnh báo lệch phiên bản.
+          export ANDROID_NDK_HOME="$NDK_DIR"
+          export ANDROID_NDK_ROOT="$NDK_DIR"
+          export NDK_HOME="$NDK_DIR"
+          echo "Dùng NDK: $NDK_DIR ($(cat "$NDK_DIR/source.properties" 2>/dev/null | tr '\n' ' '))"
           mkdir -p android/app/src/main/jniLibs
           (
             cd third_party/sea-g2p
@@ -384,13 +405,27 @@ jobs:
       - name: Install Linux dependencies (gtk3, clang, cmake, ninja, etc)
         shell: bash
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
           sudo apt-get install -y libayatana-appindicator3-dev libsecret-1-dev 2>/dev/null || sudo apt-get install -y libappindicator3-dev libsecret-1-dev || true
           sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev || true
-          echo "Linux deps installed with json-glib for ffmpeg_kit_flutter_new"
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev libwebkit2gtk-4.1-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 || true
+          # PSRC-220 (beta 1.29.0, lane L2): `media_kit_video` có nhánh CMake riêng
+          # cho Linux và nó KHÔNG nhúng libmpv — `media_kit_libs_linux` chỉ tải
+          # mimalloc rồi bật cờ MEDIA_KIT_LIBS_AVAILABLE, sau đó
+          # `media_kit_video/linux/CMakeLists.txt` gọi
+          #   pkg_check_modules(mpv IMPORTED_TARGET mpv)   # KHÔNG có REQUIRED
+          #   target_link_libraries(... PkgConfig::mpv)    # vẫn chạy dù tìm hụt
+          # ⇒ thiếu header libmpv trên máy build thì configure chết với
+          #   "Target media_kit_video_plugin links to PkgConfig::mpv but the
+          #    target was not found" (đúng lỗi build 1.29.0-Beta ngày 14/11).
+          # Vì vậy: cài libmpv-dev (header + .so để LINK) và libepoxy-dev
+          # (media_kit_video cũng pkg_check_modules(epoxy)). Đây là dependency
+          # BUILD-TIME; máy người dùng vẫn chỉ cần libmpv2 lúc chạy.
+          sudo apt-get install -y libmpv-dev libepoxy-dev
+          pkg-config --modversion mpv epoxy
+          echo "Linux deps installed (json-glib, webkit2gtk-4.1, libmpv-dev, libepoxy-dev)"
       - name: Setup Flutter 3.44.1
         uses: subosito/flutter-action@v2
         with:
@@ -425,12 +460,25 @@ jobs:
       - name: Build Linux Release
         shell: bash
         run: |
+          # Bắt lỗi ra ANNOTATION (đọc được qua API) — log Actions nằm ở blob
+          # storage mà sandbox agent bị chặn egress.
+          set +e
           flutter build linux --release --verbose \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
-            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}"
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" \
+            2>&1 | tee /tmp/build_linux.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            python3 scripts/ci/emit_failure_annotation.py /tmp/build_linux.log "Linux build errors" 6 || true
+            echo "### flutter build linux — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -80 /tmp/build_linux.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       - name: Tar Linux bundle
         shell: bash
@@ -539,12 +587,23 @@ jobs:
       - name: Build Windows Release
         shell: bash
         run: |
+          set +e
           flutter build windows --release --verbose \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
-            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}"
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" \
+            2>&1 | tee /tmp/build_windows.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            python3 scripts/ci/emit_failure_annotation.py /tmp/build_windows.log "Windows build errors" 6 || true
+            echo "### flutter build windows — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -80 /tmp/build_windows.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       - name: Verify real Windows Gemma backend
         shell: pwsh
@@ -697,12 +756,23 @@ jobs:
         shell: bash
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0
+          set +e
           flutter build ios --release --no-codesign \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
-            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}"
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" \
+            2>&1 | tee /tmp/build_ios.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            python3 scripts/ci/emit_failure_annotation.py /tmp/build_ios.log "iOS build errors" 6 || true
+            echo "### flutter build ios — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -80 /tmp/build_ios.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       - name: Create IPA from Runner.app
         shell: bash

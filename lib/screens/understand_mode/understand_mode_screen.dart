@@ -14,6 +14,7 @@ import '../../features/shadowing/widgets/pronunciation_result.dart';
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
+import '../../services/text_source_loader.dart';
 import '../../providers/waveform_provider.dart';
 import '../../providers/karaoke_settings_provider.dart';
 import '../../widgets/karaoke_transcript_view.dart';
@@ -265,14 +266,17 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       );
       if (result != null && result.files.single.path != null) {
         if (context.mounted) {
-          final loaded = await context
-              .read<TextProvider>()
-              .loadTextFile(result.files.single.path!);
+          final pickedFile = result.files.single;
+          final tp = context.read<TextProvider>();
+          final loaded = await tp.loadTextFile(
+            pickedFile.path!,
+            title: pickedFile.name.isNotEmpty ? pickedFile.name : null,
+          );
           if (!loaded && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
-                  'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+                  tp.lastLoadError ?? TextSourceLoader.openFailedHint,
                 ),
                 behavior: SnackBarBehavior.floating,
               ),

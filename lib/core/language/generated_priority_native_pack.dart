@@ -15406,6 +15406,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ความชำนาญ',
     'ja': '習熟度',
   },
+  'Mic trực tiếp': {
+    'en': 'Live mic',
+    'zh': '实时麦克风',
+    'zh_TW': '即時麥克風',
+    'hi': 'लाइव माइक',
+    'si': 'සජීවී මයික්',
+    'my': 'တိုက်ရိုက် မိုက်',
+    'th': 'ไมค์สด',
+    'ja': 'ライブマイク',
+  },
   'Microphone permission denied': {
     'en': 'Microphone permission denied',
     'zh': '麦克风权限被拒绝',

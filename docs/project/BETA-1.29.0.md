@@ -127,6 +127,19 @@ Hai việc hub sửa cùng đợt:
   `concurrency.group` đổi thành `github-pages-${{ github.ref }}` ⇒ nhánh lane không còn publish
   đè site thật và không huỷ run của nhau.
 
+**CI của tip (kiểm 2026-11-14):** run `43601469838` (App Analyze + Locale Test — wide oracle,
+5 job: analyze-and-locale-test, knowledge-regressions, vocabulary-tools, web-build-validation) và
+run `43601469820` (Listen queue regression tests) trên `16a93f9f` ⇒ **tất cả xanh**.
+`16a93f9f` là commit đầu của lượt push cuối nên **mang theo cả `18fe1711`** (một lượt push chỉ
+sinh run cho commit đầu); `dfe7006a` / `0f71657b` / `f97f849c` / `b56ec259` là commit **docs** nằm
+ngoài `paths:` của `app_analyze.yml` / `listen_queue_tests.yml` nên **không sinh run** — đúng thiết
+kế, không phải CI thiếu. `workflow_dispatch` trên nhánh này vẫn bị 403 với token sandbox ⇒ chỉ
+theo dõi được run do push.
+
+**deploy-web không chạy cho nhánh beta** — `on.push.branches` có `'!arena/60e35d65-in4up'`, nên
+việc "site thật bị đè" chỉ có thể đến từ nhánh lane khác; commit `16a93f9f` đã chặn nốt đường đó
+(publish chỉ từ `main`).
+
 **Đừng tin Linear/doc cũ để biết trạng thái**: Linear còn nhiều issue ở Backlog dù code đã land.
 Nguồn sự thật là `git log` trên nhánh này.
 

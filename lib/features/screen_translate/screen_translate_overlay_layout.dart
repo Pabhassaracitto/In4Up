@@ -92,6 +92,15 @@ const double kOverlayShrinkStepSp = 0.5;
 /// Hệ số an toàn của bộ ước lượng chiều cao (ước dư 6%).
 const double kOverlayHeightSafety = 1.06;
 
+/// Kích thước tối thiểu của **chip thu gọn** (dp) - PSRC-211 vòng 2.
+///
+/// Mục 3 của `L4-hub-tra-loi.md`: khi khung không còn chỗ cho bản dịch ngay cả
+/// ở sàn [kOverlayMinReadableSp], khối KHÔNG bị bỏ vẽ nữa mà thành một chip nhỏ
+/// ở góc trên-phải khối gốc. Chạm chip -> native mở popup hiện ĐỦ bản dịch ở cỡ
+/// chữ đọc được (>= 10sp). Nhờ vậy "không khối chữ nào bị bỏ im lặng".
+const double kOverlayChipWidthDp = 26.0;
+const double kOverlayChipHeightDp = 20.0;
+
 /// Trần của `fontScale` được áp vào phép đo.
 ///
 /// Native đọc cỡ chữ người dùng qua `TypedValue` (sp). Cỡ chữ hệ thống lớn
@@ -170,7 +179,11 @@ class _Slot {
 
   final int index;
   final ScreenBlock block;
-  final int left;
+
+  /// Mép trái của khung. Chỉ ĐỔI khi khối bị thu gọn thành chip ([collapseTo]):
+  /// chip hẹp 26dp nên nó dời mép trái vào trong, còn cạnh phải/đỉnh vẫn là
+  /// của khối gốc.
+  int left;
 
   /// Vị trí GỐC (từ OCR) — mốc để `_pack` đặt khối đúng chỗ chữ gốc và để
   /// tính "trần" của khối phía trên. Không bao giờ đổi.
@@ -189,6 +202,23 @@ class _Slot {
 
   /// Đáy của chữ gốc bên trong khung đã xếp — xem `ScreenBlock.coverBottom`.
   int coverBottom;
+
+  /// Khối bị THU GỌN thành chip (PSRC-211 vòng 2). `rect` của slot khi đó là
+  /// hình chữ nhật của CHIP, không phải khung chữ dịch.
+  bool collapsed = false;
+
+  /// Chuyển slot sang trạng thái CHIP với hình chữ nhật [rect]. Giữ cờ
+  /// `collapsed` + cỡ chữ sàn trong MỘT chỗ (đừng tự gán 4 cạnh rời rạc ở
+  /// nhiều nơi — dễ quên `coverBottom`).
+  void collapseTo(OverlayRect rect, {required double textSizeSp}) {
+    collapsed = true;
+    left = rect.left;
+    right = rect.right;
+    top = rect.top;
+    bottom = rect.bottom;
+    this.textSizeSp = textSizeSp;
+    coverBottom = rect.bottom;
+  }
 
   int get width => math.max(1, right - left);
   int get height => math.max(1, bottom - top);
@@ -393,9 +423,10 @@ int estimateTranslationMaxLines(
 ///    [kOverlayMinReadableSp]); vẫn chưa đủ mới ĐẨY khối dưới xuống (kèm khe
 ///    [kOverlayBoxGapDp]). Khối bị đẩy cũng tự thu nhỏ trước khi đẩy tiếp.
 ///  • Chạm đáy màn hình ⇒ dịch khung LÊN nếu phía trên còn trống; không được
-///    thì BỎ VẼ khối đó (không cắt chữ). Các khối đã đặt phía trên giữ nguyên.
-///  • Bước CHỐT: khối nào khung vẫn thấp hơn nhu cầu ⇒ bỏ vẽ (`translation`
-///    rỗng, native hiện chữ gốc). KHÔNG BAO GIỜ vẽ chữ cụt.
+///    thì THU GỌN thành chip (không cắt chữ, không bỏ khối). Các khối đã đặt
+///    phía trên giữ nguyên.
+///  • Bước CHỐT: khối nào khung vẫn thấp hơn nhu cầu ⇒ chip thu gọn
+///    (`collapsed = true`, bản dịch vẫn nguyên vẹn). KHÔNG BAO GIỜ vẽ chữ cụt.
 ///  • [fontScale] = `configuration.fontScale` của thiết bị. Máy bật cỡ chữ hệ
 ///    thống lớn thì native vẽ chữ CAO hơn ⇒ Dart phải ước theo đúng tỉ lệ,
 ///    nếu không khung cấp thiếu chỗ và chữ bị cắt (lỗi owner báo 2026-11-11).
@@ -494,22 +525,35 @@ List<ScreenBlock> layoutTranslatedBlocks(
 
   // (c) Xếp chỗ TẠI CHỖ: mỗi khối giữ đỉnh gốc, thu nhỏ riêng nó khi chật, chỉ
   // đẩy khối dưới khi đã ở cỡ chữ sàn mà vẫn thiếu chỗ. Khối không còn chỗ
-  // trên màn hình ⇒ bỏ vẽ. Một lượt duy nhất, không vòng lặp toàn cục.
+  // trên màn hình ⇒ CHIP THU GỌN (mục 3), không bỏ vẽ.
   dropped.addAll(_pack(visible, metrics: metrics, gap: gap, limitY: limitY));
 
   // (d) CHỐT HỢP ĐỒNG "không vẽ chữ cụt": khối nào khung vẫn thấp hơn nhu cầu
   // của chính chuỗi sẽ vẽ (đo lại bằng ĐÚNG bộ ước lượng + đúng cỡ chữ đã
-  // chốt) ⇒ bỏ vẽ. Nhờ vậy bất biến "đủ chỗ" không phụ thuộc việc `_pack` có
-  // tính khớp hay không — sai số ở đâu cũng thành "bỏ khối" (chữ gốc hiện)
-  // chứ không thành "chữ bị cắt".
-  for (final slot in visible) {
-    if (dropped.contains(slot.index)) continue;
-    if (slot.height < minHeight) {
-      dropped.add(slot.index);
-      continue;
+  // chốt) ⇒ CHIP THU GỌN. Nhờ vậy bất biến "đủ chỗ" không phụ thuộc việc
+  // `_pack` có tính khớp hay không — sai số ở đâu cũng thành chip (mở ra đọc
+  // đủ), không bao giờ thành "chữ bị cắt" và cũng không còn "bỏ khối"
+  // Lặp tới khi ổn định: một khối vừa thu gọn thành chip có thể trả lại chỗ
+  // cho khối phía dưới (khung dưới không còn bị nó chiếm), nhờ vậy khối đó có
+  // thể hiện ĐẦY ĐỦ thay vì cũng thành chip. Số vòng có trần (mỗi vòng thu
+  // gọn ít nhất một khối) nên luôn kết thúc.
+  for (var pass = 0; pass <= visible.length; pass++) {
+    var changed = false;
+    for (final slot in visible) {
+      if (dropped.contains(slot.index)) continue;
+      if (slot.collapsed) continue; // chip chỉ cần ~20dp, không đo theo chữ
+      final tooShort = slot.height < minHeight;
+      final needed = _slotNeededHeight(slot, slot.textSizeSp, metrics);
+      if (!tooShort && slot.height + 0.5 >= needed) continue;
+      // PSRC-211 vòng 2: KHÔNG bỏ khối im lặng nữa - thu gọn thành chip để
+      // người dùng vẫn mở được bản dịch đầy đủ (mục 3). Giữ NGUYÊN khung đã
+      // xếp: xê dịch ở bước chốt sẽ tạo chồng lấn với khối đã đặt. `dropped`
+      // giờ chỉ còn dành cho khối trùng nội dung ở bước (a).
+      _collapseInPlace(slot, metrics, limitY: limitY);
+      changed = true;
     }
-    final needed = _slotNeededHeight(slot, slot.textSizeSp, metrics);
-    if (slot.height + 0.5 < needed) dropped.add(slot.index);
+    if (!changed) break;
+    _pack(visible, metrics: metrics, gap: gap, limitY: limitY);
   }
 
   return _emit(blocks, slots, dropped);
@@ -525,8 +569,9 @@ List<ScreenBlock> layoutTranslatedBlocks(
 ///   3. Nếu đáy vượt màn hình ⇒ **dịch khung lên** (giữ nguyên chiều cao, chữ
 ///      không bị cắt) tới khi vừa màn hình.
 ///   4. Vẫn không vừa ⇒ **thu nhỏ ĐỀU** nhưng không dưới [kOverlayMinReadableSp].
-///   5. Vẫn không vừa (màn hình quá thấp) ⇒ **bỏ vẽ** khối (trả `translation`
-///      rỗng để native hiện chữ gốc) — KHÔNG bao giờ vẽ chữ cụt.
+///   5. Vẫn không vừa (màn hình quá thấp) ⇒ **chip thu gọn** ở góc trên-phải
+///      khối gốc (`collapsed = true`, bản dịch vẫn nguyên vẹn) — KHÔNG bao giờ
+///      vẽ chữ cụt và KHÔNG bỏ khối im lặng (PSRC-211 vòng 2).
 List<ScreenBlock> _layoutSingle(
   List<ScreenBlock> blocks,
   int screenWidth,
@@ -571,14 +616,14 @@ List<ScreenBlock> _layoutSingle(
   final int? limitY = screenHeight > 0
       ? math.max(1, screenHeight - (kOverlayBottomMarginDp * dpr).round())
       : null;
-  final int origHeight = math.max(1, block.rect.height);
+  // PSRC-211: KHÔNG giữ sàn `origHeight` - khung chỉ cần cao đúng phần chữ
+  // dịch (phần dư của bbox OCR là thứ tạo ra "khoảng trống thừa bên dưới",
+  // đúng triệu chứng PSRC-211). Native vẫn phủ tới `coverBottom` nên chữ gốc
+  // không bị lòi ra.
 
   // (2) Chiều cao ở cỡ chữ ưu tiên.
   var sizeSp = baseSp;
-  var height = math.max(
-    origHeight.toDouble(),
-    _neededHeight(block.translation, left, right, sizeSp, metrics),
-  );
+  var height = _neededHeight(block.translation, left, right, sizeSp, metrics);
 
   // (3) Nới CAO rồi DỊCH khung LÊN cho vừa màn hình — chữ vẫn nguyên cỡ.
   var rectTop = top;
@@ -596,7 +641,7 @@ List<ScreenBlock> _layoutSingle(
           _neededHeight(block.translation, left, right, next, metrics);
       if (nextHeight >= height) break; // thu nhỏ không giúp gì ⇒ dừng
       sizeSp = next;
-      height = math.max(origHeight.toDouble(), nextHeight);
+      height = nextHeight;
       rectTop = math.max(0, (limitY - height).floor());
       if (rectTop + height <= limitY) {
         fits = true;
@@ -612,16 +657,37 @@ List<ScreenBlock> _layoutSingle(
     bottom: math.max(rectTop + 1, (rectTop + height).ceil()),
   );
 
-  // (5) Vẫn tràn đáy ⇒ KHÔNG vẽ chữ cụt: trả `translation` rỗng để native hiện
-  //     nguyên chữ gốc, user biết chỗ đó chưa dịch được (thay vì đọc chữ mất
-  //     một nửa như lỗi owner báo).
+  // (5) Vẫn tràn đáy ⇒ KHÔNG vẽ chữ cụt, cũng KHÔNG bỏ khối (PSRC-211 vòng 2):
+  //     thu gọn thành chip ở góc trên-phải khối gốc, chạm chip mở popup đọc đủ.
   if (!fits) {
+    final slot = _Slot(
+      0,
+      block,
+      left,
+      math.max(0, block.rect.top),
+      right,
+      math.max(math.max(0, block.rect.top) + 1, block.rect.bottom),
+      metrics,
+    );
+    _collapseToChipAt(
+      slot,
+      metrics,
+      top: math.max(0, block.rect.top),
+      limitRight: screenWidth > 0 ? screenWidth : null,
+      limitY: limitY,
+    );
     return <ScreenBlock>[
       ScreenBlock(
-        rect: block.rect,
+        rect: OverlayRect(
+          left: slot.left,
+          top: slot.top,
+          right: slot.right,
+          bottom: slot.bottom,
+        ),
         original: block.original,
-        translation: '',
-        textSizeSp: block.textSizeSp,
+        translation: block.translation,
+        textSizeSp: kOverlayMinReadableSp,
+        collapsed: true,
       ),
     ];
   }
@@ -720,6 +786,86 @@ void _expandHorizontally(
   }
 }
 
+/// Đưa [slot] về trạng thái **THU GỌN** mà GIỮ NGUYÊN khung hiện tại.
+///
+/// Vì sao có bước này (PSRC-211 vòng 2, mục 3 của `L4-hub-tra-loi.md`): luật
+/// owner 2026-11-11 cấm vẽ dưới [kOverlayMinReadableSp] và cấm cắt chữ, nên bản
+/// trước BỎ VẼ khối không đủ chỗ - tức vẫn "bỏ sót khối" (đúng lỗi PSRC-211).
+/// Chip là **trạng thái thứ ba**: chữ không bị cắt, không bị bóp; người dùng
+/// chạm chip để native mở popup hiện ĐỦ bản dịch ở cỡ chữ đọc được.
+///
+/// Bản "giữ nguyên khung" này dùng ở bước chốt hợp đồng, nơi khung đã được xếp
+/// và không được xê dịch nữa (xê dịch lúc đó mới là thứ tạo ra chồng lấn).
+void _collapseInPlace(_Slot slot, OverlayFontMetrics metrics, {int? limitY}) {
+  // Chip nhỏ (~26×20dp) ở góc trên-phải khung ĐÃ XẾP: nhờ vậy nó không đè
+  // khối khác (khung đó đã né các khối trước) mà vẫn đánh dấu đúng chỗ.
+  _collapseToChipAt(
+    slot,
+    metrics,
+    top: slot.top,
+    limitRight: slot.right,
+    limitY: limitY,
+  );
+}
+
+/// Kích thước chip (px) theo mật độ màn hình — native dùng cùng công thức.
+({int width, int height}) overlayChipSize(OverlayFontMetrics metrics) {
+  final dpr = metrics.dpr;
+  return (
+    width: math.max(8, (kOverlayChipWidthDp * dpr).round()),
+    height: math.max(8, (kOverlayChipHeightDp * dpr).round()),
+  );
+}
+
+/// Đặt [slot] thành CHIP ở góc trên-phải khối gốc, bắt đầu từ [top].
+///
+/// [top] là đỉnh đã xếp (>= đỉnh gốc, sau khi né các khối đã đặt phía trên) nên
+/// chip không bao giờ đè lên khối khác; các khối SAU sẽ né chip vì nó được thêm
+/// vào danh sách đã đặt (bán kính nhỏ, chỉ ~26×20dp).
+void _collapseToChipAt(
+  _Slot slot,
+  OverlayFontMetrics metrics, {
+  required int top,
+  int? limitRight,
+  int? limitY,
+}) {
+  final chip = overlayChipSize(metrics);
+  var right = slot.right;
+  if (limitRight != null && right > limitRight) right = limitRight;
+  var left = right - chip.width;
+  if (left < slot.left) left = slot.left;
+  if (left >= right) left = math.max(0, right - chip.width);
+  // Đỉnh chip, theo thứ tự ưu tiên:
+  //  1. [top] = chỗ XẾP hiện tại — đã né mọi khối đặt trước, nên chip không đè
+  //     khung chữ dịch của ai và không che nội dung của khối khác.
+  //  2. đỉnh GỐC của khối — màn hình CỰC dày (30 khối, fontScale 2.0×) không
+  //     còn chỗ nào trống; khi đó chip nằm trên chính chữ gốc của nó, đúng mục
+  //     3 ("góc trên-phải khối gốc"). Hai chip có thể chồng nhau một phần, cả
+  //     hai vẫn bấm được và vẫn đại diện đúng khối của mình.
+  //  3. sát đáy màn hình — chỉ khi cả đỉnh gốc cũng đã ở dưới đáy.
+  //
+  // Bản trước luôn kẹp về `limitY - chiều cao chip` ⇒ MỌI khối sát đáy ra
+  // CÙNG một hình chip (nhiều khối "hoá" thành một) rồi bị đẩy ra ngoài màn
+  // hình (không bấm được). Vì vậy thứ tự trên là bắt buộc.
+  var chipTop = math.max(0, top);
+  if (limitY != null && chipTop + chip.height > limitY) {
+    if (slot.origTop + chip.height <= limitY) {
+      chipTop = math.max(0, slot.origTop);
+    } else {
+      chipTop = math.max(0, limitY - chip.height);
+    }
+  }
+  slot.collapseTo(
+    OverlayRect(
+      left: left,
+      top: chipTop,
+      right: math.max(left + 1, right),
+      bottom: math.max(chipTop + 1, chipTop + chip.height),
+    ),
+    textSizeSp: kOverlayMinReadableSp,
+  );
+}
+
 int _linesAtWidth(
   _Slot slot,
   int widthPx,
@@ -735,6 +881,31 @@ int _linesAtWidth(
     usable,
     sizeSp * metrics.pxPerSp,
   );
+}
+
+/// Khối CHIP THU GỌN tại toạ độ màn hình ([x], [y]) — `null` nếu không trúng.
+///
+/// Đây là "máy bắt" cho yêu cầu "chip chạm được" của mục 3: native hỏi hàm này
+/// (cùng công thức) rồi mở popup bản dịch đầy đủ. Layout thuần Dart nên test
+/// được trên host VM, không cần thiết bị.
+///
+/// Khi nhiều chip chồng nhau (hiếm: hai bbox OCR giao nhau), trả chip có diện
+/// tích NHỎ nhất — chip nhỏ là cái dễ bị che, ưu tiên nó để không ai bấm hụt.
+ScreenBlock? collapsedBlockAt(List<ScreenBlock> blocks, int x, int y) {
+  ScreenBlock? best;
+  var bestArea = 1 << 30;
+  for (final block in blocks) {
+    if (!block.collapsed) continue;
+    final rect = block.rect;
+    if (x < rect.left || x > rect.right) continue;
+    if (y < rect.top || y > rect.bottom) continue;
+    final area = math.max(1, rect.width).toInt() * math.max(1, rect.height).toInt();
+    if (area < bestArea) {
+      bestArea = area;
+      best = block;
+    }
+  }
+  return best;
 }
 
 /// Thêm nhanh cho tập slot lớn: đếm số khung GIAO NHAU theo từng trục.
@@ -771,7 +942,8 @@ double _slotNeededHeight(
       2 * kOverlayTextPaddingPx;
 }
 
-/// Xếp từng khối ĐÚNG CHỖ chữ gốc của nó. Trả về `index` các khối phải bỏ vẽ.
+/// Xếp từng khối ĐÚNG CHỖ chữ gốc của nó. Trả về `index` các khối BỎ hẳn —
+/// từ vòng 2 danh sách đó chỉ còn khối TRÙNG nội dung; khối hết chỗ thành chip.
 ///
 /// [visible] theo thứ tự đọc (trên → dưới). Với mỗi khối:
 ///  1. **Đỉnh** = đỉnh gốc; chỉ lùi xuống khi một khối ĐÃ ĐẶT phía trên (giao
@@ -785,10 +957,11 @@ double _slotNeededHeight(
 ///     khung dài quá trần: khối bên dưới sẽ bị đẩy ở bước 1 của chính nó — và
 ///     nó lại thử thu nhỏ để không đẩy tiếp ⇒ độ lệch tắt dần thay vì dồn.
 ///  4. Vượt lề đáy màn hình ⇒ dịch khung LÊN nếu phía trên còn trống; không
-///     thì bỏ vẽ khối này (khối đã đặt không bị động tới).
+///     thì THU GỌN thành chip ở góc trên-phải khối gốc và đăng ký ngay vào
+///     danh sách đã đặt (khối sau phải né chip), rồi đi tiếp khối sau.
 ///
-/// Khối bị bỏ KHÔNG chiếm chỗ: nó không được thêm vào danh sách đã đặt nên
-/// khối sau có thể dùng khoảng đó. Khác bản XLAT-SCR-006 (thu nhỏ ĐỀU cả màn
+/// Khối bị BỎ (chỉ còn khối trùng nội dung) không chiếm chỗ: nó không được
+/// thêm vào danh sách đã đặt nên khối sau có thể dùng khoảng đó. Khác bản XLAT-SCR-006 (thu nhỏ ĐỀU cả màn
 /// hình, chia ngân sách): một khối dài không còn kéo cỡ chữ / vị trí của các
 /// khối không liên quan.
 Set<int> _pack(
@@ -800,8 +973,27 @@ Set<int> _pack(
   final unfit = <int>{};
   final placed = <_Slot>[];
 
+  // Idempotent: bước chốt (d) gọi lại hàm này sau khi thu gọn một khối, nên
+  // mọi slot phải trở về trạng thái "chưa xếp" trước khi xếp lại. Khối đã bị
+  // thu gọn thì GIỮ là chip (chip nhỏ nên nhường chỗ cho khối khác).
+  for (final slot in visible) {
+    if (slot.collapsed) {
+      slot.textSizeSp = kOverlayMinReadableSp;
+      continue;
+    }
+    slot.top = slot.origTop;
+    slot.bottom = slot.origBottom;
+    slot.coverBottom = slot.origBottom;
+    slot.textSizeSp = slot.baseSp;
+  }
+
   for (var i = 0; i < visible.length; i++) {
     final slot = visible[i];
+    if (slot.collapsed) {
+      // Chip đã có hình chữ nhật riêng; khối sau phải né nó.
+      placed.add(slot);
+      continue;
+    }
 
     // (1) Đỉnh thấp nhất được phép: ngay dưới các khối đã đặt có giao ngang.
     var floorTop = 0;
@@ -819,6 +1011,26 @@ Set<int> _pack(
       if (!later.overlapsHorizontally(slot)) continue;
       final candidate = later.origTop - gap;
       if (ceiling == null || candidate < ceiling) ceiling = candidate;
+    }
+
+    // (2b) PSRC-211 vòng 2: khối nằm SÁT ĐÁY màn hình mà bản dịch không thể
+    // lọt vào khoảng `top..limitY` thì thu gọn NGAY thành chip tại chính chỗ
+    // đó. Nếu để tới bước (4) mới thu gọn, chip bị ghim vào đáy màn hình
+    // (trùng toạ độ với chip của các khối sát đáy khác) — người dùng thấy một
+    // chip thay vì nhiều khối, tức là vẫn "bỏ sót".
+    if (limitY != null) {
+      final overflowNeed = _slotNeededHeight(slot, kOverlayMinReadableSp, metrics);
+      if (top + overflowNeed > limitY) {
+        _collapseToChipAt(
+          slot,
+          metrics,
+          top: top,
+          limitRight: slot.right,
+          limitY: limitY,
+        );
+        placed.add(slot);
+        continue;
+      }
     }
 
     // (3) Cỡ chữ: ưa thích cỡ gốc; chật thì thu nhỏ riêng khối này.
@@ -843,16 +1055,25 @@ Set<int> _pack(
       }
     }
     final boxHeight = needed.ceil();
+    // Đỉnh TRƯỚC khi bị đẩy xuống ở bước (4): nếu phải thu gọn ngay tại đây thì
+    // chip đứng ở chỗ này (đã né khối trên), không phải ở đáy màn hình.
+    final anchoredTop = top;
 
     // (4) Lề đáy màn hình.
     if (limitY != null && top + boxHeight > limitY) {
       final shifted = limitY - boxHeight;
       if (shifted < floorTop) {
-        // Không còn chỗ cho NGUYÊN bản dịch ⇒ bỏ vẽ, trả khung về vị trí gốc.
-        unfit.add(slot.index);
-        slot.top = slot.origTop;
-        slot.bottom = slot.origBottom;
-        slot.coverBottom = slot.origBottom;
+        // Hết cách cho NGUYÊN bản dịch (chạm lề đáy, phía trên đã có khối
+        // khác) ⇒ KHÔNG bỏ vẽ nữa (PSRC-211 vòng 2): thu gọn thành chip và
+        // đăng ký NGAY vào `placed` để khối dưới không đè lên chip.
+        _collapseToChipAt(
+          slot,
+          metrics,
+          top: anchoredTop,
+          limitRight: slot.right,
+          limitY: limitY,
+        );
+        placed.add(slot);
         continue;
       }
       top = shifted;
@@ -890,6 +1111,23 @@ List<ScreenBlock> _emit(
       continue;
     }
     final slot = slots[i];
+    if (slot.collapsed) {
+      out.add(ScreenBlock(
+        rect: OverlayRect(
+          left: slot.left,
+          top: slot.top,
+          right: slot.right,
+          bottom: slot.bottom,
+        ),
+        original: original.original,
+        // Bản dịch NGUYÊN VẸN: native vẽ nhãn ngắn trên chip và mở popup đọc
+        // đủ khi chạm - không cắt chữ, không bóp chữ (mục 3).
+        translation: original.translation,
+        textSizeSp: kOverlayMinReadableSp,
+        collapsed: true,
+      ));
+      continue;
+    }
     if (slot.block.translation.trim().isEmpty) {
       out.add(original);
       continue;
@@ -903,9 +1141,9 @@ List<ScreenBlock> _emit(
     out.add(ScreenBlock(
       rect: rect,
       original: original.original,
-      // LUÔN là bản dịch NGUYÊN VẸN: layout không rút gọn chữ (khối không
-      // đủ chỗ thì bị bỏ vẽ ở trên, `translation` rỗng). Nhờ vậy không có
-      // đường nào để chữ bị cắt.
+      // LUÔN là bản dịch NGUYÊN VẸN: layout không rút gọn chữ. Khối không đủ
+      // chỗ đã thành chip ở trên (`collapsed = true`), khối trùng nội dung thì
+      // bị bỏ (`translation` rỗng). Nhờ vậy không có đường nào để chữ bị cắt.
       translation: original.translation,
       // Cỡ chữ ĐÃ DÙNG để đo khung (đừng tính lại từ `rect` — xem `baseSp`).
       textSizeSp: slot.textSizeSp,

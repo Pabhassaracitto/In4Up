@@ -186,12 +186,22 @@ class PiperTtsVoice {
   final String dataDir;
   final int sampleRate;
 
+  /// BCP-47 của giọng, đọc từ `<name>.onnx.json` (`language.code`, rồi
+  /// `espeak.voice`) — PSRC-230. Rỗng = config không khai báo; khi đó nơi
+  /// gọi tự đoán theo tên giọng bằng [SherpaPiperTtsCore.langFromVoiceName].
+  ///
+  /// Vì sao cần: tên giọng do người dùng đặt có thể không mang mã ngôn ngữ
+  /// (`my_voice.onnx`), trong khi config Piper LUÔN có `language.code` hoặc
+  /// `espeak.voice`. Không đọc metadata ⇒ chọn sai giọng khi đọc song ngữ.
+  final String languageCode;
+
   const PiperTtsVoice({
     required this.name,
     required this.modelPath,
     required this.tokensPath,
     required this.dataDir,
     required this.sampleRate,
+    this.languageCode = '',
   });
 }
 
@@ -717,9 +727,9 @@ class SherpaPiperTtsCore {
         }
         if (tokensPath == null) continue;
 
+        final configPath = p.join(dir.path, '$name.onnx.json');
         final sampleRate =
-            _readSampleRate(p.join(dir.path, '$name.onnx.json')) ??
-                defaultPiperSampleRate;
+            _readSampleRate(configPath) ?? defaultPiperSampleRate;
 
         voices.add(PiperTtsVoice(
           name: name,
@@ -727,6 +737,7 @@ class SherpaPiperTtsCore {
           tokensPath: tokensPath,
           dataDir: dataDir,
           sampleRate: sampleRate,
+          languageCode: _readConfiguredLanguage(configPath),
         ));
       }
       voices.sort((a, b) => a.name.compareTo(b.name));
@@ -741,6 +752,43 @@ class SherpaPiperTtsCore {
       debugPrint('⚠️ SherpaPiperTtsCore.discoverVoices error: $e');
       return const [];
     }
+  }
+
+  /// Ngôn ngữ khai báo trong config Piper (<name>.onnx.json).
+  ///
+  /// Thứ tự: `language.code` (`vi_VN`) → `espeak.voice` (`vi`) → `''`.
+  /// PSRC-230 — không có bước này thì giọng có tên không chứa mã ngôn ngữ bị
+  /// coi là "không rõ" và có thể bị chọn cho câu sai ngôn ngữ.
+  static String _readConfiguredLanguage(String jsonPath) {
+    try {
+      final raw = File(jsonPath).readAsStringSync();
+      final map = jsonDecode(raw);
+      if (map is! Map) return '';
+      final candidates = <String?>[];
+      final language = map['language'];
+      if (language is Map && language['code'] is String) {
+        candidates.add(language['code'] as String);
+      }
+      final espeak = map['espeak'];
+      if (espeak is Map && espeak['voice'] is String) {
+        candidates.add(espeak['voice'] as String);
+      }
+      for (final candidate in candidates) {
+        if (candidate == null) continue;
+        final value = candidate.trim();
+        if (value.isEmpty) continue;
+        final parsed = langFromVoiceName(value);
+        if (parsed.isNotEmpty) return parsed;
+        // `espeak.voice` thường chỉ là mã 2 ký tự (`vi`, `en`) — bảng ánh xạ
+        // trong [langFromVoiceName] chỉ chạy khi có phần đuôi, nên thêm đuôi
+        // giả để dùng lại ĐÚNG một bảng ánh xạ đó.
+        if (RegExp(r'^[A-Za-z]{2}$').hasMatch(value)) {
+          final short = langFromVoiceName('$value-x');
+          if (short.isNotEmpty) return short;
+        }
+      }
+    } catch (_) {}
+    return '';
   }
 
   /// sample_rate từ config Piper (<name>.onnx.json → audio.sample_rate)

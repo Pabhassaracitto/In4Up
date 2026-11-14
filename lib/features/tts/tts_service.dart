@@ -699,9 +699,23 @@ class TtsService extends ChangeNotifier {
       if (!await piper.isAvailable()) return false;
       if (isStaleEpoch(epoch)) return false;
 
-      // Cache theo đúng danh tính (engine + ngôn ngữ + giọng + tốc độ +
-      // cao độ) — TTS-VOICE-CACHE-001.
-      final voiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      // PSRC-230 — GIẢI giọng TRƯỚC khi tổng hợp/cache: câu tiếng Anh trong
+      // tài liệu song ngữ phải dùng giọng tiếng Anh; không có giọng phù hợp
+      // thì trả false để chuỗi engine chạy tiếp (thà fallback còn hơn đọc
+      // tiếng Anh bằng giọng Việt).
+      //
+      // Bản cũ truyền `voiceId: null` khi `matchVoiceLanguage` và cache theo
+      // `null` ⇒ mọi ngôn ngữ dùng chung một bản ghi giọng người dùng chọn.
+      final requestedVoiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      final voiceId = await piper.resolveVoiceName(
+        lang,
+        voiceId: requestedVoiceId,
+      );
+      if (voiceId == null) {
+        debugPrint('ℹ️ Piper: không có giọng phù hợp cho $lang — '
+            'chuyển engine kế tiếp');
+        return false;
+      }
       return await _speakPreparedChunks(
         text: text,
         lang: lang,
@@ -731,6 +745,9 @@ class TtsService extends ChangeNotifier {
             pitch: _pitch,
             voiceId: voiceId,
           );
+          if (result.isSuccess) {
+            debugPrint('[TTS-PIPER] $lang → giọng $voiceId');
+          }
           final audio = result.audioData;
           if (!result.isSuccess || audio == null || audio.isEmpty) {
             debugPrint('ℹ️ Sherpa Piper TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');

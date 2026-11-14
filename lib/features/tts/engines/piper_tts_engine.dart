@@ -86,16 +86,39 @@ class PiperTtsEngine implements TtsEngine {
         .toList();
   }
 
+  /// Giọng THẬT sẽ dùng cho [language] — PSRC-230: `null` nghĩa là KHÔNG có
+  /// giọng Piper phù hợp, caller phải fallback engine khác thay vì đọc câu
+  /// tiếng Anh bằng giọng tiếng Việt.
+  ///
+  /// [TtsService] gọi hàm này TRƯỚC khi tổng hợp để (a) biết chắc giọng nào
+  /// đang đọc và (b) dùng đúng tên giọng đó làm một phần khoá cache.
+  Future<String?> resolveVoiceName(String language, {String? voiceId}) =>
+      _resolveVoiceName(language, voiceId);
+
+  /// Ngôn ngữ của một giọng: ưu tiên metadata `<name>.onnx.json`
+  /// (`language.code` / `espeak.voice` — PSRC-230), rồi mới đoán theo tên.
+  static String _voiceLanguage(PiperTtsVoice voice) =>
+      voice.languageCode.isNotEmpty
+          ? voice.languageCode
+          : SherpaPiperTtsCore.langFromVoiceName(voice.name);
+
   Future<String?> _resolveVoiceName(String language, String? voiceId) async {
     final voices = await SherpaPiperTtsCore.discoverVoices();
     if (voices.isEmpty) return null;
 
-    if (voiceId != null && voiceId.isNotEmpty) {
+    // 1. Giọng người dùng chỉ định — CHỈ nhận khi đúng ngôn ngữ của câu.
+    //    (Bản cũ nhận bừa ⇒ chọn giọng Việt trong setting là mọi câu tiếng
+    //    Anh cũng đọc bằng giọng Việt.)
+    final explicit = (voiceId ?? '').trim();
+    if (explicit.isNotEmpty &&
+        PiperVoicePrefs.isVoiceCompatibleWithLanguage(explicit, language)) {
       for (final v in voices) {
-        if (v.name == voiceId) return v.name;
+        if (v.name == explicit) return v.name;
       }
     }
 
+    // 2. Giọng đã lưu cho CHÍNH ngôn ngữ này (không rơi về giọng ngôn ngữ
+    //    khác — PSRC-230).
     final preferred = await PiperVoicePrefs.instance.voiceForLang(language);
     if (preferred != null) {
       for (final v in voices) {
@@ -105,26 +128,30 @@ class PiperTtsEngine implements TtsEngine {
 
     final want = PiperVoicePrefs.normalizeLang(language);
     if (want.isNotEmpty) {
-      // 1. Khớp chính xác locale (e.g. `vi-VN` == `vi-VN`)
+      // 3. Khớp chính xác locale (e.g. `vi-VN` == `vi-VN`)
       for (final v in voices) {
-        final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
-        if (lang.toLowerCase() == want.toLowerCase()) return v.name;
-      }
-      // 2. Khớp mã ngôn ngữ 2 ký tự (e.g. `vi` == `vi`)
-      final short = want.split('-').first.toLowerCase();
-      for (final v in voices) {
-        final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
-        if (lang.isNotEmpty && lang.split('-').first.toLowerCase() == short) {
+        if (_voiceLanguage(v).toLowerCase() == want.toLowerCase()) {
           return v.name;
         }
       }
-      // 3. Fallback: nếu có voice không xác định locale (universal)
+      // 4. Khớp mã ngôn ngữ 2 ký tự (e.g. `vi` == `vi-VN`). `zh` KHÔNG dùng
+      //    chéo: giản thể và phồn thể là hai mặt chữ.
+      final short = want.split('-').first.toLowerCase();
+      if (short != 'zh') {
+        for (final v in voices) {
+          final lang = _voiceLanguage(v);
+          if (lang.isNotEmpty && lang.split('-').first.toLowerCase() == short) {
+            return v.name;
+          }
+        }
+      }
+      // 5. Giọng chưa rõ ngôn ngữ (tên không có mã) — lựa chọn cuối, tốt hơn
+      //    im lặng.
       for (final v in voices) {
-        final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
-        if (lang.isEmpty) return v.name;
+        if (_voiceLanguage(v).isEmpty) return v.name;
       }
 
-      // Không tìm thấy giọng Piper phù hợp với ngôn ngữ này → trả null để fallback sang engine khác
+      // Không có giọng Piper phù hợp ⇒ null để TtsService fallback engine kế.
       return null;
     }
 

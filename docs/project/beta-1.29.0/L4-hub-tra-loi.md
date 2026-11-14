@@ -106,3 +106,38 @@ Chuỗi UI mới (nhãn chip, "còn N khối · Dịch tiếp", tiêu đề popu
 - [ ] 8 locale đủ cho chuỗi mới; `flutter analyze` 0 error.
 - [ ] Run "VieNeu engine build" xanh trên nhánh (chứng minh `ScreenTranslateService.kt` biên dịch được).
 - [ ] Commit body ghi rõ: chưa kiểm máy thật (ảnh G3); chỗ nào chưa làm được thì nói thẳng.
+
+---
+
+# § 7 — Nghiệm thu hai nhánh L4 (hub, 2026-11-14)
+
+Ngày 2026-11-13 có **hai** nhánh cùng làm PSRC-211. Hub chọn một để land, nhánh còn lại giữ làm
+tài liệu tham chiếu.
+
+| | `arena/33cb5b7a-in4up` (**nhận**) | `arena/defa5264-in4up` (giữ tham chiếu) |
+|---|---|---|
+| Commit | `c2f1a146` → rebase thành `5ed57656` | `490294ed` |
+| Diff | 10 file, +1711/−257 | 7 file, +717/−164 |
+| Test | suite cũ + **2 file mới** (984 dòng): `psrc_211_bubble_coverage_test.dart`, `screen_translate_text_flow_test.dart` | sửa 2 file cũ (264 dòng) |
+| Chứng minh đỏ trước khi sửa | **Có** — coverage test đỏ trên code cũ (run `43492520476`), xanh sau khi sửa | Không có bước chứng minh đỏ |
+| Nguyên nhân gốc bao phủ | cỡ chữ theo `fontScale` + `\n`, xếp chỗ "đẩy trước", gộp dòng cùng đoạn trước khi dịch (module mới `screen_translate_text_flow.dart`), bù `getLocationOnScreen` khi vẽ | như trên **+** cutout/insets/`maximumWindowMetrics`/resize `VirtualDisplay` khi xoay, `RegionSelectView` offset, lọc rác **trước** khi cắt hạn mức |
+| Trần khối | giữ 32 | nâng 64 (hub **không** chấp nhận — xem § 4) |
+
+**Quyết định:** nhận `33cb5b7a` vì (1) có máy bắt đầu-cuối *và* chứng minh đỏ-trước-xanh-sau — đúng
+DoD "sửa nguyên nhân gốc + có test khoá lại"; (2) gộp đoạn/dòng mềm trước khi dịch là cải thiện
+chất lượng bản dịch, không chỉ vá hiển thị; (3) mặt test rộng gấp ~3,7 lần.
+
+**Nợ chuyển sang vòng 2** (lấy từ `defa5264`, đã CI xanh ở nhánh đó nên dùng làm bản tham chiếu,
+đừng viết lại từ đầu):
+1. `ScreenTranslateService.kt`: `layoutInDisplayCutoutMode`, `fitInsetsTypes = 0`,
+   `maximumWindowMetrics`, `syncWarmDisplayIfSizeChanged()` + `onConfigurationChanged`.
+2. `RegionSelectView.kt`: quy đổi `getLocationOnScreen` khi chọn vùng.
+3. `ScreenTranslateController`: **lọc số/ký hiệu/link trước khi cắt** hạn mức (giữ trần 32).
+4. Cộng với § 3 (chip thu gọn) và § 4 (pending + "Dịch tiếp") ở trên.
+
+**Trạng thái land (tuyến tính trên beta):** `3e3ca64` → `d3819528`+`fe0832ac` (L8) → `5ed57656` (L4).
+Push này chạm `android/app/src/main/kotlin/**` nên `vieneu_engine_build` **tự chạy** — đúng cái
+oracle mà agent L4 trước đó bị chặn (§ 2), không cần ai bấm `workflow_dispatch`.
+
+**Chưa nghiệm thu được ở đây:** hiển thị thật trên máy (tai thỏ, xoay ngang, font scale 2.0×,
+màn hình dày chữ) — thuộc cổng **G3**, cần ảnh của owner gắn vào `PSRC-211`.

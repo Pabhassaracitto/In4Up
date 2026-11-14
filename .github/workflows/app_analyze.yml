@@ -111,7 +111,7 @@ jobs:
           code=$?
           cat linux_shell_regression_test.log
           if [ "$code" -ne 0 ]; then
-            python3 scripts/ci/emit_failure_annotation.py linux_shell_regression_test.log "Linux shell tests" 4
+            python3 scripts/ci/emit_failure_annotation.py linux_shell_regression_test.log "Linux shell tests" 8
           fi
           exit $code
 

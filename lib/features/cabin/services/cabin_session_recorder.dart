@@ -125,6 +125,8 @@ class CabinSessionRecorder {
       _entries[index] = CabinTranscriptEntry(
         id: old.id,
         offset: old.offset,
+        sourceLang: old.sourceLang,
+        targetLang: old.targetLang,
         sourceText: sourceText ?? old.sourceText,
         translatedText: translatedText ?? old.translatedText,
       );

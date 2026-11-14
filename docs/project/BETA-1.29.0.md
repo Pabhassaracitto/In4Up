@@ -143,6 +143,42 @@ việc "site thật bị đè" chỉ có thể đến từ nhánh lane khác; co
 **Đừng tin Linear/doc cũ để biết trạng thái**: Linear còn nhiều issue ở Backlog dù code đã land.
 Nguồn sự thật là `git log` trên nhánh này.
 
+### 2.5 Build `1.29.0-Beta` lần 1 (2026-11-14) — 4/4 nền tảng đỏ, nguyên nhân và cách sửa
+
+Owner chạy `workflow_dispatch` trên tip `d7255451` (run **43628417444**): Android, Windows, iOS, Linux
+đều đỏ; analyze trên cùng commit (run **43627869866**) cũng đỏ. Bốn lỗi, ba trong đó là **hạ tầng/workflow**
+chứ không phải code của lane.
+
+| Nền tảng | Lỗi trong log | Gốc | Sửa |
+|---|---|---|---|
+| Linux | `Target "media_kit_video_plugin" links to: PkgConfig::mpv but the target was not found` (CMake configure) | `media_kit_libs_linux` chỉ tải mimalloc rồi bật `MEDIA_KIT_LIBS_AVAILABLE`; `media_kit_video/linux/CMakeLists.txt` gọi `pkg_check_modules(mpv IMPORTED_TARGET mpv)` **không** `REQUIRED` rồi vẫn `target_link_libraries(... PkgConfig::mpv)` ⇒ tìm hụt là chết | cài `libmpv-dev` + `libepoxy-dev` (build-time) trong `build_final_complete.yml` (`d3b7c86`) |
+| Android | `ANDROID_NDK_HOME=...ndk/28.2.13676358` ≠ `ANDROID_NDK_ROOT=...ndk/27.3.13750724` → `No such file or directory` | bước build SEA-G2P hard-code NDK 28.2, nhưng bước `Install NDKs` nằm **sau** nó và runner chỉ có 27.3 | lấy NDK đang có thật, đặt cả 3 biến về cùng đường dẫn (`d3b7c86`) |
+| Windows | `2 Error(s)` (không có dòng lỗi trong log) | cây PDFium lệch: lock nâng `pdfrx 2.4.8`/`pdfrx_engine 0.4.7` nhưng `pdfium_dart` bị ghim `0.1.2` + `pdfium_flutter` là path dep `0.1.9` ⇒ engine gọi `getPdfium(modulePath:)` không tồn tại | ghim `pdfrx: 2.2.24` + trả `pdfrx`/`pdfrx_engine` trong lock về `2.2.24`/`0.3.9` (`4db1a40`) |
+| iOS | `** BUILD FAILED **` (chỉ thấy warning của whisper) | cùng cây PDFium lệch như Windows | như trên (`4db1a40`) |
+
+Lỗi **thật sự chặn analyze** (và là bằng chứng của cả Windows/iOS) đọc được từ annotation:
+
+```text
+pdfrx_engine-0.4.7/lib/src/native/pdfium.dart:11:41: Error: No named parameter with the name 'modulePath'.
+  _pdfium ??= pdfium_bindings.getPdfium(modulePath: Pdfrx.pdfiumModulePath);
+pdfium_dart-0.1.2/lib/src/pdfium_downloader.dart:28:32: Context: Found this candidate, but the arguments don't match.
+```
+
+**Luật rút ra:** muốn nâng `pdfrx` thì phải nâng `pdfium_dart` + `pdfium_flutter` cùng lúc — `dependency_overrides`
+đang ghim chặt cây PDFium nên `^2.2.1` sẽ âm thầm sinh tổ hợp hỏng. `pdfrx` nay ghim **chính xác** `2.2.24`.
+
+**Vì sao đọc được lỗi:** log Actions nằm ở `productionresultssa*.blob.core.windows.net` — sandbox agent bị
+chặn egress (`gh run view --log` trả EOF). Kênh duy nhất là **annotation** của check-run. Vì vậy 3 job
+Linux/Windows/iOS giờ `tee` log ra `/tmp/build_*.log` rồi khi đỏ chạy
+`scripts/ci/emit_failure_annotation.py` (`d3b7c86`), và script được mở rộng để bắt `Error:`/`error C####`/
+`error LNK####`/`error MSB####`/`** BUILD FAILED **`/`Failed to load` + 10 dòng sau dòng `loading `
+(`2bcac0b`).
+
+**Trạng thái xác nhận:** `app_analyze` trên `4db1a40` = run **43631309682** 🟢 4/4 job (đã hết lỗi biên dịch,
+2 test `linux_shell_regression_test` / `linux_web_external_browser` nạp và chạy bình thường). **Build 4 nền
+tảng chưa chạy lại** — token của sandbox không có quyền `actions:write` (`gh workflow run` → 403) nên owner
+phải bấm *Run workflow* trên tip mới.
+
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
 ```text

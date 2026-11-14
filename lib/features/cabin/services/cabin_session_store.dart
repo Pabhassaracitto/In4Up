@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -109,6 +110,98 @@ class CabinSessionStore {
     return out;
   }
 
+
+  /// Stream the effective entries of a finished journal in original order.
+  ///
+  /// Edits are append-only and may occur after the corresponding entry, so a
+  /// first pass indexes only IDs/row numbers and mutations, not transcript
+  /// text. The second pass yields entries one at a time. Callers producing an
+  /// export should write to a temporary file and commit it only if the stream
+  /// completes successfully. Recording journals must first be finished.
+  Stream<CabinTranscriptEntry> streamEntries(CabinSession session) async* {
+    if (session.status == CabinSessionStatus.recording) {
+      throw StateError('Cannot stream a recording cabin session');
+    }
+    final file = File(session.journalPath);
+    if (!await file.exists()) return;
+    final originalLength = await file.length();
+    final rowsById = <String, ListQueue<int>>{};
+    final patches = <int, _CabinEntryPatch>{};
+    var row = 0;
+    await for (final json in _journalRecords(file)) {
+      final op = json['op'];
+      if (op == 'edit' || op == 'delete') {
+        final id = json['id'];
+        if (id is! String) continue;
+        final rows = rowsById[id];
+        if (rows == null || rows.isEmpty) continue;
+        final index = rows.first;
+        final patch = patches.putIfAbsent(index, _CabinEntryPatch.new);
+        if (op == 'delete') {
+          patch.deleted = true;
+          rows.removeFirst();
+        } else {
+          if (json['src'] is String) patch.source = json['src'] as String;
+          if (json['tgt'] is String) patch.target = json['tgt'] as String;
+        }
+      } else {
+        CabinTranscriptEntry entry;
+        try {
+          entry = CabinTranscriptEntry.fromJson(json);
+        } catch (_) {
+          continue;
+        }
+        final id = entry.id;
+        if (id != null) {
+          rowsById.putIfAbsent(id, ListQueue<int>.new).add(row);
+        }
+        row++;
+      }
+    }
+    if (await file.length() != originalLength) {
+      throw StateError('Cabin journal changed during export');
+    }
+    row = 0;
+    await for (final json in _journalRecords(file)) {
+      final op = json['op'];
+      if (op == 'edit' || op == 'delete') continue;
+      CabinTranscriptEntry entry;
+      try {
+        entry = CabinTranscriptEntry.fromJson(json);
+      } catch (_) {
+        continue;
+      }
+      final patch = patches[row++];
+      if (patch?.deleted == true) continue;
+      if (patch == null) {
+        yield entry;
+      } else {
+        yield CabinTranscriptEntry(
+          id: entry.id,
+          offset: entry.offset,
+          sourceText: patch.source ?? entry.sourceText,
+          translatedText: patch.target ?? entry.translatedText,
+          sourceLang: entry.sourceLang,
+          targetLang: entry.targetLang,
+        );
+      }
+    }
+    if (await file.length() != originalLength) {
+      throw StateError('Cabin journal changed during export');
+    }
+  }
+
+  Stream<Map<String, dynamic>> _journalRecords(File file) async* {
+    await for (final line in file.openRead().transform(utf8.decoder).transform(const LineSplitter())) {
+      if (line.trim().isEmpty) continue;
+      try {
+        final json = jsonDecode(line);
+        if (json is Map<String, dynamic>) yield json;
+      } catch (_) {
+        // Ignore a truncated or malformed journal line just like loadEntries.
+      }
+    }
+  }
 
   /// Append a mutation instead of rewriting a live journal. This also keeps
   /// interrupted-session recovery consistent with edits already shown in UI.
@@ -279,4 +372,10 @@ class CabinSessionStore {
       debugPrint('⚠️ CabinSessionStore delete ${s.id}: $e');
     }
   }
+}
+
+class _CabinEntryPatch {
+  String? source;
+  String? target;
+  bool deleted = false;
 }

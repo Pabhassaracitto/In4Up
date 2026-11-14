@@ -349,7 +349,7 @@ class OcrService {
         return OcrResult.timedOut(sourceImagePath: imagePath);
       }
       final recognized = run.value!;
-      final cleaned = normalizeOcrText(recognized.text);
+      final cleaned = _extractCleanTextFromRecognized(recognized);
       debugPrint(
         '✅ OCR: ${cleaned.length} ký tự / '
         '${recognized.blocks.length} block trong ${stopwatch.elapsedMilliseconds}ms',
@@ -457,6 +457,13 @@ class OcrService {
         error: 'Dữ liệu ảnh ${pixels.length} byte không khớp ${width}x$height BGRA',
       );
     }
+    if (isVisuallyBlankBgraBitmap(
+      pixels: pixels,
+      width: width,
+      height: height,
+    )) {
+      return const OcrResult(text: '', elapsed: Duration.zero);
+    }
 
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     final stopwatch = Stopwatch()..start();
@@ -478,7 +485,12 @@ class OcrService {
         return OcrResult.timedOut();
       }
       final recognized = run.value!;
-      final cleaned = normalizeOcrText(recognized.text);
+      final cleaned = _extractCleanTextFromRecognized(
+        recognized,
+        bgraPixels: pixels,
+        imageWidth: width,
+        imageHeight: height,
+      );
       debugPrint(
         '✅ OCR bitmap ${width}x$height: ${cleaned.length} ký tự trong '
         '${stopwatch.elapsedMilliseconds}ms',
@@ -523,6 +535,16 @@ class OcrService {
             'Dữ liệu ảnh ${pixels.length} byte không khớp ${width}x$height BGRA',
       );
     }
+    if (isVisuallyBlankBgraBitmap(
+      pixels: pixels,
+      width: width,
+      height: height,
+    )) {
+      return const OcrBlocksResult(
+        blocks: <OcrBlock>[],
+        elapsed: Duration.zero,
+      );
+    }
 
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     final stopwatch = Stopwatch()..start();
@@ -555,6 +577,7 @@ class OcrService {
           bottom: box.bottom.round(),
           imageWidth: width,
           imageHeight: height,
+          bgraPixels: pixels,
         );
         if (made != null) blocks.add(made);
       }
@@ -573,6 +596,54 @@ class OcrService {
     } finally {
       await recognizer.close().catchError((_) {});
     }
+  }
+
+  String _extractCleanTextFromRecognized(
+    RecognizedText recognized, {
+    Uint8List? bgraPixels,
+    int? imageWidth,
+    int? imageHeight,
+  }) {
+    if (recognized.blocks.isEmpty) {
+      return normalizeOcrText(cleanOcrBlockLines(recognized.text));
+    }
+
+    final validBlocks = <OcrBlock>[];
+    for (final block in recognized.blocks) {
+      final box = block.boundingBox;
+      if (imageWidth != null && imageHeight != null) {
+        final made = makeOcrBlock(
+          text: block.text,
+          left: box.left.round(),
+          top: box.top.round(),
+          right: box.right.round(),
+          bottom: box.bottom.round(),
+          imageWidth: imageWidth,
+          imageHeight: imageHeight,
+          bgraPixels: bgraPixels,
+        );
+        if (made != null) validBlocks.add(made);
+      } else {
+        final cleaned = cleanOcrBlockLines(block.text);
+        if (cleaned.isEmpty) continue;
+        final l = box.left.round();
+        final r = box.right.round();
+        final t = box.top.round();
+        final b = box.bottom.round();
+        final rect = OcrBlockRect(
+          left: l < r ? l : r,
+          top: t < b ? t : b,
+          right: l < r ? r : l,
+          bottom: t < b ? b : t,
+        );
+        if (!isPlausibleOcrTextRect(rect: rect, cleanedText: cleaned)) continue;
+        validBlocks.add(OcrBlock(text: cleaned, rect: rect));
+      }
+    }
+
+    if (validBlocks.isEmpty) return '';
+    final sorted = sortOcrBlocksForReading(validBlocks);
+    return normalizeOcrText(sorted.map((b) => b.text).join('\n\n'));
   }
 
   /// Mở Document Scanner (CHỈ Android) → trả về kết cục phiên quét.

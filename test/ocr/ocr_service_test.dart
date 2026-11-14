@@ -5,8 +5,11 @@
 // Phần native (TextRecognizer/DocumentScanner thật) là QA tay trên máy — xem
 // AT trong docs/project/KANBAN.md card OCR-001.
 
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/core/language/app_ui_translations.dart';
+import 'package:in4up/features/ocr/ocr_block.dart';
 import 'package:in4up/features/ocr/ocr_flow.dart';
 import 'package:in4up/features/ocr/ocr_image_picker.dart';
 import 'package:in4up/features/ocr/ocr_service.dart';
@@ -205,6 +208,130 @@ void main() {
 
     test('file không có extension → dùng nguyên tên', () {
       expect(OcrFlow.suggestTitleFor('/x/IMG_0001'), 'IMG_0001');
+    });
+  });
+
+  group('PSRC-210 — OCR bỏ qua vùng trống và nhiễu mép scan', () {
+    Uint8List solidBgra(int w, int h, int gray) {
+      final buf = Uint8List(w * h * 4);
+      for (var i = 0; i < w * h; i++) {
+        buf[i * 4] = gray;
+        buf[i * 4 + 1] = gray;
+        buf[i * 4 + 2] = gray;
+        buf[i * 4 + 3] = 255;
+      }
+      return buf;
+    }
+
+    void paintInkRect(
+      Uint8List pixels,
+      int imageWidth, {
+      required int left,
+      required int top,
+      required int right,
+      required int bottom,
+      int gray = 20,
+    }) {
+      for (var y = top; y < bottom; y++) {
+        for (var x = left; x < right; x++) {
+          final off = (y * imageWidth + x) * 4;
+          pixels[off] = gray;
+          pixels[off + 1] = gray;
+          pixels[off + 2] = gray;
+          pixels[off + 3] = 255;
+        }
+      }
+    }
+
+    test('trang giấy trắng/xám đồng màu hoặc nhiễu hạt mờ được coi là trống', () {
+      final whitePage = solidBgra(400, 600, 252);
+      expect(
+        isVisuallyBlankBgraBitmap(pixels: whitePage, width: 400, height: 600),
+        isTrue,
+      );
+
+      // Chỉ một vùng có nét chữ đen rõ ràng trên trang → KHÔNG còn coi là trống
+      paintInkRect(
+        whitePage,
+        400,
+        left: 60,
+        top: 120,
+        right: 180,
+        bottom: 136,
+        gray: 18,
+      );
+      expect(
+        isVisuallyBlankBgraBitmap(pixels: whitePage, width: 400, height: 600),
+        isFalse,
+      );
+    });
+
+    test('makeOcrBlock loại bỏ khối nằm đè lên vùng trống không có nét mực', () {
+      final page = solidBgra(400, 600, 250);
+      // Vẽ nét chữ thật ở nửa trên (y: 80..110), để nửa dưới hoàn toàn trống.
+      paintInkRect(page, 400, left: 50, top: 88, right: 210, bottom: 100);
+
+      final realBlock = makeOcrBlock(
+        text: 'Sabbe saṅkhārā aniccā',
+        left: 40,
+        top: 80,
+        right: 240,
+        bottom: 112,
+        imageWidth: 400,
+        imageHeight: 600,
+        bgraPixels: page,
+      );
+      expect(realBlock, isNotNull);
+      expect(realBlock!.text, 'Sabbe saṅkhārā aniccā');
+
+      final ghostOnBlankArea = makeOcrBlock(
+        text: 'ao giac vung trong',
+        left: 40,
+        top: 360,
+        right: 260,
+        bottom: 410,
+        imageWidth: 400,
+        imageHeight: 600,
+        bgraPixels: page,
+      );
+      expect(ghostOnBlankArea, isNull,
+          reason: 'Khối ML Kit trả về trên vùng nền trống không có độ tương phản phải bị bỏ');
+    });
+
+    test('loại bỏ sọc dọc mép scan, bụi < 4px và dòng chỉ toàn dấu nhiễu', () {
+      // Sọc đen mép gáy sách 3x500 bị ML Kit đọc nhầm thành "I" hoặc "1"
+      expect(
+        makeOcrBlock(
+          text: 'I',
+          left: 2,
+          top: 20,
+          right: 5,
+          bottom: 520,
+          imageWidth: 1000,
+          imageHeight: 1400,
+        ),
+        isNull,
+      );
+
+      // Hạt bụi nhỏ 2x3
+      expect(
+        makeOcrBlock(
+          text: 'i',
+          left: 100,
+          top: 100,
+          right: 102,
+          bottom: 103,
+          imageWidth: 1000,
+          imageHeight: 1400,
+        ),
+        isNull,
+      );
+
+      // Dòng chỉ có ký tự kẻ dòng / gạch mép trên vùng trống bị lọc sạch, giữ dòng chữ thật
+      expect(
+        cleanOcrBlockLines('| | |\nChánh niệm tỉnh giác\n. . . .\n---\nÑāṇa'),
+        'Chánh niệm tỉnh giác\nÑāṇa',
+      );
     });
   });
 }

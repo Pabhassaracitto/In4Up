@@ -11,11 +11,18 @@ class CabinTranscriptEntry {
   final String sourceText;
   final String translatedText;
 
+  /// Optional on older journals; each new entry records its own direction
+  /// because the user can swap languages during the same session.
+  final String? sourceLang;
+  final String? targetLang;
+
   const CabinTranscriptEntry({
     this.id,
     required this.offset,
     required this.sourceText,
     this.translatedText = '',
+    this.sourceLang,
+    this.targetLang,
   });
 
   Map<String, dynamic> toJson() => {
@@ -23,6 +30,8 @@ class CabinTranscriptEntry {
         'ms': offset.inMilliseconds,
         'src': sourceText,
         'tgt': translatedText,
+        if (sourceLang != null) 'sourceLang': sourceLang,
+        if (targetLang != null) 'targetLang': targetLang,
       };
 
   factory CabinTranscriptEntry.fromJson(Map<String, dynamic> json) =>
@@ -31,6 +40,8 @@ class CabinTranscriptEntry {
         offset: Duration(milliseconds: (json['ms'] as num?)?.toInt() ?? 0),
         sourceText: (json['src'] as String?) ?? '',
         translatedText: (json['tgt'] as String?) ?? '',
+        sourceLang: json['sourceLang'] as String?,
+        targetLang: json['targetLang'] as String?,
       );
 }
 

@@ -709,22 +709,81 @@ class PdfReaderController extends ChangeNotifier {
     }
     notifyListeners();
 
-    if (_extractedFullText.isEmpty && !_isExtractingText) {
+    if (!_isExtractingText) {
       _isExtractingText = true;
       _extractProgress = 0;
       _extractProgressLabel = '';
+      _extractor.clearEmptyTextCache();
       notifyListeners();
-      _extractedFullText = await _extractor.extractFullText(
-        _document!,
-        onProgress: (i, total) {
-          _extractProgress = total == 0 ? 1 : (i + 1) / total;
-          _extractProgressLabel = '${i + 1}';
-          notifyListeners();
-        },
-      );
-      _isExtractingText = false;
-      notifyListeners();
+      try {
+        var extracted = await _extractor.extractFullText(
+          _document!,
+          onProgress: (i, total) {
+            _extractProgress = total == 0 ? 1 : (i + 1) / total;
+            _extractProgressLabel = '${i + 1}';
+            notifyListeners();
+          },
+        );
+        // PSRC-208: nếu tài liệu gắn với viewer bị giải phóng tạm thời khiến
+        // trích xuất rỗng hoặc hụt trang, mở trực tiếp từ pdfPath để lấy đủ mọi trang.
+        if (extracted.trim().isEmpty && pdfPath.isNotEmpty) {
+          PdfDocument? fallbackDoc;
+          try {
+            fallbackDoc = await PdfDocument.openFile(pdfPath);
+            extracted = await _extractor.extractFullText(
+              fallbackDoc,
+              onProgress: (i, total) {
+                _extractProgress = total == 0 ? 1 : (i + 1) / total;
+                _extractProgressLabel = '${i + 1}';
+                notifyListeners();
+              },
+            );
+          } catch (e) {
+            debugPrint('PdfReaderController.switchToTextMode fallback open error: $e');
+          } finally {
+            await fallbackDoc?.dispose();
+          }
+        }
+        _extractedFullText = extracted;
+      } finally {
+        _isExtractingText = false;
+        notifyListeners();
+      }
     }
+  }
+
+  /// Đọc lớp chữ có sẵn của 1 trang (kèm fallback mở file nếu handle viewer cũ).
+  Future<String> extractPageTextByIndex(
+    int pageIndex, {
+    PdfDocument? fallbackDocument,
+  }) async {
+    final activeDoc = _document;
+    if (activeDoc != null &&
+        pageIndex >= 0 &&
+        pageIndex < activeDoc.pages.length) {
+      final text = await _extractor.extractPageText(
+        activeDoc.pages[pageIndex],
+        pageIndex,
+      );
+      if (text.trim().isNotEmpty) return text;
+    }
+    if (fallbackDocument != null &&
+        pageIndex >= 0 &&
+        pageIndex < fallbackDocument.pages.length) {
+      return _extractor.extractPageText(
+        fallbackDocument.pages[pageIndex],
+        pageIndex,
+      );
+    }
+    return '';
+  }
+
+  /// Cập nhật nội dung Chế độ văn bản (TT) ngay sau khi quét OCR nhiều trang.
+  void applyMergedOcrText(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    _extractedFullText = trimmed;
+    notifyListeners();
   }
 
   void switchToPdfMode() {

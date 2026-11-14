@@ -41,7 +41,7 @@ https://raw.githubusercontent.com/Pabhassaracitto/In4Up/main/assets/dictionary/p
       "version": "1.1",
       "downloadUrl": "https://…/star_anhviet.mdx",
       "sha256": "tuỳ chọn — hex, kiểm tra sau khi tải",
-      "license": "CC0-1.0",
+      "license": "xem giấy phép và nguồn phân phối",
       "homepage": "https://github.com/catusf/tudien"
     }
   ]
@@ -84,15 +84,28 @@ mục. Danh mục cũng chấp nhận một **mảng JSON trần** (`[ {...}, {.
 
 App tải bằng HTTP thường (không cần token) ⇒ repo phải **public**.
 
-## 4. Bộ mặc định hiện có (đã kiểm tra tồn tại)
+## 4. Bộ mặc định hiện có (cập nhật 2026-11-09)
 
-| id | Nội dung | Dung lượng | Nguồn / giấy phép |
-|---|---|---|---|
-| `en-vi-ovdp` | Anh → Việt, 386.600 mục (kể cả dạng biến đổi) | ~11,4 MB | Open Vietnamese Dictionary Project — `catusf/tudien` (**CC0-1.0**), phân phối lại trong `quocanh38/dual-dictionary` |
-| `en-en-simple-wiktionary` | Anh → Anh (Simple English Wiktionary) | ~2,2 MB | Simple English Wiktionary (**CC BY-SA 3.0+/4.0** & GFDL) |
+Hai file trước đây ở thư mục gốc `quocanh38/dual-dictionary/main/` đã chuyển
+sang thư mục con. Asset trong app nay trỏ commit cố định
+`a2163f150264a9dbb545c3d1d56e50f8b2463656` và kiểm tra SHA-256; không tự tải.
+GitHub API trả dữ liệu thực cho cả hai blob và đã kiểm chứng checksum. Đây
+**không phải** nghiệm thu cài đặt end-to-end trên Android/iOS.
 
-Bộ khác (Lạc Việt MTD, OALD, từ điển chuyên ngành…) **không** đóng gói sẵn vì
-giấy phép: người dùng tự import file đã mua/tự có (đường import cũ vẫn giữ).
+| id | File / số mục header | Dung lượng byte | SHA-256 |
+|---|---|---:|---|
+| `en-vi-ovdp` | `dicts-en-vi/star_anhviet.mdx` / 386.600 | 11.383.493 | `249a773f07ce7a30de9c081a4fefce13be1bc555444d459499d434e01f2fcea5` |
+| `en-en-simple-wiktionary` | `samples/simple-en.mdx` / 22.310 | 2.222.808 | `992e689488b5f4538164df9dcaa40c30eba4d22380d5d52975790b219e4cc25e` |
+
+Nguồn Simple English Wiktionary: [NOTICE của nhà phân phối](https://github.com/quocanh38/dual-dictionary/blob/a2163f150264a9dbb545c3d1d56e50f8b2463656/NOTICE.md), CC BY-SA 3.0+/4.0 & GFDL. Nhà phân phối ghi bộ Anh–Việt là OVDP/MIT, trong khi repo catusf/tudien khai CC0; **chưa xác minh được chuỗi giấy phép của chính bản MDX** nên không khẳng định nhãn CC0 cho bản này. Cần owner/người phát hành kiểm tra quyền trước khi phân phối lại.
+
+App bản mới sửa đúng hai URL cũ trong catalog mặc định bằng asset đã đóng gói;
+không sửa catalog tự chọn hoặc URL chính thức đã được cập nhật. App cũ vẫn cần
+được cập nhật hoặc dùng link trực tiếp mới; sửa trên nhánh này không tự thay đổi
+catalog đang phát hành trên `main`.
+
+Bộ thương mại (Lạc Việt, OALD, Longman...) không được phân phối kèm; chỉ import
+file mà người dùng có quyền sử dụng.
 
 ## 5. Thêm một bộ mới
 

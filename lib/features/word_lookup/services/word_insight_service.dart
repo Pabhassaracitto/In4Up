@@ -186,8 +186,8 @@ class WordInsightService {
   /// Chuẩn hoá từ khoá tra cứu: bỏ dấu câu bám ngoài, gộp khoảng trắng.
   static String normalizeWord(String raw) {
     var word = raw.trim().toLowerCase();
-    word = word.replaceAll(RegExp(r'^[^\w\u00c0-\u024f]+'), '');
-    word = word.replaceAll(RegExp(r'[^\w\u00c0-\u024f\s]+$'), '');
+    word = word.replaceAll(RegExp(r'^[^\p{L}\p{M}\p{N}]+', unicode: true), '');
+    word = word.replaceAll(RegExp(r'[^\p{L}\p{M}\p{N}\s]+$', unicode: true), '');
     word = word.replaceAll(RegExp(r'\s+'), ' ').trim();
     return word;
   }

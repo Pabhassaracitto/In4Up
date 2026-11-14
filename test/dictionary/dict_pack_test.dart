@@ -6,8 +6,43 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_pack.dart';
+import 'package:in4up/features/dictionary/services/dict_pack_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('official stale catalog entries are repaired from bundled asset', () async {
+    const old = '''
+    {"packs": [
+      {"id":"en-vi-ovdp", "downloadUrl":"https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/star_anhviet.mdx"},
+      {"id":"en-en-simple-wiktionary", "downloadUrl":"https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/simple-en.mdx"},
+      {"id":"other", "downloadUrl":"https://example.com/other.mdx"}
+    ]}''';
+    DictPackService.fetchOverride = (_) async => old;
+    addTearDown(() => DictPackService.fetchOverride = null);
+    final catalog = await DictPackService().loadCatalog(
+        url: DictPackService.defaultCatalogUrl);
+    expect(catalog.byId('en-vi-ovdp')!.downloadUrl, contains('/dicts-en-vi/star_anhviet.mdx'));
+    expect(catalog.byId('en-en-simple-wiktionary')!.downloadUrl, contains('/samples/simple-en.mdx'));
+    expect(catalog.byId('en-vi-ovdp')!.sha256,
+        '249a773f07ce7a30de9c081a4fefce13be1bc555444d459499d434e01f2fcea5');
+    expect(catalog.byId('other')!.downloadUrl, 'https://example.com/other.mdx');
+  });
+
+  test('custom catalogs and updated official entries are not rewritten', () async {
+    const oldUrl = 'https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/simple-en.mdx';
+    const custom = '{"packs":[{"id":"en-en-simple-wiktionary","downloadUrl":"$oldUrl"}]}';
+    DictPackService.fetchOverride = (_) async => custom;
+    addTearDown(() => DictPackService.fetchOverride = null);
+    final catalog = await DictPackService().loadCatalog(url: 'https://example.com/catalog.json');
+    expect(catalog.packs.single.downloadUrl, oldUrl);
+    final remote = DictPackCatalog.fromJsonString(
+        '{"packs":[{"id":"en-en-simple-wiktionary","downloadUrl":"https://example.com/new.mdx"}]}');
+    final bundled = DictPackCatalog.fromJsonString(custom);
+    expect(repairOfficialDictionaryCatalog(remote, bundled).packs.single.downloadUrl,
+        'https://example.com/new.mdx');
+  });
+
   group('DictPack.fromJson', () {
     test('parse đủ trường + nhãn hiển thị', () {
       final pack = DictPack.fromJson(<String, dynamic>{

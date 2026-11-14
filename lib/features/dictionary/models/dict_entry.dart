@@ -60,3 +60,19 @@ class DictEntry {
   @override
   String toString() => 'DictEntry($headword, dict=$dictId)';
 }
+
+/// Combine entries already shown with a refreshed lookup without discarding
+/// any source or merging different dictionaries. Exact duplicates are omitted.
+List<DictEntry> mergeDictionaryEntrySnapshots(
+  Iterable<DictEntry> initial,
+  Iterable<DictEntry> refreshed,
+) {
+  final result = <DictEntry>[];
+  final seen = <(String, String, String, String?, String?, String?)>{};
+  for (final entry in <DictEntry>[...initial, ...refreshed]) {
+    final key = (entry.dictId, entry.headword, entry.definition,
+        entry.phonetic, entry.audioPath, entry.partOfSpeech);
+    if (seen.add(key)) result.add(entry);
+  }
+  return result;
+}

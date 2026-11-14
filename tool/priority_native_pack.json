@@ -36588,5 +36588,45 @@
     "my": "မူရင်းဖိုင်များကို မကူးယူပါ။ စကားလုံးနှင့် အကြောင်းအရာများပါသော ဒေတာဘေ့စ်က နေရာများစွာ ယူနိုင်သည်။",
     "th": "ไม่คัดลอกไฟล์ต้นฉบับ แต่แอปยังสร้างฐานข้อมูลคำศัพท์และเนื้อหาที่อาจใช้พื้นที่มาก",
     "ja": "元のファイルはコピーされません。見出し語と内容を含むデータベースは作成され、容量を多く使う場合があります。"
+  },
+  "Anh → Việt (Open Vietnamese Dictionary)": {
+    "en": "English → Vietnamese (Open Vietnamese Dictionary)",
+    "hi": "अंग्रेज़ी → वियतनामी (Open Vietnamese Dictionary)",
+    "zh": "英语 → 越南语（Open Vietnamese Dictionary）",
+    "zh_TW": "英語 → 越南語（Open Vietnamese Dictionary）",
+    "si": "ඉංග්‍රීසි → වියට්නාම (Open Vietnamese Dictionary)",
+    "my": "အင်္ဂလိပ် → ဗီယက်နမ် (Open Vietnamese Dictionary)",
+    "th": "อังกฤษ → เวียดนาม (Open Vietnamese Dictionary)",
+    "ja": "英語 → ベトナム語（Open Vietnamese Dictionary）"
+  },
+  "Anh → Anh (Simple English Wiktionary)": {
+    "en": "English → English (Simple English Wiktionary)",
+    "hi": "अंग्रेज़ी → अंग्रेज़ी (Simple English Wiktionary)",
+    "zh": "英语 → 英语（Simple English Wiktionary）",
+    "zh_TW": "英語 → 英語（Simple English Wiktionary）",
+    "si": "ඉංග්‍රීසි → ඉංග්‍රීසි (Simple English Wiktionary)",
+    "my": "အင်္ဂလိပ် → အင်္ဂလိပ် (Simple English Wiktionary)",
+    "th": "อังกฤษ → อังกฤษ (Simple English Wiktionary)",
+    "ja": "英語 → 英語（Simple English Wiktionary）"
+  },
+  "386.600 mục từ, gồm cả dạng biến đổi (inflected forms). Dùng offline sau khi cài.": {
+    "en": "386,600 entries, including inflected forms. Available offline after installation.",
+    "hi": "386,600 प्रविष्टियाँ, जिनमें रूपांतरित शब्द शामिल हैं। स्थापना के बाद ऑफ़लाइन उपलब्ध।",
+    "zh": "386,600 个词条，包含词形变化。安装后可离线使用。",
+    "zh_TW": "386,600 個詞條，包含詞形變化。安裝後可離線使用。",
+    "si": "වචන රූප ඇතුළු පද 386,600ක්. ස්ථාපනයෙන් පසු නොබැඳිව භාවිත කළ හැක.",
+    "my": "စကားလုံးပုံစံများအပါအဝင် စကားလုံး ၃၈၆,၆၀၀။ ထည့်သွင်းပြီးနောက် အော့ဖ်လိုင်း သုံးနိုင်သည်။",
+    "th": "386,600 รายการ รวมรูปผัน ใช้งานออฟไลน์ได้หลังติดตั้ง",
+    "ja": "活用形を含む386,600語。インストール後はオフラインで使用できます。"
+  },
+  "Định nghĩa tiếng Anh đơn giản, dễ hiểu — hợp để đọc song song với bộ Anh–Việt.": {
+    "en": "Simple English definitions, useful alongside an English–Vietnamese dictionary.",
+    "hi": "सरल अंग्रेज़ी परिभाषाएँ, अंग्रेज़ी–वियतनामी शब्दकोश के साथ उपयोगी।",
+    "zh": "简单易懂的英语释义，适合与英越词典搭配使用。",
+    "zh_TW": "簡單易懂的英語釋義，適合與英越詞典搭配使用。",
+    "si": "සරල ඉංග්‍රීසි අර්ථ දැක්වීම්; ඉංග්‍රීසි–වියට්නාම ශබ්දකෝෂයක් සමඟ භාවිතයට සුදුසුය.",
+    "my": "ရိုးရှင်းသော အင်္ဂလိပ်အဓိပ္ပာယ်ဖွင့်ဆိုချက်များ၊ အင်္ဂလိပ်–ဗီယက်နမ်အဘိဓာန်နှင့် တွဲသုံးနိုင်သည်။",
+    "th": "คำอธิบายภาษาอังกฤษแบบง่าย เหมาะใช้คู่กับพจนานุกรมอังกฤษ–เวียดนาม",
+    "ja": "簡単な英語の定義。英越辞書と併用できます。"
   }
 }

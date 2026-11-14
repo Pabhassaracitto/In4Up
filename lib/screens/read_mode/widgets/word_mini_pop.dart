@@ -245,8 +245,9 @@ class _WordMiniPopState extends State<WordMiniPop> {
       final online = await service.resolve(raw);
       if (!mounted) return;
       setState(() {
-        _insight = online;
-        if (online.hasDictionary) _merged = online.mergedDictionary;
+        final combined = online.withDictionaryFallback(local);
+        _insight = combined;
+        if (combined.hasDictionary) _merged = combined.mergedDictionary;
         _loading = false;
       });
     } catch (_) {
@@ -293,6 +294,9 @@ class _WordMiniPopState extends State<WordMiniPop> {
     // Lấy navigator TRƯỚC khi ẩn pop: context của overlay entry sẽ unmount.
     final navigator = Navigator.of(context, rootNavigator: true);
     final sheetCtx = navigator.context;
+    // Capture the entries BEFORE dismissing the overlay; the full sheet must
+    // not lose results already shown when a second lookup fails or differs.
+    final initialEntries = _insight?.entries.toList() ?? const [];
     WordMiniPop.dismiss();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!sheetCtx.mounted) return;
@@ -301,6 +305,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
         widget.word,
         widget.lineIndex,
         widget.wordIndex,
+        initialDictionaryEntries: initialEntries,
       );
     });
   }

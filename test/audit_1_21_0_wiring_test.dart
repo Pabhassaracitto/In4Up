@@ -76,9 +76,135 @@ void main() {
       // Cỡ chữ phải đi qua TypedValue(SP) — khớp `fontScale` bên Dart.
       expect(overlayCode.contains('TypedValue.applyDimension'), isTrue);
     });
+    test('native không bỏ khối khi chữ không vừa: vẽ chip (PSRC-211 vòng 2)', () {
+      // Bản trước `continue` ⇒ khối biến mất khỏi màn hình. Giờ phải vẽ chip.
+      expect(overlayCode.contains('drawCollapsedChip('), isTrue);
+      expect(overlayCode.contains('chipWidthPx()'), isTrue);
+      expect(overlayCode.contains('chipHeightPx()'), isTrue);
+      // Vẫn KHÔNG được cắt chữ để nhét cho vừa.
+      expect(overlayCode.contains('TruncateAt.END'), isFalse);
+    });
+
     test('controller gọi layout + bỏ khối OCR chỉ có link', () {
       expect(controller.contains('layoutTranslatedBlocks('), isTrue);
       expect(controller.contains('isLinkOnlyText('), isTrue);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // PSRC-211 vòng 2 — § 7 ports từ nhánh tham chiếu `490294ed` + chuỗi UI mới.
+  // Phần Kotlin không biên dịch/test được trên host VM ⇒ pin bằng source-scan
+  // (gỡ ra là CI đỏ ngay). Máy bắt hành vi nằm ở test/screen_translate/.
+  // ───────────────────────────────────────────────────────────────────────
+  final serviceCode = _stripComments(
+    _read(
+      'android/app/src/main/kotlin/com/in4up/screentranslate/'
+      'ScreenTranslateService.kt',
+    ),
+  );
+  final regionCode = _stripComments(
+    _read(
+      'android/app/src/main/kotlin/com/in4up/screentranslate/'
+      'RegionSelectView.kt',
+    ),
+  );
+
+  group('PSRC-211 vòng 2 — § 7 (port từ 490294ed)', () {
+    test('cửa sổ overlay phủ cả tai thỏ / thanh điều hướng', () {
+      expect(serviceCode.contains('layoutInDisplayCutoutMode'), isTrue);
+      expect(
+        serviceCode
+            .contains('LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS'),
+        isTrue,
+      );
+      expect(serviceCode.contains('fitInsetsTypes = 0'), isTrue);
+      expect(serviceCode.contains('maximumWindowMetrics'), isTrue);
+    });
+
+    test('xoay máy/đổi kích thước làm mới VirtualDisplay', () {
+      expect(serviceCode.contains('syncWarmDisplayIfSizeChanged()'), isTrue);
+      expect(serviceCode.contains('onConfigurationChanged'), isTrue);
+    });
+
+    test('chọn vùng: quy đổi getLocationOnScreen trước khi trả khung', () {
+      expect(regionCode.contains('getLocationOnScreen'), isTrue);
+      final i = regionCode.indexOf('getLocationOnScreen');
+      expect(i, greaterThan(-1));
+      // Chỉ 400 ký tự sau lời gọi: đủ để thấy `offset(...)` ngay dưới nó. Kẹp
+      // lại theo độ dài file — file ngắn mà cắt quá tay là RangeError.
+      final end = i + 400 > regionCode.length ? regionCode.length : i + 400;
+      expect(
+        regionCode.substring(i, end).contains('offset('),
+        isTrue,
+        reason: 'thiếu offset ⇒ khung chọn lệch đúng phần tai thỏ/status bar',
+      );
+    });
+
+    test('controller lọc số/ký hiệu/link TRƯỚC khi cắt hạn mức 32', () {
+      final iWorth = controller.indexOf('worthTranslating');
+      final iRank = controller.indexOf('rankBlocksForTranslate(');
+      expect(iWorth, greaterThan(-1));
+      expect(iRank, greaterThan(iWorth),
+          reason: 'xếp hạng phải chạy trên tập đã lọc, không phải toàn bộ khối');
+      expect(controller.contains('const int kScreenTranslateMaxBlocks = 32;'),
+          isTrue,
+          reason: 'trần khối vẫn là 32 — hub § 4 bác phương án 64');
+    });
+  });
+
+  group('PSRC-211 vòng 2 — chuỗi native đủ 8 locale', () {
+    const locales = <String>[
+      'hi',
+      'zh-rCN',
+      'zh-rTW',
+      'si',
+      'my',
+      'th',
+      'ja',
+    ];
+    const names = <String>[
+      'screen_translate_collapsed_title',
+      'screen_translate_collapsed_note',
+      'screen_translate_pending_chip',
+      'screen_translate_pending_tap',
+    ];
+    test('mỗi locale có đủ 4 chuỗi chip thu gọn / Dịch tiếp', () {
+      for (final locale in locales) {
+        final file = _read(
+          'android/app/src/main/res/values-$locale/'
+          'strings_screen_translate.xml',
+        );
+        for (final name in names) {
+          expect(file.contains('name="$name"'), isTrue,
+              reason: 'values-$locale thiếu $name');
+        }
+        // `%1$d` phải còn nguyên: chuỗi mất placeholder ⇒ chip không có số.
+        expect(file.contains(r'%1$d'), isTrue,
+            reason: 'values-$locale mất placeholder số khối');
+      }
+    });
+
+    test('chip "Dịch tiếp" có nhãn trợ năng riêng (không đọc chữ trên chip)',
+        () {
+      expect(
+        serviceCode.contains('screen_translate_pending_tap'),
+        isTrue,
+        reason: 'thiếu contentDescription ⇒ TalkBack đọc "còn N khối" mà '
+            'không nói bấm để làm gì',
+      );
+    });
+
+    test('bản tiếng Anh mặc định + tiếng Việt có cùng bộ khoá', () {
+      for (final path in <String>[
+        'android/app/src/main/res/values/strings_screen_translate.xml',
+        'android/app/src/main/res/values-vi/strings_screen_translate.xml',
+      ]) {
+        final file = _read(path);
+        for (final name in names) {
+          expect(file.contains('name="$name"'), isTrue,
+              reason: '$path thiếu $name');
+        }
+      }
     });
   });
 

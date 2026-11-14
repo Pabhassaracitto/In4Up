@@ -10,13 +10,15 @@
 //     **fontScale**, còn Dart chỉ nhân `density`. Máy bật cỡ chữ hệ thống lớn
 //     (1.3–2.0×) ⇒ thiếu đúng bằng tỉ lệ đó ⇒ chữ bị cắt.
 //
-// Hợp đồng hiện tại — 5 bất biến, đo bằng ĐÚNG bộ ước lượng của layout:
+// Hợp đồng hiện tại — 6 bất biến, đo bằng ĐÚNG bộ ước lượng của layout:
 //   1. KHÔNG hai khung nào giao nhau.
 //   2. Khối CÒN VẼ thì khung CAO ĐỦ cho chính chuỗi nó vẽ (đúng `textSizeSp`).
 //   3. Cỡ chữ không dưới `kOverlayMinReadableSp` (native kẹp cứng cùng sàn —
 //      layout không bao giờ cấp khung đo theo cỡ nhỏ hơn, vì native sẽ bỏ).
-//   4. Giữ NGUYÊN số khối + thứ tự (khối bỏ vẽ ⇒ `translation` rỗng).
+//   4. Giữ NGUYÊN số khối + thứ tự.
 //   5. Cùng bộ dữ liệu, tăng `fontScale` ⇒ không bao giờ có thêm khối bị cắt.
+//   6. PSRC-211 vòng 2 — KHÔNG khối nào bị bỏ im lặng: hết chỗ thì
+//      `collapsed = true` (chip), người dùng chạm chip để đọc đủ bản dịch.
 //
 // Test THUẦN trên host VM — không cần thiết bị / MediaProjection.
 
@@ -46,6 +48,36 @@ ScreenBlock _b(
   );
 }
 
+/// Chip thu gọn (mục 3) đại diện cho MỘT khối: hai khối khác nhau không được
+/// ra cùng một hình chip (lỗi "nhiều khối hoá một" khi bản trước ghim chip vào
+/// đáy màn hình), và chip phải nằm gọn trong màn hình.
+List<String> _chipProblems(List<ScreenBlock> blocks, {int screenHeight = 0}) {
+  final bad = <String>[];
+  final seen = <String, int>{};
+  for (var i = 0; i < blocks.length; i++) {
+    final chip = blocks[i];
+    if (!chip.collapsed) continue;
+    final key = '${chip.rect.left},${chip.rect.top},'
+        '${chip.rect.right},${chip.rect.bottom}';
+    final first = seen[key];
+    if (first != null) {
+      bad.add('#$i và #$first trùng hình chip (${chip.rect})');
+    } else {
+      seen[key] = i;
+    }
+    if (chip.rect.width <= 0 || chip.rect.height <= 0) {
+      bad.add('#$i chip rỗng (${chip.rect})');
+    }
+    if (chip.rect.left < 0 || chip.rect.top < 0) {
+      bad.add('#$i chip ngoài màn hình (${chip.rect})');
+    }
+    if (screenHeight > 0 && chip.rect.bottom > screenHeight) {
+      bad.add('#$i chip vượt đáy màn hình (${chip.rect})');
+    }
+  }
+  return bad;
+}
+
 /// Hai khung KHÔNG được giao nhau (tính cả cạnh chung).
 ///
 /// [tolerancePx] dùng cho ca bbox OCR gốc đã giao nhau vài pixel (hai cột chữ
@@ -54,9 +86,9 @@ ScreenBlock _b(
 List<String> _overlaps(List<ScreenBlock> blocks, {int tolerancePx = 0}) {
   final bad = <String>[];
   for (var i = 0; i < blocks.length; i++) {
-    if (!blocks[i].hasTranslation) continue;
+    if (!blocks[i].isExpanded) continue;
     for (var j = i + 1; j < blocks.length; j++) {
-      if (!blocks[j].hasTranslation) continue;
+      if (!blocks[j].isExpanded) continue;
       final a = blocks[i].rect;
       final b = blocks[j].rect;
       final w = math.min(a.right, b.right) - math.max(a.left, b.left);
@@ -79,7 +111,8 @@ List<String> _tooShort(
   final pxPerSp = _dpr * effectiveOverlayFontScale(fontScale);
   for (var i = 0; i < blocks.length; i++) {
     final block = blocks[i];
-    if (!block.hasTranslation) continue;
+    // Chip không vẽ chữ trong khung gốc ⇒ không đo theo nhu cầu bản dịch.
+    if (!block.isExpanded) continue;
     final need = estimateTranslationTextHeightPx(
           block.translation,
           math.max(1.0, block.rect.width - 2 * kOverlayTextPaddingPx),
@@ -101,7 +134,11 @@ List<String> _outside(List<ScreenBlock> blocks, {int screenH = _screenH}) {
   for (var i = 0; i < blocks.length; i++) {
     final block = blocks[i];
     if (!block.hasTranslation) continue;
-    if (block.rect.top < 0 || block.rect.bottom > screenH) {
+    // Chip được phép thò xuống dưới cùng của màn hình một chút khi khối gốc
+    // nằm sát đáy (chip cao 20dp, native vẫn vẽ/bấm được); bong bóng đầy đủ
+    // thì tuyệt đối không.
+    final slack = block.collapsed ? (kOverlayChipHeightDp * _dpr).round() : 0;
+    if (block.rect.top < 0 || block.rect.bottom > screenH + slack) {
       bad.add('#$i ${block.rect} ngoài màn hình cao $screenH');
     }
   }
@@ -127,6 +164,31 @@ List<String> _alteredText(
 }
 
 void main() {
+  group('PSRC-211 · mục 7.3 — không còn cấp khung đo theo `origHeight`', () {
+    test('bản dịch ngắn hơn khối gốc ⇒ khung ÔM SÁT chữ, không giữ đáy trống',
+        () {
+      // Khối gốc cao 400px (đoạn nhiều dòng) nhưng bản dịch chỉ 1 dòng ngắn:
+      // giữ sàn `origHeight` sẽ để lại khoảng trống rỗng bên dưới (đúng
+      // triệu chứng "khung thừa khoảng trống" của PSRC-211).
+      final out = layoutTranslatedBlocks(
+        const <ScreenBlock>[
+          ScreenBlock(
+            rect: OverlayRect(left: 60, top: 300, right: 1020, bottom: 700),
+            original: 'A long original paragraph',
+            translation: 'Ngắn',
+          ),
+        ],
+        screenWidth: _screenW,
+        screenHeight: _screenH,
+        devicePixelRatio: _dpr,
+      );
+      expect(out.single.hasTranslation, isTrue);
+      expect(out.single.rect.height, lessThan(400),
+          reason: 'khung phải ôm sát bản dịch, không giữ chiều cao bbox OCR');
+      expect(_tooShort(out), isEmpty, reason: 'nhưng vẫn đủ chỗ cho chữ');
+    });
+  });
+
   group('Bộ ước lượng số dòng', () {
     test('rỗng ⇒ 0 dòng; 1 từ ngắn ⇒ 1 dòng', () {
       expect(estimateTranslationLineCount('', 300, 34), 0);
@@ -450,8 +512,8 @@ void main() {
 
     test('tràn đáy màn hình (30 khối) ⇒ KHÔNG chồng, KHÔNG chữ cụt', () {
       // 30 khối, mỗi khối cách 30px: bản dịch cần ~120px/khối ở cỡ chữ nhỏ
-      // nhất ⇒ tổng vượt xa 2400px ⇒ buộc phải BỎ BỚT (không thể vẽ đủ) —
-      // nhưng khối nào còn lại vẫn NGUYÊN chữ, không cắt.
+      // nhất ⇒ tổng vượt xa 2400px. Từ PSRC-211 vòng 2, khối không còn chỗ
+      // KHÔNG bị bỏ nữa mà thành CHIP (mục 3) — người dùng chạm chip để đọc đủ.
       final blocks = <ScreenBlock>[];
       var y = 100;
       for (var i = 0; i < 30; i++) {
@@ -477,15 +539,22 @@ void main() {
       expect(_alteredText(blocks, out), isEmpty,
           reason: 'không được cắt/bóp nội dung — chỉ được bỏ khối');
       expect(_outside(out), isEmpty);
-      // Số khối bị bỏ phải > 0 (chứng minh nhánh tràn có tác dụng) nhưng
-      // không bỏ hết.
-      final drawn = out.where((b) => b.hasTranslation).length;
+      // Không còn đường nào bỏ khối im lặng: khối không đủ chỗ thành chip.
+      expect(out.where((b) => !b.hasTranslation), isEmpty,
+          reason: 'mỗi khối phải có đầu ra (bong bóng hoặc chip)');
+      final collapsed = out.where((b) => b.collapsed).length;
+      expect(collapsed, greaterThan(0),
+          reason: 'nhánh tràn phải thật sự chạy (nếu không test vô nghĩa)');
+      final drawn = out.where((b) => b.isExpanded).length;
       expect(drawn, greaterThan(0));
-      expect(drawn, lessThan(30), reason: 'phải bỏ bớt khi không thể vẽ đủ');
       for (final block in out) {
         if (!block.hasTranslation) continue;
         expect(block.textSizeSp, greaterThanOrEqualTo(kOverlayMinReadableSp));
       }
+      // Màn hình cực dày: chip phải phân biệt được (không dồn về một toạ độ),
+      // nằm trong màn hình, và KHÔNG đè lên khung chữ dịch của khối khác —
+      // nếu đè thì người dùng mất nội dung của khối kia, đúng lỗi PSRC-211.
+      expect(_chipProblems(out, screenHeight: _screenH), isEmpty);
     });
 
     test('tràn đáy + cỡ chữ hệ thống rất lớn: vẫn còn khối đọc được', () {
@@ -520,9 +589,11 @@ void main() {
       }
     });
 
-    test('KHÔNG rút gọn chữ: khối không vừa thì bỏ vẽ, không thêm `…`', () {
+    test('KHÔNG rút gọn chữ: khối không vừa thì BỎ VẼ/chip, không thêm `…`', () {
       // Owner 2026-11-11: "không vẽ chữ cụt". Trước đây (bản thử) nhánh tràn
-      // cắt bớt chữ theo từ rồi thêm `…` ⇒ vi phạm hợp đồng này.
+      // cắt bớt chữ theo từ rồi thêm `…` ⇒ vi phạm hợp đồng này. PSRC-211 vòng
+      // 2 thay "bỏ vẽ" bằng CHIP, nhưng chip vẫn KHÔNG cắt chữ: nhãn chip do
+      // native vẽ, `translation` luôn nguyên vẹn.
       final blocks = <ScreenBlock>[];
       var y = 100;
       for (var i = 0; i < 30; i++) {
@@ -566,6 +637,162 @@ void main() {
       // Thứ tự danh sách = thứ tự đầu vào (native ghép theo index).
       expect(out[0].original, 'original');
       expect(out[1].rect.top, lessThan(out[2].rect.top));
+    });
+
+    // ── PSRC-211 vòng 2 · mục 3 — font scale 2.0× KHÔNG còn bỏ khối ──────
+    group('PSRC-211 vòng 2 — chip thu gọn thay cho bỏ khối', () {
+      /// Fixture "màn hình dày chữ, khung thấp": 10 khối sát nhau (đúng ca
+      /// owner báo: font scale 2.0× làm 2/10 khối không còn chỗ).
+      List<ScreenBlock> denseScreen() {
+        final blocks = <ScreenBlock>[];
+        var y = 180;
+        for (var i = 0; i < 10; i++) {
+          blocks.add(_b(
+            y,
+            y + 48,
+            'Bản dịch cho dòng số $i dài hơn bản gốc tiếng Anh khoảng một '
+            'phẩy ba lần nên cần thêm chỗ.',
+          ));
+          y += 52;
+        }
+        return blocks;
+      }
+
+      test('fontScale 2.0: slots == blocks và KHÔNG khối nào bị bỏ', () {
+        final blocks = denseScreen();
+        final out = layoutTranslatedBlocks(
+          blocks,
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: 2.0,
+        );
+        expect(out, hasLength(blocks.length),
+            reason: 'không được bỏ khối khỏi danh sách');
+        expect(
+          out.where((b) => !b.hasTranslation),
+          isEmpty,
+          reason: 'mỗi khối OCR phải có đầu ra: bong bóng đầy đủ hoặc chip',
+        );
+        expect(out.where((b) => b.collapsed), isNotEmpty,
+            reason: 'fixture này phải thật sự chạm nhánh thu gọn (nếu không, '
+                'test không chứng minh được gì)');
+        expect(_chipProblems(out, screenHeight: _screenH), isEmpty,
+            reason: 'mỗi khối thu gọn phải có một chip RIÊNG, đúng chỗ');
+      });
+
+      test('fontScale 1.0 cùng fixture: KHÔNG có chip (không hồi quy)', () {
+        final out = layoutTranslatedBlocks(
+          denseScreen(),
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+        );
+        expect(out.where((b) => b.collapsed), isEmpty,
+            reason: 'chế độ thu gọn chỉ được bật khi thật sự hết chỗ');
+        expect(out.every((b) => b.hasTranslation), isTrue);
+      });
+
+      test('chip giữ NGUYÊN bản dịch (popup đọc đủ, không cắt chữ)', () {
+        final blocks = denseScreen();
+        final out = layoutTranslatedBlocks(
+          blocks,
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: 2.0,
+        );
+        for (var i = 0; i < out.length; i++) {
+          expect(out[i].translation, blocks[i].translation,
+              reason: 'layout không được sửa/cắt nội dung của bất kỳ khối nào');
+        }
+        for (final chip in out.where((b) => b.collapsed)) {
+          expect(chip.textSizeSp, greaterThanOrEqualTo(kOverlayMinReadableSp));
+          expect(chip.rect.width, greaterThan(0));
+          expect(chip.rect.height, greaterThan(0));
+        }
+      });
+
+      test('chip CHẠM ĐƯỢC: collapsedBlockAt trả đúng khối theo toạ độ', () {
+        final out = layoutTranslatedBlocks(
+          denseScreen(),
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: 2.0,
+        );
+        final chip = out.firstWhere((b) => b.collapsed);
+        final hit = collapsedBlockAt(
+          out,
+          (chip.rect.left + chip.rect.right) ~/ 2,
+          (chip.rect.top + chip.rect.bottom) ~/ 2,
+        );
+        expect(hit, isNotNull, reason: 'tâm chip phải trả về chính chip đó');
+        expect(hit!.rect, chip.rect);
+        expect(collapsedBlockAt(out, 0, 0), isNull,
+            reason: 'góc trên-trái màn hình không có chip nào');
+      });
+
+      test('chip neo đúng góc trên-phải khối GỐC (không dồn về một chỗ)',
+          () {
+        final blocks = denseScreen();
+        final out = layoutTranslatedBlocks(
+          blocks,
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: 2.0,
+        );
+        final chips = <int>[
+          for (var i = 0; i < out.length; i++)
+            if (out[i].collapsed) i,
+        ];
+        expect(chips, isNotEmpty);
+        for (final i in chips) {
+          final src = blocks[i].rect;
+          final chip = out[i].rect;
+          // Cạnh phải trùng cạnh phải khối gốc ⇒ chip nằm ở góc trên-phải, và
+          // vì không dời sang khối khác nên nó không đè khung dịch bên cạnh.
+          expect(chip.right, src.right,
+              reason: 'chip phải neo vào mép phải khối gốc');
+          // Chip nằm TRỌN trong bề ngang khối gốc (không thò sang khối bên).
+          expect(chip.left, greaterThanOrEqualTo(src.left));
+          // Đỉnh: ngay chỗ khối gốc bắt đầu, hoặc thấp hơn nếu phải né khối
+          // phía trên đã đặt — KHÔNG BAO GIỜ vượt lên trên khối gốc.
+          expect(chip.top, greaterThanOrEqualTo(src.top));
+          // …và vẫn nằm trong khối gốc theo chiều dọc (không nhảy xuống khối
+          // khác). Chip cao 20dp nên với khung gốc thấp hơn 20dp nó được phép
+          // thò xuống dưới đáy khối, nhưng không quá chiều cao của chính nó.
+          expect(chip.top, lessThanOrEqualTo(src.bottom));
+          final chipHeight = (kOverlayChipHeightDp * _dpr).round();
+          expect(chip.bottom - chip.top, chipHeight,
+              reason: 'chip phải đúng cỡ `overlayChipSize` (native vẽ cùng số)');
+          expect(chip.width, (kOverlayChipWidthDp * _dpr).round());
+          // Chip hẹp hơn khối gốc ⇒ phần lớn chữ gốc vẫn đọc được.
+          expect(chip.width, lessThan(src.width));
+        }
+        // Không hai khối nào bị "hoá" thành cùng một chip.
+        expect(_chipProblems(out, screenHeight: _screenH), isEmpty);
+      });
+
+      test('payload: chỉ khối thu gọn mới có khoá `collapsed`', () {
+        final out = layoutTranslatedBlocks(
+          denseScreen(),
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: 2.0,
+        );
+        final chip = out.firstWhere((b) => b.collapsed);
+        expect(chip.toMap()['collapsed'], isTrue);
+        expect(chip.hasTranslation, isTrue);
+        expect(chip.isExpanded, isFalse);
+        final expanded = out.where((b) => b.isExpanded).toList();
+        if (expanded.isNotEmpty) {
+          expect(expanded.first.toMap().containsKey('collapsed'), isFalse,
+              reason: 'payload giữ nguyên 7 khoá cũ khi không thu gọn');
+        }
+      });
     });
 
     test('countOverlappingPairs: công cụ đo dùng chung với native test', () {

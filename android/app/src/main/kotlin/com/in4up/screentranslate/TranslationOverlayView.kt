@@ -1,5 +1,6 @@
 package com.in4up.screentranslate
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -51,6 +52,13 @@ import android.view.View
  *  • Toạ độ khối là toạ độ MÀN HÌNH; view này có thể không nằm ở (0,0) của màn
  *    hình (tai thỏ khi xoay ngang, ROM chèn lề) ⇒ trừ `getLocationOnScreen`
  *    trước khi vẽ, nếu không mọi khối lệch đúng bằng độ dời của cửa sổ.
+ *
+ * PSRC-211 vòng 2 (mục 3 của `L4-hub-tra-loi.md` — font scale 2.0× vẫn rơi
+ * 2/10 khối): khối không đủ chỗ ngay cả ở sàn [MIN_READABLE_SP] **không còn bị
+ * bỏ vẽ**. Dart trả `collapsed = true` ⇒ view vẽ một **chip nhỏ** (… ) ở góc
+ * trên-phải khối gốc; chạm chip mở popup hiện ĐỦ bản dịch ở cỡ chữ đọc được.
+ * Hai luật owner 2026-11-11 vẫn nguyên: không vẽ dưới 10sp, không cắt chữ.
+ * Nhờ vậy "mỗi khối OCR vào có đúng một đầu ra" - bong bóng đầy đủ hoặc chip.
  */
 class TranslationOverlayView(context: Context) : View(context) {
 
@@ -66,6 +74,13 @@ class TranslationOverlayView(context: Context) : View(context) {
         const val MIN_READABLE_SP = 10f
 
         const val LOG_TAG = "in4up-xlat-overlay"
+
+        /** Nhãn trên chip thu gọn — một ký tự, không phải chữ bị cắt giữa từ. */
+        const val CHIP_LABEL = "…"
+
+        /** Kích thước tối thiểu của chip (dp) — khớp `kOverlayChip*Dp` bên Dart. */
+        const val CHIP_MIN_WIDTH_DP = 26f
+        const val CHIP_MIN_HEIGHT_DP = 20f
     }
 
     data class TranslatedBlock(
@@ -86,6 +101,11 @@ class TranslationOverlayView(context: Context) : View(context) {
          * payload cũ vẫn tô kín cả khung như trước.
          */
         val coverBottom: Int = bottom,
+        /**
+         * PSRC-211 vòng 2 — khối bị THU GỌN: vẽ chip + nhận chạm để mở popup
+         * bản dịch đầy đủ. Mặc định `false` ⇒ payload cũ giữ hành vi cũ.
+         */
+        val collapsed: Boolean = false,
     )
 
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -103,6 +123,15 @@ class TranslationOverlayView(context: Context) : View(context) {
         color = Color.WHITE
     }
 
+    /** Nền chip thu gọn — đậm hơn nền bong bóng để thấy rõ dù chỉ ~26×20dp. */
+    private val chipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(236, 112, 66, 200)
+        style = Paint.Style.FILL
+    }
+
+    /** Popup bản dịch đầy đủ đang mở (để đóng dứt điểm khi overlay bị gỡ). */
+    private val collapsedDialogs = mutableListOf<AlertDialog>()
+
     private var blocks: List<TranslatedBlock> = emptyList()
 
     /** Vị trí view trên màn hình — cấp phát một lần, không tạo rác trong onDraw. */
@@ -117,6 +146,7 @@ class TranslationOverlayView(context: Context) : View(context) {
 
     fun clear() {
         blocks = emptyList()
+        dismissCollapsedDialogs()
         invalidate()
     }
 
@@ -138,6 +168,10 @@ class TranslationOverlayView(context: Context) : View(context) {
 
     private fun drawBlocks(canvas: Canvas) {
         for (block in blocks) {
+            if (block.collapsed) {
+                drawCollapsedChip(canvas, block)
+                continue
+            }
             // Khối dịch hỏng (translation rỗng): KHÔNG vẽ ô trống — để
             // nguyên chữ gốc bên dưới cho user biết chỗ nào chưa dịch được.
             val text = block.translation.trim()
@@ -169,15 +203,31 @@ class TranslationOverlayView(context: Context) : View(context) {
                 startSizeSp = startSizeSp,
                 fitSizeSp = block.textSizeSp,
             ) ?: run {
-                // XLAT-SCR-006: KHÔNG vẽ chữ cụt. Bỏ khối để lộ nguyên chữ gốc
-                // — user đọc được nội dung (dù chưa dịch) thay vì đọc nửa câu.
+                // PSRC-211 vòng 2 (mục 3): KHÔNG bỏ khối, KHÔNG cắt chữ. Bộ ước
+                // lượng Dart lệch (font thật khác ước lượng) ⇒ native vẫn vẽ
+                // CHIP như một khối `collapsed`, thay vì để trống chỗ đó.
                 // Log `need`/`have` để biết bộ ước lượng bên Dart đang hụt.
                 Log.w(
                     LOG_TAG,
-                    "bỏ khối vì chữ không vừa khung (không cắt chữ):" +
+                    "khối không vừa khung ⇒ vẽ chip (không cắt chữ):" +
                         " need=${neededHeightOf(text, textWidth, block.textSizeSp)}" +
                         " have=$availableHeight size=${block.textSizeSp}" +
                         " text=${text.take(24)}",
+                )
+                drawCollapsedChip(
+                    canvas,
+                    block.copy(
+                        // Chip ~26×20dp ở góc trên-phải, không phải cả khung: hàm
+                        // vẽ đọc đúng 4 cạnh này.
+                        left = maxOf(block.left, block.right - chipWidthPx()),
+                        top = block.top,
+                        right = block.right,
+                        bottom = block.top + chipHeightPx(),
+                    ),
+                    // Chạm vào chip này rơi xuống app bên dưới (overlay không nhận
+                    // chạm) — nhưng người dùng vẫn THẤY khối đã được dịch ở đâu.
+                    // Đường chính (Dart trả `collapsed = true`) có lớp chạm riêng
+                    // do service tạo, mở popup đầy đủ.
                 )
                 continue
             }
@@ -210,6 +260,134 @@ class TranslationOverlayView(context: Context) : View(context) {
             layout.draw(canvas)
             canvas.restore()
         }
+    }
+
+    /** Mật độ màn hình, kẹp sàn 0.5 để chip không bao giờ bé hơn 13px. */
+    private fun density(): Float =
+        resources.displayMetrics.density.coerceAtLeast(0.5f)
+
+    private fun chipWidthPx(): Int = (CHIP_MIN_WIDTH_DP * density()).toInt()
+
+    private fun chipHeightPx(): Int = (CHIP_MIN_HEIGHT_DP * density()).toInt()
+
+    /**
+     * PSRC-211 vòng 2 — vẽ chip thu gọn thay vì bỏ khối.
+     *
+     * Chip chỉ là DẤU HIỆU (nhãn "…"), không phải chữ bị cắt: bản dịch vẫn
+     * nguyên vẹn trong [TranslatedBlock.translation] và mở ra đọc đủ khi chạm
+     * (xem [showCollapsedTranslation]). Chip nhỏ (~26×20dp) nên gần như không
+     * che chữ gốc và không đẩy khối kế tiếp.
+     */
+    private fun drawCollapsedChip(canvas: Canvas, block: TranslatedBlock) {
+        // Chip = ĐÚNG hình chữ nhật Dart đã cấp (`overlayChipSize`, 26×20dp):
+        // nhờ vậy lớp chạm của service (`syncChipTouchTargets`) trùng khít hình
+        // vẽ, và hai khối khác nhau không bao giờ ra cùng một chip.
+        val right = block.right.toFloat()
+        val left = block.left.toFloat()
+        val top = block.top.toFloat()
+        // Dart cấp hình chip ~26×20dp; nếu vì lý do gì đó khung hẹp/thấp hơn
+        // (payload cũ), vẫn vẽ đủ kích thước tối thiểu để bấm được.
+        val chipRight = maxOf(right, left + chipWidthPx())
+        val chipBottom = maxOf(block.bottom.toFloat(), top + chipHeightPx())
+        boxRect.set(left, top, chipRight, chipBottom)
+        canvas.drawRoundRect(boxRect, 6f, 6f, chipPaint)
+        canvas.drawRoundRect(boxRect, 6f, 6f, edgePaint)
+        textPaint.textSize = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            MIN_READABLE_SP,
+            resources.displayMetrics,
+        )
+        val labelWidth = textPaint.measureText(CHIP_LABEL)
+        canvas.drawText(
+            CHIP_LABEL,
+            boxRect.centerX() - labelWidth / 2f,
+            boxRect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f,
+            textPaint,
+        )
+    }
+
+    /**
+     * PSRC-211 vòng 2 — popup bản dịch ĐẦY ĐỦ của một khối thu gọn.
+     *
+     * Chữ ở đây vẽ bằng `setTextSize(SP)` thường của app nên luôn >= 10sp và
+     * KHÔNG bị cắt: đúng hai luật owner 2026-11-11, chỉ là bản dịch không nằm
+     * trong khung gốc nữa.
+     */
+    fun showCollapsedTranslation(
+        block: TranslatedBlock,
+        title: String,
+        note: String,
+        closeLabel: String,
+    ) {
+        val density = density()
+        val pad = (16 * density).toInt()
+        val body = android.widget.TextView(context).apply {
+            text = block.translation.trim()
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            setPadding(pad, pad, pad, pad)
+            setTextIsSelectable(true)
+        }
+        // Nhãn đi từ service (`getString(R.string...)`) thay vì đọc `R` ở đây:
+        // file này được biên dịch riêng bằng kotlinc với `android.jar` (job
+        // `android-resolver-compile`) nên KHÔNG có lớp `R` sinh ra.
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(title)
+            .setView(body)
+            .setMessage(note)
+            .setPositiveButton(closeLabel, null)
+            .create()
+        dialog.getWindow()?.setType(overlayWindowTypeCompat())
+        dialog.show()
+        collapsedDialogs.add(dialog)
+        dialog.setOnDismissListener { collapsedDialogs.remove(dialog) }
+    }
+
+    /**
+     * Cửa sổ popup phải cùng "hạng" với overlay hiện tại, nếu không
+     * `AlertDialog` (application window) sẽ nằm DƯỚI overlay trong suốt và
+     * người dùng bấm chip mà không thấy gì.
+     */
+    private fun overlayWindowTypeCompat(): Int =
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            android.view.WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+    /**
+     * Chip tại toạ độ MÀN HÌNH (x, y) — `null` nếu không trúng chip nào.
+     *
+     * Công thức giống `collapsedBlockAt` bên Dart (máy bắt nằm ở phía Dart);
+     * khi nhiều chip chồng nhau thì lấy chip có diện tích nhỏ nhất.
+     */
+    fun collapsedBlockAt(x: Float, y: Float): TranslatedBlock? {
+        var best: TranslatedBlock? = null
+        var bestArea = Int.MAX_VALUE
+        for (block in blocks) {
+            if (!block.collapsed) continue
+            if (x < block.left || x > block.right) continue
+            if (y < block.top || y > block.bottom) continue
+            val area = (block.right - block.left) * (block.bottom - block.top)
+            if (area < bestArea) {
+                bestArea = area
+                best = block
+            }
+        }
+        return best
+    }
+
+    /** Đóng mọi popup đang mở (dùng khi ẩn overlay / đổi kết quả). */
+    fun dismissCollapsedDialogs() {
+        for (dialog in collapsedDialogs.toList()) {
+            try {
+                dialog.dismiss()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        collapsedDialogs.clear()
     }
 
     /**

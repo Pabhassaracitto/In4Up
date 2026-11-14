@@ -79,3 +79,24 @@ không dùng test giả như bằng chứng đã hỗ trợ MDD/CSS hoặc mọi
   không khớp nguồn đã review; không sửa catalog hàng loạt trong đợt này. Chuỗi
   mới được đưa vào priority native pack và sinh bằng generator của pack; CI Rule
   5 xanh. Không suy diễn generator legacy đã sạch.
+
+## Bổ sung theo phản hồi Eudic và hai URL 404
+
+- Hình được owner mô tả bằng văn bản, không có tệp ảnh đính kèm trong workspace.
+  Mẫu LAAD3 gồm `.mdx`, `.css`, `.mdd`, `.1.mdd`, `.2.mdd`; riêng `.mdd` ~1,22 GB.
+  Không đọc toàn bộ MDD vào RAM hay giả định chỉ có một MDD; cần test SAF seek,
+  cache có giới hạn, đường dẫn, license và thiết bị thật trước khi hỗ trợ media.
+- Bộ mặc định có file thật nhưng đã chuyển thư mục; `packs.json` ghim commit +
+  SHA-256. Default catalog remote cũ được vá chính xác theo ID + URL bằng asset
+  bundled; custom catalog không bị thay. Xem `docs/dictionary/DICT_PACK_CATALOG.md`
+  để biết kiểm chứng, quyền, URL và giới hạn phát hành.
+- Đường owner mô tả ở tab Đọc khác luồng PDF: `WordMiniPop` →
+  `WordActionsSheet` trước đây tra lại từ thô và chỉ hiển thị tối đa 3 bản tóm
+  tắt, không có nút xem chi tiết. Nay chuyển tiếp entries đã thấy, giữ khi tra
+  lại rỗng, nối kết quả mới và có nút tới `DictEntryDetailSheet`; chuẩn hóa
+  từ trước khi tra lại. Phần nguồn hiển thị danh sách có số, bỏ NUL kết thúc
+  (kể cả DB cũ), nhưng **chưa** hỗ trợ CSS/MDD/link.
+- Xác nhận độc lập qua Python đọc hai tệp tải bằng GitHub blob API: MDX 2.0
+  UTF-8, zlib; `retain`, `meditation`, `hello` có mục và nội dung. Đây không
+  thay thế Flutter import/lookup end-to-end, không chứng minh tương thích
+  Longman/Lạc Việt/Oxford. Không ghi nội dung từ điển có bản quyền vào repo.

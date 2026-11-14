@@ -94,7 +94,19 @@ class DictPackService {
     if (remote != null) {
       final catalog =
           DictPackCatalog.fromJsonString(remote, sourceUrl: target);
-      if (!catalog.isEmpty) return catalog;
+      if (!catalog.isEmpty) {
+        // A published main catalog may still contain the two old root URLs.
+        // Patch only known official entries from the updated bundled catalog;
+        // never interfere with a user-provided catalog or a new official URL.
+        if (target == defaultCatalogUrl) {
+          final bundled = await _readBundledCatalog();
+          if (bundled != null) {
+            return repairOfficialDictionaryCatalog(
+              catalog, DictPackCatalog.fromJsonString(bundled));
+          }
+        }
+        return catalog;
+      }
     }
     final bundled = await _readBundledCatalog();
     if (bundled != null) {

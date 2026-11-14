@@ -15,6 +15,21 @@ void main() {
     expect(text, contains('• example 0'));
   });
 
+  test('ordered meanings are numbered and nested bullets remain separate', () {
+    final text = dictionaryTextSpans(
+      '<ol><li>first<ul><li>example</li></ul></li><li>second</li></ol>',
+    ).toPlainText();
+    expect(text, contains('1. first'));
+    expect(text, contains('• example'));
+    expect(text, contains('2. second'));
+  });
+
+  test('removes MDX terminator from already imported text', () {
+    expect(dictionaryTextSpans('nghĩa gốc\u0000').toPlainText(), 'nghĩa gốc');
+    expect(dictionaryTextSpans('<p>definition</p>\u0000').toPlainText(),
+        isNot(contains('\u0000')));
+  });
+
   test('does not render active content or fetch anything', () {
     final text = dictionaryTextSpans(
       '<script>bad()</script><style>badcss</style>'

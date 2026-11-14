@@ -147,6 +147,15 @@ void main() {
       expect(miniPop.contains('WordActionsSheet.show('), isTrue);
     });
 
+    test('mở rộng chuyển tiếp entries và có đường tới nội dung từ điển', () {
+      final actions = File('lib/screens/read_mode/sheets/word_actions_sheet.dart')
+          .readAsStringSync();
+      expect(miniPop.contains('initialDictionaryEntries: initialEntries'), isTrue);
+      expect(actions.contains('mergeDictionaryEntrySnapshots(_dictEntries, entries)'), isTrue);
+      expect(actions.contains('DictEntryDetailSheet.show('), isTrue);
+      expect(actions.contains('entries: _dictEntries'), isTrue);
+    });
+
     test('có thêm ảnh (dùng lại cơ chế tìm/chọn ảnh của Worklist)', () {
       expect(miniPop.contains('VocabImagePicker('), isTrue);
     });

@@ -213,3 +213,33 @@ class DictPackCatalog {
         sourceUrl: sourceUrl,
       );
 }
+
+/// Repair only the two known obsolete URLs in the official remote catalog.
+/// Custom catalogs must never be passed here: their entries belong to the user.
+/// Leave future remote URLs untouched; only replace an exact id + old URL with
+/// the corresponding newer bundled entry (including checksum and attribution).
+DictPackCatalog repairOfficialDictionaryCatalog(
+  DictPackCatalog remote,
+  DictPackCatalog bundled,
+) {
+  const obsolete = <String, String>{
+    'en-vi-ovdp': 'https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/star_anhviet.mdx',
+    'en-en-simple-wiktionary': 'https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/simple-en.mdx',
+  };
+  final packs = <DictPack>[];
+  for (final pack in remote.packs) {
+    final replacement = bundled.byId(pack.id);
+    if (obsolete[pack.id] == pack.downloadUrl &&
+        replacement != null &&
+        replacement.downloadUrl != pack.downloadUrl) {
+      packs.add(replacement);
+    } else {
+      packs.add(pack);
+    }
+  }
+  return DictPackCatalog(
+    packs: packs,
+    updated: remote.updated,
+    sourceUrl: remote.sourceUrl,
+  );
+}

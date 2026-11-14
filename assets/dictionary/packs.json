@@ -1,20 +1,21 @@
 {
   "version": 1,
-  "updated": "2026-10-25",
+  "updated": "2026-11-09",
   "note": "Danh mục bộ từ điển tải trong app In4Up (DICT-PACK-001). Sửa file này rồi push lên main là mọi máy nhận danh mục mới. Trường bắt buộc: id + downloadUrl. downloadUrl có thể là ZIP (mdx+mdd+css) hoặc file .mdx trực tiếp. sha256 là tuỳ chọn (khuyến nghị cho file lớn).",
   "packs": [
     {
       "id": "en-vi-ovdp",
       "name": "Anh → Việt (Open Vietnamese Dictionary)",
-      "description": "386.600 mục từ, gồm cả dạng biến đổi (inflected forms). Nguồn mở CC0 — dùng offline sau khi cài.",
+      "description": "386.600 mục từ, gồm cả dạng biến đổi (inflected forms). Dùng offline sau khi cài.",
       "sourceLang": "en",
       "targetLang": "vi",
       "sizeMb": 11.4,
       "entryCount": 386600,
       "version": "1.1",
-      "downloadUrl": "https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/star_anhviet.mdx",
-      "license": "CC0-1.0 (Open Vietnamese Dictionary Project — github.com/catusf/tudien)",
-      "homepage": "https://github.com/catusf/tudien"
+      "downloadUrl": "https://raw.githubusercontent.com/quocanh38/dual-dictionary/a2163f150264a9dbb545c3d1d56e50f8b2463656/dicts-en-vi/star_anhviet.mdx",
+      "license": "Open Vietnamese Dictionary Project (OVDP); see distributor NOTICE and source",
+      "homepage": "https://github.com/catusf/tudien",
+      "sha256": "249a773f07ce7a30de9c081a4fefce13be1bc555444d459499d434e01f2fcea5"
     },
     {
       "id": "en-en-simple-wiktionary",
@@ -24,9 +25,11 @@
       "targetLang": "en",
       "sizeMb": 2.2,
       "version": "2026.10",
-      "downloadUrl": "https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/simple-en.mdx",
+      "downloadUrl": "https://raw.githubusercontent.com/quocanh38/dual-dictionary/a2163f150264a9dbb545c3d1d56e50f8b2463656/samples/simple-en.mdx",
       "license": "CC BY-SA 3.0+/4.0 & GFDL (Simple English Wiktionary)",
-      "homepage": "https://simple.wiktionary.org"
+      "homepage": "https://simple.wiktionary.org",
+      "sha256": "992e689488b5f4538164df9dcaa40c30eba4d22380d5d52975790b219e4cc25e",
+      "entryCount": 22310
     }
   ]
 }

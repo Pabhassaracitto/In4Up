@@ -7,6 +7,8 @@ import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
+import '../../../features/dictionary/widgets/dict_entry_detail_sheet.dart';
+import '../../../features/word_lookup/services/word_insight_service.dart';
 import '../../../features/grammar/services/grammar_analysis_service.dart';
 import '../../../features/grammar/widgets/structure_section.dart';
 import '../../../features/word_lookup/widgets/word_pronunciation_row.dart';
@@ -52,8 +54,9 @@ class WordActionsSheet {
     BuildContext context,
     AnalyzedWord word,
     int lineIndex,
-    int wordIndex,
-  ) {
+    int wordIndex, {
+    List<DictEntry> initialDictionaryEntries = const <DictEntry>[],
+  }) {
     SafeHaptics.mediumImpact();
 
     showModalBottomSheet(
@@ -78,6 +81,7 @@ class WordActionsSheet {
               word: word,
               lineIndex: lineIndex,
               wordIndex: wordIndex,
+              initialDictionaryEntries: initialDictionaryEntries,
             ),
           ),
         ),
@@ -90,11 +94,13 @@ class _WordActionsContent extends StatefulWidget {
   final AnalyzedWord word;
   final int lineIndex;
   final int wordIndex;
+  final List<DictEntry> initialDictionaryEntries;
 
   const _WordActionsContent({
     required this.word,
     required this.lineIndex,
     required this.wordIndex,
+    this.initialDictionaryEntries = const <DictEntry>[],
   });
 
   @override
@@ -130,16 +136,19 @@ class _WordActionsContentState extends State<_WordActionsContent> {
   @override
   void initState() {
     super.initState();
+    _dictEntries = List<DictEntry>.of(widget.initialDictionaryEntries);
     _lookupDict();
   }
 
   Future<void> _lookupDict() async {
     try {
       final entries =
-          await DictionaryService.instance.lookup(widget.word.word);
+          await DictionaryService.instance.lookup(
+            WordInsightService.normalizeWord(widget.word.word),
+          );
       if (mounted) {
         setState(() {
-          _dictEntries = entries;
+          _dictEntries = mergeDictionaryEntrySnapshots(_dictEntries, entries);
           _dictLoading = false;
         });
       }
@@ -343,6 +352,17 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ))),
+                  TextButton.icon(
+                    onPressed: () => DictEntryDetailSheet.show(
+                      context,
+                      word: widget.word.word,
+                      entries: _dictEntries,
+                      ipa: shownIpa,
+                      meaning: bestMeaning,
+                    ),
+                    icon: const Icon(Icons.menu_book, size: 16),
+                    label: Text(context.uiText('Xem từ điển đầy đủ')),
+                  ),
                   if (_dictEntries.length > 3)
                     Text(
                       context.uiText(

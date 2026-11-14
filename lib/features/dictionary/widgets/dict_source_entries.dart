@@ -78,6 +78,9 @@ class DictSourceEntries extends StatelessWidget {
 /// Whitespace inside preformatted blocks is retained; normal HTML whitespace
 /// is collapsed. No sense/example truncation or cross-dictionary deduplication.
 TextSpan dictionaryTextSpans(String definition) {
+  // MDX record terminators are not visible content; older SQLite imports may
+  // still contain them even after newer parsers are deployed.
+  definition = definition.replaceFirst(RegExp(r'\x00+$'), '');
   if (!RegExp(r'<[a-zA-Z!/][^>]*>').hasMatch(definition)) {
     return TextSpan(text: definition);
   }
@@ -92,6 +95,7 @@ TextSpan dictionaryTextSpans(String definition) {
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'table', 'dt', 'dd',
   };
   var lastEndsWithNewline = true;
+  final listCounters = <int?>[];
   void lineBreak() {
     if (!lastEndsWithNewline) {
       spans.add(const TextSpan(text: '\n'));
@@ -117,19 +121,30 @@ TextSpan dictionaryTextSpans(String definition) {
       return;
     }
     if (blocks.contains(tag)) lineBreak();
+    if (tag == 'ol' || tag == 'ul') {
+      listCounters.add(tag == 'ol' ? 0 : null);
+    }
     if (tag == 'li') {
-      spans.add(TextSpan(text: '• ', style: style));
+      var marker = '• ';
+      if (listCounters.isNotEmpty && listCounters.last != null) {
+        final next = listCounters.last! + 1;
+        listCounters[listCounters.length - 1] = next;
+        marker = '$next. ';
+      }
+      spans.add(TextSpan(text: marker, style: style));
       lastEndsWithNewline = false;
     }
     final nextStyle = style.merge(TextStyle(
       fontWeight: <String>{'b', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}.contains(tag)
           ? FontWeight.bold : null,
       fontStyle: <String>{'i', 'em'}.contains(tag) ? FontStyle.italic : null,
+      decoration: tag == 'u' ? TextDecoration.underline : null,
     ));
     for (final child in node.nodes) {
       visit(child, nextStyle, pre || tag == 'pre', depth + 1);
     }
     if (blocks.contains(tag)) lineBreak();
+    if (tag == 'ol' || tag == 'ul') listCounters.removeLast();
   }
 
   for (final node in fragment.nodes) {

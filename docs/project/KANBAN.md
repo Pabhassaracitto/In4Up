@@ -9817,3 +9817,16 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | rebase 251e `d23341a`, code + test + ADR; chờ CI và thiết bị.
   - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI run 43482984172 xanh trên `5680958`; còn renderer CSS/MDD và QA bộ thật.
+
+### DICT-PACK-002 — Sửa 404 catalog và giữ kết quả pop Đọc khi mở rộng
+
+- **Trạng thái:** doing — code + test, chờ CI và nghiệm thu máy thật.
+- **Nguồn:** owner 2026-11-09 mô tả Eudic, popup `retain`, LAAD3 1,22 GB MDD
+  và hai link tải 404; hình chưa được đính kèm dưới dạng tệp.
+- **Bằng chứng:** `packs.json`, `DICT_PACK_CATALOG.md`, ADR-0028; hai blob đã
+  xác minh qua GitHub API + SHA-256, chưa xác minh cài trên thiết bị. Pop Đọc
+  chuyển tiếp entries sang WordActionsSheet và có nút xem nội dung từng bộ.
+- **Còn lại:** CSS/MDD/media/link thật, tái hiện/QA với bộ hợp pháp, nghiệm thu
+  thiết bị, xác minh quyền bản MDX Anh–Việt; cập nhật catalog main khi phát hành.
+- **Lịch sử:**
+  - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | sửa đường dẫn, test và bàn giao; chờ CI.

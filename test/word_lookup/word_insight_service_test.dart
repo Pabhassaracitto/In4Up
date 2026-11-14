@@ -62,6 +62,20 @@ void main() {
     expect(online.entries.single.definition, 'local detailed meaning');
   });
 
+  test('expanded view retains quick lookup entries alongside refreshed sources', () {
+    const first = DictEntry(headword: 'retain', definition: 'giữ lại', dictId: 'vi');
+    const second = DictEntry(headword: 'retain', definition: 'keep', dictId: 'en');
+    expect(mergeDictionaryEntrySnapshots([first], []), [first]);
+    expect(mergeDictionaryEntrySnapshots([first], [first, second]), [first, second]);
+    const differentSource = DictEntry(headword: 'retain', definition: 'giữ lại', dictId: 'other');
+    expect(mergeDictionaryEntrySnapshots([first], [differentSource]), hasLength(2));
+  });
+
+  test('normalization retains non-Latin words', () {
+    expect(WordInsightService.normalizeWord('“සිංහල”'), 'සිංහල');
+    expect(WordInsightService.normalizeWord('「日本語」'), '日本語');
+  });
+
   test('dictionary fallback never mixes unrelated words or overwrites entries', () {
     const local = WordInsight(word: 'cat', entries: <DictEntry>[
       DictEntry(headword: 'cat', definition: 'cat', dictId: 'a'),

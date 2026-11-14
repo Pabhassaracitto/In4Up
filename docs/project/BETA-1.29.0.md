@@ -259,6 +259,14 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
   và **L11** (chốt PSRC-6/PSRC-14 + phân loại backlog cũ ≤ PSRC-196, ngoài cổng); gán
   PSRC-224…233; chốt luật một-issue-một-commit + chỉ rebase để land tuyến tính vào 251e.
   **Không đổi code.**
+- 2026-11-14 | land 2 lane đầu | agent `arena/60e35d65-in4up` | beta tuyến tính: `3e3ca64` →
+  **L8** `d3819528`+`fe0832ac` (PSRC-221 giọng đọc hệ thống Android) → **L4** `5ed57656`
+  (PSRC-211). Hai nhánh L4 cùng làm một issue: nhận `arena/33cb5b7a-in4up` (có test đầu-cuối
+  + chứng minh đỏ-trước-xanh-sau, gộp đoạn/dòng mềm trước khi dịch), giữ `arena/defa5264-in4up`
+  làm tham chiếu cho vòng 2 (cutout/insets/xoay, `RegionSelectView` offset, lọc rác trước hạn
+  mức). Chi tiết: `beta-1.29.0/L4-hub-tra-loi.md` §7. L8 mang trigger `android/app/src/main/kotlin/**`
+  vào `vieneu_engine_build.yml` ⇒ từ nay sửa Kotlin có oracle biên dịch (không cần `workflow_dispatch`).
+  Chưa nghiệm thu máy thật (G3).
 
 ## 9. Prompt riêng từng lane (dán **sau** khối §3)
 

@@ -904,6 +904,10 @@ class SttsCabinService extends ChangeNotifier {
     // nuốt). `_deduper` đã chốt ở `_trackFinalization` trước khi vào hàm.
     _lastFinalizedText = trimmed;
 
+    // Freeze the direction before the translation await. The user may swap
+    // languages while an earlier sentence is still being translated.
+    final chunkSourceLang = sourceLanguage;
+    final chunkTargetLang = _targetLanguage;
     final recorder = _recorder;
     final startOffset = _chunkStartOffset ?? recorder?.elapsed ?? Duration.zero;
     _chunkStartOffset = null;
@@ -918,8 +922,8 @@ class SttsCabinService extends ChangeNotifier {
     try {
       final result = await _translator.translateText(
         trimmed,
-        sourceLang: sourceLanguage,
-        targetLang: _targetLanguage,
+        sourceLang: chunkSourceLang,
+        targetLang: chunkTargetLang,
       );
       translated = result.translatedText.trim();
       engine = result.engineName;
@@ -937,8 +941,8 @@ class SttsCabinService extends ChangeNotifier {
       timestamp: DateTime.now(),
       sourceText: trimmed,
       translatedText: translated,
-      sourceLang: sourceLanguage,
-      targetLang: _targetLanguage,
+      sourceLang: chunkSourceLang,
+      targetLang: chunkTargetLang,
       engineUsed: engine,
       isFinal: true,
     );
@@ -968,6 +972,8 @@ class SttsCabinService extends ChangeNotifier {
     recorder?.addEntry(CabinTranscriptEntry(
       id: captionId,
       offset: startOffset,
+      sourceLang: chunkSourceLang,
+      targetLang: chunkTargetLang,
       sourceText: trimmed,
       translatedText: translated,
     ));
@@ -977,7 +983,7 @@ class SttsCabinService extends ChangeNotifier {
       _state = CabinState.speaking;
       notifyListeners();
       try {
-        _tts.configure(language: _targetLanguage);
+        _tts.configure(language: chunkTargetLang);
         await _tts.speak(translated);
         await _tts.waitForCompletion();
       } catch (e) {

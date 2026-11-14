@@ -159,7 +159,8 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
         '.docx',
         '.pdf',
       };
-      if (!knownExt.contains(p.extension(basename).toLowerCase())) {
+      if (!knownExt.contains(p.extension(basename).toLowerCase()) &&
+          await src.length() >= 4) {
         final head = await src.openRead(0, 8).first;
         if (TextSourceLoader.looksLikeZip(head)) {
           basename = '${p.basenameWithoutExtension(basename)}.docx';
@@ -203,11 +204,11 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           );
           return;
         }
-        path = await _persistLocalText(path);
-        final loaded = await tp.loadTextFile(path);
+        path = await _persistLocalText(path, preferredName: file.title);
+        final loaded = await tp.loadTextFile(path, title: file.title);
         if (!mounted) return;
         if (!loaded || !tp.hasLyrics) {
-          _showOpenError(TextSourceLoader.openFailedHint);
+          _showOpenError(tp.lastLoadError ?? TextSourceLoader.openFailedHint);
           return;
         }
         await _service.addOrUpdate(
@@ -308,11 +309,11 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       return;
     }
 
-    final path = await _persistLocalText(local);
-    final loaded = await tp.loadTextFile(path);
+    final path = await _persistLocalText(local, preferredName: entry.name);
+    final loaded = await tp.loadTextFile(path, title: entry.title);
     if (!mounted) return;
     if (!loaded || !tp.hasLyrics) {
-      _showOpenError(TextSourceLoader.openFailedHint);
+      _showOpenError(tp.lastLoadError ?? TextSourceLoader.openFailedHint);
       return;
     }
     await _service.addOrUpdate(
@@ -356,14 +357,17 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     if (result == null || result.files.single.path == null) return;
     if (!mounted) return;
 
-    final picked = result.files.single.path!;
-    final path = await _persistLocalText(picked);
-    final loaded = await tp.loadTextFile(path);
+    final pickedFile = result.files.single;
+    final picked = pickedFile.path!;
+    final path =
+        await _persistLocalText(picked, preferredName: pickedFile.name);
+    final loaded = await tp.loadTextFile(
+      path,
+      title: pickedFile.name.isNotEmpty ? p.basenameWithoutExtension(pickedFile.name) : null,
+    );
     if (!mounted) return;
     if (!loaded || !tp.hasLyrics) {
-      _showOpenError(
-        'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
-      );
+      _showOpenError(tp.lastLoadError ?? TextSourceLoader.openFailedHint);
       return;
     }
 
@@ -1432,9 +1436,13 @@ class _DeviceTabState extends State<_DeviceTab> {
 
       final pickedFile = result.files.single;
       final path = pickedFile.path!;
-      final file = isPdf
+      final baseFile = isPdf
           ? RecentFile.fromLocalPdf(path)
           : RecentFile.fromLocalText(path);
+      final cleanTitle = pickedFile.name.trim().isNotEmpty
+          ? p.basenameWithoutExtension(pickedFile.name.trim())
+          : baseFile.title;
+      final file = baseFile.copyWith(title: cleanTitle);
 
       await widget.onFilePicked(file);
       if (!mounted) return;
@@ -1623,174 +1631,219 @@ class _DeviceTabState extends State<_DeviceTab> {
       );
     }
 
-    // ── Đã có thư mục: header + danh sách quét ───────────────
+    // ── Đã có thư mục: header + danh sách quét (ảo hóa bằng SliverList.builder) ──
     final results = provider.search(widget.searchQuery);
+    final scanningLabel = provider.scannedProgressCount > 0
+        ? context.uiText(
+            'Đang quét… (${provider.scannedProgressCount} tài liệu)')
+        : context.uiText('Đang quét…');
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        // ── Folder header ────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2196F3).withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.folder_rounded,
-                  color: Color(0xFF2196F3), size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      provider.folderLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Folder header ────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF2196F3).withValues(alpha: 0.3),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      provider.isScanning
-                          ? context.uiText('Đang quét…')
-                          : context.uiText('${provider.count} tài liệu · '
-                              '.txt .md .docx .pdf .lrc .srt .json'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _DeviceTabIconButton(
-                icon: provider.isScanning
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF2196F3),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.folder_rounded,
+                          color: Color(0xFF2196F3), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              provider.folderLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              provider.isScanning
+                                  ? scanningLabel
+                                  : context.uiText(
+                                      '${provider.count} tài liệu · '
+                                      '.txt .md .docx .pdf .lrc .srt .json'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                    : const Icon(Icons.refresh_rounded,
-                        color: Color(0xFF2196F3), size: 18),
-                onTap: () => provider.scan(),
-              ),
-              const SizedBox(width: 4),
-              _DeviceTabIconButton(
-                icon: const Icon(Icons.more_horiz_rounded,
-                    color: Colors.white54, size: 18),
-                onTap: _showFolderOptions,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+                      ),
+                      if (provider.isScanning)
+                        _DeviceTabIconButton(
+                          icon: const Icon(
+                            Icons.stop_circle_outlined,
+                            color: Color(0xFFEF5350),
+                            size: 18,
+                          ),
+                          onTap: () => provider.cancelScan(),
+                        )
+                      else
+                        _DeviceTabIconButton(
+                          icon: const Icon(Icons.refresh_rounded,
+                              color: Color(0xFF2196F3), size: 18),
+                          onTap: () => provider.scan(),
+                        ),
+                      const SizedBox(width: 4),
+                      _DeviceTabIconButton(
+                        icon: const Icon(Icons.more_horiz_rounded,
+                            color: Colors.white54, size: 18),
+                        onTap: _showFolderOptions,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
 
-        // ── Error / scanning / list ──────────────────────────
-        if (provider.error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              context.uiText('⚠️ Lỗi quét: ${provider.error}'),
-              style: const TextStyle(color: Color(0xFFEF5350), fontSize: 12),
-            ),
-          ),
+                // ── Error / empty / initial scanning ─────────────────
+                if (provider.error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      context.uiText('⚠️ Lỗi quét: ${provider.error}'),
+                      style: const TextStyle(
+                          color: Color(0xFFEF5350), fontSize: 12),
+                    ),
+                  ),
 
-        if (provider.isScanning && provider.entries.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Column(
-              children: [
-                CircularProgressIndicator(
-                    color: Color(0xFF2196F3), strokeWidth: 2),
-                SizedBox(height: 12),
-                Text('Đang quét thư mục…',
-                    style: TextStyle(color: Colors.white54, fontSize: 13)),
+                if (provider.isScanning && provider.entries.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Column(
+                      children: [
+                        const CircularProgressIndicator(
+                            color: Color(0xFF2196F3), strokeWidth: 2),
+                        const SizedBox(height: 12),
+                        Text(
+                          scanningLabel,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: () => provider.cancelScan(),
+                          icon: const Icon(Icons.stop_rounded, size: 16),
+                          label: const Text('Dừng quét'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (results.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.search_off_rounded,
+                            size: 44, color: Colors.white24),
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.searchQuery.isNotEmpty
+                              ? context.uiText('Không có tài liệu nào khớp '
+                                  '"${widget.searchQuery}"')
+                              : context.uiText(
+                                  'Không tìm thấy file văn bản/PDF\ntrong thư mục này'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 13,
+                            height: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _pickFolder,
+                          icon: const Icon(Icons.folder_open, size: 16),
+                          label: const Text('Chọn thư mục khác'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2196F3),
+                            side: const BorderSide(color: Color(0xFF2196F3)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
-          )
-        else if (results.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+          ),
+        ),
+        if (results.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList.builder(
+              itemCount: results.length,
+              itemBuilder: (context, index) {
+                final entry = results[index];
+                return _DeviceEntryTile(
+                  entry: entry,
+                  onTap: () => widget.onOpenDeviceEntry(entry),
+                );
+              },
+            ),
+          ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          sliver: SliverToBoxAdapter(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.search_off_rounded,
-                    size: 44, color: Colors.white24),
+                const Divider(color: Colors.white12),
                 const SizedBox(height: 12),
-                Text(
-                  widget.searchQuery.isNotEmpty
-                      ? context.uiText('Không có tài liệu nào khớp '
-                          '"${widget.searchQuery}"')
-                      : context.uiText(
-                          'Không tìm thấy file văn bản/PDF\ntrong thư mục này'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 13,
-                    height: 1.6,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    'File ngoài thư mục — chọn riêng lẻ:',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
                   ),
                 ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _pickFolder,
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('Chọn thư mục khác'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF2196F3),
-                    side: const BorderSide(color: Color(0xFF2196F3)),
-                  ),
+                const SizedBox(height: 10),
+                _DevicePickButton(
+                  icon: Icons.picture_as_pdf_rounded,
+                  label: 'Mở file PDF',
+                  subtitle: 'Định dạng .pdf',
+                  color: const Color(0xFFEF5350),
+                  loading: _picking,
+                  onTap: () => _pickFile(isPdf: true),
+                ),
+                const SizedBox(height: 10),
+                _DevicePickButton(
+                  icon: Icons.text_snippet_rounded,
+                  label: 'Mở file văn bản',
+                  subtitle:
+                      'Định dạng .txt · .md · .json · .docx · .lrc · .srt',
+                  color: const Color(0xFF4CAF50),
+                  loading: _picking,
+                  onTap: () => _pickFile(isPdf: false),
                 ),
               ],
             ),
-          )
-        else ...results.map(
-              (entry) => _DeviceEntryTile(
-                entry: entry,
-                onTap: () => widget.onOpenDeviceEntry(entry),
-              ),
-            ),
-
-        const SizedBox(height: 16),
-        const Divider(color: Colors.white12),
-        const SizedBox(height: 12),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            'File ngoài thư mục — chọn riêng lẻ:',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
           ),
-        ),
-        const SizedBox(height: 10),
-        _DevicePickButton(
-          icon: Icons.picture_as_pdf_rounded,
-          label: 'Mở file PDF',
-          subtitle: 'Định dạng .pdf',
-          color: const Color(0xFFEF5350),
-          loading: _picking,
-          onTap: () => _pickFile(isPdf: true),
-        ),
-        const SizedBox(height: 10),
-        _DevicePickButton(
-          icon: Icons.text_snippet_rounded,
-          label: 'Mở file văn bản',
-          subtitle: 'Định dạng .txt · .md · .json · .docx · .lrc · .srt',
-          color: const Color(0xFF4CAF50),
-          loading: _picking,
-          onTap: () => _pickFile(isPdf: false),
         ),
       ],
     );

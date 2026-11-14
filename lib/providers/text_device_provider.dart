@@ -19,6 +19,8 @@
 // Nền tảng khác (iOS/Linux/Windows): supported = false → UI rơi về chọn
 // file thủ công (FilePicker) như trước.
 
+import 'dart:async' show unawaited;
+import 'dart:collection' show UnmodifiableListView;
 import 'dart:convert' show utf8;
 import 'dart:io' show Platform;
 
@@ -33,23 +35,34 @@ import '../services/text_device_channel.dart';
 class TextDeviceProvider extends ChangeNotifier {
   static const String _treeUriKey = 'in4up_read_device_tree_uri_v1';
 
-  List<TextDeviceEntry> _entries = [];
+  /// Seam cho unit test trên host VM (Linux/macOS/Windows).
+  final bool? _supportedOverride;
+
+  TextDeviceProvider({@visibleForTesting bool? supportedOverride})
+      : _supportedOverride = supportedOverride;
+
+  List<TextDeviceEntry> _entries = const [];
+  late List<TextDeviceEntry> _entriesView = UnmodifiableListView(_entries);
   bool _scanning = false;
   bool _scannedOnce = false;
   bool _initialized = false;
   String? _treeUri;
   String? _error;
+  int _scanSequence = 0;
+  String? _activeScanId;
+  int _scannedProgressCount = 0;
 
-  List<TextDeviceEntry> get entries => List.unmodifiable(_entries);
+  List<TextDeviceEntry> get entries => _entriesView;
   bool get isScanning => _scanning;
   bool get hasScannedOnce => _scannedOnce;
   bool get initialized => _initialized;
   String? get error => _error;
   String? get treeUri => _treeUri;
   int get count => _entries.length;
+  int get scannedProgressCount => _scannedProgressCount;
 
   /// Nền tảng có native scan (Android).
-  bool get supported => !kIsWeb && Platform.isAndroid;
+  bool get supported => _supportedOverride ?? (!kIsWeb && Platform.isAndroid);
 
   /// Đã chọn thư mục chưa?
   bool get hasFolder => _treeUri != null && _treeUri!.isNotEmpty;
@@ -112,6 +125,11 @@ class TextDeviceProvider extends ChangeNotifier {
     }
   }
 
+  void _setEntries(List<TextDeviceEntry> next) {
+    _entries = next;
+    _entriesView = UnmodifiableListView(_entries);
+  }
+
   /// Nạp tree URI đã lưu (gọi 1 lần lúc app khởi động — nhẹ, không quét).
   Future<void> init() async {
     if (_initialized) return;
@@ -123,6 +141,21 @@ class TextDeviceProvider extends ChangeNotifier {
       debugPrint('[TextDevice] init error: $e');
     }
     notifyListeners();
+  }
+
+  /// Dừng lượt quét hiện tại ngay lập tức (giữ nguyên danh sách đã có trước đó).
+  Future<void> cancelScan() async {
+    final activeId = _activeScanId;
+    _scanSequence++;
+    _activeScanId = null;
+    if (_scanning) {
+      _scanning = false;
+      _scannedProgressCount = 0;
+      notifyListeners();
+    }
+    if (activeId != null) {
+      await TextDeviceChannel.cancelScanTree(activeId);
+    }
   }
 
   /// Mở trình chọn thư mục hệ thống (SAF) → lưu URI → giữ quyền → quét.
@@ -158,6 +191,10 @@ class TextDeviceProvider extends ChangeNotifier {
     }
     if (uri == null || uri.isEmpty) return false; // user hủy
 
+    if (_scanning) {
+      await cancelScan();
+    }
+
     // Chuẩn hoá về content:// tree URI (legacy raw path → SAF URI) rồi giữ
     // persistable permission. Với URI từ native picker: đã persist sẵn —
     // gọi lại vẫn an toàn (no-op).
@@ -167,6 +204,8 @@ class TextDeviceProvider extends ChangeNotifier {
 
     _treeUri = uri;
     _error = null;
+    _setEntries(const []);
+    _scannedOnce = false;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_treeUriKey, uri);
@@ -183,24 +222,51 @@ class TextDeviceProvider extends ChangeNotifier {
     final uri = _treeUri;
     if (uri == null || uri.isEmpty || !supported) return;
     if (_scanning) return;
+
+    final seq = ++_scanSequence;
+    final scanId = 'read_device_scan_$seq';
+    _activeScanId = scanId;
     _scanning = true;
+    _scannedProgressCount = 0;
     _error = null;
     notifyListeners();
     try {
-      final raw = await TextDeviceChannel.scanTree(uri);
-      _entries = raw
-          .where((m) => (m['uri'] ?? '').toString().isNotEmpty)
-          .map(TextDeviceEntry.fromMap)
-          .toList()
-        ..sort((a, b) => b.modified.compareTo(a.modified));
+      final raw = await TextDeviceChannel.scanTree(
+        uri,
+        scanId: scanId,
+        onProgress: (foundCount, _) {
+          if (seq != _scanSequence || !_scanning) return;
+          if (foundCount != _scannedProgressCount) {
+            _scannedProgressCount = foundCount;
+            notifyListeners();
+          }
+        },
+      );
+      if (seq != _scanSequence) return;
+
+      // PSRC-206: đẩy bước parse + sort danh sách lớn sang isolate nền
+      // để không làm khựng khung hình UI.
+      final parsed = raw.length >= 200
+          ? await compute(TextDeviceEntry.parseAndSortEntries, raw)
+          : TextDeviceEntry.parseAndSortEntries(raw);
+      if (seq != _scanSequence) return;
+
+      _setEntries(parsed);
       _scannedOnce = true;
+    } on TextDeviceScanCancelledException {
+      // Người dùng chủ động dừng quét — giữ nguyên kết quả đã có.
     } catch (e) {
+      if (seq != _scanSequence) return;
       // TextDeviceScanException (PERMISSION_LOST/BAD_URI): message tiếng
       // Việt có hướng khắc phục — UI hiện lên + nút "Chọn thư mục khác".
       _error = e.toString();
     } finally {
-      _scanning = false;
-      notifyListeners();
+      if (seq == _scanSequence) {
+        _activeScanId = null;
+        _scanning = false;
+        _scannedProgressCount = 0;
+        notifyListeners();
+      }
     }
   }
 
@@ -240,8 +306,16 @@ class TextDeviceProvider extends ChangeNotifier {
 
   /// Bỏ chọn thư mục (xóa quyền ghi nhớ + làm trống danh sách).
   Future<void> forgetFolder() async {
+    final activeId = _activeScanId;
+    _scanSequence++;
+    _activeScanId = null;
+    _scanning = false;
+    _scannedProgressCount = 0;
+    if (activeId != null) {
+      unawaited(TextDeviceChannel.cancelScanTree(activeId));
+    }
     _treeUri = null;
-    _entries = [];
+    _setEntries(const []);
     _scannedOnce = false;
     _error = null;
     try {
@@ -253,14 +327,13 @@ class TextDeviceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Tìm theo tên (chữ thường, contains).
+  /// Tìm theo tên/đường dẫn đã chuẩn hoá sẵn chữ thường (`searchKey`).
   List<TextDeviceEntry> search(String query) {
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) return entries;
-    return entries
-        .where((e) =>
-            e.title.toLowerCase().contains(q) ||
-            e.name.toLowerCase().contains(q))
-        .toList();
+    if (q.isEmpty) return _entriesView;
+    return [
+      for (final e in _entries)
+        if (e.searchKey.contains(q)) e,
+    ];
   }
 }

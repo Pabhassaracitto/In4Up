@@ -778,7 +778,12 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
         }
         final byLang = <String, List<PiperTtsVoice>>{};
         for (final v in voices) {
-          var lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+          // PSRC-230 — ưu tiên ngôn ngữ khai báo trong `<name>.onnx.json` để
+          // nhóm ĐÚNG giọng mà engine sẽ dùng (tên giọng tự đặt có thể không
+          // mang mã ngôn ngữ).
+          var lang = v.languageCode.isNotEmpty
+              ? v.languageCode
+              : SherpaPiperTtsCore.langFromVoiceName(v.name);
           if (lang.isEmpty) {
             lang = 'other';
           } else {
@@ -836,9 +841,13 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
                         ),
                         onChanged: (name) async {
                           if (name == null) return;
+                          // PSRC-230 — chỉ lưu vào kho giọng RIÊNG của Piper
+                          // theo ngôn ngữ. Bản cũ còn gọi
+                          // `TtsService().configure(voiceId: name)` (singleton)
+                          // ⇒ ghi giọng Việt vào `_selectedVoiceId` DÙNG CHUNG
+                          // ⇒ câu tiếng Anh cũng bị đọc bằng giọng đó.
                           await PiperVoicePrefs.instance
                               .setVoiceForLang(entry.key, name);
-                          TtsService().configure(voiceId: name);
                           setState(() => _selected[entry.key] = name);
                         },
                       ),

@@ -34,7 +34,15 @@ class FlutterTtsServiceImpl implements TtsService {
       // rồi đọc câu tiếng Việt bằng giọng nữ tiếng Anh.
       _appTts.configure(speed: _activeSpeed);
 
-      await _appTts.speak(text, language: _activeLocale);
+      // PSRC-230 — `matchVoiceLanguage: true` buộc TtsService chọn giọng
+      // THEO NGÔN NGỮ của câu (`_activeLocale` do PlaybackEngine đặt trước
+      // mỗi pha), không dùng `_selectedVoiceId` chung. Thiếu cờ này thì giọng
+      // người dùng chọn cho tiếng Việt sẽ đọc luôn câu tiếng Anh.
+      await _appTts.speak(
+        text,
+        language: _activeLocale,
+        matchVoiceLanguage: true,
+      );
 
       // Chờ cho đến khi phát xong hoặc bị dừng
       int waitLimit = 0;

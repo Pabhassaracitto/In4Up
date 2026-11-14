@@ -86,6 +86,36 @@ class OfflineTtsEngine extends TtsEngine {
     );
   }
 
+  /// Giọng [voiceId] của engine hệ thống có đọc được [language] không.
+  ///
+  /// PSRC-230 — `FlutterTts.setVoice` áp giọng cho MỌI câu sau đó: đặt giọng
+  /// Việt rồi đọc câu tiếng Anh là nghe tiếng Việt đọc tiếng Anh. Chỉ áp giọng
+  /// khi mã ngôn ngữ của giọng khớp câu; không khớp ⇒ bỏ qua, để `setLanguage`
+  /// tự chọn giọng mặc định đúng ngôn ngữ.
+  @visibleForTesting
+  static bool voiceMatchesLanguage(String? voiceId, String language) {
+    final voice = (voiceId ?? '').trim().toLowerCase().replaceAll('_', '-');
+    if (voice.isEmpty) return false;
+    final want = language.trim().toLowerCase().replaceAll('_', '-');
+    if (want.isEmpty) return true;
+    final wantShort = want.split('-').first;
+
+    // (a) Tên giọng bắt đầu bằng mã ngôn ngữ: `vi-vn-x-vif-network`,
+    //     `en-us-language`, `vi`.
+    if (voice == wantShort || voice.startsWith('$wantShort-')) return true;
+
+    // (b) Mã ngôn ngữ nằm GIỮA tên (giọng của hãng: `samsung-vi-vn-...`).
+    final tokens = voice.split('-');
+    for (var i = 0; i < tokens.length - 1; i++) {
+      if (tokens[i] != wantShort) continue;
+      final region = tokens[i + 1];
+      if (region.length != 2 && region.length != 3) continue;
+      if (want.contains('-') && !want.endsWith(region)) continue;
+      return true;
+    }
+    return false;
+  }
+
   /// Phát trực tiếp (không qua bytes)
   Future<void> speakDirect({
     required String text,
@@ -120,8 +150,9 @@ class OfflineTtsEngine extends TtsEngine {
       // Set pitch
       await _tts.setPitch(pitch.clamp(0.5, 2.0));
 
-      // Set voice nếu có
-      if (voiceId != null) {
+      // Set voice nếu có — và CHỈ khi giọng đó đúng ngôn ngữ của câu
+      // (PSRC-230: giọng đã áp vẫn dính sang các câu sau).
+      if (voiceId != null && voiceMatchesLanguage(voiceId, language)) {
         await _tts.setVoice({'name': voiceId, 'locale': language});
       }
 

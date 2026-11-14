@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/language/app_language.dart';
+import '../../../features/tts/language_detector.dart';
 import '../../../models/text_item.dart';
 import '../models/playback_anchor.dart';
 import '../models/playback_event.dart';
@@ -50,9 +51,9 @@ class PlaybackEngine {
           final fromRepeat = pass == 0 && index == startLine
               ? resumeFrom?.lineRepeatIndex ?? 0
               : 0;
-          final lineSourceLanguage = AppLanguageCatalog.fromCode(
-            lines[index].sourceLanguageCode,
-            fallback: sourceLanguage,
+          final lineSourceLanguage = _lineLanguage(
+            lines[index],
+            sourceLanguage,
           );
 
           for (var lineRepeat = fromRepeat;
@@ -169,6 +170,23 @@ class PlaybackEngine {
         cause: error,
       ));
     }
+  }
+
+  /// Ngôn ngữ của TỪNG dòng — PSRC-230.
+  ///
+  /// Bản cũ rơi thẳng về ngôn ngữ của TÀI LIỆU khi dòng không có mã ngôn ngữ
+  /// riêng. Với tài liệu trộn Việt–Anh đang đặt `sourceLanguageCode = VI`,
+  /// mọi câu tiếng Anh bị đọc bằng giọng Việt. Nay: dòng có mã thì tôn trọng
+  /// mã; dòng không có mã thì NHẬN DIỆN từ chính nội dung câu.
+  AppLanguage _lineLanguage(TextItem line, AppLanguage documentLanguage) {
+    final code = line.sourceLanguageCode?.trim() ?? '';
+    if (code.isNotEmpty) {
+      return AppLanguageCatalog.fromCode(code, fallback: documentLanguage);
+    }
+    return LanguageDetector.detectLanguage(
+      line.content,
+      fallback: documentLanguage,
+    );
   }
 
   Future<void> updateSpeed(double speed) async {

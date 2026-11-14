@@ -830,6 +830,7 @@ jobs:
                    test/edge_voice_prefs_test.dart \
                    test/tts_candidate_router_test.dart \
                    test/tts_cache_key_test.dart \
+                   test/tts/language_voice_routing_test.dart \
                    test/tts_api_wp4_test.dart \
                    test/tts_settings_edge_and_api_test.dart \
                    test/psrc187_isolate_rpc_test.dart \
@@ -925,6 +926,7 @@ jobs:
                    test/read_mode/word_pop_layout_test.dart \
                    test/read_mode/read_word_style_align_test.dart \
                    test/read_mode/read_listen_understand_owner_requests_test.dart \
+                   test/read_mode/line_sync_test.dart \
                    test/safe_haptics_test.dart \
                    test/read_ui_121_contract_test.dart \
                    test/translation/mixed_language_test.dart; do

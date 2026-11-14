@@ -106,6 +106,12 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   VoidCallback? _playerListener;
   PlaybackController? _playbackRef;
   VoidCallback? _playbackLineListener;
+  /// PSRC-233: nghe `TextProvider` để bám dòng khi đọc CẢ BÀI bằng TTS
+  /// (`speakAllLines`) — trước đây chỉ có listener của `PlaybackController`
+  /// nên đường này đọc mà màn hình đứng im ở dòng cũ.
+  VoidCallback? _ttsLineListener;
+  TextProvider? _textProviderRef;
+  int _lastAutoFollowedLine = -1;
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false;
 
@@ -200,6 +206,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       final pp = context.read<PlayerProvider>();
 
       _playerProviderRef = pp;
+      _textProviderRef = tp;
 
       _controller = ReadModeController(textProvider: tp, playerProvider: pp);
       // AUDIT-2026-10-20 (mục 1): màn Đọc PHẢI rebuild khi controller đổi.
@@ -213,10 +220,14 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
         if (!mounted) return;
         final index = playback.activeLineNotifier.value;
         if (index < 0 || index >= tp.lines.length) return;
-        if (!_controller.autoSyncEnabled || !playback.isRunning) return;
+        if (!playback.isRunning) return;
         // 1) Highlight dòng đang đọc ở CẢ HAI chế độ (trước đây chỉ có ở
         //    «Một dòng» ⇒ danh sách thường đọc mà không báo dòng nào).
+        //    PSRC-233: highlight KHÔNG được phụ thuộc «Đồng bộ tự động» —
+        //    công tắc đó chỉ nói về việc TỰ CUỘN. Trước đây tắt tự cuộn là
+        //    câu đang phát không được tô gì cả.
         if (index != tp.currentLineIndex) tp.setCurrentLine(index);
+        _lastAutoFollowedLine = index;
         // 2) READ-UI-121: tự cuộn màn hình theo dòng TTS, có thể tắt bằng
         //    «Đồng bộ tự động» và tự nhường 5s sau mỗi cú kéo tay.
         final manualScrollActive = _manualScrollUntil != null &&
@@ -234,17 +245,68 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
         }
       };
       playback.activeLineNotifier.addListener(_playbackLineListener!);
+      // PSRC-233 — đồng bộ theo AUDIO (file nhạc + LRC/SRT).
+      //
+      // Bản cũ không kiểm tra audio có đang phát hay không: `position` còn
+      // đổi cả khi TẠM DỪNG / ĐANG KÉO THANH THỜI GIAN, và trong lúc TTS
+      // đọc cả bài thì `PlayerProvider` vẫn giữ vị trí cũ ⇒ hai nguồn giành
+      // nhau tô dòng (nhảy về câu của bản nhạc, «sai đoạn đang phát»).
       _playerListener = () {
         if (!mounted) return;
+        if (!pp.isPlaying) return;
+        if (_playbackRef?.isRunning ?? false) return; // TTS đang là nguồn
         final pos = pp.state.position;
         if (pos == _lastPos) return;
         _lastPos = pos;
         final targetLine = _controller.checkAudioSync(pos);
-        if (targetLine >= 0 && !_controller.singleLineMode) {
-          _controller.scrollToLine(_scrollController, targetLine);
-        }
+        if (targetLine < 0 || _controller.singleLineMode) return;
+        if (targetLine == _lastAutoFollowedLine) return;
+        _lastAutoFollowedLine = targetLine;
+        final manualScrollActive = _manualScrollUntil != null &&
+            DateTime.now().isBefore(_manualScrollUntil!);
+        final follow = shouldAutoFollowPlayback(
+          autoSyncEnabled: _controller.autoSyncEnabled,
+          isRunning: true,
+          singleLineMode: _controller.singleLineMode,
+          manualScrollActive: manualScrollActive,
+          lineIndex: targetLine,
+          lineCount: tp.lines.length,
+        );
+        if (!follow || !_scrollController.hasClients) return;
+        _controller.scrollToLine(_scrollController, targetLine);
       };
       pp.addListener(_playerListener!);
+
+      // PSRC-233 — đường «đọc cả bài» bằng TTS (`TextProvider.speakAllLines`,
+      // gọi từ sheet Cài đặt và từ cú vuốt phải trên dòng) cập nhật
+      // `currentLineIndex` chứ không đi qua `PlaybackController` ⇒ trước đây
+      // màn hình không cuộn theo. Nghe ở đây, chỉ khi ĐANG đọc cả bài.
+      _ttsLineListener = () {
+        if (!mounted) return;
+        if (!tp.isSpeaking) return;
+        final index = tp.currentLineIndex;
+        if (index < 0 || index >= tp.lines.length) return;
+        if (index == _lastAutoFollowedLine) return;
+        _lastAutoFollowedLine = index;
+        final manualScrollActive = _manualScrollUntil != null &&
+            DateTime.now().isBefore(_manualScrollUntil!);
+        final follow = shouldAutoFollowPlayback(
+          autoSyncEnabled: _controller.autoSyncEnabled,
+          isRunning: true,
+          singleLineMode: _controller.singleLineMode,
+          manualScrollActive: manualScrollActive,
+          lineIndex: index,
+          lineCount: tp.lines.length,
+        );
+        if (!follow) return;
+        // Không cuộn trong build/notify: chờ frame để item dòng kịp dựng
+        // (GlobalKey của dòng chỉ có context sau khi build xong).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scrollController.hasClients) return;
+          _controller.scrollToLine(_scrollController, index);
+        });
+      };
+      tp.addListener(_ttsLineListener!);
       _controllerInitialized = true;
     }
 
@@ -363,6 +425,9 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     _controller.removeListener(_onControllerChanged);
     if (_playbackRef != null && _playbackLineListener != null) {
       _playbackRef!.activeLineNotifier.removeListener(_playbackLineListener!);
+    }
+    if (_textProviderRef != null && _ttsLineListener != null) {
+      _textProviderRef!.removeListener(_ttsLineListener!);
     }
     _controller.dispose();
     super.dispose();
@@ -801,6 +866,9 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           cacheExtent: 300,
           itemBuilder: (context, index) {
             return TextLineWidget(
+              // PSRC-233: key ổn định để `ReadModeController` cuộn tới ĐÚNG
+              // item (đo `RenderObject` thật) thay vì `index * 85.0`.
+              key: _controller.lineKey(index),
               index: index,
               scrollController: _scrollController,
             );

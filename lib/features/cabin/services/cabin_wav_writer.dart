@@ -14,6 +14,8 @@ class CabinWavWriter {
   final int sampleRate;
   final int channels;
   IOSink? _sink;
+  Future<void>? _flushInProgress;
+  final List<List<int>> _duringFlush = [];
   int _dataBytes = 0;
 
   int get dataBytes => _dataBytes;
@@ -47,14 +49,42 @@ class CabinWavWriter {
   void add(List<int> pcm) {
     final sink = _sink;
     if (sink == null || pcm.isEmpty) return;
-    sink.add(pcm);
+    // IOSink does not accept add() while flush() is in flight. Buffer only
+    // during that interval, and copy because callers may reuse PCM buffers.
+    if (_flushInProgress != null) {
+      _duringFlush.add(List<int>.of(pcm));
+    } else {
+      sink.add(pcm);
+    }
     _dataBytes += pcm.length;
   }
 
-  Future<void> flush() async {
+  Future<void> flush() {
+    final pending = _flushInProgress;
+    if (pending != null) return pending;
+    final sink = _sink;
+    if (sink == null) return Future<void>.value();
+
+    final flush = _flushAndDrain(sink);
+    _flushInProgress = flush;
+    return flush;
+  }
+
+  Future<void> _flushAndDrain(IOSink sink) async {
     try {
-      await _sink?.flush();
-    } catch (_) {}
+      await sink.flush();
+    } catch (_) {
+      // Preserve the existing best-effort flush behavior; still drain PCM so
+      // that a flush error cannot strand the stream in the buffering state.
+    }
+    try {
+      for (final chunk in _duringFlush) {
+        sink.add(chunk);
+      }
+    } finally {
+      _duringFlush.clear();
+      _flushInProgress = null;
+    }
   }
 
   /// Đóng file và vá header theo số byte đã ghi.
@@ -63,6 +93,8 @@ class CabinWavWriter {
     _sink = null;
     if (sink == null) return;
     try {
+      // A timer flush may still be draining captured PCM to this sink.
+      await _flushInProgress;
       await sink.flush();
       await sink.close();
     } catch (_) {}

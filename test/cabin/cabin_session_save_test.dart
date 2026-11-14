@@ -113,6 +113,25 @@ void main() {
       expect(ByteData.sublistView(bytes).getUint32(40, Endian.little), 32000);
     });
 
+    test('PCM continues in order while WAV flush and close overlap', () async {
+      final path = '${tmp.path}/overlap.wav';
+      final w = await CabinWavWriter.open(path);
+      w.add(Uint8List.fromList([1, 2]));
+      final flush = w.flush();
+      // The sink is busy flushing. A real recorder can deliver several chunks
+      // before it completes; none may throw or disappear from the WAV.
+      final chunk = Uint8List.fromList([3, 4]);
+      w.add(chunk);
+      chunk[0] = 99; // producer may reuse its buffer
+      w.add(Uint8List.fromList([5, 6]));
+      final close = w.close();
+      await Future.wait([flush, close]);
+      final bytes = await File(path).readAsBytes();
+      expect(bytes.sublist(44), [1, 2, 3, 4, 5, 6]);
+      expect(ByteData.sublistView(bytes).getUint32(40, Endian.little), 6);
+      expect(w.dataBytes, 6);
+    });
+
     test('repairHeader: file bị cắt ngang (header 0, byte lẻ)', () async {
       final path = '${tmp.path}/b.wav';
       File(path).writeAsBytesSync([

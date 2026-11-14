@@ -13,6 +13,7 @@ import '../../../features/pdf_reader/services/pdf_open_preflight.dart';
 import '../../../features/pdf_reader/widgets/pdf_open_messages.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/text_library_service.dart';
+import '../../../services/text_source_loader.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
 import 'cloud_picker_sheet.dart';
@@ -70,7 +71,18 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
     switch (file.type) {
       case RecentFileType.localText:
         if (file.localPath == null) return;
-        await tp.loadTextFile(file.localPath!);
+        final loaded = await tp.loadTextFile(file.localPath!, title: file.title);
+        if (!loaded || !tp.hasLyrics) {
+          if (nav.mounted) {
+            ScaffoldMessenger.maybeOf(nav.context)?.showSnackBar(
+              SnackBar(
+                content: Text(tp.lastLoadError ?? TextSourceLoader.openFailedHint),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
         await _service.addOrUpdate(
           file.copyWith(
             lastOpened: DateTime.now(),

@@ -297,12 +297,24 @@ void _expectEveryBlockInPlace(
   );
 
   // (2) Đúng chỗ: góc trên-trái của bong bóng trùng khối gốc (± 4dp).
+  // Chip thu gọn (mục 3) chỉ là ~26×20dp ở góc trên-phải khung gốc nên KHÔNG
+  // thể trùng `left`; nó được kiểm riêng bên dưới: đỉnh trùng (chip neo vào
+  // cạnh trên khối) và mép phải trùng.
   for (final src in screen) {
     final inPlace = drawn.where(
       (b) =>
           (b.rect.top - src.top).abs() <= _maxDeltaPx &&
           (b.rect.left - src.left).abs() <= _maxDeltaPx,
     );
+    if (inPlace.isEmpty) {
+      final chip = drawn.where(
+        (b) =>
+            b.collapsed &&
+            (b.rect.top - src.top).abs() <= _maxDeltaPx + 24 &&
+            (b.rect.right - src.right).abs() <= _maxDeltaPx,
+      );
+      if (chip.isNotEmpty) continue; // khối này được đại diện bằng chip
+    }
     expect(
       inPlace,
       isNotEmpty,
@@ -311,9 +323,11 @@ void _expectEveryBlockInPlace(
     );
   }
 
-  // (3) Không đè nhau.
+  // (3) Không đè nhau. Chip thu gọn nằm TRONG khung gốc của chính nó nên chỉ
+  // so các bong bóng ĐẦY ĐỦ; chồng lấn chip↔chip ở màn hình cực dày đã được
+  // chấp nhận và có bài kiểm riêng (overlay_layout_audit_test).
   expect(
-    countOverlappingPairs(result.blocks),
+    countOverlappingPairs(result.blocks.where((b) => b.isExpanded).toList()),
     0,
     reason: '$label — có bong bóng đè lên nhau: ${_describe(drawn)}',
   );

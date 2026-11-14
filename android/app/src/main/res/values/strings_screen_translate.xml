@@ -43,4 +43,14 @@
     <string name="screen_translate_region_capturing">Translating the selected area…</string>
     <string name="screen_translate_region_too_small">Selection too small — drag a larger box</string>
     <string name="screen_translate_region_cancelled">Area selection cancelled</string>
+    <!-- PSRC-211 vòng 2 (mục 3): khối không đủ chỗ KHÔNG bị bỏ vẽ nữa mà thu
+         gọn thành chip; chạm chip mở popup hiện đủ bản dịch (>= 10sp). Nhãn
+         chip là một ký tự "…" nên không cần dịch; hai chuỗi dưới thì có. -->
+    <string name="screen_translate_collapsed_title">Translation of this block</string>
+    <string name="screen_translate_collapsed_note">This block had no room, so it was collapsed — tap the chip to read the full translation.</string>
+    <string name="screen_translate_collapsed_close">Close</string>
+    <!-- PSRC-211 vòng 2 (mục 4): phần dư của trần 32 khối vẫn dịch tiếp được. -->
+    <string name="screen_translate_pending_chip">%1$d blocks left · Translate more</string>
+    <string name="screen_translate_pending_chip_one">%1$d block left · Translate more</string>
+    <string name="screen_translate_pending_tap">Translate the remaining %1$d blocks</string>
 </resources>

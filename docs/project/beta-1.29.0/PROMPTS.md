@@ -21,6 +21,7 @@ Chỉ cần thay `<session-id>` bằng id phiên của agent đó (Arena đặt 
 | **L8** | `Nhánh của bạn là arena/<session-id>-in4up. Đọc docs/project/beta-1.29.0/L8-android-system-tts.md và sửa issue PSRC-221.` |
 | **L9** | `Nhánh của bạn là arena/<session-id>-in4up. Đọc docs/project/beta-1.29.0/L9-shadowing.md và sửa các issue PSRC-226, 228, 227, 225.` |
 | **L10** | `Nhánh của bạn là arena/<session-id>-in4up. Đọc docs/project/beta-1.29.0/L10-pdf-web-reader.md và sửa các issue PSRC-231, 232, 229 theo đúng thứ tự đó.` |
+| **L4 (vòng 2)** | `Nhánh của bạn là arena/<session-id>-in4up. Đọc docs/project/beta-1.29.0/L4-hub-tra-loi.md và làm đúng 4 việc trong đó (biên dịch Kotlin, chip thu gọn ở font scale 2.0×, trần 32 khối không bỏ vĩnh viễn, gộp vào commit PSRC-211). Không mở PR.` |
 | **L11** | `Nhánh của bạn là arena/<session-id>-in4up. Đọc docs/project/beta-1.29.0/L11-backlog-cu.md: chốt PSRC-14 và PSRC-6, rồi phân loại backlog cũ vào bảng § D. Chưa sửa code issue nào khác.` |
 
 ## Khi agent báo xong — hub làm gì

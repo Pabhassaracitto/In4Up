@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 
 import '../models/cabin_session.dart';
 import '../services/cabin_read_bridge.dart';
+import '../services/cabin_listen_bridge.dart';
 import '../services/cabin_session_store.dart';
 import '../services/stts_cabin_service.dart';
 import '../widgets/cabin_save_sheet.dart';
@@ -25,6 +26,7 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
   StreamSubscription<PlayerState>? _playerSub;
   List<CabinSession>? _sessions;
   String? _playingId;
+  String? _syncingId;
 
   @override
   void initState() {
@@ -128,6 +130,25 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
         behavior: SnackBarBehavior.floating,
       ));
     }
+  }
+
+  Future<void> _syncListen(CabinSession session) async {
+    if (_syncingId != null) return;
+    setState(() => _syncingId = session.id);
+    var ok = false;
+    try {
+      await CabinListenBridge().sync(session);
+      ok = true;
+    } catch (error) {
+      debugPrint('Cabin Listen sync: $error');
+    } finally {
+      if (mounted) setState(() => _syncingId = null);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(ok ? 'Đã lưu' : 'Lỗi')),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   Future<void> _finishUnsaved(CabinSession s) async {
@@ -251,6 +272,12 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
                         ? Icons.stop_circle_outlined
                         : Icons.play_circle_outline_rounded),
                     label: Text(context.uiText(playing ? 'Dừng nghe' : 'Nghe lại')),
+                  ),
+                if (hasAudio && !unsaved)
+                  TextButton.icon(
+                    onPressed: _syncingId != null ? null : () => _syncListen(s),
+                    icon: const Icon(Icons.sync_rounded),
+                    label: Text('${context.uiText('Đồng bộ')} · ${context.uiText('Nghe')}'),
                   ),
                 if (hasText)
                   TextButton.icon(

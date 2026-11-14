@@ -70,9 +70,8 @@ class PdfPageOcrOutcome {
       : status = PdfPageOcrStatus.failed,
         text = '';
 
-  const PdfPageOcrOutcome.skipped(this.pageIndex)
+  const PdfPageOcrOutcome.skipped(this.pageIndex, [this.text = ''])
       : status = PdfPageOcrStatus.skippedHasText,
-        text = '',
         error = null;
 
   final int pageIndex;
@@ -80,7 +79,10 @@ class PdfPageOcrOutcome {
   final String text;
   final String? error;
 
-  bool get hasText => status == PdfPageOcrStatus.ok && text.trim().isNotEmpty;
+  bool get hasText =>
+      (status == PdfPageOcrStatus.ok ||
+          status == PdfPageOcrStatus.skippedHasText) &&
+      text.trim().isNotEmpty;
 }
 
 /// Tiến độ vòng quét: [done] trang đã xử lý (kể cả skip/empty), [total] là số
@@ -178,11 +180,16 @@ typedef PdfPageRecognizer = Future<PdfPageOcrOutcome> Function(int pageIndex);
 /// Hỏi xem một trang đã có lớp chữ (extract-by-code được) chưa.
 typedef PdfPageTextProbe = Future<bool> Function(int pageIndex);
 
+/// Lấy lớp chữ sẵn có của trang khi được skip OCR để gộp đủ thứ tự trang (PSRC-208).
+typedef PdfExistingPageTextExtractor = Future<String> Function(int pageIndex);
+
 /// Chạy batch OCR qua danh sách trang đã suy ra.
 ///
 /// - [recognize]: closure quét 1 trang (production: rasterizePdfPage +
 ///   OcrService.recognizeBitmap; test: giả lập).
 /// - [hasTextLayer] + [skipPagesWithTextLayer]: bỏ qua trang đã có chữ.
+/// - [extractExistingText]: nếu được truyền, trang skip vẫn giữ lại lớp chữ
+///   sẵn có trong `joinedText` thay vì làm hụt trang ở chế độ TT / Read Mode.
 /// - [onProgress]: gọi sau MỖI trang (kể cả skip) để UI vẽ "trang i/N".
 /// - [cancelToken]: bấm Hủy → dừng ở ranh giới trang, giữ lại phần đã quét.
 /// - [delayBetweenPages]: nhả UI isolate + hạ nhiệt thiết bị giữa hai trang.
@@ -190,6 +197,7 @@ Future<PdfBatchOcrOutcome> runPdfBatchOcr({
   required List<int> pages,
   required PdfPageRecognizer recognize,
   PdfPageTextProbe? hasTextLayer,
+  PdfExistingPageTextExtractor? extractExistingText,
   bool skipPagesWithTextLayer = true,
   void Function(PdfBatchOcrProgress progress)? onProgress,
   OcrCancelToken? cancelToken,
@@ -212,7 +220,13 @@ Future<PdfBatchOcrOutcome> runPdfBatchOcr({
         return PdfBatchOcrOutcome(pages: outcomes, cancelled: true);
       }
       if (hasText) {
-        outcome = PdfPageOcrOutcome.skipped(pageIndex);
+        final existingText = extractExistingText != null
+            ? (await extractExistingText(pageIndex)).trim()
+            : '';
+        if (cancelToken?.isCancelled ?? false) {
+          return PdfBatchOcrOutcome(pages: outcomes, cancelled: true);
+        }
+        outcome = PdfPageOcrOutcome.skipped(pageIndex, existingText);
         outcomes.add(outcome);
         onProgress?.call(
           PdfBatchOcrProgress(done: i + 1, total: total, pageIndex: pageIndex),

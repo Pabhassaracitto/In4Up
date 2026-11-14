@@ -7,6 +7,8 @@
 //
 // Thuần Dart: recognizer/probe là closure giả — không cần pdfrx/ML Kit.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/ocr/ocr_cancel_token.dart';
 import 'package:in4up/features/pdf_reader/services/pdf_batch_ocr.dart';
@@ -245,6 +247,56 @@ void main() {
 
       expect(outcome.hasText, isFalse);
       expect(outcome.joinedText, '');
+    });
+
+    test('PSRC-208: skip trang có lớp chữ vẫn giữ nội dung các trang đó khi có extractExistingText',
+        () async {
+      // Tài liệu lai: trang 0, 2, 3 có lớp chữ sẵn; chỉ trang 1 (trang 2 1-based)
+      // là ảnh scan phải chạy OCR. Trước đây skip làm rơi chữ trang 0, 2, 3 nên
+      // chỉ còn mỗi trang 2!
+      final ocrCalled = <int>[];
+      final outcome = await runPdfBatchOcr(
+        pages: const [0, 1, 2, 3],
+        hasTextLayer: (page) async => page != 1,
+        extractExistingText: (page) async => 'Lớp chữ trang ${page + 1}',
+        recognize: (page) async {
+          ocrCalled.add(page);
+          return PdfPageOcrOutcome.ok(page, 'OCR trang ${page + 1}');
+        },
+        skipPagesWithTextLayer: true,
+        delayBetweenPages: Duration.zero,
+      );
+
+      expect(ocrCalled, const [1],
+          reason: 'Chỉ trang scan mới tốn ML Kit rasterize');
+      expect(outcome.skippedCount, 3);
+      expect(outcome.okCount, 1);
+      expect(
+        outcome.joinedText,
+        'Lớp chữ trang 1\n\nOCR trang 2\n\nLớp chữ trang 3\n\nLớp chữ trang 4',
+      );
+    });
+
+    test('PSRC-208: chế độ TT giữ PdfViewer dưới Offstage và mặc định mở OCR toàn tài liệu',
+        () {
+      final screen = File('lib/features/pdf_reader/pdf_reader_screen.dart')
+          .readAsStringSync();
+      expect(
+        screen.contains(
+          'offstage: _controller.viewMode == PdfViewMode.textMode',
+        ),
+        isTrue,
+        reason: 'Không được unmount PdfViewer.file khi sang chế độ TT',
+      );
+      expect(
+        screen.contains(
+          '_controller.viewMode == PdfViewMode.textMode\n'
+          '                                    ? PdfOcrScope.all\n'
+          '                                    : PdfOcrScope.currentPage',
+        ),
+        isTrue,
+        reason: 'Bấm OCR khi đang ở chế độ TT phải mặc định quét toàn bộ tài liệu',
+      );
     });
   });
 }

@@ -218,8 +218,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // trái và lựa chọn còn KHÔNG được lưu (xem `_restoreFromStorage`), nên mở
   // app lại là mất. Nay: mặc định giữa + lưu bền theo phiên bản đọc.
   TextAlign _textAlign = TextAlign.center;
+  String? _lastLoadError;
 
   // ==================== GETTERS ====================
+  String? get lastLoadError => _lastLoadError;
   TextDocument? get currentDocument => _currentDocument;
   @override
   List<TextItem> get lines => _lines;
@@ -590,43 +592,95 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   /// Nạp file text (.txt, .md, .json, .docx, .lrc, .srt) vào pipeline Đọc.
   /// Trả về true nếu nạp được; false nếu file không tồn tại / không đọc
-  /// được / .doc binary cũ (caller tự hiện thông báo cho user).
+  /// được / .doc binary cũ (caller tự hiện thông báo từ [lastLoadError]).
   Future<bool> loadTextFile(String path, {String? title}) async {
+    _lastLoadError = null;
     try {
       _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
+        _lastLoadError = TextSourceLoader.openFailedHint;
         debugPrint('TextProvider.loadTextFile: File not found: $path');
         return false;
       }
 
-      final lower = path.toLowerCase();
-      final docTitle = title ?? _extractFileName(path);
-
-      // .doc binary cũ (không phải .docx) — không đọc được trực tiếp
-      if (lower.endsWith('.doc') && !lower.endsWith('.docx')) {
-        debugPrint('TextProvider.loadTextFile: .doc legacy không hỗ trợ: $path');
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        _lastLoadError = TextSourceLoader.openFailedHint;
+        debugPrint('TextProvider.loadTextFile: File empty: $path');
         return false;
       }
 
-      if (lower.endsWith('.lrc')) {
-        _parseLrc(await file.readAsString(), title: docTitle);
-      } else if (lower.endsWith('.srt')) {
-        _parseSrt(await file.readAsString(), title: docTitle);
+      final lower = path.toLowerCase();
+      final lowerTitle = (title ?? '').toLowerCase();
+      final docTitle = (title != null && title.trim().isNotEmpty)
+          ? title.trim()
+          : _extractFileName(path);
+
+      // PSRC-207: kiểm tra chữ ký nhị phân OLE (.doc cũ / .docx đặt mật khẩu)
+      // và ZIP (.docx) TRƯỚC khi dựa vào đuôi file — trên Android, FilePicker /
+      // SAF hay trả đường dẫn tạm mất đuôi (.bin / msf_10023).
+      if (TextSourceLoader.looksLikeOleDoc(bytes) ||
+          (lower.endsWith('.doc') && !lower.endsWith('.docx'))) {
+        _lastLoadError =
+            TextSourceLoader.diagnoseOpenFailureBytes(bytes, path: path);
+        debugPrint('TextProvider.loadTextFile: OLE/legacy doc: $path');
+        return false;
+      }
+
+      final isDocx = lower.endsWith('.docx') ||
+          lowerTitle.endsWith('.docx') ||
+          TextSourceLoader.looksLikeZip(bytes);
+
+      if (isDocx) {
+        final extracted = TextSourceLoader.docxToPlainText(bytes);
+        if (extracted == null || extracted.trim().isEmpty) {
+          _lastLoadError =
+              TextSourceLoader.diagnoseOpenFailureBytes(bytes, path: path);
+          debugPrint(
+            'TextProvider.loadTextFile: không trích được văn bản từ .docx: $path',
+          );
+          return false;
+        }
+        _parsePlainText(extracted, title: docTitle);
+      } else if (lower.endsWith('.lrc') || lowerTitle.endsWith('.lrc')) {
+        _parseLrc(
+          TextSourceLoader.decodePlainTextBytes(bytes),
+          title: docTitle,
+        );
+      } else if (lower.endsWith('.srt') || lowerTitle.endsWith('.srt')) {
+        _parseSrt(
+          TextSourceLoader.decodePlainTextBytes(bytes),
+          title: docTitle,
+        );
       } else if (lower.endsWith('.md') ||
           lower.endsWith('.markdown') ||
-          lower.endsWith('.json') ||
-          lower.endsWith('.docx')) {
-        // md/json/docx → trích text thuần (giữ chữ thật cho pipeline Đọc)
-        final extracted = await TextSourceLoader.extractReadableText(path);
-        if (extracted != null && extracted.trim().isNotEmpty) {
-          _parsePlainText(extracted, title: docTitle);
-        } else {
-          // Fallback: đọc thô (json hỏng sẽ hiện text gốc)
-          _parsePlainText(await file.readAsString(), title: docTitle);
+          lowerTitle.endsWith('.md') ||
+          lowerTitle.endsWith('.markdown')) {
+        final plain = TextSourceLoader.markdownToPlainText(
+          TextSourceLoader.decodePlainTextBytes(bytes),
+        );
+        if (plain.trim().isEmpty) {
+          _lastLoadError = TextSourceLoader.openFailedHint;
+          return false;
         }
+        _parsePlainText(plain, title: docTitle);
+      } else if (lower.endsWith('.json') || lowerTitle.endsWith('.json')) {
+        final rawText = TextSourceLoader.decodePlainTextBytes(bytes);
+        final extracted = TextSourceLoader.jsonToPlainText(rawText);
+        final chosen = extracted.trim().isNotEmpty ? extracted : rawText;
+        if (chosen.trim().isEmpty) {
+          _lastLoadError = TextSourceLoader.openFailedHint;
+          return false;
+        }
+        _parsePlainText(chosen, title: docTitle);
       } else {
-        _parsePlainText(await file.readAsString(), title: docTitle);
+        final plain = TextSourceLoader.decodePlainTextBytes(bytes);
+        if (plain.trim().isEmpty) {
+          _lastLoadError = TextSourceLoader.openFailedHint;
+          return false;
+        }
+        _parsePlainText(plain, title: docTitle);
       }
 
       _setSourceMeta(
@@ -641,11 +695,13 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       //   (MD5 ổn định) — không dịch lại từ mạng như bài mới.
       unawaited(rehydrateTranslationsFromCache());
       if (_lines.isEmpty) {
+        _lastLoadError = TextSourceLoader.openFailedHint;
         debugPrint('TextProvider.loadTextFile: không trích được dòng chữ: $path');
         return false;
       }
       return true;
     } catch (e) {
+      _lastLoadError = TextSourceLoader.openFailedHint;
       debugPrint('TextProvider.loadTextFile error: $e');
       return false;
     }

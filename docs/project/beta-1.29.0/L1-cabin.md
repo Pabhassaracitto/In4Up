@@ -57,4 +57,24 @@ fix(PSRC-223): cabin offline Sherpa không dừng sau dòng đầu [L1]
 
 ## Phát hiện thêm
 
-_(trống)_
+- PSRC-200 chưa xong: `CabinReadBridge` vẫn mở LRC song ngữ thành các
+  dòng độc lập, không lưu cặp chủ/đích khi mở lại; chưa có UI chọn chiều.
+  Journal trước bản sửa không có ngôn ngữ từng dòng, nên không thể suy ra
+  chắc chắn chiều của một phiên cũ đã đổi ngôn ngữ giữa chừng. Nhờ hub phối
+  hợp lane Đọc về định dạng tài liệu song ngữ bền và cách xử lý dữ liệu cũ;
+  không đoán chiều của dữ liệu thiếu metadata.
+- PSRC-201 chưa xong: có API stream journal phiên đã dừng và đã nối sao chép
+  WAV/LRC đã lưu vào danh sách Nghe (sheet, tự lưu và phiên đã lưu). Bản LRC
+  phụ thuộc lựa chọn giữ văn bản và chế độ xuất, chưa bảo đảm toàn transcript;
+  chưa có lựa chọn đủ ba đích hay test xuyên UI 50 dòng. Nếu sync Nghe lỗi,
+  phiên vẫn được lưu và có thể thử lại từ danh sách phiên. `UnderstandTabConnector`
+  chỉ tạo dòng khi danh sách Hiểu đang rỗng, nên dùng connector đó như cơ chế
+  thay phiên có thể giữ nội dung cũ; nhờ hub/lane Hiểu xác nhận hợp đồng nhận
+  và lưu phiên mới.
+- PSRC-223: test race flush WAV đã đỏ trước sửa (run 43553273362). Test tự
+  động không thay thế kiểm Android thật: PCM, đồng hồ, WAV, ba câu được đọc,
+  phản hồi âm loa và các gián đoạn bởi cuộc gọi/ứng dụng khác.
+- PSRC-199: các sửa/xoá phiên đã dừng được tuần tự hoá theo phiên để tránh
+  ghi đè LRC/TXT/metadata khi nhiều thao tác cùng chạy; test đồng thời và thử
+  lại sau lỗi đã thêm, chờ CI. Vẫn chưa hỗ trợ sửa/xoá partial và chưa có test
+  UI/kiểm máy thật.

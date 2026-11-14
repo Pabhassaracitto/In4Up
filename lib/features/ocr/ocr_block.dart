@@ -11,6 +11,7 @@
 // test chạy được trên host VM (sandbox không có Android/iOS).
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 /// Khung bao của một khối chữ, theo pixel của ảnh đã OCR.
 ///
@@ -92,12 +93,183 @@ int? _asInt(Object? value) {
   return null;
 }
 
+/// Có ít nhất một chữ cái hoặc chữ số Unicode thật (Latin, Việt, Pāḷi có dấu,
+/// Sinhala, Myanmar, Thái, Devanagari, Hán/Nhật, số…). Các khối/dòng chỉ gồm
+/// dấu gạch đứng mép scan `|`, chấm lửng `...`, gạch kẻ `---`, ký hiệu rác
+/// trên nền trống sẽ bị loại (PSRC-210).
+final RegExp _readableGlyphPattern = RegExp(r'[\p{L}\p{N}]', unicode: true);
+
+/// Nhiễu mép trang scan rất phổ biến của ML Kit: chỉ gồm các ký tự sọc dọc
+/// mảnh (`|`, `¦`, `\`, `/`, `!`, `~`, `_`) và dấu chấm/gạch lặp lại.
+final RegExp _scanBorderNoisePattern =
+    RegExp(r'^[\s|¦\\/!~_.,:;•·\-–—+*^"`´]+$');
+
+/// Kiểm tra chuỗi có chứa chữ/số đọc được thực sự (không phải nhiễu vùng trống).
+bool hasMeaningfulOcrText(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return false;
+  if (_scanBorderNoisePattern.hasMatch(trimmed)) return false;
+  return _readableGlyphPattern.hasMatch(trimmed);
+}
+
+/// Lọc từng dòng của một khối chữ ML Kit: bỏ dòng rỗng và dòng chỉ chứa ký tự
+/// nhiễu mép trang / kẻ dòng trên vùng không có chữ, giữ nguyên xuống dòng hợp lệ.
+String cleanOcrBlockLines(String raw) {
+  if (raw.trim().isEmpty) return '';
+  final kept = <String>[];
+  for (final rawLine in raw.split('\n')) {
+    final line = rawLine.replaceAll(RegExp(r'[ \t\r]+'), ' ').trim();
+    if (!hasMeaningfulOcrText(line)) continue;
+    kept.add(line);
+  }
+  return kept.join('\n').trim();
+}
+
+/// Kiểm tra khung bao có hình học hợp lý của chữ thật (loại hạt bụi li ti
+/// < 4px hoặc sọc đen mép scan cao vọt nhưng chỉ sinh ra 1–3 ký tự rác như `I`/`1`).
+bool isPlausibleOcrTextRect({
+  required OcrBlockRect rect,
+  required String cleanedText,
+}) {
+  if (!rect.isValid) return false;
+  if (rect.width < 4 || rect.height < 4) return false;
+  final compact = cleanedText.replaceAll(RegExp(r'\s+'), '');
+  if (compact.isEmpty) return false;
+
+  if (rect.height >= rect.width * 18 && compact.length <= 3) {
+    return false;
+  }
+  if (rect.width >= rect.height * 35 && compact.split('').toSet().length == 1) {
+    return false;
+  }
+  return true;
+}
+
+int _bgraLumaAt(Uint8List pixels, int byteOffset) {
+  final a = pixels[byteOffset + 3];
+  if (a < 16) return 255;
+  final b = pixels[byteOffset];
+  final g = pixels[byteOffset + 1];
+  final r = pixels[byteOffset + 2];
+  return (77 * r + 150 * g + 29 * b) >> 8;
+}
+
+/// Phát hiện nhanh ảnh/trang BGRA8888 hoàn toàn trống hoặc đồng màu (giấy trắng,
+/// nền xám/đen trơn, bóng đổ mịn không có nét mực chữ) để bỏ qua ML Kit ngay,
+/// tránh tốn CPU và tránh ML Kit ảo giác ký tự trên vùng trống (PSRC-210).
+bool isVisuallyBlankBgraBitmap({
+  required Uint8List pixels,
+  required int width,
+  required int height,
+}) {
+  if (width <= 0 || height <= 0) return true;
+  if (pixels.length < width * height * 4) return true;
+
+  final stepX = math.max(1, width ~/ 96);
+  final stepY = math.max(1, height ~/ 96);
+  final bins = List<int>.filled(16, 0);
+  var minY = 255;
+  var maxY = 0;
+  var samples = 0;
+
+  for (var y = 0; y < height; y += stepY) {
+    final rowOffset = y * width * 4;
+    for (var x = 0; x < width; x += stepX) {
+      final luma = _bgraLumaAt(pixels, rowOffset + x * 4);
+      if (luma < minY) minY = luma;
+      if (luma > maxY) maxY = luma;
+      bins[(luma >> 4).clamp(0, 15)]++;
+      samples++;
+    }
+  }
+
+  if (samples == 0 || maxY - minY < 22) return true;
+
+  var dominantBin = 0;
+  for (var i = 1; i < 16; i++) {
+    if (bins[i] > bins[dominantBin]) dominantBin = i;
+  }
+  final bgCenter = dominantBin * 16 + 8;
+
+  var contrastCount = 0;
+  for (var y = 0; y < height; y += stepY) {
+    final rowOffset = y * width * 4;
+    for (var x = 0; x < width; x += stepX) {
+      final luma = _bgraLumaAt(pixels, rowOffset + x * 4);
+      if ((luma - bgCenter).abs() >= 26) {
+        contrastCount++;
+      }
+    }
+  }
+
+  return contrastCount < 3 || contrastCount * 10000 < samples * 4;
+}
+
+/// Kiểm tra bên trong [rect] của ảnh BGRA8888 có thực sự tồn tại độ tương phản
+/// nét chữ so với nền cục bộ hay chỉ là vùng trống / bóng mờ đồng nhất (PSRC-210).
+bool hasForegroundContrastInBgraRect({
+  required Uint8List pixels,
+  required int imageWidth,
+  required int imageHeight,
+  required OcrBlockRect rect,
+}) {
+  if (imageWidth <= 0 || imageHeight <= 0) return false;
+  if (pixels.length < imageWidth * imageHeight * 4) return false;
+  if (!rect.isValid) return false;
+
+  final left = rect.left.clamp(0, imageWidth - 1);
+  final right = rect.right.clamp(left + 1, imageWidth);
+  final top = rect.top.clamp(0, imageHeight - 1);
+  final bottom = rect.bottom.clamp(top + 1, imageHeight);
+  final w = right - left;
+  final h = bottom - top;
+
+  final stepX = math.max(1, w ~/ 48);
+  final stepY = math.max(1, h ~/ 32);
+  final bins = List<int>.filled(16, 0);
+  var minY = 255;
+  var maxY = 0;
+  var samples = 0;
+
+  for (var y = top; y < bottom; y += stepY) {
+    final rowOffset = y * imageWidth * 4;
+    for (var x = left; x < right; x += stepX) {
+      final luma = _bgraLumaAt(pixels, rowOffset + x * 4);
+      if (luma < minY) minY = luma;
+      if (luma > maxY) maxY = luma;
+      bins[(luma >> 4).clamp(0, 15)]++;
+      samples++;
+    }
+  }
+
+  if (samples == 0 || maxY - minY < 24) return false;
+
+  var dominantBin = 0;
+  for (var i = 1; i < 16; i++) {
+    if (bins[i] > bins[dominantBin]) dominantBin = i;
+  }
+  final bgCenter = dominantBin * 16 + 8;
+
+  var inkSamples = 0;
+  for (var y = top; y < bottom; y += stepY) {
+    final rowOffset = y * imageWidth * 4;
+    for (var x = left; x < right; x += stepX) {
+      final luma = _bgraLumaAt(pixels, rowOffset + x * 4);
+      if ((luma - bgCenter).abs() >= 24) {
+        inkSamples++;
+      }
+    }
+  }
+
+  return inkSamples >= 2 && inkSamples * 100 >= samples;
+}
+
 /// Dựng một [OcrBlock] đã được LÀM SẠCH từ dữ liệu thô của ML Kit.
 ///
 /// Trả về null khi khối không dùng được:
-/// - text rỗng sau khi trim (ML Kit thỉnh thoảng trả block chỉ có khoảng trắng),
-/// - khung bao đảo chiều hoặc không có diện tích,
-/// - khung nằm hoàn toàn ngoài ảnh.
+/// - text rỗng hoặc chỉ chứa ký tự nhiễu vùng trống sau khi làm sạch,
+/// - khung bao đảo chiều không có diện tích hoặc hạt bụi / sọc mép scan,
+/// - khung nằm hoàn toàn ngoài ảnh hoặc vùng pixel không có độ tương phản chữ.
 ///
 /// Khung được CLAMP về trong ảnh ([imageWidth] × [imageHeight]) — ML Kit có
 /// thể trả toạ độ âm/vượt mép khi chữ dính sát viền, mà overlay native vẽ
@@ -110,8 +282,9 @@ OcrBlock? makeOcrBlock({
   required int bottom,
   required int imageWidth,
   required int imageHeight,
+  Uint8List? bgraPixels,
 }) {
-  final cleaned = text.replaceAll(RegExp(r'[ \t]+'), ' ').trim();
+  final cleaned = cleanOcrBlockLines(text);
   if (cleaned.isEmpty) return null;
   if (imageWidth <= 0 || imageHeight <= 0) return null;
 
@@ -133,7 +306,16 @@ OcrBlock? makeOcrBlock({
     right: clampedRight,
     bottom: clampedBottom,
   );
-  if (!rect.isValid) return null;
+  if (!isPlausibleOcrTextRect(rect: rect, cleanedText: cleaned)) return null;
+  if (bgraPixels != null &&
+      !hasForegroundContrastInBgraRect(
+        pixels: bgraPixels,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+        rect: rect,
+      )) {
+    return null;
+  }
   return OcrBlock(text: cleaned, rect: rect);
 }
 

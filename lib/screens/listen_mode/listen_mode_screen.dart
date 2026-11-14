@@ -3011,7 +3011,15 @@ class GenerateLrcButton extends StatelessWidget {
                             }
                           },
                           icon: Icon(micOn ? Icons.stop_circle : Icons.mic),
-                          label: Text(micOn ? 'Dừng mic' : 'Shadowing'),
+                          // PSRC-224: nút này KHÔNG phải Shadowing — nó bật/tắt
+                          // mic nhận dạng trực tiếp (startConversation) để tạo
+                          // lời. Nhãn cũ "Shadowing" khiến người dùng tưởng có
+                          // Shadowing Mode ở phần tạo lời (Shadowing Mode nằm ở
+                          // tab Nói / tab Đọc). Đây là chỗ DUY NHẤT trong app gọi
+                          // startConversation() nên giữ chức năng, chỉ đổi nhãn.
+                          label: Text(
+                            context.uiText(micOn ? 'Dừng mic' : 'Mic trực tiếp'),
+                          ),
                           style: micOn
                               ? ElevatedButton.styleFrom(
                                     backgroundColor: Colors.red,

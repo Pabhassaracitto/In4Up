@@ -36,21 +36,27 @@ class PdfTextExtractor {
   /// Extract toàn bộ text của một page (plain string).
   Future<String> extractPageText(PdfPage page, int pageIndex) async {
     final cached = _textCache[pageIndex];
-    if (cached != null) return cached;
+    if (cached != null && cached.isNotEmpty) return cached;
 
     try {
       final textPage = await page.loadText();
       if (textPage == null) {
-        _textCache[pageIndex] = '';
         return '';
       }
       final text = cleanExtractedText(textPage.fullText);
-      _textCache[pageIndex] = text;
+      if (text.isNotEmpty) {
+        _textCache[pageIndex] = text;
+      }
       return text;
     } catch (e) {
       debugPrint('PdfTextExtractor: error extracting page $pageIndex: $e');
       return '';
     }
+  }
+
+  /// Xóa các mục rỗng trong cache text để trích xuất lại đủ mọi trang.
+  void clearEmptyTextCache() {
+    _textCache.removeWhere((_, value) => value.trim().isEmpty);
   }
 
   /// Extract toàn bộ document thành string (dùng cho Text Mode).

@@ -658,7 +658,9 @@ mixin TranslationMixin on ChangeNotifier {
       return;
     }
     final runId = _translationRunId;
-    TranslationService().activeEngineNotifier.value = null;
+    // Qua `service` (production vẫn là singleton) như `translateAll` — gọi
+    // thẳng singleton ở đây làm test dịch một dòng dựng engine + Hive thật.
+    service.activeEngineNotifier.value = null;
     final (result, appliedSource) = await _translateLineContent(
       service,
       content: line.content,
@@ -852,7 +854,7 @@ mixin TranslationMixin on ChangeNotifier {
   void cancelTranslation() {
     _translationRunId++;
     _isTranslating = false;
-    TranslationService().activeEngineNotifier.value = null;
+    _translationService.activeEngineNotifier.value = null;
     notifyListeners();
   }
 

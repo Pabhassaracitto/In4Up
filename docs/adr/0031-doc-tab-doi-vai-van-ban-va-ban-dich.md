@@ -5,8 +5,10 @@
   lúc commit mang mã `f30e56d`, cùng nội dung); chờ nghiệm thu máy thật.
 - **Định danh:** Linear **PSRC-237** — bước 3a/4 của yêu cầu owner «I4U - Màn
   hình». Bước 3b (chọn ngôn ngữ nguồn + tự tránh cặp trùng) là **PSRC-238**,
-  triển khai trên `arena/dd25d9d8-in4up`, cũng thuộc ADR này (mục «Bổ sung —
-  bước 3b»); chờ nghiệm thu máy thật.
+  triển khai trên `arena/dd25d9d8-in4up` (PR #187), cũng thuộc ADR này (mục
+  «Bổ sung — bước 3b»); CI xanh (run 43752025563, chạy lúc commit sửa cuối
+  mang mã `d19ac63`; mã đổi sau các lần rebase theo nhánh hub, nội dung không
+  đổi); chờ nghiệm thu máy thật.
 - **Nguồn:** kế hoạch ban đầu của bước 3 có «nút đảo chiều cặp ngôn ngữ».
   Owner hỏi nút đó dùng để làm gì (2026-11-15). Đọc code thì thấy nó **không
   dùng được** (xem «Bối cảnh» mục 2). Owner duyệt phương án thay thế: «Đổi vai

@@ -30,3 +30,10 @@ không chứng minh hành vi provider thật, lifecycle Android hoặc hiệu n�
 Chưa đưa vào widget; cần giới hạn ảnh giải mã, CSS/media sanitizer, lifecycle,
 i18n, an toàn khi relink và QA thiết bị trước khi hiển thị. Chưa có cache,
 invalidation, huỷ timeout native, hỗ trợ mọi biến thể MDD hoặc benchmark RAM/jank.
+
+## CI và bàn giao
+
+CI [43760882725](https://github.com/Pabhassaracitto/In4Up/actions/runs/43760882725)
+xanh 4/4 trên `e208d4c` gồm DICT và I4U18/import; PR #192. Web chỉ mới compile,
+chưa kiểm thử worker runtime. Test SAF là mock, chưa chứng minh provider Android
+thực tế, hiệu năng, mức RAM hay khả năng huỷ khi provider bị treo.

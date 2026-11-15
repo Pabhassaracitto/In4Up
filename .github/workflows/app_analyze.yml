@@ -330,7 +330,7 @@ jobs:
             exit 0
           fi
           echo "Chạy:$files"
-          flutter test $files > dict_word_insight_test.log 2>&1
+          flutter test $files -r expanded > dict_word_insight_test.log 2>&1
           code=$?
           cat dict_word_insight_test.log
           exit $code
@@ -346,7 +346,11 @@ jobs:
           log = pathlib.Path('dict_word_insight_test.log')
           if not log.exists():
               raise SystemExit(0)
-          text = log.read_text(encoding='utf-8', errors='replace')[-6000:]
+          lines = log.read_text(encoding='utf-8', errors='replace').splitlines()
+          failed = [i for i, line in enumerate(lines) if '[E]' in line]
+          text = '\n'.join(
+              line for i in failed for line in lines[max(0, i-8):i+22]
+          )[-12000:] if failed else '\n'.join(lines[-60:])[-12000:]
           escaped = (text.replace('%', '%25')
                          .replace('\r', '')
                          .replace('\n', '%0A'))

@@ -9,6 +9,7 @@ import '../../services/storage_service.dart';
 import '../tts/language_detector.dart';
 import 'cache/translation_cache.dart';
 import 'engines/translation_engine.dart';
+import 'line_role_swap.dart';
 import 'mixed_language_segmenter.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
@@ -64,6 +65,182 @@ mixin TranslationMixin on ChangeNotifier {
       translationServiceForTest ?? TranslationService();
 
   List<TextItem> get lines;
+
+  // ==================== PSRC-237 / ADR-0031 — ĐỔI VAI ====================
+  //
+  // IPA, tô màu loại từ, CEFR, chạm tra từ chỉ chạy trên `content`. Văn bản
+  // bản xứ đã dịch sang tiếng Anh thì tiếng Anh nằm ở `translation` ⇒ không
+  // công cụ nào với tới. «Đổi vai» hoán đổi hai trường đó cho từng dòng đã
+  // dịch; văn bản GỐC được giữ ở dòng dịch và đổi lại được nguyên vẹn.
+
+  /// Thông báo khi một thao tác bị chặn để BẢO VỆ văn bản gốc (đang nằm ở
+  /// dòng dịch): đổi ngôn ngữ / dịch lại sẽ ghi đè lên nó.
+  static const String roleSwapGuardMessage =
+      'Đang đổi vai — hãy đổi lại trước khi đổi ngôn ngữ hoặc dịch lại.';
+
+  LineRoleSwapState? _roleSwap;
+
+  /// Seam test: nơi lưu dấu đổi vai theo tài liệu. Production để null
+  /// (dùng Hive qua `StorageService`).
+  @visibleForTesting
+  RoleSwapMarkerStore? roleSwapMarkerStoreForTest;
+
+  RoleSwapMarkerStore get _roleSwapMarkers =>
+      roleSwapMarkerStoreForTest ?? const _HiveRoleSwapMarkerStore();
+
+  /// True khi `content` đang là BẢN DỊCH (máy) và văn bản gốc nằm ở dòng dịch.
+  bool get rolesSwapped => _roleSwap != null;
+
+  LineRoleSwapState? get roleSwapState => _roleSwap;
+
+  /// Ngôn ngữ của bản dịch đang được dùng làm văn bản chính (null khi
+  /// không đổi vai).
+  AppLanguage? get roleSwapPromotedLanguage {
+    final swap = _roleSwap;
+    return swap == null ? null : AppLanguageCatalog.fromCode(swap.promotedCode);
+  }
+
+  /// Khoá tài liệu để lưu dấu đổi vai. `null` = không lưu (văn bản dán tay
+  /// không có danh tính bền). `TextProvider` override.
+  @protected
+  String? get roleSwapDocumentKey => null;
+
+  /// Hook: `content` của nhiều dòng vừa bị thay ⇒ lớp chủ phân tích lại từ
+  /// loại, dựng lại toàn văn… Gọi TRƯỚC `notifyListeners`.
+  @protected
+  void onLineRolesSwapped() {}
+
+  /// Số dòng đổi vai được ngay lúc này.
+  int get roleSwappableLineCount => countSwappableLines(
+        lines,
+        _roleSwap?.originalCode ?? translationTargetLanguage.translationCode,
+      );
+
+  /// Có thể bấm «Đổi vai» / «Đổi lại» hay không.
+  bool get canSwapRoles {
+    if (_isTranslating || lines.isEmpty) return false;
+    // Đếm dòng trước (rẻ); chỉ chạy bộ nhận diện ngôn ngữ khi thật sự có
+    // bản dịch để đổi.
+    if (roleSwappableLineCount == 0) return false;
+    return _roleSwap != null || !translationPairUsesSameLanguage;
+  }
+
+  /// Đổi vai văn bản ⇄ bản dịch; gọi lần nữa để đổi lại.
+  ///
+  /// Trả `null` khi không làm gì (đang dịch, chưa có bản dịch, cặp trùng).
+  ///
+  /// Đi kèm với việc hoán đổi dòng:
+  ///   * đích dịch của service đổi theo (chỉ trong bộ nhớ — KHÔNG ghi cài
+  ///     đặt chung của app; mở tài liệu khác thì trả lại đích cũ);
+  ///   * nguồn dịch được GẮN vào ngôn ngữ vừa đưa lên, để cặp ngôn ngữ
+  ///     không phụ thuộc bộ nhận diện trên văn bản dịch máy;
+  ///   * dấu đổi vai được lưu theo tài liệu (xem [restoreSavedRoleSwap]).
+  LineRoleSwapResult? swapTextAndTranslationRoles() {
+    if (_isTranslating || lines.isEmpty) return null;
+    final current = _roleSwap;
+    final String fromCode;
+    final String toCode;
+    if (current == null) {
+      // Tính nguồn TRƯỚC khi thay dòng: nó được nhận diện từ nội dung.
+      fromCode = translationTargetLanguage.translationCode;
+      toCode = translationSourceLanguage.translationCode;
+    } else {
+      fromCode = current.originalCode;
+      toCode = current.promotedCode;
+    }
+    if (fromCode == toCode) return null;
+
+    final result = swapLineRoles(lines, fromCode: fromCode, toCode: toCode);
+    if (result.swapped == 0) {
+      if (current != null) {
+        // Văn bản gốc không còn trong bộ nhớ (vd đã tách dòng lại) ⇒ thôi
+        // coi là đang đổi vai, không để nút «Đổi lại» treo vô dụng.
+        clearRoleSwapState();
+        notifyListeners();
+        return result;
+      }
+      return null;
+    }
+
+    // Vô hiệu mọi lượt dịch đơn dòng còn đang bay.
+    _translationRunId++;
+    for (var index = 0; index < lines.length; index++) {
+      lines[index] = result.lines[index];
+    }
+    _translationService.configure(targetLang: toCode);
+    if (current == null) {
+      _roleSwap = LineRoleSwapState(
+        promotedCode: fromCode,
+        originalCode: toCode,
+        swappedLines: result.swapped,
+        previousPinnedSourceCode: _pinnedTranslationSourceCode,
+      );
+      _pinnedTranslationSourceCode = fromCode;
+      final key = roleSwapDocumentKey;
+      if (key != null) _roleSwapMarkers.write(key, _roleSwap!.encode());
+    } else {
+      _roleSwap = null;
+      _pinnedTranslationSourceCode = current.previousPinnedSourceCode;
+      final key = roleSwapDocumentKey;
+      if (key != null) _roleSwapMarkers.remove(key);
+    }
+    _translationError = null;
+    // Widget dòng dịch khoá theo revision ⇒ dựng lại sạch với nội dung mới.
+    _translationDocumentRevision++;
+    onLineRolesSwapped();
+    notifyListeners();
+    return result;
+  }
+
+  /// Bỏ trạng thái đổi vai mà KHÔNG hoán đổi dòng (dùng khi nội dung đã bị
+  /// thay bằng cách khác, vd «Tách dòng tự động»). Trả đích dịch về như cũ.
+  /// Không tự `notifyListeners`.
+  @protected
+  void clearRoleSwapState() {
+    if (_roleSwap == null) return;
+    final key = roleSwapDocumentKey;
+    if (key != null) _roleSwapMarkers.remove(key);
+    dropRoleSwapState();
+  }
+
+  /// Rời tài liệu đang đổi vai: bỏ trạng thái trong bộ nhớ, trả đích dịch
+  /// về như người dùng đã chọn, nhưng GIỮ dấu đã lưu để lần mở lại tài liệu
+  /// đó còn tự đổi vai. Không tự `notifyListeners`.
+  @protected
+  void dropRoleSwapState() {
+    final current = _roleSwap;
+    if (current == null) return;
+    _roleSwap = null;
+    _pinnedTranslationSourceCode = null;
+    _translationService.configure(targetLang: current.promotedCode);
+  }
+
+  /// Mở lại tài liệu từng đổi vai ⇒ tự đổi vai lại. CHỈ làm khi bản dịch ở
+  /// ngôn ngữ đã đưa lên có ĐỦ như lúc lưu (không dựng ra tài liệu nửa nọ
+  /// nửa kia) và đích dịch hiện tại vẫn là ngôn ngữ đó.
+  bool restoreSavedRoleSwap() {
+    if (_roleSwap != null || _isTranslating || lines.isEmpty) return false;
+    final key = roleSwapDocumentKey;
+    if (key == null) return false;
+    final saved = LineRoleSwapState.decode(_roleSwapMarkers.read(key));
+    if (saved == null) return false;
+    if (translationTargetLanguage.translationCode != saved.promotedCode) {
+      return false;
+    }
+    if (countSwappableLines(lines, saved.promotedCode) < saved.swappedLines) {
+      return false;
+    }
+    return swapTextAndTranslationRoles() != null;
+  }
+
+  /// Chặn thao tác sẽ ghi đè văn bản gốc khi đang đổi vai. Trả true nếu đã
+  /// chặn (và đã báo lý do qua [translationError]).
+  bool _blockedByRoleSwap() {
+    if (_roleSwap == null) return false;
+    _translationError = roleSwapGuardMessage;
+    notifyListeners();
+    return true;
+  }
 
   TranslationDisplayMode get translationDisplayMode => _translationDisplayMode;
   bool get isTranslating => _isTranslating;
@@ -121,6 +298,8 @@ mixin TranslationMixin on ChangeNotifier {
     String code, {
     bool retranslateExisting = true,
   }) async {
+    // PSRC-237: đang đổi vai ⇒ đổi nguồn sẽ xoá dòng dịch = xoá văn bản GỐC.
+    if (_blockedByRoleSwap()) return false;
     final normalized = code.trim().replaceAll('_', '-').toUpperCase();
     final isAuto = normalized.isEmpty || normalized == 'AUTO';
     final language =
@@ -175,6 +354,8 @@ mixin TranslationMixin on ChangeNotifier {
     String code, {
     bool retranslateExisting = true,
   }) async {
+    // PSRC-237: đang đổi vai ⇒ đổi đích sẽ xoá dòng dịch = xoá văn bản GỐC.
+    if (_blockedByRoleSwap()) return false;
     final language = AppLanguageCatalog.maybeFromCode(code);
     if (language == null) return false;
 
@@ -333,6 +514,8 @@ mixin TranslationMixin on ChangeNotifier {
     if (index < 0 || index >= lines.length) return;
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
+    // PSRC-237: dịch lại một dòng khi đang đổi vai sẽ ghi đè văn bản gốc.
+    if (_blockedByRoleSwap()) return;
 
     final service = _translationService;
     final source = translationSourceLanguage;
@@ -384,6 +567,13 @@ mixin TranslationMixin on ChangeNotifier {
 
   Future<void> translateAll({bool forceRetranslate = false}) async {
     if (_isTranslating) return;
+    // PSRC-237: đang đổi vai ⇒ dòng dịch là văn bản GỐC, không dịch đè lên.
+    // «Dịch lại tất cả» (ý định rõ ràng) được báo lý do; lượt dịch nền tự
+    // động (phát song ngữ…) thì im lặng bỏ qua.
+    if (_roleSwap != null) {
+      if (forceRetranslate) _blockedByRoleSwap();
+      return;
+    }
 
     final service = _translationService;
     final source = translationSourceLanguage;
@@ -543,9 +733,17 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   void clearAllTranslations() {
+    // PSRC-237: đang đổi vai ⇒ «bản dịch» cần xoá là bản dịch MÁY đang ở
+    // `content`. Đổi lại trước, rồi mới xoá — văn bản gốc không bao giờ mất.
+    if (_roleSwap != null) {
+      _isTranslating = false;
+      swapTextAndTranslationRoles();
+    }
     _translationRunId++;
     _isTranslating = false;
-    TranslationService().activeEngineNotifier.value = null;
+    // Qua seam `_translationService` (production vẫn là singleton) để hàm
+    // này test được mà không dựng engine thật.
+    _translationService.activeEngineNotifier.value = null;
     for (var index = 0; index < lines.length; index++) {
       lines[index] = lines[index].copyWith(clearTranslation: true);
     }
@@ -571,6 +769,10 @@ mixin TranslationMixin on ChangeNotifier {
     _translationDisplayMode = TranslationDisplayMode.hidden;
     // Nguồn explicit gắn cho tài liệu CŨ không kéo sang tài liệu mới.
     _pinnedTranslationSourceCode = null;
+    // PSRC-237: đổi vai chỉ MƯỢN đích dịch cho một tài liệu ⇒ rời tài liệu
+    // thì trả đích về như người dùng đã chọn. Dấu đã lưu được giữ nguyên để
+    // lần mở lại tài liệu đó còn tự đổi vai.
+    dropRoleSwapState();
     // Không notify ở đây — caller sẽ notify sau khi parse lines
   }
 
@@ -590,6 +792,10 @@ mixin TranslationMixin on ChangeNotifier {
   /// After reopen: paint saved translations onto lines (no network).
   Future<int> rehydrateTranslationsFromCache() async {
     if (lines.isEmpty) return 0;
+    // PSRC-237: đang đổi vai ⇒ dòng thiếu «bản dịch» là dòng chưa từng dịch;
+    // không tô gì lên đó.
+    if (_roleSwap != null) return 0;
+    final revision = _translationDocumentRevision;
     final cache = TranslationCache();
     final target = translationTargetLanguage.translationCode;
     var hits = 0;
@@ -622,6 +828,39 @@ mixin TranslationMixin on ChangeNotifier {
       notifyListeners();
     }
     debugPrint('[Translation] rehydrated $hits/${lines.length} lines from cache');
+    // PSRC-237: tài liệu này lần trước đọc ở dạng đổi vai ⇒ đổi vai lại
+    // (chỉ khi vẫn là tài liệu đó và bản dịch đã về đủ).
+    if (hits > 0 && revision == _translationDocumentRevision) {
+      restoreSavedRoleSwap();
+    }
     return hits;
+  }
+}
+
+/// Lưu dấu đổi vai vào hộp cài đặt Hive (qua `StorageService`). Chưa khởi
+/// tạo storage (test, web sớm) ⇒ im lặng bỏ qua.
+class _HiveRoleSwapMarkerStore implements RoleSwapMarkerStore {
+  const _HiveRoleSwapMarkerStore();
+
+  @override
+  String? read(String documentKey) {
+    final storage = StorageService();
+    if (!storage.isInitialized) return null;
+    final raw = storage.getSetting<dynamic>(roleSwapStorageKey(documentKey));
+    return raw is String && raw.isNotEmpty ? raw : null;
+  }
+
+  @override
+  void write(String documentKey, String value) {
+    final storage = StorageService();
+    if (!storage.isInitialized) return;
+    unawaited(storage.saveSetting(roleSwapStorageKey(documentKey), value));
+  }
+
+  @override
+  void remove(String documentKey) {
+    final storage = StorageService();
+    if (!storage.isInitialized) return;
+    unawaited(storage.saveSetting(roleSwapStorageKey(documentKey), ''));
   }
 }

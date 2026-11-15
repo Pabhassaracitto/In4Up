@@ -16,6 +16,7 @@ import 'engines/mlkit_engine.dart';
 import 'glossary/glossary_sheet.dart';
 import 'mlkit_pack_catalog.dart';
 import 'mlkit_pack_downloads.dart';
+import 'role_swap_controls.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
@@ -82,6 +83,8 @@ class TranslationToolbar extends StatelessWidget {
                     onTap: () async {
                       if (isTranslating) {
                         textProvider.cancelTranslation();
+                      } else if (_blockedWhileSwapped(context, textProvider)) {
+                        // PSRC-237: đã báo lý do — không dịch đè văn bản gốc.
                       } else if (sameLanguage) {
                         await _selectTargetLanguage(context, textProvider);
                       } else {
@@ -130,6 +133,10 @@ class TranslationToolbar extends StatelessWidget {
                     color: textProvider.blurTranslations ? primaryColor : Colors.grey,
                     visualDensity: VisualDensity.compact,
                   );
+                  // PSRC-237 / ADR-0031: đưa bản dịch lên làm văn bản chính
+                  // để IPA / tô màu / tra từ chạy được trên nó.
+                  final roleSwapButton =
+                      RoleSwapButton(primaryColor: primaryColor);
                   final layoutSelector = _LayoutSelector(
                     displayMode: displayMode,
                     primaryColor: primaryColor,
@@ -154,7 +161,11 @@ class TranslationToolbar extends StatelessWidget {
                             alignment: Alignment.centerRight,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: [layoutSelector, blurButton],
+                              children: [
+                                layoutSelector,
+                                blurButton,
+                                roleSwapButton,
+                              ],
                             ),
                           ),
                         ],
@@ -171,6 +182,7 @@ class TranslationToolbar extends StatelessWidget {
                         const Spacer(),
                         layoutSelector,
                         blurButton,
+                        roleSwapButton,
                       ] else
                         const Spacer(),
                       const SizedBox(width: 4),
@@ -248,6 +260,7 @@ class TranslationToolbar extends StatelessWidget {
     TextProvider textProvider,
     AppLanguage language,
   ) async {
+    if (_blockedWhileSwapped(context, textProvider)) return;
     final playback = context.read<PlaybackController>();
     if (playback.isRunning) {
       playback.stop(fileId: textProvider.currentDocument?.id ?? 'unknown');
@@ -269,6 +282,14 @@ class TranslationToolbar extends StatelessWidget {
     }
   }
 
+  /// PSRC-237 / ADR-0031 D2: đang đổi vai ⇒ dòng dịch đang giữ văn bản GỐC.
+  /// Dịch / đổi ngôn ngữ sẽ ghi đè lên nó ⇒ chặn và nói rõ cách làm.
+  bool _blockedWhileSwapped(BuildContext context, TextProvider textProvider) {
+    if (!textProvider.rolesSwapped) return false;
+    ScaffoldMessenger.of(context).showSnackBar(roleSwapGuardSnackBar(context));
+    return true;
+  }
+
   void _showTranslationOptions(
       BuildContext context, TextProvider textProvider) {
     showModalBottomSheet(
@@ -282,12 +303,28 @@ class TranslationToolbar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (textProvider.canSwapRoles)
+              ListTile(
+                key: const Key('translation-options-role-swap'),
+                leading: Icon(Icons.swap_vert, color: primaryColor),
+                title: Text(
+                  textProvider.rolesSwapped
+                      ? 'Đổi lại'
+                      : 'Đổi vai văn bản ⇄ bản dịch',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  toggleReadRoleSwap(context);
+                },
+              ),
             ListTile(
               leading: Icon(Icons.translate, color: primaryColor),
               title: const Text('Dịch tất cả (bỏ qua đã có)',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
+                if (_blockedWhileSwapped(context, textProvider)) return;
                 textProvider.translateAll();
               },
             ),
@@ -297,6 +334,7 @@ class TranslationToolbar extends StatelessWidget {
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
+                if (_blockedWhileSwapped(context, textProvider)) return;
                 textProvider.translateAll(forceRetranslate: true);
               },
             ),

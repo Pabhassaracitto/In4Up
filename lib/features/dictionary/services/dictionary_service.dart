@@ -559,6 +559,7 @@ class DictionaryService {
     String? sourceFolder;
     final cssAbs = <String>[];
     final mddAbs = <String>[];
+    final copyFailures = <String>[];
     final orderedMdds = DictBundleScanner.sortMddFiles(set.mddFiles);
 
     if (mode == DictStorageMode.imported) {
@@ -576,7 +577,10 @@ class DictionaryService {
         try {
           await File(abs).copy(dest);
         } catch (_) {
-          // File phụ copy lỗi → ghi nhận thiếu (không chặn cả set).
+          // Keep the user-visible missing list accurate even when only one
+          // part of a multi-part bundle failed to copy.
+          if (DictBundleScanner.isMddName(f.name) ||
+              DictBundleScanner.isCssName(f.name)) copyFailures.add(f.name);
           continue;
         }
         if (DictBundleScanner.isCssName(f.name)) cssAbs.add(dest);
@@ -593,6 +597,7 @@ class DictionaryService {
         storageMode: mode,
         cssPaths: cssAbs,
         mddPaths: mddAbs,
+        additionalMissingResources: copyFailures,
         langProbe: copiedMdx,
         sourceFileName: set.mdx.name,
         sourceWasFolder: sourceWasFolder,
@@ -668,6 +673,7 @@ class DictionaryService {
     String? sourceFolder,
     List<String> cssPaths = const [],
     List<String>? mddPaths,
+    List<String> additionalMissingResources = const [],
     required String langProbe,
     Map<String, String> sourceUris = const {},
     String? sourceFileName,
@@ -758,7 +764,7 @@ class DictionaryService {
       sourceUris: sourceUris,
       sourceFileName: sourceFileName ?? set.mdx.name,
       sourceWasFolder: sourceWasFolder,
-      missingResources: set.missingParts,
+      missingResources: [...set.missingParts, ...additionalMissingResources],
     );
   }
 

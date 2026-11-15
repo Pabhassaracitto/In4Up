@@ -208,6 +208,32 @@ quét nguồn cho pipeline/mixin) — **đã chạy trong CI**: step mới
 thời gian (ước tính số lượt transcribe giảm 5-10×). Hủy giữa một đoạn đang chạy vẫn chờ đoạn đó xong trên
 desktop (không hủy được Isolate FFI); mobile dừng ngay giữa các chunk.
 
+### 2.7 PSRC-171 (2026-11-12) — import model xong vẫn "Không thể tạo giọng"
+
+Owner báo: import `vieneu-v3-turbo-q8_0.gguf` (~188 MB) + khởi tạo engine xong nhưng **mọi lần tạo
+giọng đều báo "Không thể tạo giọng"**; câu báo lại đổ lỗi cho "mô hình TTS và mẫu thu âm". Ba nguyên
+nhân độc lập, cả ba đều nằm sau lớp Dart nên trước đây không nhìn thấy:
+
+| # | Gốc | Bằng chứng | Sửa |
+|---|---|---|---|
+| 1 | **libaudiocpp.so không có model spec nào.** audio.cpp v0.9.4 (`717efc34`, tag `v0.9.4` → commit `f7ac446`) chỉ nhúng `model_specs/*.json` khi `AUDIOCPP_DEPLOYMENT_BUILD=ON` (mặc định **OFF**), nên `builtin_model_specs()` rỗng và `default_package_spec_path()` ném `model spec not found for family 'vietneu_tts'` (`src/framework/model_spec/package.cpp:490`) | `CMakeLists.txt` L64-67; `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` mà bản 1.28 truyền vào **không tồn tại** ở v0.9.4 ⇒ no-op | Wrapper nhúng **đúng** spec của family (`model_specs/vieneu_v3_turbo.json`, 12 279 B) lúc configure; chỉ khi lần nạp đầu báo lỗi chứa `model spec` mới ghi spec ra `<thư mục model>/model_specs/` và nạp lại với `audiocpp_model_config.model_spec_override` |
+| 2 | **"Tạo giọng" không mã hoá gì.** `vieneu_tts_clone_voice` cũ ghi `speaker.emb.txt` = **256 số 0** rồi trả THÀNH CÔNG; audio.cpp chỉ nhận **đúng 192** float trên dòng đầu ⇒ mọi lần đọc bằng giọng đó ném `must contain exactly 192 float values` | `vieneu_tts.cpp` (nhánh `embedding_dim = 256`, `emb_file << 0.0f`) | Native giải WAV mẫu (PCM 8/16/24/32 + float 32/64, mono/stereo, chunk `LIST`, WAVE_FORMAT_EXTENSIBLE), cắt 8 s (`_MAX_REF_SECONDS` của upstream), gọi `audiocpp_request_set_voice_audio` + `encode_reference_only=true`, đọc artifact `ACOUSTIC_TOKENS` và ghi **`cloned_voices/<id>/ref_codes.txt`**; xoá luôn `speaker.emb.txt` placeholder cũ trong thư mục giọng |
+| 3 | **Thông báo sai nguyên nhân.** Nhánh `catch` của `_initOnce` để `_blockingReason = null` ⇒ UI rơi về câu "kiểm tra mô hình TTS và mẫu thu âm" | `vieneu_tts_engine.dart` | `classifyVieneuNativeLoadError()` phân loại lỗi native thành `modelSpecMissing` / `noPhonemeDictionary` / `voiceDataUnusable` / `engineLoadFailed`; mỗi lý do một câu riêng (8 locale, `tool/priority_native_pack.json`) |
+
+Phụ: engine chỉ truyền `speaker_embedding_file` khi file **đúng 192 số** và khi giọng **không** có
+`ref_codes.txt`; native cũng bỏ qua embedding khi đã có ref codes ⇒ file rác của bản 1.28 không còn
+làm hỏng giọng.
+
+Test máy bắt: `test/tts/psrc171_voice_creation_test.dart` (source-scan CMake/wrapper/Dart +
+`isUsableVieneuSpeakerEmbedding` / `hasVieneuRefCodes` / `classifyVieneuNativeLoadError`).
+Bộ giải WAV đã được kiểm bằng harness C++ riêng trên 10 tệp (PCM8/16/24/32, float32/64, stereo 48 kHz,
+có chunk `LIST`, file cắt cụt, file không phải WAV).
+
+**Giới hạn còn lại:** `libvieneu_tts` chỉ được build cho **Android arm64-v8a** (ADR-0028). Trên
+**Linux/Windows desktop** engine vẫn chưa có trong bản cài ⇒ app báo đúng lý do
+`noNativeLibrary` (không còn câu chung), nhưng muốn "tạo giọng" chạy trên Linux thì cần một dự án
+build desktop cho audio.cpp — việc riêng, chưa làm ở đây.
+
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
 ```text
@@ -346,6 +372,12 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
 8. Ghi rõ điều chưa kiểm được (máy thật) — hub không được tuyên bố thay owner.
 
 ## 8. Nhật ký (append-only)
+
+- 2026-11-12 | PSRC-171 | agent `arena/60e35d65-in4up` | nhúng model spec vào `libvieneu_tts`
+  (audio.cpp v0.9.4 không nhúng spec ⇒ chưa từng nạp được model), viết lại `vieneu_tts_clone_voice`
+  để mã hoá mẫu thu âm thành ref codes thật (`encode_reference_only`) thay cho embedding 256 số 0,
+  và phân loại lỗi nạp model để UI hết báo sai. Xem §2.7. Chưa kiểm máy thật.
+
 
 - 2026-11-12 | created | agent `arena/60e35d65-in4up` | owner giao nhánh làm Beta hub cho
   v1.29.0: 9 lane / 30 issue Linear ([PSRC-199…228](https://linear.app/in4up/project/i4u)),

@@ -60,6 +60,13 @@ typedef enum {
 /// [speaker_embedding_file] — file nh embedding người nói (có thể NULL).
 /// [threads]      — số luồng CPU (≤ 0 ⇒ mặc định của hệ thống).
 ///
+/// PSRC-171: audio.cpp v0.9.4 KHÔNG nhúng model spec vào libaudiocpp.so (chỉ
+/// khi `AUDIOCPP_DEPLOYMENT_BUILD=ON`, mặc định OFF). Lần nạp đầu vì thế có
+/// thể ném "model spec not found for family '…'"; wrapper tự ghi spec của
+/// đúng family này (nhúng sẵn, sinh từ submodule đã ghim) ra
+/// `<thư mục model>/model_specs/vieneu_v3_turbo.json` rồi nạp lại với
+/// `model_spec_override`. Chỉ khi CẢ HAI lần đều lỗi mới trả NULL.
+///
 /// Trả về NULL nếu nạp thất bại (thiếu file, kiến trúc không hỗ trợ,…); chi
 /// tiết qua [vieneu_tts_last_error]. Free bằng [vieneu_tts_destroy].
 VIENEU_TTS_API vieneu_tts_handle vieneu_tts_create(
@@ -101,21 +108,31 @@ VIENEU_TTS_API const char * vieneu_tts_last_error(void);
 /// 1 nếu [language] được hỗ trợ ("vi"/"vi-VN"), ngược lại 0.
 VIENEU_TTS_API int vieneu_tts_language_supported(const char * language);
 
-/// Clone giọng nói từ các file mẫu âm thanh.
+/// Tạo giọng đọc từ bản ghi âm mẫu (voice cloning).
 ///
-/// [voice_id]        — mã giọng mới (tên thư mục trong voices/, ví dụ
-///                      "giong_toi"). Không được trùng với giọng đã có.
-/// [samples_dir]     — thư mục chứa các file WAV mẫu (khuyên dùng 30–60
-///                      giây tổng cộng, mẫuSpeech 16kHz mono).
-/// [output_embedding]— đường dẫn file speaker.emb.txt đầu ra (sẽ được tạo
-///                      hoặc ghi đè).
+/// PSRC-171: bản trước KHÔNG hề mã hoá giọng — nó ghi một file
+/// `speaker.emb.txt` gồm 256 số 0 (placeholder) rồi vẫn trả THÀNH CÔNG, nên
+/// "giọng" tạo ra chỉ đọc bằng giọng mặc định và audio.cpp từ chối file đó
+/// ("must contain exactly 192 float values"). Nay wrapper đưa PCM mẫu cho
+/// audio.cpp với `encode_reference_only=true` và ghi **ref codes** thật
+/// (acoustic tokens, đúng format `reference_codes_file` đọc lại).
+///
+/// [handle]                — engine đã nạp model (clone cần chính bộ mã hoá
+///                           của model; gọi trước [vieneu_tts_create] ⇒
+///                           VIENEU_TTS_ERR_NOT_READY).
+/// [voice_id]              — mã giọng mới (`cloned_voices/<id>/`).
+/// [samples_dir]           — thư mục chứa file WAV mẫu (16 kHz mono do app ghi
+///                           âm, hoặc WAV PCM/float do người dùng import).
+/// [output_ref_codes_path] — đường dẫn `ref_codes.txt` đầu ra (tạo/ghi đè).
 ///
 /// Trả về 0 nếu thành công, mã lỗi VIENEU_TTS_ERR_* nếu thất bại.
-/// Chi tiết qua [vieneu_tts_last_error].
+/// Chi tiết (kể cả file mẫu nào bị bỏ qua và vì sao) qua
+/// [vieneu_tts_last_error].
 VIENEU_TTS_API int vieneu_tts_clone_voice(
+    vieneu_tts_handle handle,
     const char * voice_id,
     const char * samples_dir,
-    const char * output_embedding);
+    const char * output_ref_codes_path);
 
 #ifdef __cplusplus
 }  // extern "C"

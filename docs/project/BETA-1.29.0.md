@@ -440,6 +440,18 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
 
 ## 8. Nhật ký (append-only)
 
+- 2026-11-12 | rebase lên 251e | agent `arena/60e35d65-in4up` | owner yêu cầu:
+  *"hãy rebase từ 251e vì nó có commit mới"*. Nhánh beta **93 commit** được
+  replay lên tip mới `arena/01a0251e-in4up` (`f46a54a`, hơn nền cũ 9 commit:
+  DICT-SOURCE-001 / DICT-PACK-002 / DICT-LINK-002 + CI log từ điển). Xung đột
+  chỉ ở 7 tệp nối đuôi: `KANBAN.md` (giữ **cả hai** card), `tool/priority_native_pack.json`
+  (merge JSON 3 chiều theo từng khoá), `generated_priority_native_pack.dart`
+  (sinh lại bằng `tool/generate_priority_native_pack.py`, không sửa tay),
+  `app_analyze.yml` / `AGENTS.md` / `pubspec*` (auto-merge). Sau rebase: cây sạch,
+  không còn dấu xung đột, pack JSON ≡ mã sinh ra, `251e` là tổ tiên.
+  **CI: `app_analyze` [43754214001](https://github.com/Pabhassaracitto/In4Up/actions/runs/43754214001) 🟢,
+  `listen_queue` 43754214010 🟢, `vieneu_engine_build`
+  [43754214070](https://github.com/Pabhassaracitto/In4Up/actions/runs/43754214070) 🟢** (APK artifact từ HEAD `8d369ee`).
 - 2026-11-12 | PSRC-171c | agent `arena/60e35d65-in4up` | hộp thoại chẩn đoán
   trên máy owner cho thấy `voices/` **rỗng** còn `cloned_voices/123` dùng được:
   gói giọng của upstream là `<Tên>.pt` + `<Tên>.txt` + `<Tên>.wav` nên cả nhận

@@ -373,6 +373,16 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
 
 ## 8. Nhật ký (append-only)
 
+- 2026-11-12 | PSRC-171 build xanh | agent `arena/60e35d65-in4up` | `vieneu_engine_build` run
+  [43708199917](https://github.com/Pabhassaracitto/In4Up/actions/runs/43708199917) 🟢 (step 18 mới xác minh
+  **trong APK**: `libvieneu_tts.so` chứa `"display_name": "VieNeu-TTS v3 Turbo"`; `libvieneu_tts.so` 1,0 MiB,
+  `libaudiocpp.so` 4,9 MiB) + `app_analyze` run
+  [43708199889](https://github.com/Pabhassaracitto/In4Up/actions/runs/43708199889) 🟢 4/4 job, commit `1e18992`.
+  Run [43706402644](https://github.com/Pabhassaracitto/In4Up/actions/runs/43706402644) trước đó **đỏ** ở
+  `:vieneu:buildCMakeDebug[arm64-v8a]` vì đã xoá `AUDIOCPP_MODEL_SET=custom` + `AUDIOCPP_MODELS` với giả
+  định sai rằng chúng là no-op: hai option đó **chọn model nào được biên dịch** (`CMakeLists.txt` L425-427,
+  L2878+) nên bỏ đi ⇒ `full` ⇒ `latentsync/video.cpp` (`posix_spawn_file_actions_*`, NDK không khai báo) vào
+  build. Chúng **không** cấp model spec — §2.7 giữ nguyên. Chưa kiểm máy thật.
 - 2026-11-12 | PSRC-171 | agent `arena/60e35d65-in4up` | nhúng model spec vào `libvieneu_tts`
   (audio.cpp v0.9.4 không nhúng spec ⇒ chưa từng nạp được model), viết lại `vieneu_tts_clone_voice`
   để mã hoá mẫu thu âm thành ref codes thật (`encode_reference_only`) thay cho embedding 256 số 0,

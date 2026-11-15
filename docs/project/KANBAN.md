@@ -9842,3 +9842,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | PR #186; code + test; chờ CI.
   - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI 43749345649 xanh trên `21d85cf`; PR #186; chờ nghiệm thu bộ thật, CSS/MDD.
+
+### DICT-MDD-001 — Lõi đọc tài nguyên MDD có giới hạn
+
+- **Trạng thái:** proposed — lát cắt code/test, chờ CI, review và QA.
+- **Nguồn:** owner 2026-11-09 đồng ý thực thi giai đoạn CSS/MDD/media; ADR-0029.
+- **Phạm vi:** reader MDD 2.0 raw/zlib dùng random access, index và asset có trần,
+  tìm nhiều part tuần tự, synthetic + mock SAF; chưa nối renderer/app.
+- **Còn lại:** tích hợp tìm nguồn/bundle, cache/hiệu năng/isolate, renderer CSS,
+  ảnh/âm thanh an toàn, i18n và QA LAAD3 lớn trên thiết bị thật; xem ADR-0029.
+- **Lịch sử:**
+  - 2026-11-09 | created→proposed | agent arena/7ab6408e-in4up | code lõi MDD và test synthetic, chưa có CI hoặc nghiệm thu.

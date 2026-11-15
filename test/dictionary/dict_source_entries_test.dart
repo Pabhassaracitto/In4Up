@@ -41,6 +41,32 @@ void main() {
     expect(text, isNot(contains('example.com')));
   });
 
+  testWidgets('safe internal links call back with the originating dictionary', (tester) async {
+    String? selected;
+    String? source;
+    await tester.pumpWidget(material.MaterialApp(
+      home: material.Scaffold(
+        body: material.SingleChildScrollView(
+          child: DictSourceEntries(
+            initiallyExpanded: true,
+            entries: const [DictEntry(
+              headword: 'a',
+              definition: '<a href="entry://look%20up">see also</a>'
+                  '<a href="https://example.com">external</a>',
+              dictId: 'dict-one',
+            )],
+            onLookupWord: (word, dictId) { selected = word; source = dictId; },
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('look up'));
+    expect(selected, 'look up');
+    expect(source, 'dict-one');
+    expect(find.text('https://example.com'), findsNothing);
+  });
+
   testWidgets('each dictionary retains its own content even when duplicate', (tester) async {
     const entries = <DictEntry>[
       DictEntry(headword: 'a', definition: '<b>same</b> first', dictId: 'one'),

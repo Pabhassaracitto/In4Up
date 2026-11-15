@@ -6,6 +6,7 @@ import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
 import 'dict_source_entries.dart';
+import 'dictionary_screen.dart';
 
 /// "Trang từ điển" đầy đủ (DICT-CLEAN-001).
 ///
@@ -257,6 +258,8 @@ class DictEntryDetailSheet extends StatelessWidget {
               DictSourceEntries(
                 entries: entries,
                 initiallyExpanded: merged.isEmpty,
+                onLookupWord: (word, dictId) => DictionaryScreen.open(
+                  context, query: word, source: 'dictionary_entry', dictId: dictId),
               ),
               if (sources.isNotEmpty)
                 Padding(

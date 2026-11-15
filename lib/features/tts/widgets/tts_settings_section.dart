@@ -13,6 +13,7 @@ import 'package:in4up_ai/in4up_ai.dart';
 
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 
@@ -2474,6 +2475,95 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
     }
   }
 
+  /// "Không thấy giọng vừa import?" — đọc ĐĨA rồi hiện nguyên văn.
+  ///
+  /// Không phải bảng debug cho lập trình viên: người dùng tự thấy được gốc
+  /// thư mục, thiếu `sea_g2p.bin`, hay một thư mục giọng bị bỏ qua vì file
+  /// không đúng định dạng. Trước đây ba nguyên nhân này đều biểu hiện giống
+  /// nhau: "import thành công mà giọng không hiện / không đọc được".
+  Future<void> _showVoiceDiagnostics() async {
+    final engine = VieneuTtsEngine.instance;
+    final VieneuVoicesDiagnostics diag;
+    try {
+      diag = await engine.diagnoseVoices();
+    } catch (e) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Không đọc được thư mục giọng',
+              style: TextStyle(fontSize: 14)),
+          content: Text('$e', style: const TextStyle(fontSize: 11)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          ],
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final hasG2p = await diag.hasPhonemeDictionary;
+    if (!mounted) return;
+
+    String verdictLine(VieneuVoiceFolderDiagnosis d) {
+      final files = d.fileNames.isEmpty ? '(không có file)' : d.fileNames.join(', ');
+      switch (d.status) {
+        case VieneuVoiceFolderStatus.usable:
+          return '✅ ${d.name} — dùng được${d.resolvedByContent ? ' (nhận theo nội dung)' : ''}';
+        case VieneuVoiceFolderStatus.emptyFolder:
+          return '⚠️ ${d.name} — thư mục rỗng';
+        case VieneuVoiceFolderStatus.noDataFile:
+          return '⚠️ ${d.name} — không có file dữ liệu giọng [$files]';
+        case VieneuVoiceFolderStatus.unknownFormat:
+          return '❌ ${d.name} — file không đúng định dạng [$files]';
+      }
+    }
+
+    final lines = <String>[
+      'Gốc: ${diag.root}',
+      'Model: ${diag.modelPath == null ? 'chưa import .gguf' : p.basename(diag.modelPath!)}',
+      'sea_g2p.bin: ${hasG2p ? 'có' : 'THIẾU (engine không đọc được câu nào)'}',
+      '',
+      'voices/ (${diag.preset.length} thư mục)',
+      if (!diag.presetsDirExists) '  (chưa có thư mục voices/)',
+      ...diag.preset.map((d) => '  ${verdictLine(d)}'),
+      '',
+      'cloned_voices/ (${diag.cloned.length} thư mục)',
+      ...diag.cloned.map((d) => '  ${verdictLine(d)}'),
+    ];
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Vì sao giọng không hiện?', style: TextStyle(fontSize: 14)),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            lines.join('\n'),
+            style: const TextStyle(fontSize: 10.5, height: 1.35),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _loading = true;
+                _error = null;
+              });
+              _loadVoices();
+            },
+            child: const Text('Tải lại'),
+          ),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectVoice(String voiceId) async {
     try {
       await VieneuTtsEngine.instance.selectVoice(voiceId);
@@ -2564,6 +2654,25 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
           Text(
             'Chưa có giọng nào. Import model .gguf và khởi tạo engine ở mục trên.',
             style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+          // Danh sách rỗng chính là lúc cần chẩn đoán nhất: giọng đã import nằm
+          // ở đâu, file nào bị bỏ qua, `sea_g2p.bin` có chưa.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _showVoiceDiagnostics,
+              icon: const Icon(Icons.fact_check_outlined,
+                  size: 14, color: Colors.white38),
+              label: Text(
+                context.uiText('Không thấy giọng vừa import?'),
+                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           ),
         ],
       );
@@ -2676,6 +2785,23 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
           onChanged: (id) {
             if (id != null) _selectVoice(id);
           },
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _showVoiceDiagnostics,
+            icon: const Icon(Icons.fact_check_outlined,
+                size: 14, color: Colors.white38),
+            label: Text(
+              context.uiText('Không thấy giọng vừa import?'),
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
         ),
       ],
     );

@@ -120,6 +120,38 @@ bool hasVieneuVoiceData(String content) {
   return false;
 }
 
+/// Loại dữ liệu giọng, nhận diện bằng **NỘI DUNG** chứ không bằng tên file.
+///
+/// Vì sao: các bản sao lưu cộng đồng của gói VieNeu-TTS (vd. một mirror trên
+/// Hugging Face) đặt tên file khác gói gốc — `voices/<tên người đọc>/` có thể
+/// là `codes.txt` + `embedding.txt`, `ref_codes.csv`… Trước đây engine chỉ dò
+/// đúng 3 tên `ref_codes.txt` / `ref_codes.bin` / `speaker.emb.txt` nên các
+/// giọng đó **không hiện** dù import báo thành công. audio.cpp nhận ĐƯỜNG DẪN
+/// bất kỳ cho `reference_codes_file` / `speaker_embedding_file`, nên chỉ cần
+/// Dart nhận đúng loại là dùng được.
+enum VieneuVoiceDataKind {
+  /// Mã âm thanh đã mã hoá sẵn (mỗi dòng/frame là các số nguyên).
+  refCodes,
+
+  /// Embedding giọng 192 chiều (đúng định dạng audio.cpp đọc).
+  speakerEmbedding,
+
+  /// Có nội dung nhưng không nhận ra (sai định dạng / sai số chiều).
+  unknown,
+}
+
+/// Phân loại nội dung một file dữ liệu giọng (thuần logic, test được).
+///
+/// Thứ tự kiểm tra: embedding 192 chiều **trước** (dòng có dấu `.`), rồi tới
+/// ref codes (toàn số nguyên, có dấu phẩy hoặc khoảng trắng).
+VieneuVoiceDataKind classifyVieneuVoiceDataText(String text) {
+  if (isUsableVieneuSpeakerEmbedding(text)) {
+    return VieneuVoiceDataKind.speakerEmbedding;
+  }
+  if (hasVieneuRefCodes(text)) return VieneuVoiceDataKind.refCodes;
+  return VieneuVoiceDataKind.unknown;
+}
+
 /// Chuẩn hoá tên giọng do người dùng nhập thành một tên thư mục an toàn.
 ///
 /// Ngăn `../`, `/`, `\`, ký tự điều khiển và tên quá dài — native dùng

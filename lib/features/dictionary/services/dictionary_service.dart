@@ -9,7 +9,7 @@ import 'package:crypto/crypto.dart';
 import '../models/dict_entry.dart';
 import '../models/dict_info.dart';
 import 'dict_bundle_scanner.dart';
-import 'dict_mdd_resources.dart';
+import 'dict_mdd_worker.dart';
 import 'dict_db_service.dart';
 import 'dict_redirect_resolver.dart';
 import 'dict_list_order.dart';
@@ -56,6 +56,7 @@ class DictionaryService {
   DictionaryService._();
 
   final List<DictInfo> _dicts = [];
+  final MddWorkerPool _mddWorkers = MddWorkerPool();
   bool _initialized = false;
 
   /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
@@ -114,15 +115,18 @@ class DictionaryService {
     return results;
   }
 
-  /// Foundation for future media rendering, not a UI API yet: MDD index and
-  /// decompression still run on the calling isolate. Errors (including revoked
-  /// SAF grants) propagate; lookup never alters the existing SQLite index.
-  Future<Uint8List?> readMddResource(String dictId, String key) async {
+  /// Start a cancellable resource read. The worker receives no paths and
+  /// indexes/decompresses away from this isolate. The returned task owns its
+  /// temporary handles; callers should await cancel on disposal.
+  Future<MddReadTask> startMddResourceRead(String dictId, String key) async {
     await ensureInitialized();
     final matches = _dicts.where((dict) => dict.id == dictId);
     if (matches.isEmpty) throw StateError('Dictionary not registered');
-    return DictMddResources(matches.first).read(key);
+    return _mddWorkers.start(matches.first, key);
   }
+
+  Future<Uint8List?> readMddResource(String dictId, String key) async =>
+      (await startMddResourceRead(dictId, key)).result;
 
   /// Gợi ý headword theo tiền tố cho ô tìm của MÀN TỪ ĐIỂN (ADR-0018).
   ///

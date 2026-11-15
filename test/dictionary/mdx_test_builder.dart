@@ -22,6 +22,9 @@ class MdxTestBuilder {
   /// word → definition (HTML). Key blocks được sort alphabet như file thật.
   final Map<String, String> entries;
 
+  /// Emit a synthetic MDD with UTF-16 keys and byte-valued records.
+  final bool mdd;
+
   /// Ghi đè header attr (vd 'Encrypted': '2', 'Encoding': 'GBK').
   final Map<String, String> headerOverrides;
 
@@ -40,6 +43,7 @@ class MdxTestBuilder {
 
   MdxTestBuilder({
     this.version = 2.0,
+    this.mdd = false,
     this.utf16 = false,
     required this.entries,
     this.headerOverrides = const {},
@@ -64,7 +68,7 @@ class MdxTestBuilder {
   Uint8List build() {
     final words = entries.keys.toList()..sort();
     final defs = [for (final w in words)
-      if (aliases.containsKey(w)) Uint8List(0) else encodeText(entries[w]!)];
+      if (aliases.containsKey(w)) Uint8List(0) else mdd ? Uint8List.fromList(entries[w]!.codeUnits) : encodeText(entries[w]!)];
     final offsets = <int>[];
     var running = 0;
     for (final d in defs) {
@@ -175,7 +179,7 @@ class MdxTestBuilder {
       ...headerOverrides,
     };
     final headerText =
-        '<Dictionary ${attrs.entries.map((e) => '${e.key}="${e.value}"').join(' ')}/>';
+        '<${mdd ? 'Library_Data' : 'Dictionary'} ${attrs.entries.map((e) => '${e.key}="${e.value}"').join(' ')}/>';
     final headerBytes = encodeUtf16Le('$headerText\u0000');
     out.add(be32(headerBytes.length));
     out.add(headerBytes);

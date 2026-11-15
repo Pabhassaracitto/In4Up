@@ -29,9 +29,9 @@ import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../services/word_range_selection.dart';
 import '../sheets/line_actions_sheet.dart';
-import '../sheets/word_actions_sheet.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
+import 'word_tap_plain_text.dart';
 
 class TextLineWidget extends StatelessWidget {
   final int index;
@@ -180,6 +180,13 @@ class TextLineWidget extends StatelessWidget {
   }
 
   Widget _buildLineContainer(BuildContext context, _LineData data) {
+    // PSRC-234: dòng ĐÃ phân tích từ được vẽ bằng `WordTapPlainText`, widget
+    // đó tự lo chạm một lần (đọc từ + pop) và chạm đúp (đọc + dịch cả dòng).
+    // Tầng dòng KHÔNG được gắn `onDoubleTap` cho những dòng này:
+    // `DoubleTapGestureRecognizer` GIỮ gesture arena ~300 ms, mà chạm một lần
+    // vào từ phải phát âm NGAY (mất phản xạ "chạm là nghe"). Chạm giữ vẫn mở
+    // `LineActionsSheet` như cũ nên không mất đường nào.
+    final wordTapPlain = _usesWordTapPlainText(data);
     return GestureDetector(
       onTap: () {
         final controller = context.read<ReadModeController>();
@@ -201,10 +208,12 @@ class TextLineWidget extends StatelessWidget {
           context.read<PlayerProvider>().seek(data.startTime!);
         }
       },
-      onDoubleTap: () {
-        SafeHaptics.lightImpact();
-        LineActionsSheet.show(context, index);
-      },
+      onDoubleTap: wordTapPlain
+          ? null
+          : () {
+              SafeHaptics.lightImpact();
+              LineActionsSheet.show(context, index);
+            },
       // IN4-36: chạm giữ KHÔNG còn mở thẳng bảng sửa dòng (chức năng ít
       // dùng — "lãng phí" cử chỉ theo audit 1.10.4). Giờ chạm giữ mở
       // LineActionsSheet (đọc TTS/luân lưu/lưu/sao chép) — hữu ích;
@@ -525,6 +534,26 @@ class TextLineWidget extends StatelessWidget {
     return -1;
   }
 
+  /// Dòng này có dùng `WordTapPlainText` không (PSRC-234)?
+  ///
+  /// Đúng khi dòng ĐÃ phân tích được từ và KHÔNG bật ô từng từ (ô từng từ đã
+  /// có `ColoredTextWidget` lo). Nhờ vậy "chạm một từ" hoạt động ở chế độ
+  /// KHÔNG BẬT box từng từ — đúng triệu chứng PSRC-234. Dòng chưa phân tích
+  /// (vừa import, đang phân tích, dòng trống) vẫn là `SelectableText` như cũ.
+  static bool _usesWordTapPlainText(_LineData data) {
+    final usesWordBoxes = data.wordTapBoxes &&
+        data.colorMode != ColorMode.none &&
+        data.analyzedWords.isNotEmpty;
+    // IPA đang bật ⇒ `_buildOriginalWithIpa` vẽ các chip interlinear (mỗi từ
+    // đã là một ô chạm được) chứ không dùng text liền — xem hàm đó.
+    final usesInterlinear = data.lineIpaSegments != null && !usesWordBoxes;
+    return !usesWordBoxes &&
+        !usesInterlinear &&
+        !data.isEmpty &&
+        data.analyzedWords.isNotEmpty &&
+        data.content.trim().isNotEmpty;
+  }
+
   /// POS/CEFR/difficulty: cùng đoạn chọn + lưu đầy đủ như chế độ không màu.
   /// Màu nằm trên TextSpan (không Wrap từng chip — chữ Việt không bị bể hàng).
   /// [index] = index dòng trong document (ColoredTextWidget tra trạng thái phát).
@@ -559,7 +588,10 @@ class TextLineWidget extends StatelessWidget {
       );
     }
 
-    if (data.colorMode == ColorMode.none || data.analyzedWords.isEmpty) {
+    // PSRC-234: dòng CHƯA phân tích được từ (vừa import / đang phân tích /
+    // dòng trống) ⇒ không có từ nào để chạm; giữ `SelectableText` để người
+    // dùng vẫn bôi chọn + sao chép được như trước.
+    if (!_usesWordTapPlainText(data)) {
       return SelectableText(
         data.content,
         textAlign: data.textAlign,
@@ -577,68 +609,65 @@ class TextLineWidget extends StatelessWidget {
       (tp) => tp.activeGrammarPalette,
     );
 
-    return SelectableText.rich(
-      TextSpan(
-        style: baseStyle,
-        children: _coloredSpans(data, grammarSettings, palette),
-      ),
+    // PSRC-234: dòng không bật box từng từ trước đây là `SelectableText` /
+    // `SelectableText.rich` ⇒ chạm một từ KHÔNG có phản ứng gì (chỉ đặt con
+    // trỏ), chạm đúp không ra dòng. Nay vẽ bằng `WordTapPlainText`: chạm một
+    // lần = đọc từ + pop tra nhanh, chạm đúp = đọc + dịch cả dòng, giữ + kéo
+    // = chọn nhiều từ (READ-SELECT-002). Màu chữ/POS/CEFR vẫn do
+    // `_coloredSpans` quyết định nên nhìn không đổi.
+    return WordTapPlainText(
+      key: ValueKey<String>('read-wordtap-line-$index'),
+      content: data.content,
+      words: data.analyzedWords,
+      lineIndex: index,
+      fontSize: data.fontSize,
       textAlign: data.textAlign,
-      onSelectionChanged: (selection, _) =>
-          _onLineSelectionChanged(context, data, selection),
-      contextMenuBuilder: (ctx, editableState) {
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: editableState.contextMenuAnchors,
-          buttonItems: [
-            ...editableState.contextMenuButtonItems,
-            ContextMenuButtonItem(
-              label: 'Chi tiết từ',
-              onPressed: () {
-                ContextMenuController.removeAny();
-                _openWordAtSelection(ctx, data, editableState);
-              },
-            ),
-          ],
-        );
-      },
+      lineStartOffset:
+          context.read<ReadModeController>().getLineStartOffset(index),
+      spansBuilder: ({
+        int? selectedWordStart,
+        int? selectedWordEnd,
+      }) =>
+          _coloredSpans(
+        data,
+        grammarSettings,
+        palette,
+        selectedWordStart: selectedWordStart,
+        selectedWordEnd: selectedWordEnd,
+      ),
     );
   }
 
-  void _openWordAtSelection(
-    BuildContext context,
-    _LineData data,
-    EditableTextState editableState,
-  ) {
-    final sel = editableState.textEditingValue.selection;
-    final offset = sel.isValid ? sel.baseOffset : 0;
-    var cursor = 0;
-    for (var i = 0; i < data.analyzedWords.length; i++) {
-      final word = data.analyzedWords[i];
-      final idx = data.content.indexOf(word.word, cursor);
-      if (idx < 0) continue;
-      final end = idx + word.word.length;
-      if (offset >= idx && offset <= end) {
-        WordActionsSheet.show(context, word, index, i);
-        return;
-      }
-      cursor = end;
-    }
-  }
+  /// Nền của từ đang nằm trong vùng chọn nhiều từ (READ-SELECT-002) — cùng
+  /// tông xanh với viền mỏ neo ở chế độ ô chữ.
+  static const Color _wordSelectionHighlight = Color(0x5964B5F6);
 
   List<InlineSpan> _coloredSpans(
     _LineData data,
     GrammarHighlightSettings grammarSettings,
-    dynamic palette,
-  ) {
+    dynamic palette, {
+    int? selectedWordStart,
+    int? selectedWordEnd,
+  }) {
     final spans = <InlineSpan>[];
     var cursor = 0;
     final content = data.content;
 
-    for (final word in data.analyzedWords) {
+    for (var i = 0; i < data.analyzedWords.length; i++) {
+      final word = data.analyzedWords[i];
       final idx = content.indexOf(word.word, cursor);
       if (idx < 0) continue;
       if (idx > cursor) {
         spans.add(TextSpan(text: content.substring(cursor, idx)));
       }
+
+      // READ-SELECT-002 (PSRC-234): từ nằm trong vùng chọn đang kéo ⇒ tô nền
+      // để người dùng thấy RÕ mình đã chọn tới đâu (không có ô như chế độ
+      // từng từ nên đây là tín hiệu duy nhất).
+      final selected = selectedWordStart != null &&
+          selectedWordEnd != null &&
+          i >= selectedWordStart &&
+          i <= selectedWordEnd;
 
       final useGrammar = data.colorMode == ColorMode.wordType &&
           grammarSettings.enabled;
@@ -669,10 +698,12 @@ class TextLineWidget extends StatelessWidget {
           text: word.word,
           style: TextStyle(
             color: grammarResolved?.foreground ?? word.getColor(data.colorMode),
-            backgroundColor: fillBackground
-                ? (grammarResolved?.background ??
-                    word.getBackgroundColor(data.colorMode))
-                : null,
+            backgroundColor: selected
+                ? _wordSelectionHighlight
+                : fillBackground
+                    ? (grammarResolved?.background ??
+                        word.getBackgroundColor(data.colorMode))
+                    : null,
             fontWeight: grammarResolved?.fontWeight,
             decoration:
                 underlineColor != null ? TextDecoration.underline : null,

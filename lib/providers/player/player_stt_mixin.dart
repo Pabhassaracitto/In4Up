@@ -59,6 +59,12 @@ mixin PlayerSttMixin on ChangeNotifier {
     try {
       _sttService.cancelTranscription();
     } catch (_) {}
+    // PSRC-205: file dài đi qua VAD pipeline — pipeline tự lặp qua từng đoạn
+    // và mỗi lượt lại gọi `transcribeFile` (hàm này reset cờ hủy của facade),
+    // nên chỉ hủy facade là KHÔNG dừng được job. Phải hủy cả pipeline.
+    try {
+      _vadIntegration.cancel();
+    } catch (_) {}
   }
 
   Future<void> initializeStt() async {
@@ -576,6 +582,16 @@ mixin PlayerSttMixin on ChangeNotifier {
       _sttService.cancelTranscription();
     } catch (e) {
       debugPrint('⚠️ cancelLrcGeneration error: $e');
+    }
+    // PSRC-205 (audit 1.29.0-Beta): "Bấm Hủy không dừng được quá trình".
+    // File dài (>5 phút) chạy qua VAD pipeline: pipeline lặp qua từng đoạn,
+    // và MỖI lượt `transcribeFile` gọi `resetForNewTranscription()` — tức là
+    // xóa cờ hủy vừa đặt trên facade. Không ai báo pipeline ⇒ job chạy tiếp
+    // hết file. Vì vậy phải hủy ở CẢ HAI nơi.
+    try {
+      _vadIntegration.cancel();
+    } catch (e) {
+      debugPrint('⚠️ cancelLrcGeneration (VAD) error: $e');
     }
     // Reset trạng thái đang xử lý — để nút khả dụng lại ngay.
     _isGeneratingLrc = false;

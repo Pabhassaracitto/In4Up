@@ -38,3 +38,5 @@ kế CSS subset/sanitizer và renderer sandbox không JS/network/file, accessibi
 playback lifecycle, missing/error UI và i18n. Xác thực LAAD3 1,22 GB và các phần
 trên máy thật; đo RAM, thời gian cold/warm và không gây jank, test thu hồi quyền.
 Không mở file/URL tùy ý, không sửa hoặc xóa nguồn người dùng.
+
+- CI `app_analyze` run [43753848333](https://github.com/Pabhassaracitto/In4Up/actions/runs/43753848333) xanh trên `991ef56`; gồm analyze, Rule 5, DICT synthetic/mock và web compile. Không phải QA thiết bị. PR #188.

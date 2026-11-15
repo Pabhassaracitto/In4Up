@@ -29,22 +29,11 @@ class MddWorkerPool {
     }
   }
 
-  MddReadTask start(DictInfo info, String key) => startBatch(info, [key]);
-
-  /// At most four resources; indexes each part only once within this task.
-  MddReadTask startBatch(DictInfo info, List<String> keys, {
-    int maxItemBytes = MddReader.maxAssetBytes,
-    int maxTotalBytes = MddReader.maxAssetBytes,
-  }) {
-    if (keys.isEmpty || keys.length > 4 || maxItemBytes < 0 ||
-        maxItemBytes > MddReader.maxAssetBytes || maxTotalBytes < 0 ||
-        maxTotalBytes > MddReader.maxAssetBytes) {
-      throw ArgumentError('Invalid MDD batch limits');
-    }
+  MddReadTask start(DictInfo info, String key) {
     if (_active >= maxConcurrent && _queue.length >= maxQueued) {
       throw StateError('MDD worker queue is full');
     }
-    final task = MddReadTask._(this, info, List.unmodifiable(keys), maxItemBytes, maxTotalBytes);
+    final task = MddReadTask._(this, info, key);
     _queue.add(task);
     _drain();
     return task;
@@ -53,7 +42,6 @@ class MddWorkerPool {
   void _drain() {
     while (_active < maxConcurrent && _queue.isNotEmpty) {
       final task = _queue.removeFirst();
-      if (task._finishing) continue;
       _active++;
       task._active = true;
       task._launchFuture = task._launch();
@@ -76,10 +64,8 @@ class MddWorkerPool {
 class MddReadTask {
   final MddWorkerPool _pool;
   final DictInfo _info;
-  final List<String> _keys;
-  final int _maxItemBytes;
-  final int _maxTotalBytes;
-  final Completer<List<Uint8List?>> _results = Completer();
+  final String _key;
+  final Completer<Uint8List?> _result = Completer();
   final Completer<void> _finished = Completer();
   Future<void>? _launchFuture;
   Future<void>? _operation;
@@ -90,9 +76,8 @@ class MddReadTask {
   bool _active = false;
   bool _finishing = false;
 
-  MddReadTask._(this._pool, this._info, this._keys, this._maxItemBytes, this._maxTotalBytes);
-  Future<List<Uint8List?>> get results => _results.future;
-  Future<Uint8List?> get result => results.then((value) => value.first);
+  MddReadTask._(this._pool, this._info, this._key);
+  Future<Uint8List?> get result => _result.future;
 
   Future<void> cancel() {
     _finish(error: const MddReadCancelled(), kill: true);
@@ -101,7 +86,7 @@ class MddReadTask {
 
   Future<void> _launch() async {
     try {
-      if (_keys.every((key) => MddReader.normalizeKey(key) == null)) {
+      if (MddReader.normalizeKey(_key) == null) {
         unawaited(_finish());
         return;
       }
@@ -117,7 +102,7 @@ class MddReadTask {
       final port = _port = ReceivePort();
       port.listen(_message);
       final isolate = await Isolate.spawn(
-        _workerMain, [port.sendPort, _keys, _locations.length, _maxItemBytes, _maxTotalBytes],
+        _workerMain, [port.sendPort, _key, _locations.length],
         onExit: port.sendPort, onError: port.sendPort, errorsAreFatal: true,
       );
       if (_finishing) {
@@ -137,9 +122,8 @@ class MddReadTask {
     } else if (message is List && message.isNotEmpty && message[0] == 'rpc') {
       _operation = _handleRpc(message);
     } else if (message is List && message.isNotEmpty && message[0] == 'result') {
-      final values = message[1] as List;
-      unawaited(_finish(data: [for (final value in values)
-        value == null ? null : (value as TransferableTypedData).materialize().asUint8List()]));
+      final value = message[1];
+      unawaited(_finish(data: value == null ? null : (value as TransferableTypedData).materialize().asUint8List()));
     } else if (message is List && message.isNotEmpty && message[0] == 'error') {
       unawaited(_finish(error: _unpackError(message[1] as List)));
     } else {
@@ -183,13 +167,10 @@ class MddReadTask {
     }
   }
 
-  Future<void> _finish({List<Uint8List?>? data, Object? error, bool kill = false}) async {
+  Future<void> _finish({Uint8List? data, Object? error, bool kill = false}) async {
     if (_finishing) return;
     _finishing = true;
-    // Remove a cancelled waiter synchronously so _drain cannot start it
-    // while its asynchronous cleanup is still pending.
-    if (!_active) _pool._queue.remove(this);
-    if (kill || error != null) _isolate?.kill(priority: Isolate.immediate);
+    if (kill) _isolate?.kill(priority: Isolate.immediate);
     // An in-flight open must finish before cleanup so a late SAF handle cannot
     // escape. Do not kill the owning isolate while native I/O is outstanding.
     await _launchFuture;
@@ -203,9 +184,9 @@ class MddReadTask {
     }
     _port?.close();
     if (error == null) {
-      _results.complete(data ?? List<Uint8List?>.filled(_keys.length, null));
+      _result.complete(data);
     } else {
-      _results.completeError(error);
+      _result.completeError(error);
     }
     _pool._finished(this);
     _finished.complete();
@@ -227,18 +208,15 @@ Object _unpackError(List error) {
 /// Worker never touches the filesystem, MethodChannel or user-provided paths.
 void _workerMain(List<dynamic> args) async {
   final parent = args[0] as SendPort;
-  final keys = List<String>.from(args[1] as List);
+  final key = args[1] as String;
   final count = args[2] as int;
-  final maxItemBytes = args[3] as int;
-  final maxTotalBytes = args[4] as int;
   final client = _RpcClient(parent);
   try {
     final parts = MddParts([
       for (var i = 0; i < count; i++) () => _RemoteSource.open(client, i),
     ]);
-    final data = await parts.readResources(keys, maxItemBytes: maxItemBytes, maxTotalBytes: maxTotalBytes);
-    parent.send(['result', [for (final item in data)
-      item == null ? null : TransferableTypedData.fromList([item])]]);
+    final data = await parts.readResource(key);
+    parent.send(['result', data == null ? null : TransferableTypedData.fromList([data])]);
   } catch (error) {
     parent.send(['error', _packError(error)]);
   } finally {

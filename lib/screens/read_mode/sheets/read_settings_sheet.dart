@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
+import '../../../features/translation/text_provider_translation.dart';
 import '../../../features/translation/translation_language_picker.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
@@ -107,7 +108,8 @@ class _SettingsContentState extends State<_SettingsContent> {
       builder: (context, scrollController) {
         return Consumer<TextProvider>(
           builder: (context, tp, _) {
-            final source = tp.detectedSourceLanguage;
+            // PSRC-238: nguồn HIỆU DỤNG (người dùng chọn, hoặc tự nhận diện).
+            final source = tp.translationSourceLanguage;
             final target = tp.translationTargetLanguage;
             final alignLabel = context.uiText(
               tp.textAlign == TextAlign.center ? 'Giữa' : 'Trái',
@@ -441,10 +443,47 @@ class _TranslationLanguageSection extends StatelessWidget {
 
   const _TranslationLanguageSection({required this.tp});
 
+  static const Color _accent = Color(0xFF53D6BD);
+
+  /// Dừng phát rồi mới đổi cặp: giọng đọc phụ thuộc cả nguồn lẫn đích.
+  Future<void> _apply(BuildContext context, TranslationPairChoice choice) async {
+    final playback = context.read<PlaybackController>();
+    if (playback.isRunning) {
+      playback.stop(fileId: tp.currentDocument?.id ?? 'unknown');
+    }
+    await tp.stopSpeaking();
+    await tp.setTranslationLanguagePair(
+      sourceCode: choice.sourceCode,
+      targetCode: choice.target?.translationCode,
+      retranslateExisting: true,
+    );
+  }
+
+  /// PSRC-238: chọn được cả ngôn ngữ nguồn («Tự nhận diện» + danh sách).
+  Future<void> _openPairPicker(BuildContext context) async {
+    // Đang đổi vai ⇒ lý do đã hiện ngay dưới nút (xem `build`).
+    if (tp.rolesSwapped) return;
+    final choice = await showTranslationPairPicker(
+      context,
+      detectedSource: tp.detectedSourceLanguage,
+      pinnedSourceCode: tp.translationSourceIsPinned
+          ? tp.translationSourceLanguage.translationCode
+          : null,
+      currentTarget: tp.translationTargetLanguage,
+      accentColor: _accent,
+    );
+    if (choice == null || !context.mounted) return;
+    await _apply(context, choice);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final source = tp.detectedSourceLanguage;
+    final source = tp.translationSourceLanguage;
     final target = tp.translationTargetLanguage;
+    final sourceIsAuto = !tp.translationSourceIsPinned;
+    final suggestion = tp.suggestedTranslationTarget(
+      uiLanguageCode: Localizations.localeOf(context).toLanguageTag(),
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -459,30 +498,36 @@ class _TranslationLanguageSection extends StatelessWidget {
           TranslationLanguagePickerButton(
             sourceLanguage: source,
             targetLanguage: target,
+            sourceIsAuto: sourceIsAuto,
             compact: false,
-            accentColor: const Color(0xFF53D6BD),
-            onSelected: (language) async {
-              final playback = context.read<PlaybackController>();
-              if (playback.isRunning) {
-                playback.stop(fileId: tp.currentDocument?.id ?? 'unknown');
-              }
-              await tp.stopSpeaking();
-              await tp.setTranslationTargetLanguage(
-                language.translationCode,
-                retranslateExisting: true,
-              );
-            },
+            accentColor: _accent,
+            onPressed: () => _openPairPicker(context),
           ),
           const SizedBox(height: 10),
           Text(
-            context.uiText('Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.'),
+            sourceIsAuto
+                ? context.uiText('Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.')
+                : context.uiText('Nguồn do bạn chọn cho tài liệu này. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.'),
             style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11,
               height: 1.4,
             ),
           ),
-          if (tp.translationPairUsesSameLanguage) ...[
+          if (tp.rolesSwapped) ...[
+            // PSRC-237/238: đang đổi vai ⇒ nút trên không đổi được cặp; nói
+            // lý do ngay tại đây (snackbar sẽ bị bảng cài đặt che mất).
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(TranslationMixin.roleSwapGuardMessage),
+              key: const Key('read-settings-role-swap-note'),
+              style: const TextStyle(
+                color: Colors.amber,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ] else if (tp.translationPairUsesSameLanguage) ...[
             const SizedBox(height: 8),
             const Text(
               'Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.',
@@ -490,6 +535,26 @@ class _TranslationLanguageSection extends StatelessWidget {
                 color: Colors.amber,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+            // PSRC-238: đề nghị sẵn một đích khác — một chạm là xong.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('read-settings-same-pair-accept'),
+                onPressed: () => _apply(
+                  context,
+                  TranslationPairChoice(target: suggestion),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: _accent,
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: Text(
+                  '${suggestion.flag} '
+                  '${context.uiText('Dịch sang ${suggestion.nativeName}')}',
+                ),
               ),
             ),
           ],

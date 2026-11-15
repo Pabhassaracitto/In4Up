@@ -6,12 +6,12 @@
 //
 //   1. **Không có model spec.** audio.cpp v0.9.4 chỉ nhúng `model_specs/*.json`
 //      vào libaudiocpp.so khi build với `AUDIOCPP_DEPLOYMENT_BUILD=ON` (mặc
-//      định OFF), và các option `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` mà
-//      bản 1.28 truyền vào KHÔNG tồn tại ⇒ `audiocpp_model_load` ném
-//      "model spec not found for family 'vietneu_tts'". Wrapper nay nhúng
-//      spec của đúng family (sinh lúc configure từ submodule đã ghim) và chỉ
-//      ghi ra cạnh model khi audio.cpp thật sự cần, rồi nạp lại với
-//      `model_spec_override`.
+//      định OFF; `CMakeLists.txt` L64-67). `AUDIOCPP_MODEL_SET` /
+//      `AUDIOCPP_MODELS` (bản 1.28 có truyền) chỉ chọn model nào được BIÊN
+//      DỊCH, không cấp spec ⇒ `audiocpp_model_load` ném "model spec not found
+//      for family 'vietneu_tts'". Wrapper nay nhúng spec của đúng family (sinh
+//      lúc configure từ submodule đã ghim) và chỉ ghi ra cạnh model khi
+//      audio.cpp thật sự cần, rồi nạp lại với `model_spec_override`.
 //   2. **"Tạo giọng" không mã hoá gì.** `vieneu_tts_clone_voice` cũ ghi
 //      `speaker.emb.txt` gồm 256 số 0 (placeholder) và trả THÀNH CÔNG, còn
 //      audio.cpp từ chối file embedding đó ("must contain exactly 192 float
@@ -63,13 +63,22 @@ void main() {
       expect(cmake.contains('AUDIOCPP_V3_TURBO_SPEC_JSON'), isTrue);
     });
 
-    test('KHÔNG dùng lại các option không tồn tại của audio.cpp v0.9.4', () {
-      // Hai option này là no-op ở v0.9.4 ⇒ truyền vào chỉ tạo cảm giác an toàn
-      // trong khi spec vẫn thiếu (đúng cái bẫy của bản 1.28).
-      expect(cmake.contains('AUDIOCPP_MODEL_SET'), isFalse,
-          reason: 'AUDIOCPP_MODEL_SET không tồn tại trong audio.cpp v0.9.4');
-      expect(cmake.contains('AUDIOCPP_MODELS'), isFalse,
-          reason: 'AUDIOCPP_MODELS không tồn tại trong audio.cpp v0.9.4');
+    test('vẫn giới hạn model được biên dịch (custom + vieneu_v3_turbo)', () {
+      // Hai option này chọn MODEL NÀO được build (CMakeLists.txt L425-427,
+      // L2878+), KHÔNG cấp model spec. Bỏ chúng ⇒ `full` ⇒ mọi community model
+      // vào build, kể cả model dùng API không có trên NDK
+      // (`latentsync/video.cpp: posix_spawn_file_actions_init`) ⇒ build đỏ
+      // (run 43706402644).
+      expect(cmake.contains('set(AUDIOCPP_MODEL_SET           custom'),
+          isTrue);
+      expect(cmake.contains('"vieneu_v3_turbo" CACHE STRING'), isTrue);
+    });
+
+    test('spec KHÔNG phụ thuộc AUDIOCPP_DEPLOYMENT_BUILD', () {
+      // Bật cờ đó sẽ nhúng cả 140 spec (1,3 MB) — không cần: wrapper chỉ mang
+      // spec của family này.
+      expect(cmake.contains('AUDIOCPP_DEPLOYMENT_BUILD'), isFalse,
+          reason: 'Spec đi qua model_spec_override, không nhúng cả bộ');
     });
 
     test('mẫu inc là raw string, không nội suy gì thêm', () {

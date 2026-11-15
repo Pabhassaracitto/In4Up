@@ -5,8 +5,6 @@ import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
 import '../../../features/translation/translation_language_picker.dart';
-import '../../../features/tts/widgets/auto_split_section.dart';
-import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
@@ -16,6 +14,8 @@ import '../../../services/ipa_styling.dart';
 import '../../../services/storage_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
+import '../widgets/read_settings_group.dart';
+import 'read_voice_settings_page.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();
@@ -45,8 +45,57 @@ class ReadSettingsSheet {
   }
 }
 
-class _SettingsContent extends StatelessWidget {
+/// PSRC-236 / ADR-0030 D1 — các nhóm gập của «Cài đặt Text Studio».
+enum _SettingsGroupId { text, translation, color }
+
+/// PSRC-236 / ADR-0030: bảng cài đặt KHÔNG còn là một trang cuộn dài.
+///
+///   * D1 — 3 nhóm gập, mỗi nhóm có DÒNG TÓM TẮT giá trị đang chọn ⇒ mở bảng
+///     là thấy hết trạng thái hiện tại mà không cần cuộn (nhận ra, không
+///     phải nhớ). Mỗi lần chỉ mở MỘT nhóm ⇒ trang luôn ngắn.
+///   * D2 — cấu hình engine giọng đọc (thứ tự engine, model, giọng theo ngôn
+///     ngữ, cache, giấy phép) là thứ chỉnh MỘT LẦN ⇒ trang riêng
+///     `ReadVoiceSettingsPage`, vào bằng một dòng ở cuối bảng.
+///   * D3 — «Tách dòng tự động» là THAO TÁC trên văn bản ⇒ đã chuyển sang
+///     panel «Công cụ đọc» (`showAutoSplitSheet`), không còn ở đây.
+class _SettingsContent extends StatefulWidget {
   const _SettingsContent();
+
+  @override
+  State<_SettingsContent> createState() => _SettingsContentState();
+}
+
+class _SettingsContentState extends State<_SettingsContent> {
+  /// Nhớ nhóm đang mở TRONG PHIÊN chạy app: đóng bảng rồi mở lại vẫn ở đúng
+  /// nhóm vừa chỉnh. `null` (mặc định) = gập hết ⇒ lần đầu thấy toàn cảnh.
+  static _SettingsGroupId? _lastOpen;
+
+  final Map<_SettingsGroupId, GlobalKey> _groupKeys = {
+    for (final id in _SettingsGroupId.values) id: GlobalKey(),
+  };
+
+  _SettingsGroupId? _open = _lastOpen;
+
+  void _toggle(_SettingsGroupId id) {
+    final opening = _open != id;
+    setState(() {
+      _open = opening ? id : null;
+      _lastOpen = _open;
+    });
+    if (!opening) return;
+    // Nhóm phía trên vừa gập lại ⇒ tiêu đề nhóm vừa chạm có thể trượt ra
+    // ngoài màn hình. Chỉ cuộn khi tiêu đề KHÔNG còn nhìn thấy.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _groupKeys[id]?.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 180),
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +107,11 @@ class _SettingsContent extends StatelessWidget {
       builder: (context, scrollController) {
         return Consumer<TextProvider>(
           builder: (context, tp, _) {
+            final source = tp.detectedSourceLanguage;
+            final target = tp.translationTargetLanguage;
+            final alignLabel = context.uiText(
+              tp.textAlign == TextAlign.center ? 'Giữa' : 'Trái',
+            );
             return SingleChildScrollView(
               controller: scrollController,
               padding: const EdgeInsets.all(20),
@@ -98,120 +152,137 @@ class _SettingsContent extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                  // PSRC-235 (bước 1 — gọn Cài đặt): thứ tự theo TẦN SUẤT dùng.
-                  // Đã bỏ khỏi bảng này:
-                  //   * «Chế độ trải nghiệm» — `subMode` không được đọc ở đâu
-                  //     trong app ⇒ bấm không đổi gì (cài đặt chết);
-                  //   * cụm «Text-to-Speech» (Đọc dòng / Đọc tất cả / Dừng +
-                  //     thanh tốc độ) — lối phát và đường tốc độ THỨ HAI, lệch
-                  //     ADR-0021 D1. Phát + tốc độ sống ở dock «Đọc».
-                  // Cài đặt chỉ chứa GIÁ TRỊ cấu hình, không chứa nút hành động.
+                  // PSRC-235: thứ tự theo TẦN SUẤT dùng. Đã bỏ khỏi bảng này
+                  // «Chế độ trải nghiệm» (`subMode` không ai đọc — TẠM bỏ,
+                  // xem ADR-0030 D5) và cụm «Text-to-Speech» (lối phát + đường
+                  // tốc độ thứ hai, lệch ADR-0021 D1). Cài đặt chỉ chứa GIÁ
+                  // TRỊ cấu hình, không chứa nút hành động.
 
-                  // ===== FONT SIZE =====
-                  const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
-                  const SizedBox(height: 12),
-                  _FontSizeControl(tp: tp),
-                  const SizedBox(height: 24),
+                  // ===== NHÓM 1: CHỮ & BỐ CỤC =====
+                  ReadSettingsGroup(
+                    key: _groupKeys[_SettingsGroupId.text],
+                    tapKey: const Key('read-settings-group-text'),
+                    icon: Icons.text_fields,
+                    title: 'Chữ & bố cục',
+                    summary: '${context.uiText('Cỡ chữ')} '
+                        '${tp.fontSize.round()} · $alignLabel',
+                    open: _open == _SettingsGroupId.text,
+                    onToggle: () => _toggle(_SettingsGroupId.text),
+                    children: [
+                      const _SectionTitle(
+                          title: 'Cỡ chữ', icon: Icons.text_fields),
+                      const SizedBox(height: 12),
+                      _FontSizeControl(tp: tp),
+                      const SizedBox(height: 20),
+                      const _SectionTitle(
+                          title: 'Căn lề văn bản',
+                          icon: Icons.format_align_center),
+                      const SizedBox(height: 12),
+                      _AlignmentSelector(tp: tp),
+                      const SizedBox(height: 20),
+                      // PSRC-235: tên cũ «Hiển thị» trùng với popup / tab
+                      // dock / sheet. Chỉ còn 2 công tắc về DÒNG.
+                      const _SectionTitle(
+                          title: 'Dòng văn bản',
+                          icon: Icons.format_list_numbered),
+                      const SizedBox(height: 12),
+                      _LineOptions(tp: tp),
+                      const SizedBox(height: 20),
+                      // IN4-30 — giữ phần tiêu đề khi ở chế độ Focus.
+                      const _SectionTitle(
+                          title: 'Chế độ Focus: giữ tiêu đề',
+                          icon: Icons.fullscreen),
+                      const SizedBox(height: 12),
+                      const _FocusTitlePositionSelector(),
+                    ],
+                  ),
 
-                  // ===== ALIGNMENT =====
-                  const _SectionTitle(
-                      title: 'Căn lề văn bản', icon: Icons.format_align_center),
-                  const SizedBox(height: 12),
-                  _AlignmentSelector(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== TRANSLATION + BILINGUAL TTS =====
-                  const _SectionTitle(
-                    title: 'Dịch & đọc song ngữ',
+                  // ===== NHÓM 2: DỊCH & ĐỌC SONG NGỮ =====
+                  ReadSettingsGroup(
+                    key: _groupKeys[_SettingsGroupId.translation],
+                    tapKey: const Key('read-settings-group-translation'),
                     icon: Icons.compare_arrows_rounded,
-                  ),
-                  const SizedBox(height: 12),
-                  _TranslationLanguageSection(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== COLOR MODE =====
-                  const _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
-                  const SizedBox(height: 12),
-                  _ColorModeSelector(tp: tp),
-
-                  // READ-WORDSTYLE-001: kiểu hiển thị từ (nền màu / chỉ màu
-                  // chữ / gạch chân) — tách khỏi "chọn màu gì" để người đọc
-                  // lâu chọn kiểu nhẹ mắt mà vẫn giữ tô màu.
-                  if (tp.colorMode != ColorMode.none) ...[
-                    const SizedBox(height: 16),
-                    _WordColorStyleSelector(tp: tp),
-                    const SizedBox(height: 16),
-                    _LegendPanel(colorMode: tp.colorMode),
-                  ],
-
-                  if (tp.colorMode == ColorMode.wordType) ...[
-                    const SizedBox(height: 16),
-                    _GrammarHighlightSection(tp: tp),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // ===== IPA (READ-IPA-001) =====
-                  const _SectionTitle(
-                      title: 'Phiên âm / IPA', icon: Icons.abc),
-                  const SizedBox(height: 12),
-                  _IpaModeSelector(tp: tp),
-                  const SizedBox(height: 16),
-                  const _IpaSaveSourceSection(),
-                  const SizedBox(height: 12),
-                  _IpaColorOptions(tp: tp),
-
-                  const SizedBox(height: 24),
-
-                  // ===== LINE OPTIONS =====
-                  // PSRC-235: tên cũ «Hiển thị» trùng với popup / tab dock /
-                  // sheet. Mục này chỉ còn 2 công tắc về DÒNG; «Hiện bản dịch»
-                  // và «Box từng từ» đã có ở cụm Tùy biến chữ + nút Dịch dock.
-                  const _SectionTitle(
-                      title: 'Dòng văn bản', icon: Icons.format_list_numbered),
-                  const SizedBox(height: 12),
-                  _LineOptions(tp: tp),
-
-                  const SizedBox(height: 24),
-
-                  // ===== FOCUS: giữ phần tiêu đề (IN4-30) =====
-                  // Chỉnh một lần ⇒ đứng sau các mục dùng thường xuyên.
-                  const _SectionTitle(
-                      title: 'Chế độ Focus: giữ tiêu đề', icon: Icons.fullscreen),
-                  const SizedBox(height: 12),
-                  const _FocusTitlePositionSelector(),
-
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 16),
-
-                  // ★ TTS Settings (Cấu hình nâng cao)
-                  const TtsSettingsSection(
-                    primaryColor: Color(0xFF6C63FF),
+                    title: 'Dịch & đọc song ngữ',
+                    summary: '${source.nativeName} → ${target.nativeName}',
+                    // Cặp trùng (ví dụ «Tiếng Việt → Tiếng Việt») phải lộ ra
+                    // ngay ở dòng tóm tắt, không đợi người dùng mở nhóm.
+                    summaryColor: tp.translationPairUsesSameLanguage
+                        ? Colors.amber
+                        : null,
+                    open: _open == _SettingsGroupId.translation,
+                    onToggle: () => _toggle(_SettingsGroupId.translation),
+                    children: [
+                      _TranslationLanguageSection(tp: tp),
+                    ],
                   ),
 
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 16),
+                  // ===== NHÓM 3: MÀU & PHIÊN ÂM =====
+                  ReadSettingsGroup(
+                    key: _groupKeys[_SettingsGroupId.color],
+                    tapKey: const Key('read-settings-group-color'),
+                    icon: Icons.palette,
+                    title: 'Màu & phiên âm',
+                    summary: '${context.uiText(tp.colorMode.label)} · IPA: '
+                        '${context.uiText(tp.ipaDisplayMode.label)}',
+                    open: _open == _SettingsGroupId.color,
+                    onToggle: () => _toggle(_SettingsGroupId.color),
+                    children: [
+                      const _SectionTitle(
+                          title: 'Chế độ màu', icon: Icons.palette),
+                      const SizedBox(height: 12),
+                      _ColorModeSelector(tp: tp),
 
-                  // ★ Auto Split (Tách dòng tự động)
-                  AutoSplitSection(
-                    currentText: tp.fullText,
-                    primaryColor: const Color(0xFF6C63FF),
-                    onApply: (lines) {
-                      tp.loadFromLines(lines);
-                      Navigator.pop(context); // Đóng settings
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content:
-                                Text(context.uiText('Đã tách thành ${lines.length} dòng'))),
-                      );
-                    },
+                      // READ-WORDSTYLE-001: kiểu hiển thị từ (nền màu / chỉ
+                      // màu chữ / gạch chân) — tách khỏi "chọn màu gì" để
+                      // người đọc lâu chọn kiểu nhẹ mắt mà vẫn giữ tô màu.
+                      if (tp.colorMode != ColorMode.none) ...[
+                        const SizedBox(height: 16),
+                        _WordColorStyleSelector(tp: tp),
+                        const SizedBox(height: 16),
+                        _LegendPanel(colorMode: tp.colorMode),
+                      ],
+
+                      if (tp.colorMode == ColorMode.wordType) ...[
+                        const SizedBox(height: 16),
+                        _GrammarHighlightSection(tp: tp),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      // READ-IPA-001
+                      const _SectionTitle(
+                          title: 'Phiên âm / IPA', icon: Icons.abc),
+                      const SizedBox(height: 12),
+                      _IpaModeSelector(tp: tp),
+                      const SizedBox(height: 16),
+                      const _IpaSaveSourceSection(),
+                      const SizedBox(height: 12),
+                      _IpaColorOptions(tp: tp),
+                    ],
                   ),
 
-                  const SizedBox(height: 32),
+                  // ===== GIỌNG ĐỌC & ENGINE — trang riêng (ADR-0030 D2) =====
+                  ReadSettingsLinkRow(
+                    tapKey: const Key('read-settings-open-voice'),
+                    icon: Icons.record_voice_over,
+                    title: 'Giọng đọc & engine',
+                    summary: 'Thứ tự engine, giọng theo ngôn ngữ, model, cache',
+                    onTap: () => ReadVoiceSettingsPage.open(context),
+                  ),
+
+                  // Chỉ đường cho người quen bảng cũ: thứ đã rời bảng này
+                  // nằm ở đâu (tránh cảm giác «nút biến mất» — ADR-0024).
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                    child: Text(
+                      'Nút đọc, tốc độ và Tách dòng tự động nằm ở thanh công cụ đọc.',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
                 ],
               ),
             );

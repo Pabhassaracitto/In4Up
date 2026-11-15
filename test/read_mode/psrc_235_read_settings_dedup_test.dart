@@ -115,8 +115,9 @@ void main() {
         '_WordColorStyleSelector(tp: tp)',
         '_IpaModeSelector(tp: tp)',
         'const _FocusTitlePositionSelector()',
-        'const TtsSettingsSection(',
-        'AutoSplitSection(',
+        // PSRC-236 / ADR-0030: `TtsSettingsSection` và `AutoSplitSection`
+        // đã rời bảng này (trang «Giọng đọc & engine» / panel Công cụ đọc)
+        // — pin ở `psrc_236_read_settings_groups_test.dart`.
         'tp.toggleLineNumbers()',
         'tp.toggleAutoSplit(v)',
         'requestRefresh()',
@@ -125,18 +126,19 @@ void main() {
       }
     });
 
-    test('thứ tự theo tần suất dùng: chữ → dịch → màu → IPA → dòng → Focus → '
-        'engine', () {
+    // PSRC-236 / ADR-0030 D1: các mục nay nằm trong 3 nhóm gập. Thứ tự
+    // TẦN SUẤT của PSRC-235 (chữ → dịch → màu) vẫn giữ; «Dòng văn bản» và
+    // «Focus: giữ tiêu đề» gộp vào nhóm «Chữ & bố cục».
+    test('thứ tự theo tần suất dùng: chữ (+ dòng, Focus) → dịch → màu → IPA',
+        () {
       final order = [
         '_FontSizeControl(tp: tp)',
         '_AlignmentSelector(tp: tp)',
+        '_LineOptions(tp: tp)',
+        'const _FocusTitlePositionSelector()',
         '_TranslationLanguageSection(tp: tp)',
         '_ColorModeSelector(tp: tp)',
         '_IpaModeSelector(tp: tp)',
-        '_LineOptions(tp: tp)',
-        'const _FocusTitlePositionSelector()',
-        'const TtsSettingsSection(',
-        'AutoSplitSection(',
       ];
       var last = -1;
       for (final pin in order) {
@@ -184,12 +186,16 @@ void main() {
       expect(settings.contains('_DisplayOptions'), isFalse);
     });
 
-    test('tên nhóm trong Cài đặt giao diện giữ nguyên (pin của READ-UI-120)',
-        () {
+    // PSRC-236 / ADR-0030 D4: tên nhóm đi theo tab dock «Tùy biến».
+    test('tên nhóm trong Cài đặt giao diện khớp tab dock «Tùy biến»', () {
       expect(
-          _src('lib/models/read_chrome_layout.dart')
-              .contains("'Thông tin & Hiển thị'"),
+          _code('lib/models/read_chrome_layout.dart')
+              .contains("'Thông tin & Tùy biến'"),
           isTrue);
+      expect(
+          _code('lib/models/read_chrome_layout.dart')
+              .contains("'Thông tin & Hiển thị'"),
+          isFalse);
     });
   });
 

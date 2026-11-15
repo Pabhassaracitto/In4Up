@@ -29,6 +29,7 @@ import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
 import '../services/read_text_action_runner.dart';
+import '../sheets/auto_split_sheet.dart';
 import '../sheets/read_settings_sheet.dart';
 import '../sheets/segments_list_sheet.dart';
 import 'read_display_controls.dart';
@@ -394,7 +395,7 @@ class _PanelTabs extends StatelessWidget {
       // PSRC-235: «Hiển thị» → «Tùy biến» (hết trùng tên với sheet/popup).
       ReadDockPanel.display: 'Tùy biến',
     };
-    // Nhóm «Thông tin & Hiển thị» bị Ẩn ⇒ tab của nó cũng biến mất, nhưng
+    // Nhóm «Thông tin & Tùy biến» bị Ẩn ⇒ tab của nó cũng biến mất, nhưng
     // 2 tab kia vẫn hoạt động (3 nhóm độc lập, không ẩn cả dock).
     final tabs = entries.entries
         .where((entry) =>
@@ -597,6 +598,17 @@ class _ToolsPanel extends StatelessWidget {
                 label: Text(context.uiText('Mở nguồn')),
                 onPressed: onOpenSource,
               ),
+            // PSRC-236 / ADR-0030 D3: «Tách dòng tự động» là THAO TÁC trên
+            // văn bản ⇒ rời bảng Cài đặt về đây. Chip = mở một sheet khác
+            // (không phải công tắc). Luôn hiện, kể cả khi chưa có dòng
+            // đang đọc — nó tác động lên TOÀN văn bản.
+            ActionChip(
+              key: const Key('read-dock-auto-split'),
+              avatar: const Icon(Icons.auto_fix_high,
+                  size: 13, color: Colors.white70),
+              label: Text(context.uiText('Tách dòng tự động')),
+              onPressed: () => showAutoSplitSheet(context),
+            ),
           ],
         ),
         if (target != null)
@@ -649,7 +661,7 @@ class _DisplayPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         // READ-UI-121: các nút tùy biến chữ + «?» + Focus + Đồng bộ tự động
-        // sống ở đúng nhóm «Thông tin & Hiển thị», cùng một cụm với sheet
+        // sống ở đúng nhóm «Thông tin & Tùy biến», cùng một cụm với sheet
         // Hiển thị cạnh ⚡ (không tạo bản sao state).
         ReadDisplayControls(controller: controller),
         const SizedBox(height: 6),

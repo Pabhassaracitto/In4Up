@@ -34,3 +34,11 @@ giới hạn byte/kích thước giải mã ảnh, lỗi và i18n. CSS sanitizer
 phát âm thanh, asset rời, network/file/JS vẫn chưa thực hiện. Test synthetic/mock
 không chứng minh tương thích MDD thực tế hoặc nghiệm thu Android. Lưu SQLite hiện
 có; chưa quyết định kiến trúc MDX trực tiếp.
+
+## Kiểm chứng
+
+CI [43757560968](https://github.com/Pabhassaracitto/In4Up/actions/runs/43757560968)
+xanh 4/4 trên `77cb486` (analyze, Rule 5, DICT, I4U18/import và web compile).
+PR #189; dữ liệu MDD synthetic, SAF mô phỏng, chưa nghiệm thu thiết bị thật.
+Khi copy một phần phụ thất bại, manifest và outcome báo tên phần bị thiếu; MDX
+SQLite đã import vẫn dùng được.

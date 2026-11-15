@@ -9855,3 +9855,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-09 | created→proposed | agent arena/7ab6408e-in4up | code lõi MDD và test synthetic, chưa có CI hoặc nghiệm thu.
   - 2026-11-09 | proposed→doing | agent arena/7ab6408e-in4up | CI 43753848333 xanh trên `991ef56` (test synthetic/mock); PR #188; chưa QA thiết bị.
   - 2026-11-09 | doing→doing | agent arena/f8c9973c-in4up | nối metadata MDD vào import/link/relink và DictionaryService theo ADR-0030; test synthetic/mock, chờ CI và QA, chưa UI/media.
+  - 2026-11-09 | doing→doing | agent arena/f8c9973c-in4up | CI 43757560968 xanh trên `77cb486`; PR #189; còn worker/cache, CSS/media UI và QA LAAD3.

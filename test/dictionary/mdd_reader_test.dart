@@ -14,9 +14,10 @@ class MemorySource implements RandomAccessSource {
   int bytesRead = 0;
   int largestRead = 0;
   bool closed = false;
-  MemorySource(this.data);
+  final int? virtualLength;
+  MemorySource(this.data, {this.virtualLength});
   @override
-  Future<int> get length async => data.length;
+  Future<int> get length async => virtualLength ?? data.length;
   @override
   Future<void> seek(int offset) async { position = offset; }
   @override
@@ -48,6 +49,38 @@ void main() {
     expect(await reader.readResource('B.WAV'), 'audio'.codeUnits);
     expect(await reader.readResource('missing'), isNull);
     await source.close();
+  });
+
+  test('does not read a virtual gigabyte-sized file into memory', () async {
+    final source = MemorySource(fixture(), virtualLength: 1220 * 1024 * 1024);
+    final reader = await MddReader.open(source);
+    expect(await reader.readResource('a.png'), 'abcdef'.codeUnits);
+    expect(source.bytesRead, lessThan(4096));
+    expect(source.largestRead, lessThan(4096));
+  });
+
+  test('rejects zlib output beyond the declared block size', () async {
+    final data = MdxTestBuilder(mdd: true, utf16: true,
+      entries: {'\\a': 'x' * 10000}).build();
+    final bd = ByteData.sublistView(data);
+    final headerSize = bd.getUint32(0);
+    final keyHeader = 8 + headerSize;
+    final indexSize = bd.getUint64(keyHeader + 24);
+    final keySize = bd.getUint64(keyHeader + 32);
+    final recordInfo = keyHeader + 44 + indexSize + keySize + 32;
+    bd.setUint64(recordInfo + 8, 8);
+    final reader = await MddReader.open(MemorySource(data));
+    await expectLater(reader.readResource('a'), throwsFormatException);
+  });
+
+  test('aliases sharing an offset refer to the same resource', () async {
+    final source = MemorySource(MdxTestBuilder(mdd: true, utf16: true,
+      entries: {'\\a': 'same', '\\b': '', '\\c': 'next'},
+      aliases: {'\\b': '\\a'}).build());
+    final reader = await MddReader.open(source);
+    expect(await reader.readResource('a'), 'same'.codeUnits);
+    expect(await reader.readResource('b'), 'same'.codeUnits);
+    expect(await reader.readResource('c'), 'next'.codeUnits);
   });
 
   test('supports uncompressed blocks and a reusable index', () async {

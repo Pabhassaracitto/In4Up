@@ -95,4 +95,21 @@ void main() {
       );
     });
   });
+
+  group('PSRC-249-A — import TRỌN BỘ thư mục không phụ thuộc tên «voices»', () {
+    final service = _read('lib/features/tts/tts_service.dart');
+
+    test('quét giọng theo NỘI DUNG ở mọi độ sâu, không lọc theo tên thư mục', () {
+      expect(service.contains('_collectVoiceFolders('), isTrue);
+      expect(
+        service.contains("p.basename(entity.path).toLowerCase() != 'voices'"),
+        isFalse,
+        reason: 'Chọn thẳng thư mục voices/ hoặc gói đổi tên phải vẫn import được',
+      );
+    });
+
+    test('dừng nhánh khi gặp thư mục giọng (không đếm samples/ thành giọng 2)', () {
+      expect(service.contains('if (isVoice) {\n      out.add(dir);\n      return;'), isTrue);
+    });
+  });
 }

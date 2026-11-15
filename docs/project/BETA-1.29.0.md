@@ -754,3 +754,10 @@ hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK r
   còn "chạm đúp để tra nghĩa"); danh sách mẫu WAV trong Voice Clone hiện tên + dung lượng
   + xoá từng mẫu. 15 chuỗi × 8 locale (pack 3.785 khoá). Còn mở: import TRỌN BỘ thư mục
   (PSRC-249-A) và đồng bộ giao diện "gương màu" — **chưa kiểm máy thật**.
+- 2026-11-15 | PSRC-249-A | agent `arena/60e35d65-in4up` | **import TRỌN BỘ thư mục**:
+  bước dò giọng cũ chỉ nhận thư mục có TÊN đúng `voices` ⇒ chọn thẳng `voices/` (thao tác
+  tự nhiên nhất trong hộp chọn thư mục Android), gói đổi tên (`giong/`, `samples/`) hay
+  giọng lồng sâu đều ra **0 giọng** — đúng triệu chứng "phải import từng loại một". Nay
+  `_collectVoiceFolders` quét cây (độ sâu ≤4), nhận giọng theo NỘI DUNG
+  (`folderHasVieneuVoiceData`), dừng nhánh khi gặp thư mục giọng; dò GGUF cũng lên ≤4.
+  **Chưa kiểm máy thật.**

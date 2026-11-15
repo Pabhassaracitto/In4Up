@@ -20,7 +20,6 @@
 //   - Sau khi giải nén, soi lại import table của `whisper-cli.exe`
 //     (`probeWhisperBinary`) để chắc chắn DLL còn thiếu KHÔNG bị bỏ qua.
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';

@@ -85,7 +85,7 @@ Future<void> startReadPlayback(
   final controller = context.read<PlaybackController>();
   final tp = context.read<TextProvider>();
   final recipe = controller.recipe;
-  final sourceLanguage = tp.detectedSourceLanguage;
+  final sourceLanguage = tp.translationSourceLanguage;
   final targetLanguage = tp.translationTargetLanguage;
   final fileId = tp.currentDocument?.id ?? 'unknown';
 
@@ -160,7 +160,7 @@ void showPlaybackPresetSheet(BuildContext context) {
       value: controller,
       child: _PresetSheet(
         currentRecipe: controller.recipe,
-        sourceLanguage: tp.detectedSourceLanguage,
+        sourceLanguage: tp.translationSourceLanguage,
         targetLanguage: tp.translationTargetLanguage,
         onApplySpeed: (speed) => unawaited(setReadSpeed(context, speed)),
       ),
@@ -239,7 +239,7 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
     final recipe = controller.recipe;
     // READ-UI-120 P0: tốc độ lấy từ MỘT nguồn (TextProvider / `tts_speed`).
     final speed = tp.ttsSpeed;
-    final sourceLanguage = tp.detectedSourceLanguage;
+    final sourceLanguage = tp.translationSourceLanguage;
     final targetLanguage = tp.translationTargetLanguage;
     final expanded = widget.forceExpanded || _expanded;
 

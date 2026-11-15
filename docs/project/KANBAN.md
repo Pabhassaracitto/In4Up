@@ -9841,3 +9841,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa có:** CSS/MDD/media/link inline, nghiệm thu thiết bị và 1,22 GB MDD.
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | PR #186; code + test; chờ CI.
+  - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI 43749345649 xanh trên `21d85cf`; PR #186; chờ nghiệm thu bộ thật, CSS/MDD.

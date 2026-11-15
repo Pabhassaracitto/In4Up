@@ -101,6 +101,7 @@ class VieneuResolvedVoiceFiles {
   const VieneuResolvedVoiceFiles({
     this.refCodesPath,
     this.speakerEmbeddingPath,
+    this.samplePath,
     this.fileNames = const <String>[],
     this.resolvedByContent = false,
   });
@@ -112,13 +113,22 @@ class VieneuResolvedVoiceFiles {
   /// Đường dẫn embedding giọng 192 chiều. `null` = không có / sai số chiều.
   final String? speakerEmbeddingPath;
 
+  /// Mẫu WAV của giọng (gói giọng upstream: `<Tên>.pt` + `<Tên>.txt` +
+  /// `<Tên>.wav`). Không có mã sẵn thì engine mã hoá mẫu này **một lần** bằng
+  /// chính đường `encode_reference_only` của tính năng tạo giọng.
+  final String? samplePath;
+
   /// Tên các file trong thư mục (để chẩn đoán khi không dùng được).
   final List<String> fileNames;
 
   /// `true` nếu phải nhận diện bằng NỘI DUNG (tên file không thuộc bộ chuẩn).
   final bool resolvedByContent;
 
+  /// Dùng được ngay (đã có mã/embedding).
   bool get usable => refCodesPath != null || speakerEmbeddingPath != null;
+
+  /// Thư mục này là một giọng — dù phải mã hoá mẫu WAV trước khi đọc.
+  bool get isVoice => usable || samplePath != null;
 }
 
 Future<String?> _readTextHead(File file, int maxBytes) async {
@@ -216,9 +226,23 @@ Future<VieneuResolvedVoiceFiles> resolveVieneuVoiceFiles(
     }
   }
 
+  // 3) Mẫu WAV: giọng đóng gói dạng mẫu âm thanh (upstream: `<Tên>.pt` +
+  //    `<Tên>.txt` + `<Tên>.wav`). Engine mã hoá mẫu một lần rồi đọc.
+  String? samplePath;
+  for (final file in files) {
+    if (!isVieneuVoiceSampleFile(file.path)) continue;
+    try {
+      if (await file.length() > 1024) {
+        samplePath = file.path;
+        break;
+      }
+    } catch (_) {}
+  }
+
   return VieneuResolvedVoiceFiles(
     refCodesPath: refCodesPath,
     speakerEmbeddingPath: embeddingPath,
+    samplePath: samplePath,
     fileNames: List<String>.unmodifiable(names),
     resolvedByContent: byContent,
   );
@@ -229,13 +253,16 @@ Future<VieneuResolvedVoiceFiles> resolveVieneuVoiceFiles(
 /// Placeholder `# VieNeu-TTS default` (≈30 byte, toàn comment) KHÔNG tính —
 /// native `is_valid_voice_file()` cũng loại nó (PSRC-186/187).
 Future<bool> folderHasVieneuVoiceData(Directory folder) async =>
-    (await resolveVieneuVoiceFiles(folder)).usable;
+    (await resolveVieneuVoiceFiles(folder)).isVoice;
 
 /// Vì sao một thư mục giọng KHÔNG dùng được (dùng cho bảng chẩn đoán trong
 /// Cài đặt — người dùng thấy đúng lý do thay vì "giọng tôi import không hiện").
 enum VieneuVoiceFolderStatus {
-  /// Dùng được (có ref codes hoặc embedding hợp lệ).
+  /// Dùng được ngay (có ref codes hoặc embedding hợp lệ).
   usable,
+
+  /// Chỉ có mẫu WAV — engine mã hoá mẫu khi đọc lần đầu (chậm hơn ~1–3 s).
+  sampleOnly,
 
   /// Thư mục không có file nào.
   emptyFolder,
@@ -281,6 +308,8 @@ Future<List<VieneuVoiceFolderDiagnosis>> diagnoseVieneuVoiceFolders(
       VieneuVoiceFolderStatus status;
       if (resolved.usable) {
         status = VieneuVoiceFolderStatus.usable;
+      } else if (resolved.samplePath != null) {
+        status = VieneuVoiceFolderStatus.sampleOnly;
       } else if (resolved.fileNames.isEmpty) {
         status = VieneuVoiceFolderStatus.emptyFolder;
       } else if (await _folderHasAnyTextContent(entity)) {

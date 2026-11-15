@@ -132,15 +132,45 @@ void main() {
       expect(resolved.speakerEmbeddingPath, isNull);
     });
 
-    test('chỉ có mẫu WAV ⇒ KHÔNG coi là giọng đã mã hoá', () async {
+    test('chỉ có mẫu WAV ⇒ vẫn là GIỌNG, nhưng phải mã hoá trước khi đọc',
+        () async {
       final dir = Directory(p.join(tmp.path, 'chi_wav'));
       await dir.create(recursive: true);
       await File(p.join(dir.path, 'sample.wav'))
-          .writeAsBytes(List<int>.filled(1024, 0));
+          .writeAsBytes(List<int>.filled(4096, 0));
 
       final resolved = await resolveVieneuVoiceFiles(dir);
-      expect(resolved.usable, isFalse);
-      expect(resolved.fileNames, contains('sample.wav'));
+      expect(resolved.usable, isFalse, reason: 'Chưa có mã sẵn');
+      expect(resolved.samplePath, isNotNull);
+      expect(resolved.isVoice, isTrue, reason: 'Có mẫu ⇒ vẫn phải hiện ra');
+      expect(await folderHasVieneuVoiceData(dir), isTrue,
+          reason: 'Import phải nhận, nếu không giọng không bao giờ được copy');
+    });
+
+    test('gói giọng upstream: <Tên>.pt + <Tên>.txt + <Tên>.wav', () async {
+      // Đây đúng là dạng thư mục trong các gói/mirror của VieNeu-TTS: ba file
+      // KHÔNG có tên `ref_codes.txt` / `speaker.emb.txt`.
+      final dir = Directory(p.join(tmp.path, 'Bình (nam miền Bắc)'));
+      await dir.create(recursive: true);
+      await File(p.join(dir.path, 'Bình (nam miền Bắc).pt'))
+          .writeAsBytes(List<int>.filled(512, 7));
+      await File(p.join(dir.path, 'Bình (nam miền Bắc).txt'))
+          .writeAsString('Xin chào, tôi là Bình.');
+      await File(p.join(dir.path, 'Bình (nam miền Bắc).wav'))
+          .writeAsBytes(List<int>.filled(8192, 0));
+
+      final resolved = await resolveVieneuVoiceFiles(dir);
+      expect(resolved.isVoice, isTrue);
+      expect(resolved.samplePath, endsWith('.wav'));
+      expect(
+        p.basename(resolved.samplePath!),
+        'Bình (nam miền Bắc).wav',
+        reason: 'Tên file giữ nguyên — native nhận đường dẫn bất kỳ',
+      );
+
+      final report = await diagnoseVieneuVoiceFolders(tmp);
+      final entry = report.firstWhere((d) => d.name.startsWith('Bình'));
+      expect(entry.status, VieneuVoiceFolderStatus.sampleOnly);
     });
 
     test('placeholder comment ⇒ KHÔNG dùng được', () async {
@@ -161,6 +191,31 @@ void main() {
       final resolved = await resolveVieneuVoiceFiles(dir);
       expect(resolved.speakerEmbeddingPath, isNull);
       expect(resolved.usable, isFalse);
+    });
+  });
+
+  group('engine — giọng chỉ có mẫu WAV được mã hoá khi dùng', () {
+    final engine = File('lib/features/tts/engines/vieneu_tts_engine.dart')
+        .readAsStringSync()
+        .split('\n')
+        .where((line) => !line.trimLeft().startsWith('//'))
+        .join('\n');
+
+    test('selectVoice mã hoá mẫu trước khi nạp giọng', () {
+      expect(engine.contains('_materializeSample('), isTrue);
+      expect(
+        engine.contains('final files = await _materializeSample(_voiceIndex[voiceId]);'),
+        isTrue,
+        reason: 'Không mã hoá thì giọng wav-only sẽ đọc bằng giọng mặc định',
+      );
+    });
+
+    test('mã hoá dùng lại đường clone của native, không tự viết lại', () {
+      expect(engine.contains('_core.cloneVoice('), isTrue);
+      expect(engine.contains('encode_reference_only'), isFalse,
+          reason: 'Đó là việc của native, Dart không gọi thẳng');
+      expect(engine.contains('_encode_sample'), isTrue,
+          reason: 'Thư mục tạm phải có tiền tố _ để không bị quét thành giọng');
     });
   });
 

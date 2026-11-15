@@ -91,13 +91,27 @@ class _VoiceFiles {
   final String refCodesPath;
   final String? speakerEmbeddingPath;
 
+  /// Mẫu WAV của giọng (gói giọng upstream có `<Tên>.wav`): chưa có mã thì
+  /// engine mã hoá mẫu MỘT LẦN rồi ghi `ref_codes.txt` cạnh mẫu.
+  final String? samplePath;
+
   const _VoiceFiles({
     required this.id,
     required this.name,
     required this.origin,
     required this.refCodesPath,
     this.speakerEmbeddingPath,
+    this.samplePath,
   });
+
+  _VoiceFiles withRefCodes(String path) => _VoiceFiles(
+        id: id,
+        name: name,
+        origin: origin,
+        refCodesPath: path,
+        speakerEmbeddingPath: speakerEmbeddingPath,
+        samplePath: samplePath,
+      );
 }
 
 /// VieNeu-TTS v3 Turbo neural TTS chạy hoàn toàn on-device (CPU, audio.cpp
@@ -327,6 +341,7 @@ class VieneuTtsEngine implements TtsEngine {
         origin: origin,
         refCodesPath: resolved.refCodesPath ?? '',
         speakerEmbeddingPath: resolved.speakerEmbeddingPath,
+        samplePath: resolved.samplePath,
       );
     }
   }
@@ -567,6 +582,44 @@ class VieneuTtsEngine implements TtsEngine {
     }
   }
 
+  /// Mã hoá MẪU WAV của một giọng thành `ref_codes.txt` (một lần duy nhất).
+  ///
+  /// Gói giọng của upstream (và các mirror) đóng gói `<Tên>.pt` + `<Tên>.txt`
+  /// + `<Tên>.wav`. Ba file đó **không** phải `ref_codes.txt`, nên trước đây
+  /// thư mục bị coi là rỗng và giọng không hiện. Nay: nếu giọng chỉ có mẫu,
+  /// engine dùng CHÍNH đường `encode_reference_only` của tính năng tạo giọng
+  /// (native đã có) để sinh mã ngay tại `<thư mục giọng>/ref_codes.txt`, rồi
+  /// dùng như một giọng bình thường (lần sau không phải mã hoá lại).
+  Future<_VoiceFiles?> _materializeSample(_VoiceFiles? files) async {
+    if (files == null) return files;
+    if (files.refCodesPath.isNotEmpty) return files;
+    final sample = files.samplePath;
+    if (sample == null) return files;
+    if (!_core.isInitialized) return files;
+    final voiceDir = p.dirname(sample);
+    final tempDir = Directory(p.join(voiceDir, '_encode_sample'));
+    try {
+      await tempDir.create(recursive: true);
+      await File(sample).copy(p.join(tempDir.path, p.basename(sample)));
+      final out = await _core.cloneVoice(
+        voiceId: files.id,
+        samplesDir: tempDir.path,
+      );
+      final resolved = _voiceIndex[files.id];
+      if (resolved != null) _voiceIndex[files.id] = resolved.withRefCodes(out);
+      debugPrint('✅ VieNeu: đã mã hoá mẫu của giọng "${files.id}" → $out');
+      return _voiceIndex[files.id] ?? files.withRefCodes(out);
+    } catch (e) {
+      // Không chặn giọng khác: giọng này sẽ báo lỗi đúng lúc đọc.
+      debugPrint('⚠️ VieNeu: không mã hoá được mẫu của giọng "${files.id}": $e');
+      return files;
+    } finally {
+      try {
+        if (await tempDir.exists()) await tempDir.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+
   /// Đổi giọng đọc. Truyền đường dẫn file tuyệt đối đã quét được, kể cả
   /// giọng nằm ở `cloned_voices/` (PSRC-184/186).
   Future<void> selectVoice(String voiceId) async {
@@ -576,7 +629,7 @@ class VieneuTtsEngine implements TtsEngine {
     if (!_core.isInitialized) return;
     final root = await _voicesRoot();
     if (_voiceIndex.isEmpty) await getAvailableVoices('vi-VN');
-    final files = _voiceIndex[voiceId];
+    final files = await _materializeSample(_voiceIndex[voiceId]);
     try {
       await _core.selectVoice(
         voiceId,

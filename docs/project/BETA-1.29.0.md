@@ -272,6 +272,35 @@ Dart.
 loại nội dung, resolver với thư mục thật, 4 trạng thái chẩn đoán). Chưa kiểm
 máy thật.
 
+### 2.9 PSRC-171c (2026-11-12) — gói giọng của upstream (`<Tên>.pt` + `<Tên>.txt` + `<Tên>.wav`)
+
+**Bằng chứng từ máy owner** (hộp thoại "Vì sao giọng không hiện?"):
+`voices/` **0 thư mục**, `cloned_voices/123 — dùng được`, `sea_g2p.bin: có`.
+Nghĩa là: engine nạp được model, **giọng clone do app tạo đọc được** (mã hoá ref
+codes đã chạy), nhưng thư mục giọng của gói tải về **không được import**.
+
+**Nguyên nhân.** Gói giọng của upstream (`src/vieneu/assets/samples/` trong
+`pnnbao97/VieNeu-TTS`) gồm **ba** file: `<Tên>.pt` (mã + embedding), `<Tên>.txt`
+(lời mẫu), `<Tên>.wav` (âm thanh). Không file nào tên `ref_codes.txt` /
+`speaker.emb.txt` ⇒ §2.8 (nhận theo nội dung) vẫn không cứu được: `.pt` là
+pickle của torch, `.txt` là lời nói, `.wav` là âm thanh. Thư mục bị coi là
+"không có dữ liệu giọng" ⇒ import bỏ qua, `voices/` rỗng.
+
+**Sửa.** Thêm đường thứ ba: **giọng đóng gói dạng mẫu âm thanh**.
+
+| Thành phần | Thay đổi |
+|---|---|
+| `resolveVieneuVoiceFiles()` | trả thêm `samplePath` (file `.wav` > 1 KB) và `isVoice = usable \|\| samplePath != null`; `folderHasVieneuVoiceData()` dùng `isVoice` ⇒ **import copy được** thư mục giọng chỉ có mẫu |
+| `VieneuVoiceFolderStatus.sampleOnly` | bảng chẩn đoán hiện `🎙️ <tên> — chỉ có mẫu WAV, mã hoá khi đọc lần đầu`; `voices/` rỗng có thêm dòng gợi ý |
+| Engine | `_materializeSample()`: khi chọn giọng chưa có mã, copy mẫu vào `<thư mục giọng>/_encode_sample/` rồi gọi `_core.cloneVoice()` (chính đường `encode_reference_only` của PSRC-171) ⇒ sinh `<thư mục giọng>/ref_codes.txt`; lần sau dùng thẳng, không mã hoá lại. Lỗi mã hoá **không chặn** giọng khác |
+
+**Vì sao không đọc `.pt`:** `.pt` là pickle + zip của torch, audio.cpp không có
+đường đọc; trong khi `.wav` đi đúng đường native đã kiểm (giải WAV 9/10 định
+dạng, `encode_reference_only`) nên kết quả giống hệt giọng do người dùng tạo.
+
+**Chưa kiểm máy thật.** Cần owner cài APK mới, import lại thư mục `voices/`
+của gói, rồi chọn giọng mới (lần đọc đầu chậm thêm ~1–3 s để mã hoá mẫu).
+
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
 ```text
@@ -411,6 +440,13 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
 
 ## 8. Nhật ký (append-only)
 
+- 2026-11-12 | PSRC-171c | agent `arena/60e35d65-in4up` | hộp thoại chẩn đoán
+  trên máy owner cho thấy `voices/` **rỗng** còn `cloned_voices/123` dùng được:
+  gói giọng của upstream là `<Tên>.pt` + `<Tên>.txt` + `<Tên>.wav` nên cả nhận
+  theo tên lẫn theo nội dung đều trượt. Nay thư mục chỉ có mẫu WAV vẫn là một
+  giọng: import copy được, engine mã hoá mẫu **một lần** qua
+  `encode_reference_only`` → `ref_codes.txt`, rồi đọc bình thường. Xem §2.9.
+  Chưa kiểm máy thật.
 - 2026-11-12 | PSRC-171b | agent `arena/60e35d65-in4up` | "import giọng báo
   thành công mà giọng không hiện" (owner, mirror Hugging Face): khâu nhận diện
   chỉ dò đúng 3 tên file của gói gốc ⇒ thư mục giọng đặt tên khác bị bỏ qua. Nay

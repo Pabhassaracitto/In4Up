@@ -2512,6 +2512,8 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       switch (d.status) {
         case VieneuVoiceFolderStatus.usable:
           return '✅ ${d.name} — dùng được${d.resolvedByContent ? ' (nhận theo nội dung)' : ''}';
+        case VieneuVoiceFolderStatus.sampleOnly:
+          return '🎙️ ${d.name} — chỉ có mẫu WAV, mã hoá khi đọc lần đầu';
         case VieneuVoiceFolderStatus.emptyFolder:
           return '⚠️ ${d.name} — thư mục rỗng';
         case VieneuVoiceFolderStatus.noDataFile:
@@ -2528,6 +2530,8 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       '',
       'voices/ (${diag.preset.length} thư mục)',
       if (!diag.presetsDirExists) '  (chưa có thư mục voices/)',
+      if (diag.presetsDirExists && diag.preset.isEmpty)
+        '  (rỗng — thư mục giọng chưa được copy vào; dùng "Nhập giọng")',
       ...diag.preset.map((d) => '  ${verdictLine(d)}'),
       '',
       'cloned_voices/ (${diag.cloned.length} thư mục)',

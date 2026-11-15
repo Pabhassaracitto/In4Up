@@ -1002,6 +1002,16 @@ jobs:
               | head -100 | while IFS= read -r line; do
               echo "::error title=Read action test fail::$line"
             done
+            # Test hỏng vì NÉM lỗi (exception, không nạp được file, quá giờ)
+            # không có dòng 'Expected:' ⇒ ở trên không ghi gì. Gom tên test
+            # hỏng + vài dòng lỗi đầu vào MỘT annotation (mỗi step chỉ hiện
+            # được 10 annotation lỗi).
+            summary=$(grep -nE -A14 '\[E\]$|Failed to load|Some tests failed' \
+              read_act_test.log | head -150 \
+              | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            if [ -n "$summary" ]; then
+              echo "::error title=Read action test fail (tóm tắt)::$summary"
+            fi
           fi
           exit $code
 

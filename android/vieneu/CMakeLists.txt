@@ -44,16 +44,23 @@ if(NOT EXISTS "${AUDIOCPP_ROOT}/CMakeLists.txt")
     return()
 endif()
 
-# ── Cấu hình audio.cpp: chỉ C API, chỉ CPU ──────────────────────────────────
+# ── Cấu hình audio.cpp: chỉ C API, chỉ model VieNeu v3 Turbo, chỉ CPU ───────
 #
-# PSRC-171: bản trước đặt `AUDIOCPP_MODEL_SET=custom` + `AUDIOCPP_MODELS=…`
-# nhưng hai option đó **không tồn tại** trong audio.cpp v0.9.4 ⇒ chúng là no-op
-# và libaudiocpp.so ra đời KHÔNG có model spec nào (`builtin_model_specs()`
-# rỗng vì `AUDIOCPP_DEPLOYMENT_BUILD` mặc định OFF). Kết quả: mọi lần nạp
-# model đều chết ở "model spec not found for family 'vietneu_tts'".
-# Cách sửa: nhúng đúng file spec của family này vào wrapper (xem khối
-# "MODEL SPEC" bên dưới) rồi truyền qua `model_spec_override`.
+# `AUDIOCPP_MODEL_SET=custom` + `AUDIOCPP_MODELS` chọn NHỮNG MODEL ĐƯỢC BIÊN
+# DỊCH (CMakeLists.txt L425-427, L2878+). Bỏ hai dòng này ⇒ `full` ⇒ mọi
+# community model đều vào build, kể cả model dùng API không có trên NDK
+# (`latentsync/video.cpp`: `posix_spawn_file_actions_init` undeclared) ⇒
+# `:vieneu:buildCMakeDebug` đỏ. Chúng KHÔNG liên quan tới model spec.
+#
+# PSRC-171: model spec là chuyện KHÁC — `builtin_model_specs()` chỉ có entry
+# khi `AUDIOCPP_DEPLOYMENT_BUILD=ON` (mặc định OFF, L64-67) nên libaudiocpp.so
+# ra đời không có spec nào và mọi lần nạp model chết ở
+# "model spec not found for family 'vietneu_tts'". Cách sửa: nhúng đúng file
+# spec của family này vào wrapper (khối "MODEL SPEC" bên dưới) rồi truyền qua
+# `model_spec_override`.
 set(AUDIOCPP_BUILD_C_API         ON   CACHE BOOL "" FORCE)
+set(AUDIOCPP_MODEL_SET           custom CACHE STRING "" FORCE)
+set(AUDIOCPP_MODELS              "vieneu_v3_turbo" CACHE STRING "" FORCE)
 set(AUDIOCPP_BUILD_NATIVE_MODEL_MANAGER OFF CACHE BOOL "" FORCE)
 
 set(ENGINE_ENABLE_CUDA           OFF  CACHE BOOL "" FORCE)

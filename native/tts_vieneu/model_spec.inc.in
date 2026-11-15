@@ -1,0 +1,39 @@
+// native/tts_vieneu/model_spec.inc.in
+//
+// PSRC-171 — mẫu sinh `vieneu_model_spec.inc` (CMake `configure_file`).
+//
+// Vì sao phải nhúng spec vào chính libvieneu_tts.so thay vì đọc file lúc chạy:
+//   * audio.cpp v0.9.4 (tag `717efc34`) chỉ nhúng `model_specs/*.json` vào
+//     libaudiocpp.so khi `AUDIOCPP_DEPLOYMENT_BUILD=ON` — mặc định OFF. Bản
+//     Android của in4up build với mặc định ⇒ `builtin_model_specs()` RỖNG.
+//   * Các option `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` mà bản 1.28 truyền
+//     vào **không tồn tại** trong v0.9.4 ⇒ không có gì cung cấp spec.
+//   * Hệ quả: `audiocpp_model_load()` ném
+//     `model spec not found for family 'vietneu_tts'` trên MỌI bản cài, kể cả
+//     khi người dùng đã import đúng `vieneu-v3-turbo-q8_0.gguf` (~188 MB) —
+//     đúng triệu chứng PSRC-171 ("Không thể tạo giọng" mãi không hết).
+//   * File spec KHÔNG nằm trong APK (140 file / 1,3 MB): chỉ file của đúng
+//     family này (12 279 B) được nhúng, và chỉ khi audio.cpp cần (lần nạp
+//     đầu thất bại vì thiếu spec) wrapper mới ghi nó ra cạnh model rồi nạp
+//     lại với `model_spec_override`.
+//
+// Hai biến CMake được thay ở đây (tên biến KHÔNG được viết lại trong comment
+// này — configure_file thay cả chỗ đó): bật/tắt nhúng, và nội dung file
+// third_party/audio.cpp/model_specs/vieneu_v3_turbo.json (submodule đã ghim
+// theo tag v0.9.4 trong .gitmodules ⇒ spec và engine luôn cùng phiên bản).
+// Nội dung là raw string: JSON có dấu nháy kép nhưng không có chuỗi kết thúc
+// raw string dùng dưới đây.
+#ifndef IN4UP_VIENEU_MODEL_SPEC_INC_
+#define IN4UP_VIENEU_MODEL_SPEC_INC_
+
+namespace in4up_vieneu_spec {
+
+/// Spec có được nhúng vào lib hay không (CMake không thấy file json ⇒ false).
+constexpr bool kEmbedded = @AUDIOCPP_V3_TURBO_SPEC_EMBEDDED@;
+
+/// Nội dung `model_specs/vieneu_v3_turbo.json` của audio.cpp đã ghim.
+constexpr const char * kJson = R"in4up_spec(@AUDIOCPP_V3_TURBO_SPEC_JSON@)in4up_spec";
+
+}  // namespace in4up_vieneu_spec
+
+#endif  // IN4UP_VIENEU_MODEL_SPEC_INC_

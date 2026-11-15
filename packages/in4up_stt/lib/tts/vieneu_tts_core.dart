@@ -432,14 +432,17 @@ class VieneuTtsCore {
     );
   }
 
-  /// TTS-CLONE-001 — Clone giọng nói từ các file mẫu WAV.
+  /// TTS-CLONE-001 / PSRC-171 — Tạo giọng đọc từ các file mẫu WAV.
   ///
-  /// [voiceId] — mã giọng mới (tên thư mục trong voices/).
-  /// [samplesDir] — thư mục chứa các file WAV mẫu (30–60 giây tổng cộng).
+  /// [voiceId] — mã giọng mới (tên thư mục trong `cloned_voices/`).
+  /// [samplesDir] — thư mục chứa các file WAV mẫu (app ghi 16 kHz mono; mẫu
+  /// import có thể là 44,1/48 kHz — native tự trộn kênh và audio.cpp tự
+  /// resample).
   ///
-  /// Trả về đường dẫn file speaker.emb.txt đã tạo, hoặc ném exception nếu
-  /// thất bại. Sau khi clone thành công, giọng mới sẽ xuất hiện trong
-  /// [getAvailableVoices] và có thể chọn qua [selectVoice].
+  /// Trả về đường dẫn **`ref_codes.txt`** đã tạo, hoặc ném exception nếu thất
+  /// bại. PSRC-171: trước 1.29 native ghi `speaker.emb.txt` gồm 256 số 0
+  /// (placeholder) và vẫn trả THÀNH CÔNG ⇒ "giọng" tạo ra không đọc được.
+  /// Nay native mã hoá chính bản ghi âm thành reference codes của model.
   Future<String> cloneVoice({
     required String voiceId,
     required String samplesDir,
@@ -449,28 +452,27 @@ class VieneuTtsCore {
       throw StateError('VieNeu worker chưa khởi tạo');
     }
 
-    // samplesDir = <cloned_voices>/<voiceId>/samples ⇒ embedding nằm cùng
-    // thư mục giọng: <cloned_voices>/<voiceId>/speaker.emb.txt. Bản cũ dùng
+    // samplesDir = <cloned_voices>/<voiceId>/samples ⇒ ref codes nằm cùng
+    // thư mục giọng: <cloned_voices>/<voiceId>/ref_codes.txt. Bản cũ dùng
     // `..` + voiceId khiến native tạo thư mục lồng <voiceId>/<voiceId> và
-    // embedding không khớp nơi UI tìm (PSRC-184).
-    final outputEmbedding =
-        p.join(p.dirname(samplesDir), 'speaker.emb.txt');
+    // file không khớp nơi UI tìm (PSRC-184).
+    final outputRefCodes = p.join(p.dirname(samplesDir), 'ref_codes.txt');
     final response = await _call(
       {
         'cmd': 'clone_voice',
         'voiceId': voiceId,
         'samplesDir': samplesDir,
-        'outputEmbedding': outputEmbedding,
+        'outputRefCodes': outputRefCodes,
       },
       timeout: const Duration(minutes: 2),
     );
 
     if (response['ok'] != true) {
       throw StateError(
-          'VieNeu-TTS clone thất bại: ${response['error'] ?? 'lỗi không xác định'}');
+          'VieNeu-TTS tạo giọng thất bại: ${response['error'] ?? 'lỗi không xác định'}');
     }
 
-    return response['embeddingPath'] as String? ?? outputEmbedding;
+    return response['refCodesPath'] as String? ?? outputRefCodes;
   }
 
   /// Giải phóng worker isolate + native handle.
@@ -725,18 +727,22 @@ void vieneuTtsWorkerEntry(List<SendPort> ports) {
           }
           final voiceId = msg?['voiceId'] as String?;
           final samplesDir = msg?['samplesDir'] as String?;
-          final outputEmbedding = msg?['outputEmbedding'] as String?;
+          final outputRefCodes = msg?['outputRefCodes'] as String?;
           if (voiceId == null || voiceId.isEmpty ||
               samplesDir == null || samplesDir.isEmpty ||
-              outputEmbedding == null || outputEmbedding.isEmpty) {
+              outputRefCodes == null || outputRefCodes.isEmpty) {
             _reply(_respond(
-                ok: false, error: 'Thiếu tham số clone giọng', seq: seq));
+                ok: false, error: 'Thiếu tham số tạo giọng', seq: seq));
             break;
           }
+          // PSRC-171: native cần CHÍNH handle đã nạp model — bộ mã hoá giọng
+          // nằm trong model (bản cũ chỉ ghi một file placeholder nên không
+          // cần handle và không hề mã hoá gì).
           final status = _native!.cloneVoice(
+            _handle!,
             voiceId,
             samplesDir,
-            outputEmbedding,
+            outputRefCodes,
           );
           if (status != 0) {
             _reply(_respond(
@@ -745,7 +751,7 @@ void vieneuTtsWorkerEntry(List<SendPort> ports) {
             _reply(_respond(
               ok: true,
               seq: seq,
-              extra: {'embeddingPath': outputEmbedding, 'voiceId': voiceId},
+              extra: {'refCodesPath': outputRefCodes, 'voiceId': voiceId},
             ));
           }
           break;
@@ -938,12 +944,13 @@ class _VieneuTtsNative {
   void freeAudio(Pointer<Float> samples) => _freeAudio(samples);
   void destroy(Pointer<Void> handle) => _destroy(handle);
 
-  int cloneVoice(String voiceId, String samplesDir, String outputEmbedding) {
+  int cloneVoice(Pointer<Void> handle, String voiceId, String samplesDir,
+      String outputRefCodes) {
     final vid = voiceId.toNativeUtf8();
     final sd = samplesDir.toNativeUtf8();
-    final oe = outputEmbedding.toNativeUtf8();
+    final oe = outputRefCodes.toNativeUtf8();
     try {
-      return _cloneVoice(vid, sd, oe);
+      return _cloneVoice(handle, vid, sd, oe);
     } finally {
       calloc.free(vid.cast<Void>());
       calloc.free(sd.cast<Void>());
@@ -987,10 +994,12 @@ typedef _LastErrorNative = Pointer<Utf8> Function();
 typedef _LastError = Pointer<Utf8> Function();
 
 typedef _CloneVoiceNative = Int32 Function(
+    Pointer<Void>,  // handle (engine đã nạp model)
     Pointer<Utf8>,  // voice_id
     Pointer<Utf8>,  // samples_dir
-    Pointer<Utf8>); // output_embedding
+    Pointer<Utf8>); // output_ref_codes
 typedef _CloneVoice = int Function(
+    Pointer<Void>,  // handle
     Pointer<Utf8>,  // voice_id
     Pointer<Utf8>,  // samples_dir
-    Pointer<Utf8>); // output_embedding
+    Pointer<Utf8>); // output_ref_codes

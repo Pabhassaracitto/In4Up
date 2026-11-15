@@ -1,18 +1,22 @@
 // lib/features/tts/widgets/voice_clone_section.dart
 //
-// TTS-CLONE-001 — Giao diện clone giọng VieNeu-TTS từ mẫu âm thanh.
-// Cho phép người dùng thu âm mẫu giọng, tạo speaker embedding, và chọn
-// giọng đã clone để đọc TTS.
+// TTS-CLONE-001 / PSRC-171 — Giao diện tạo giọng VieNeu-TTS từ mẫu âm thanh.
+// Cho phép người dùng thu âm mẫu giọng, tạo **ref codes** (mã hoá giọng của
+// chính model), và chọn giọng đó để đọc TTS.
 //
 // Quy trình:
 //   1. Nhập tên giọng mới (ví dụ: "Giọng tôi").
-//   2. Thu âm 3–5 câu mẫu (tổng cộng 30–60 giây).
-//   3. Bấm "Tạo giọng" → sinh speaker.emb.txt qua native encoder.
-//   4. Giọng mới xuất hiện trong dropdown giọng VieNeu-TTS.
+//   2. Thu âm 3–5 câu mẫu (tổng cộng 30–60 giây; native dùng tối đa 8 giây
+//      đầu — đó là trần của model).
+//   3. Bấm "Tạo giọng" → native mã hoá mẫu thành `ref_codes.txt`
+//      (`encode_reference_only` của audio.cpp) bằng chính bộ mã hoá trong
+//      model, nên giọng đọc ra đúng giọng người dùng.
+//   4. Giọng mới xuất hiện trong danh sách/giọng VieNeu-TTS và sống qua lần
+//      mở app sau.
 //
-// Lưu ý: VieNeu-TTS v3 Turbo dùng x-vector 256 chiều. Nếu chưa có encoder
-// native (libspeaker_encoder.so), embedding sẽ là placeholder — giọng sẽ
-// nghe giống giọng mặc định embed trong GGUF.
+// PSRC-171: bản trước KHÔNG mã hoá gì — nó ghi `speaker.emb.txt` 256 số 0 và
+// vẫn báo thành công, còn audio.cpp thì từ chối file embedding đó ("must
+// contain exactly 192 float values") ⇒ "Không thể tạo giọng" mãi không hết.
 
 import 'dart:async';
 import 'dart:io';
@@ -28,7 +32,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
-import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import '../tts_service.dart';
@@ -46,13 +49,12 @@ enum _CloneNotice {
   needName,
   needSample,
   importedSamples,
+
+  /// Đã tạo `ref_codes.txt` từ mẫu — giọng dùng được ngay (PSRC-171).
   success,
 
-  /// Tạo xong nhưng embedding là PLACEHOLDER (native chưa có speaker encoder)
-  /// — phải nói thật thay vì "Đã tạo giọng" rồi giọng đọc ra giọng mặc định.
-  successPlaceholder,
-
-  /// Engine chưa nạp được (thiếu model / native / sea_g2p.bin) — PSRC-218.
+  /// Engine chưa nạp được (thiếu model / native / sea_g2p.bin / model spec)
+  /// — PSRC-218 + PSRC-171.
   notReady,
   failed,
 }
@@ -189,7 +191,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       final voiceId = p.basename(entity.path);
       // `_temp_samples` là vùng chứa mẫu CHƯA tạo giọng — không phải giọng.
       if (voiceId.startsWith('_') || voiceId == vieneuTempSamplesDirName) continue;
-      final embFile = File(p.join(entity.path, 'speaker.emb.txt'));
+      final refCodesFile = File(p.join(entity.path, 'ref_codes.txt'));
       final samplesDir = Directory(p.join(entity.path, 'samples'));
       final sampleCount =
           await samplesDir.exists()
@@ -197,7 +199,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
               : 0;
       voices.add(_ClonedVoice(
         id: voiceId,
-        embeddingPath: await embFile.exists() ? embFile.path : null,
+        refCodesPath: await refCodesFile.exists() ? refCodesFile.path : null,
         sampleCount: sampleCount,
         createdAt: await entity.stat().then((s) => s.modified),
       ));
@@ -440,17 +442,16 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       // mang ĐÚNG lý do (chưa có model / thiếu lib native / thiếu sea_g2p.bin)
       // thay vì StateError chung chung như trước.
       await TtsService().ensureVieneuWorkerReady();
-      final embeddingPath = await _ttsCore.cloneVoice(
+      // PSRC-171: native mã hoá chính bản ghi âm thành reference codes của
+      // model (encode_reference_only) và trả đường dẫn `ref_codes.txt`. Không
+      // còn embedding placeholder, nên không còn nhánh "đã tạo giọng nhưng
+      // bằng embedding tạm".
+      final refCodesPath = await _ttsCore.cloneVoice(
         voiceId: voiceId,
         samplesDir: samplesDir,
       );
 
-      // PSRC-218: native vẫn trả THÀNH CÔNG khi chưa có speaker encoder, và
-      // khi đó embedding là 256 số 0 ⇒ giọng đọc ra gần giọng mặc định. Đọc
-      // file để biết có phải placeholder rồi nói đúng sự thật.
-      final placeholder = await isPlaceholderVieneuEmbedding(embeddingPath);
-
-      // Chỉ dọn vùng tạm SAU KHI đã có embedding; thất bại ở trên giữ nguyên
+      // Chỉ dọn vùng tạm SAU KHI đã có ref codes; thất bại ở trên giữ nguyên
       // mẫu để người dùng bấm lại mà không phải thu âm lại.
       await _clearTempSamples();
       // Giọng mới dùng được NGAY và sống qua lần mở app sau: ghi lựa chọn vào
@@ -466,7 +467,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
           voiceId,
           p.join(p.dirname(_clonedVoicesDir), 'voices'),
           clonedVoicesDir: _clonedVoicesDir,
-          speakerEmbeddingFile: embeddingPath,
+          refCodesFile: refCodesPath,
         );
       } catch (e) {
         debugPrint('Voice clone: engine chưa áp giọng mới ngay: $e');
@@ -476,9 +477,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       if (!mounted) return;
       setState(() {
         _isCloning = false;
-        _cloneNotice = placeholder
-            ? _CloneNotice.successPlaceholder
-            : _CloneNotice.success;
+        _cloneNotice = _CloneNotice.success;
         _cloneNoticeDetail = voiceId;
         _cloneErrorDetail = null;
         _newVoiceId = '';
@@ -539,13 +538,10 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       _CloneNotice.importedSamples => context.uiText(
           'Đã import ${_cloneNoticeDetail ?? '0'} mẫu WAV'),
       _CloneNotice.success => l10n.ttsCloneVoiceSuccess(_cloneNoticeDetail ?? ''),
-      // PSRC-218: native chưa có speaker encoder ⇒ embedding là placeholder.
-      // Nói thật để người dùng không tưởng đã clone được giọng của mình.
-      _CloneNotice.successPlaceholder => context
-          .uiText('Đã tạo giọng {value0} nhưng bằng embedding tạm '
-              '(chưa có bộ mã hoá giọng) — giọng đọc gần giọng mặc định')
-          .replaceAll('{value0}', _cloneNoticeDetail ?? ''),
-      // PSRC-218: engine chưa nạp được — nêu đúng mảnh còn thiếu.
+      // PSRC-218 + PSRC-171: engine chưa nạp được — nêu đúng mảnh còn thiếu
+      // (chưa có model / thiếu lib native / thiếu sea_g2p.bin / thiếu model
+      // spec / dữ liệu giọng hỏng), không gộp thành "kiểm tra mô hình TTS và
+      // mẫu thu âm".
       _CloneNotice.notReady => context
           .uiText('Không thể tạo giọng: {value0}')
           .replaceAll('{value0}', context.uiText(_cloneNoticeDetail ?? '')),
@@ -556,9 +552,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
               .replaceAll('{value0}', _cloneErrorDetail!),
     };
     final cloneIsError = _cloneNotice != _CloneNotice.success &&
-        _cloneNotice != _CloneNotice.successPlaceholder &&
         _cloneNotice != _CloneNotice.importedSamples;
-    final cloneIsWarning = _cloneNotice == _CloneNotice.successPlaceholder;
     final sampleStatus = _isRecording
         ? l10n.ttsCloneVoiceRecording
         : _currentRecordingPath != null
@@ -742,32 +736,20 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: (cloneIsError
-                        ? Colors.red
-                        : (cloneIsWarning ? Colors.amber : Colors.green))
+                color: (cloneIsError ? Colors.red : Colors.green)
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (cloneIsError
-                          ? Colors.red
-                          : (cloneIsWarning ? Colors.amber : Colors.green))
+                  color: (cloneIsError ? Colors.red : Colors.green)
                       .withValues(alpha: 0.35),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    cloneIsError
-                        ? Icons.error
-                        : (cloneIsWarning
-                            ? Icons.info_outline
-                            : Icons.check_circle),
+                    cloneIsError ? Icons.error : Icons.check_circle,
                     size: 14,
-                    color: cloneIsError
-                        ? Colors.red[300]
-                        : (cloneIsWarning
-                            ? Colors.amber[300]
-                            : Colors.green[300]),
+                    color: cloneIsError ? Colors.red[300] : Colors.green[300],
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -778,9 +760,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                         fontSize: 10,
                         color: cloneIsError
                             ? Colors.red[200]
-                            : (cloneIsWarning
-                                ? Colors.amber[200]
-                                : Colors.green[200]),
+                            : Colors.green[200],
                       ),
                     ),
                   ),
@@ -836,13 +816,16 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 /// Thông tin một giọng đã clone.
 class _ClonedVoice {
   final String id;
-  final String? embeddingPath;
+
+  /// `cloned_voices/<id>/ref_codes.txt` — dữ liệu giọng do native mã hoá
+  /// (PSRC-171; trước 1.29 là `speaker.emb.txt` placeholder).
+  final String? refCodesPath;
   final int sampleCount;
   final DateTime createdAt;
 
   _ClonedVoice({
     required this.id,
-    required this.embeddingPath,
+    required this.refCodesPath,
     required this.sampleCount,
     required this.createdAt,
   });
@@ -863,7 +846,10 @@ class _ClonedVoiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final embeddingStatus = voice.embeddingPath != null
+    // PSRC-171: dữ liệu giọng là `ref_codes.txt` (mã hoá thật), không còn là
+    // `speaker.emb.txt` placeholder. Giọng cũ tạo bằng bản 1.28 không có ref
+    // codes ⇒ hiện trạng thái "chưa có dữ liệu giọng" để người dùng tạo lại.
+    final embeddingStatus = voice.refCodesPath != null
         ? l10n.ttsCloneVoiceHasEmbedding
         : l10n.ttsCloneVoiceNoEmbedding;
     return Container(

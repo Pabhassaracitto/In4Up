@@ -130,37 +130,6 @@ Future<List<Directory>> findVieneuVoiceFolders(Directory source) async {
   return found;
 }
 
-/// Embedding do `vieneu_tts_clone_voice` tạo có phải PLACEHOLDER toàn số 0?
-///
-/// Native hiện chỉ ghi embedding thật khi có `libspeaker_encoder.so`; thiếu
-/// encoder thì nó ghi 256 số 0 và vẫn trả THÀNH CÔNG. Trước 1.29 UI hiện
-/// "Đã tạo giọng" ⇒ người dùng tưởng đã clone được giọng mình (PSRC-218).
-/// Hàm này để UI nói đúng: giọng tạo ra nhưng đang dùng embedding tạm.
-Future<bool> isPlaceholderVieneuEmbedding(String path) async {
-  try {
-    final file = File(path);
-    if (!await file.exists()) return false;
-    final text = await file.readAsString();
-    final lines = text
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty && !line.startsWith('#'))
-        .toList();
-    if (lines.length < 2) return true;
-    final values = lines[1].split(RegExp(r'\s+'));
-    if (values.isEmpty) return true;
-    for (final value in values) {
-      final parsed = double.tryParse(value);
-      if (parsed == null) return false;
-      if (parsed.abs() > 1e-6) return false;
-    }
-    return true;
-  } catch (_) {
-    // Không đọc được ⇒ không kết luận (UI giữ câu thành công trung tính).
-    return false;
-  }
-}
-
 /// Đếm số file WAV trong [folder] (0 nếu không có/không đọc được).
 Future<int> countVieneuWavSamples(Directory folder) async {
   if (!await folder.exists()) return 0;

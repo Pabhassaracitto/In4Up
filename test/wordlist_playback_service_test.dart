@@ -43,6 +43,38 @@ void main() {
     service.dispose();
   });
 
+  test(
+    'play all waits for audio completion before starting the next word',
+    () async {
+      final firstAudioDone = Completer<void>();
+      final firstWaitStarted = Completer<void>();
+      final calls = <String>[];
+      var waitCount = 0;
+      final service = WordlistPlaybackService.test(
+        speak: (text, lang) async => calls.add(text),
+        stop: () async {},
+        waitForCompletion: () {
+          waitCount++;
+          if (waitCount == 1) {
+            firstWaitStarted.complete();
+            return firstAudioDone.future;
+          }
+          return Future.value();
+        },
+      );
+      await service.updateReadSettings(_settings);
+
+      final playback = service.playAll([_word('dog', ''), _word('cat', '')]);
+      await firstWaitStarted.future;
+      expect(calls, ['dog']);
+
+      firstAudioDone.complete();
+      await playback;
+      expect(calls, ['dog', 'cat']);
+      service.dispose();
+    },
+  );
+
   test('meaning first, auto detection and missing meaning', () async {
     final calls = <String>[];
     final service = WordlistPlaybackService.test(

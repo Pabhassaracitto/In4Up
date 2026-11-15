@@ -41,8 +41,6 @@ import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
-enum ReadSubMode { reading, listening, translation, driving }
-
 enum TtsPlaybackOwner {
   none,
   allLines, // Play toàn bộ / song ngữ tuần tự
@@ -213,7 +211,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool _showWordTypes = false;
   bool _showLineNumbers = true;
   bool _useAutoSplit = true; // Mặc định bật tách dòng thông minh
-  ReadSubMode _subMode = ReadSubMode.reading;
   // READ-ALIGN-001 (owner 2026-10-25): mặc định CĂN GIỮA. Trước đây mặc định
   // trái và lựa chọn còn KHÔNG được lưu (xem `_restoreFromStorage`), nên mở
   // app lại là mất. Nay: mặc định giữa + lưu bền theo phiên bản đọc.
@@ -335,7 +332,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     notifyListeners();
   }
   bool get useAutoSplit => _useAutoSplit;
-  ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;
 
   // ==================== CONSTRUCTOR ====================
@@ -1845,11 +1841,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void toggleLineNumbers() {
     _showLineNumbers = !_showLineNumbers;
-    notifyListeners();
-  }
-
-  void setSubMode(ReadSubMode mode) {
-    _subMode = mode;
     notifyListeners();
   }
 

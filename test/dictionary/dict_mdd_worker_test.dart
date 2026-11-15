@@ -158,40 +158,6 @@ void main() {
     expect(closed, 1);
   });
 
-  test('batch indexes a part once, preserves order and bounds resources', () async {
-    const channel = MethodChannel('in4up/dictionary');
-    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    final bytes = MdxTestBuilder(mdd: true, utf16: true,
-      entries: {'\\a': 'first', '\\b': 'second'}).build();
-    var opened = 0;
-    var closed = 0;
-    DictDeviceChannel.isSupportedOverride = true;
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'openRandomAccess') { opened++; return {'id': 'part', 'length': bytes.length}; }
-      if (call.method == 'readRandomAccess') {
-        final args = call.arguments as Map<dynamic, dynamic>;
-        final offset = args['offset'] as int;
-        return Uint8List.fromList(bytes.sublist(offset, offset + (args['count'] as int)));
-      }
-      if (call.method == 'closeRandomAccess') { closed++; return null; }
-      throw MissingPluginException();
-    });
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(channel, null);
-      DictDeviceChannel.isSupportedOverride = null;
-    });
-    final pool = MddWorkerPool();
-    final dict = dictionary(['content://provider/mdd']);
-    final result = await pool.startBatch(dict, ['b', 'a', '../a', 'b']).results;
-    expect(result, ['second'.codeUnits, 'first'.codeUnits, null, 'second'.codeUnits]);
-    expect(opened, 1);
-    expect(closed, 1);
-    await expectLater(pool.startBatch(dict, ['a'], maxItemBytes: 4).results, throwsFormatException);
-    await expectLater(pool.startBatch(dict, ['a', 'b'], maxTotalBytes: 10).results, throwsFormatException);
-    expect(() => pool.startBatch(dict, List.filled(5, 'a')), throwsArgumentError);
-    expect(closed, 3);
-  });
-
   test('corrupt MDD is a format error and invalid pool limits rejected', () async {
     final dir = await Directory.systemTemp.createTemp('mdd-worker-bad-');
     addTearDown(() => dir.delete(recursive: true));

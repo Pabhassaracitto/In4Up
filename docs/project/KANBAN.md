@@ -10145,3 +10145,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     AppBar gate FutureBuilder + 10 key ARB. Test thuần: gate theo uid (5) +
     state machine (5).
 
+  - 2026-11-09 | doing→doing | agent arena/e15b13fa-in4up | worker MDD và huỷ có đóng nguồn theo ADR-0031, test synthetic/mock; chờ CI và QA thiết bị, chưa media UI.

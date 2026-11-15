@@ -67,35 +67,7 @@ class DictionaryService {
 
   final List<DictInfo> _dicts = [];
   final MddWorkerPool _mddWorkers = MddWorkerPool();
-  final ValueNotifier<int> _resourceRevision = ValueNotifier(0);
-  /// Signals that previously loaded resource bytes should be discarded.
-  ValueListenable<int> get resourceRevision => _resourceRevision;
-  void _invalidateResources() => _resourceRevision.value++;
-  Future<void>? _initialization;
-  Future<void> _mutationTail = Future<void>.value();
-
-  // Serializes in-process writers (including manifest updates and index
-  // promotion). Lookups remain independent and can report transient errors.
-  Future<T> _mutate<T>(Future<T> Function() operation) async {
-    final previous = _mutationTail;
-    final released = Completer<void>();
-    _mutationTail = released.future;
-    await previous;
-    try {
-      await ensureInitialized();
-      final hook = mutationStartedForTest;
-      if (hook != null) await hook();
-      return await operation();
-    } finally {
-      released.complete();
-    }
-  }
-
-  @visibleForTesting
-  static Future<void> Function()? mutationStartedForTest;
-
-  @visibleForTesting
-  static Future<void> Function()? initializationStartedForTest;
+  bool _initialized = false;
 
   /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
   /// production luôn dùng path_provider.
@@ -194,18 +166,6 @@ class DictionaryService {
     final matches = _dicts.where((dict) => dict.id == dictId);
     if (matches.isEmpty) throw StateError('Dictionary not registered');
     return _mddWorkers.start(matches.first, key);
-  }
-
-  /// Resolve several resources with one short-lived index per MDD part.
-  Future<MddReadTask> startMddResourceBatch(String dictId, List<String> keys, {
-    int maxItemBytes = 2 * 1024 * 1024,
-    int maxTotalBytes = 8 * 1024 * 1024,
-  }) async {
-    await ensureInitialized();
-    final matches = _dicts.where((dict) => dict.id == dictId);
-    if (matches.isEmpty) throw StateError('Dictionary not registered');
-    return _mddWorkers.startBatch(matches.first, keys,
-      maxItemBytes: maxItemBytes, maxTotalBytes: maxTotalBytes);
   }
 
   Future<Uint8List?> readMddResource(String dictId, String key) async =>

@@ -1019,6 +1019,7 @@ jobs:
                    test/read_mode/psrc_236_read_settings_groups_test.dart \
                    test/read_mode/psrc_237_role_swap_test.dart \
                    test/read_mode/psrc_238_source_language_test.dart \
+                   test/read_mode/psrc_239_display_controls_convention_test.dart \
                    test/translation_source_language_test.dart \
                    test/read_chrome_layout_test.dart \
                    test/safe_haptics_test.dart \

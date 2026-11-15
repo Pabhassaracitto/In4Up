@@ -1638,6 +1638,12 @@ jobs:
           if [ -f test/tts/psrc171_voice_creation_test.dart ]; then
             files="$files test/tts/psrc171_voice_creation_test.dart"
           fi
+          # PSRC-171 (bổ sung): "import giọng báo thành công mà giọng không
+          # hiện" — nhận diện file giọng theo NỘI DUNG (mirror cộng đồng đặt
+          # tên khác) + bảng chẩn đoán lý do từng thư mục bị bỏ qua.
+          if [ -f test/tts/psrc171b_voice_disk_discovery_test.dart ]; then
+            files="$files test/tts/psrc171b_voice_disk_discovery_test.dart"
+          fi
           flutter test $files \
             > vieneu_psrc_test.log 2>&1
           code=$?

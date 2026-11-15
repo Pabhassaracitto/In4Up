@@ -234,6 +234,44 @@ có chunk `LIST`, file cắt cụt, file không phải WAV).
 `noNativeLibrary` (không còn câu chung), nhưng muốn "tạo giọng" chạy trên Linux thì cần một dự án
 build desktop cho audio.cpp — việc riêng, chưa làm ở đây.
 
+### 2.8 PSRC-171b (2026-11-12) — "import giọng thành công mà giọng không hiện"
+
+**Triệu chứng (owner, bản Beta cũ):** dùng bản sao gói VieNeu-TTS từ một mirror
+Hugging Face (`.../turbo/gguf` + `voices/<tên người đọc>/`), khởi tạo engine
+thành công, **import giọng báo thành công**, nhưng danh sách giọng vẫn chỉ có
+"Minh Quang Pro", và không đọc được câu nào.
+
+**Nguyên nhân.** Khâu nhận diện giọng chỉ dò **đúng 3 tên file** của gói gốc
+(`ref_codes.txt`, `ref_codes.bin`, `speaker.emb.txt`). Mirror cộng đồng thường
+đặt tên khác (`codes.txt`, `embedding.txt`, `ref_codes.csv`…) ⇒ thư mục bị coi
+là "không có dữ liệu giọng" nên **không được liệt kê**, dù đã copy vào đúng
+chỗ. Bản Beta cũ còn có thêm hai lỗi ở §2.7 (spec model + embedding 256 số 0)
+nên kể cả giọng hiện ra cũng không đọc được.
+
+audio.cpp **không quan tâm tên file**: `reference_codes_file` /
+`speaker_embedding_file` nhận đường dẫn bất kỳ. Vậy chỗ sai nằm hoàn toàn ở
+Dart.
+
+**Sửa.**
+
+| Thành phần | Thay đổi |
+|---|---|
+| `vieneu_tts_paths.dart` | `VieneuVoiceDataKind` + `classifyVieneuVoiceDataText()` — phân loại **theo nội dung**: dòng đầu đủ **192 float** ⇒ embedding; toàn số nguyên ⇒ ref codes; còn lại ⇒ không rõ |
+| `vieneu_model_files.dart` | `resolveVieneuVoiceFiles()` — **tên chuẩn trước**, rồi mới "ngửi" nội dung các file text ≤ 8 MB (đọc ≤ 256 KB), bỏ qua `.wav/.png/.json/...`. `folderHasVieneuVoiceData()` nay dùng chính hàm này ⇒ **đường import và đường liệt kê dùng CÙNG một định nghĩa** |
+| `vieneu_tts_engine.dart` | `_scanVoiceDirectory()` dùng resolver ⇒ giọng đặt tên file khác vẫn hiện; `_hasVoiceData`/`_hasUsableEmbedding` (bản sao thứ hai của cùng logic) bị xoá |
+| Cài đặt | nút **"Không thấy giọng vừa import?"** (cả khi danh sách rỗng): hiện gốc thư mục, tên model, `sea_g2p.bin` có/thiếu, và **từng thư mục giọng** kèm `✅ dùng được` / `⚠️ rỗng` / `⚠️ không có file dữ liệu giọng` / `❌ file không đúng định dạng` + tên các file |
+
+**Chưa làm (có chủ ý).**
+* Thư mục chỉ có **mẫu WAV** (không có mã/embedding) chưa được tự mã hoá lúc
+  dùng — cần thêm đường "encode lazy khi chọn giọng"; hiện bảng chẩn đoán nói
+  rõ file nào đang bị bỏ qua thay vì im lặng.
+* Định dạng `.npy` / `.pt` (nếu mirror nào dùng) **không** đọc được — phải là
+  text như audio.cpp yêu cầu.
+
+**Kiểm chứng:** `test/tts/psrc171b_voice_disk_discovery_test.dart` (14 ca: phân
+loại nội dung, resolver với thư mục thật, 4 trạng thái chẩn đoán). Chưa kiểm
+máy thật.
+
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
 ```text
@@ -373,6 +411,12 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
 
 ## 8. Nhật ký (append-only)
 
+- 2026-11-12 | PSRC-171b | agent `arena/60e35d65-in4up` | "import giọng báo
+  thành công mà giọng không hiện" (owner, mirror Hugging Face): khâu nhận diện
+  chỉ dò đúng 3 tên file của gói gốc ⇒ thư mục giọng đặt tên khác bị bỏ qua. Nay
+  nhận diện **theo nội dung** (`resolveVieneuVoiceFiles`) dùng chung cho cả
+  import và liệt kê, và Cài đặt có bảng chẩn đoán từng thư mục. Xem §2.8.
+  Chưa kiểm máy thật.
 - 2026-11-12 | PSRC-171 build xanh | agent `arena/60e35d65-in4up` | `vieneu_engine_build` run
   [43708199917](https://github.com/Pabhassaracitto/In4Up/actions/runs/43708199917) 🟢 (step 18 mới xác minh
   **trong APK**: `libvieneu_tts.so` chứa `"display_name": "VieNeu-TTS v3 Turbo"`; `libvieneu_tts.so` 1,0 MiB,

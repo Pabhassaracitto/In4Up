@@ -109,7 +109,7 @@ class WhisperCliLocation {
       ...dllDirs,
       if (existing.isNotEmpty) ...existing.split(';'),
     }.where((d) => d.trim().isNotEmpty).toList();
-    return <String>{'PATH': dirs.join(';')};
+    return <String, String>{'PATH': dirs.join(';')};
   }
 
   static const WhisperCliLocation notFound = WhisperCliLocation(
@@ -149,9 +149,6 @@ class WhisperCliLocator {
   static const int headerProbeBytes = 512 * 1024;
 
   static List<String> get _names => Platform.isWindows ? windowsNames : posixNames;
-
-  static List<String> get _exeName =>
-      Platform.isWindows ? <String>['.exe'] : <String>['', '.exe'];
 
   /// Tìm + soi. Kết quả được cache theo "phiên" — người dùng cài bộ chạy giữa
   /// chừng thì gọi [invalidateCache].

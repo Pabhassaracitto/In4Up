@@ -6,8 +6,9 @@
 //   * audio.cpp v0.9.4 (tag `717efc34`) chỉ nhúng `model_specs/*.json` vào
 //     libaudiocpp.so khi `AUDIOCPP_DEPLOYMENT_BUILD=ON` — mặc định OFF. Bản
 //     Android của in4up build với mặc định ⇒ `builtin_model_specs()` RỖNG.
-//   * Các option `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` mà bản 1.28 truyền
-//     vào **không tồn tại** trong v0.9.4 ⇒ không có gì cung cấp spec.
+//   * `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` (bản 1.28 có truyền) chỉ chọn
+//     MODEL NÀO được biên dịch — chúng không cấp spec cho model đã chọn, nên
+//     không có gì bù được bảng spec rỗng.
 //   * Hệ quả: `audiocpp_model_load()` ném
 //     `model spec not found for family 'vietneu_tts'` trên MỌI bản cài, kể cả
 //     khi người dùng đã import đúng `vieneu-v3-turbo-q8_0.gguf` (~188 MB) —

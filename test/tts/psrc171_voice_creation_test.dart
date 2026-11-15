@@ -254,12 +254,19 @@ void main() {
       );
     });
 
-    test('engine dùng classification + loại embedding hỏng', () {
+    test('engine dùng classification + MỘT nguồn sự thật cho dữ liệu giọng', () {
       expect(engine.contains('classifyVieneuNativeLoadError(_lastInitError!)'),
           isTrue);
-      expect(engine.contains('_hasUsableEmbedding(emb)'), isTrue,
-          reason: 'Không được truyền embedding sai số chiều xuống native');
-      expect(engine.contains('isUsableVieneuSpeakerEmbedding('), isTrue);
+      // PSRC-171b: engine không tự đoán tên file nữa — nó dùng
+      // `resolveVieneuVoiceFiles` (cùng hàm với đường import) nên "import báo
+      // thành công" và "danh sách giọng" không còn lệch nhau, và embedding sai
+      // số chiều vẫn không được truyền xuống native.
+      expect(engine.contains('resolveVieneuVoiceFiles('), isTrue,
+          reason: 'Phải dùng resolver chung, không tự ghép tên file');
+      expect(engine.contains('_hasUsableEmbedding('), isFalse,
+          reason: 'Bản sao thứ hai của logic kiểm embedding phải bị xoá');
+      final modelFiles = _read('packages/in4up_stt/lib/tts/vieneu_model_files.dart');
+      expect(modelFiles.contains('isUsableVieneuSpeakerEmbedding('), isTrue);
     });
 
     test('UI nói lý do cụ thể, không còn "thành công một nửa"', () {

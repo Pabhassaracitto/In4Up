@@ -68,11 +68,12 @@ class DictMddResources {
     final paths = await locations();
     if (paths.length > MddParts.maxParts) throw const FormatException('Too many MDD parts');
     return MddParts([
-      for (final location in paths) () => _open(location),
+      for (final location in paths) () => openLocation(location),
     ]).readResource(key);
   }
 
-  static Future<RandomAccessSource> _open(String location) {
+  /// Opens only an already-registered location; never pass an HTML resource key.
+  static Future<RandomAccessSource> openLocation(String location) {
     final uri = Uri.tryParse(location);
     if (uri?.scheme == 'content' && uri!.host.isNotEmpty) {
       return SafRandomAccessSource.open(location);

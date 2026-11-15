@@ -4175,5 +4175,9 @@
   "Đã đổi vai: bản dịch thành văn bản chính": "Swapped: the translation is now the main text",
   "Đã đổi lại văn bản gốc": "Swapped back to the original text",
   "IPA và tô màu chỉ chạy trên tiếng Anh. Đổi vai để dùng trên bản dịch?": "IPA and colouring only work on English. Swap to use them on the translation?",
-  "Đang đổi vai — hãy đổi lại trước khi đổi ngôn ngữ hoặc dịch lại.": "Text and translation are swapped — swap back before changing language or retranslating."
+  "Đang đổi vai — hãy đổi lại trước khi đổi ngôn ngữ hoặc dịch lại.": "Text and translation are swapped — swap back before changing language or retranslating.",
+  "Dịch sang {value0}": "Translate to {value0}",
+  "Chỉ đổi nguồn": "Change source only",
+  "Ngôn ngữ nguồn: {value0}": "Source language: {value0}",
+  "Nguồn do bạn chọn cho tài liệu này. Khi đọc song ngữ, In4Up sẽ chuyển giọng {value0} ↔ {value1} trước từng lượt đọc.": "You chose the source language for this document. In bilingual reading, In4Up switches the voice {value0} ↔ {value1} before each turn."
 }

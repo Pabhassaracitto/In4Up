@@ -707,7 +707,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void updateFullText(String newText) {
-    _parsePlainText(newText, title: _currentDocument?.title);
+    // PSRC-238: vẫn là tài liệu đó ⇒ giữ ngôn ngữ nguồn người dùng đã chọn.
+    reparseKeepingTranslationSource(
+      () => _parsePlainText(newText, title: _currentDocument?.title),
+    );
   }
 
   void _setSourceMeta({
@@ -720,6 +723,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentTextPath = localPath;
     _currentCloudId = cloudId;
     _currentTextCategory = category;
+    // PSRC-238: mọi đường nạp tài liệu MỚI đều qua đây và giờ mới biết danh
+    // tính của nó ⇒ dùng nguồn đã lưu cho tài liệu này (chưa lưu thì về «Tự
+    // nhận diện»), TRƯỚC khi tô bản dịch từ cache / khôi phục «Đổi vai».
+    if (restoreSavedTranslationSource()) notifyListeners();
   }
 
   void clearText() {
@@ -738,6 +745,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentTextCategory = null;
     _currentSourceType = TextSourceType.manual;
     _writingSourceRequest = null;
+    // PSRC-238: không còn tài liệu ⇒ bỏ nguồn đã chọn của tài liệu vừa đóng.
+    restoreSavedTranslationSource();
     notifyListeners();
   }
 
@@ -864,8 +873,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ==================== PSRC-237 / ADR-0031 — ĐỔI VAI ====================
 
-  /// Danh tính bền của tài liệu để lưu dấu đổi vai. Văn bản dán tay / sinh
-  /// bởi AI không có danh tính ⇒ đổi vai chỉ sống trong phiên.
+  /// Danh tính bền của tài liệu để lưu dấu đổi vai và (PSRC-238) ngôn ngữ
+  /// nguồn người dùng đã chọn. Văn bản dán tay / sinh bởi AI không có danh
+  /// tính ⇒ cả hai chỉ sống trong phiên.
   @override
   String? get roleSwapDocumentKey {
     final cloudId = _currentCloudId;
@@ -1931,7 +1941,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void toggleAutoSplit(bool value) {
     _useAutoSplit = value;
-    _parsePlainText(_fullText, title: _currentDocument?.title);
+    // PSRC-238: tách dòng lại không đổi tài liệu ⇒ giữ nguồn đã chọn.
+    reparseKeepingTranslationSource(
+      () => _parsePlainText(_fullText, title: _currentDocument?.title),
+    );
   }
 
   void toggleWordTypes() {
@@ -2113,7 +2126,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void _applyLines(List<String> lineStrings, {String? title}) {
     // PSRC-237: dòng mới không còn mang văn bản gốc ⇒ thôi coi là đổi vai.
-    _dropRoleSwapForNewLines();
+    reparseKeepingTranslationSource(() {
+      _dropRoleSwapForNewLines();
+    });
+    // PSRC-238: vẫn là tài liệu đó ⇒ lớp bọc trên giữ ngôn ngữ nguồn người
+    // dùng đã chọn (đổi vai chỉ mượn chỗ gắn nguồn).
     _lines = lineStrings.asMap().entries.map((entry) {
       return TextItem(
         id: 'line_${entry.key}',

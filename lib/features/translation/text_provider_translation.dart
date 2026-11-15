@@ -13,6 +13,7 @@ import 'line_role_swap.dart';
 import 'mixed_language_segmenter.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
+import 'translation_source_choice.dart';
 
 mixin TranslationMixin on ChangeNotifier {
   TranslationDisplayMode _translationDisplayMode =
@@ -55,6 +56,19 @@ mixin TranslationMixin on ChangeNotifier {
   /// báo "Chưa tải gói dịch german" dù user chọn EN→VI). Chỉ AUTO mới
   /// re-detect từng dòng cho tài liệu hỗn hợp ngôn ngữ.
   String? _pinnedTranslationSourceCode;
+
+  /// PSRC-238: chuỗi lỗi «nguồn trùng đích» gần nhất. So `identical` với
+  /// [_translationError] ⇒ mọi chỗ xoá / ghi đè lỗi tự động tắt gợi ý, không
+  /// phải nhớ hạ thêm một cờ riêng.
+  String? _samePairErrorText;
+
+  /// Seam test: nơi lưu ngôn ngữ nguồn đã chọn theo tài liệu. Production để
+  /// null (dùng Hive qua `StorageService`).
+  @visibleForTesting
+  RoleSwapMarkerStore? translationSourceStoreForTest;
+
+  RoleSwapMarkerStore get _translationSources =>
+      translationSourceStoreForTest ?? const _HiveTranslationSourceStore();
 
   /// Seam test cho lane translation: thay singleton bằng instance
   /// `TranslationService.forTest` có engine giả. Production để null.
@@ -197,10 +211,14 @@ mixin TranslationMixin on ChangeNotifier {
   /// Không tự `notifyListeners`.
   @protected
   void clearRoleSwapState() {
-    if (_roleSwap == null) return;
+    final current = _roleSwap;
+    if (current == null) return;
     final key = roleSwapDocumentKey;
     if (key != null) _roleSwapMarkers.remove(key);
     dropRoleSwapState();
+    // PSRC-238: vẫn là tài liệu đó ⇒ trả lại nguồn người dùng đã chọn trước
+    // khi đổi vai (đổi vai chỉ MƯỢN chỗ gắn nguồn).
+    _pinnedTranslationSourceCode = current.previousPinnedSourceCode;
   }
 
   /// Rời tài liệu đang đổi vai: bỏ trạng thái trong bộ nhớ, trả đích dịch
@@ -292,8 +310,10 @@ mixin TranslationMixin on ChangeNotifier {
   /// - Code không có trong catalog → return false, không đổi gì.
   ///
   /// Đổi nguồn sẽ xoá bản dịch cũ và dịch lại như [setTranslationTargetLanguage].
-  /// Nguồn gắn là state phiên/tài liệu (reset bởi [resetTranslationForNewDocument]);
-  /// chưa lưu bền vững — việc lưu + UI chọn nguồn thuộc lane khác.
+  ///
+  /// PSRC-238: lựa chọn được LƯU theo tài liệu (file / cloud) và tự gắn lại
+  /// khi mở lại tài liệu đó — xem [restoreSavedTranslationSource]. Văn bản
+  /// dán tay không có danh tính bền ⇒ chỉ sống trong phiên.
   Future<bool> setTranslationSourceLanguage(
     String code, {
     bool retranslateExisting = true,
@@ -317,6 +337,14 @@ mixin TranslationMixin on ChangeNotifier {
     _translationProgress = 0;
     _translationError = null;
     _pinnedTranslationSourceCode = newCode;
+    final key = roleSwapDocumentKey;
+    if (key != null) {
+      if (newCode == null) {
+        _translationSources.remove(key);
+      } else {
+        _translationSources.write(key, newCode);
+      }
+    }
     for (var index = 0; index < lines.length; index++) {
       lines[index] = lines[index].copyWith(clearTranslation: true);
     }
@@ -333,6 +361,100 @@ mixin TranslationMixin on ChangeNotifier {
   bool get translationPairUsesSameLanguage =>
       translationSourceLanguage.translationCode ==
       translationTargetLanguage.translationCode;
+
+  // ============ PSRC-238 / ADR-0031 (3b) — CHỌN NGUỒN, TRÁNH CẶP TRÙNG ============
+
+  /// Vừa nạp một tài liệu ⇒ dùng ngôn ngữ nguồn người dùng đã chọn CHO NÓ:
+  /// mở lại tài liệu cũ thì gắn lại lựa chọn đã lưu; tài liệu chưa từng chọn
+  /// (hoặc văn bản dán tay, không có khoá lưu) thì về «Tự nhận diện» — nguồn
+  /// của tài liệu trước không được kéo sang.
+  ///
+  /// KHÔNG xoá bản dịch và KHÔNG dịch lại (bản dịch đã lưu vốn được tạo với
+  /// chính nguồn này). Phải gọi SAU khi lớp chủ biết danh tính tài liệu và
+  /// TRƯỚC khi tô lại bản dịch từ cache / khôi phục «Đổi vai» — cả hai đều
+  /// đọc nguồn hiệu dụng. Không tự `notifyListeners`; trả true nếu có đổi.
+  bool restoreSavedTranslationSource() {
+    // Đang đổi vai ⇒ chỗ gắn nguồn đang được mượn; không đụng vào.
+    if (_roleSwap != null) return false;
+    final key = roleSwapDocumentKey;
+    final saved = key == null
+        ? null
+        : decodeSavedTranslationSource(_translationSources.read(key));
+    if (saved == _pinnedTranslationSourceCode) return false;
+    _pinnedTranslationSourceCode = saved;
+    return true;
+  }
+
+  /// Dựng lại các dòng của CÙNG một tài liệu (sửa nội dung, bật / tắt tách
+  /// dòng) mà không làm rơi nguồn đã chọn. Cần cho văn bản dán tay: nó không
+  /// có khoá lưu nên không khôi phục được bằng [restoreSavedTranslationSource].
+  @protected
+  void reparseKeepingTranslationSource(void Function() reparse) {
+    final swap = _roleSwap;
+    final kept = swap == null
+        ? _pinnedTranslationSourceCode
+        : swap.previousPinnedSourceCode;
+    reparse();
+    _pinnedTranslationSourceCode = kept;
+  }
+
+  /// True khi lượt bấm «Dịch» gần nhất dừng lại vì nguồn trùng đích và cặp
+  /// vẫn đang trùng. Giao diện dùng nó để ĐỀ NGHỊ một đích khác thay cho
+  /// dòng lỗi đỏ.
+  bool get translationBlockedBySamePair {
+    final error = _translationError;
+    return error != null &&
+        identical(error, _samePairErrorText) &&
+        translationPairUsesSameLanguage;
+  }
+
+  /// Ngôn ngữ đích nên đề nghị khi nguồn trùng đích (không bao giờ trùng
+  /// nguồn hiệu dụng). [uiLanguageCode] = ngôn ngữ giao diện của app.
+  AppLanguage suggestedTranslationTarget({String? uiLanguageCode}) =>
+      suggestTargetAvoidingSource(
+        source: translationSourceLanguage,
+        uiLanguageCode: uiLanguageCode,
+      );
+
+  /// Áp MỘT lần cả nguồn lẫn đích (bảng chọn ngôn ngữ trả về cả hai khi
+  /// người dùng vừa đổi nguồn vừa nhận đích được đề nghị).
+  ///
+  /// [sourceCode] / [targetCode] null = giữ nguyên. Bản dịch cũ bị xoá khi có
+  /// thay đổi và chỉ được dịch lại MỘT lượt, sau khi cả hai đã vào chỗ —
+  /// không dịch dở với cặp trung gian. Trả true nếu có ít nhất một thay đổi.
+  Future<bool> setTranslationLanguagePair({
+    String? sourceCode,
+    String? targetCode,
+    bool retranslateExisting = true,
+  }) async {
+    // Đang đổi vai ⇒ đổi cặp sẽ xoá dòng dịch = xoá văn bản GỐC.
+    if (_blockedByRoleSwap()) return false;
+    final hadTranslations = lines.any(
+      (line) => line.translation != null && line.translation!.trim().isNotEmpty,
+    );
+    var changed = false;
+    if (sourceCode != null) {
+      changed = await setTranslationSourceLanguage(
+            sourceCode,
+            retranslateExisting: false,
+          ) ||
+          changed;
+    }
+    if (targetCode != null) {
+      changed = await setTranslationTargetLanguage(
+            targetCode,
+            retranslateExisting: false,
+          ) ||
+          changed;
+    }
+    if (changed &&
+        retranslateExisting &&
+        hadTranslations &&
+        !translationPairUsesSameLanguage) {
+      unawaited(translateAll(forceRetranslate: true));
+    }
+    return changed;
+  }
 
   int get translatedLineCount {
     final target = translationTargetLanguage.translationCode;
@@ -530,7 +652,7 @@ mixin TranslationMixin on ChangeNotifier {
       target: target,
       documentSource: source,
     )) {
-      _translationError =
+      _translationError = _samePairErrorText =
           'Ngôn ngữ nguồn và ngôn ngữ đích đang giống nhau.';
       notifyListeners();
       return;
@@ -583,7 +705,9 @@ mixin TranslationMixin on ChangeNotifier {
     // dịch. Tài liệu lẫn lộn Việt–Anh bị gộp mẫu thành "VI" vẫn phải dịch
     // được các dòng/mẩu tiếng Anh sang tiếng Việt.
     if (sameAsTarget && !_documentNeedsTranslation(source, target)) {
-      _translationError =
+      // PSRC-238: vẫn ghi chuỗi lỗi (màn hình khác còn đọc nó), nhưng đánh
+      // dấu để thanh dịch đề nghị một đích khác thay vì dừng ở dòng đỏ.
+      _translationError = _samePairErrorText =
           '${source.flag} ${source.nativeName} đã là ngôn ngữ đích. '
           'Hãy chọn một ngôn ngữ khác.';
       notifyListeners();
@@ -862,5 +986,38 @@ class _HiveRoleSwapMarkerStore implements RoleSwapMarkerStore {
     final storage = StorageService();
     if (!storage.isInitialized) return;
     unawaited(storage.saveSetting(roleSwapStorageKey(documentKey), ''));
+  }
+}
+
+/// PSRC-238: lưu ngôn ngữ nguồn người dùng đã chọn cho từng tài liệu vào hộp
+/// cài đặt Hive. Chưa khởi tạo storage (test, web sớm) ⇒ im lặng bỏ qua.
+class _HiveTranslationSourceStore implements RoleSwapMarkerStore {
+  const _HiveTranslationSourceStore();
+
+  @override
+  String? read(String documentKey) {
+    final storage = StorageService();
+    if (!storage.isInitialized) return null;
+    final raw =
+        storage.getSetting<dynamic>(translationSourceStorageKey(documentKey));
+    return raw is String && raw.isNotEmpty ? raw : null;
+  }
+
+  @override
+  void write(String documentKey, String value) {
+    final storage = StorageService();
+    if (!storage.isInitialized) return;
+    unawaited(
+      storage.saveSetting(translationSourceStorageKey(documentKey), value),
+    );
+  }
+
+  @override
+  void remove(String documentKey) {
+    final storage = StorageService();
+    if (!storage.isInitialized) return;
+    unawaited(
+      storage.saveSetting(translationSourceStorageKey(documentKey), ''),
+    );
   }
 }

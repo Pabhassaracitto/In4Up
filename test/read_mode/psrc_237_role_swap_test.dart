@@ -650,12 +650,13 @@ void main() {
           reason: 'bố cục hẹp (<560) và bố cục rộng');
       expect(toolbar.contains("Key('translation-options-role-swap')"), isTrue);
       // Dịch / dịch lại / đổi ngôn ngữ khi đang đổi vai: chặn + giải thích
-      // bằng SnackBar (nút Dịch, đổi ngôn ngữ, 2 dòng trong bảng nhấn giữ).
+      // bằng SnackBar (nút Dịch, 2 dòng trong bảng nhấn giữ; PSRC-238: đổi
+      // ngôn ngữ chặn cả lúc MỞ bảng chọn cặp lẫn lúc áp lựa chọn).
       expect(
         '_blockedWhileSwapped(context, textProvider)'
             .allMatches(toolbar)
             .length,
-        4,
+        5,
       );
       expect(toolbar.contains('roleSwapGuardSnackBar(context)'), isTrue);
     });

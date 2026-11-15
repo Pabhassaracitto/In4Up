@@ -28,6 +28,34 @@ import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 const String kVieneuMissingG2pNotice =
     'Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc';
 
+/// Ảnh chụp ĐĨA của các thư mục giọng (không nạp model).
+///
+/// Dùng cho mục "Không thấy giọng vừa import?" trong Cài đặt: hiện đúng gốc
+/// thư mục, file model, `sea_g2p.bin` và từng thư mục giọng kèm lý do.
+class VieneuVoicesDiagnostics {
+  const VieneuVoicesDiagnostics({
+    required this.root,
+    required this.modelPath,
+    required this.hasPhonemeDictionary,
+    required this.preset,
+    required this.cloned,
+    required this.presetsDirExists,
+  });
+
+  final String root;
+  final String? modelPath;
+  /// `sea_g2p.bin` có cạnh model không (lười tính — Future để không chặn
+  /// việc dựng ảnh chụp).
+  final Future<bool> hasPhonemeDictionary;
+  final List<VieneuVoiceFolderDiagnosis> preset;
+  final List<VieneuVoiceFolderDiagnosis> cloned;
+  final bool presetsDirExists;
+
+  int get usableCount =>
+      preset.where((d) => d.status == VieneuVoiceFolderStatus.usable).length +
+      cloned.where((d) => d.status == VieneuVoiceFolderStatus.usable).length;
+}
+
 /// Ảnh chụp "engine có chạy được không, thiếu gì" — KHÔNG nạp model.
 ///
 /// PSRC-216: thay cho chuỗi try/catch rải rác, mọi nơi (UI, TtsService, voice
@@ -255,37 +283,6 @@ class VieneuTtsEngine implements TtsEngine {
     return VieneuTtsCore.isNativeLibraryAvailable();
   }
 
-  /// File `speaker.emb.txt` có dùng được với audio.cpp không (đúng 192 số ở
-  /// dòng đầu)? PSRC-171: file embedding placeholder 256 số 0 của bản 1.28
-  /// nằm lại trong `cloned_voices/<id>/` làm MỌI lần đọc bằng giọng đó lỗi
-  /// ("must contain exactly 192 float values") — không truyền nó xuống native.
-  Future<bool> _hasUsableEmbedding(File file) async {
-    try {
-      if (!await file.exists()) return false;
-      if (await file.length() < 8) return false;
-      return isUsableVieneuSpeakerEmbedding(await file.readAsString());
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> _hasVoiceData(File file) async {
-    try {
-      if (!await file.exists()) return false;
-      final length = await file.length();
-      if (length < 10) return false;
-      if (p.extension(file.path).toLowerCase() == '.bin') return length > 32;
-      return hasVieneuVoiceData(await file.readAsString());
-    } catch (_) {
-      // File nhị phân không đọc được như text nhưng có kích thước hợp lệ.
-      try {
-        return await file.length() > 32;
-      } catch (_) {
-        return false;
-      }
-    }
-  }
-
   Future<Map<String, String>> _readManifest(Directory voicesDir) async {
     final manifest = File(p.join(voicesDir.path, 'manifest.json'));
     if (!await manifest.exists()) return <String, String>{};
@@ -311,19 +308,25 @@ class VieneuTtsEngine implements TtsEngine {
           index.containsKey(voiceId)) {
         continue;
       }
-      final refTxt = File(p.join(entity.path, 'ref_codes.txt'));
-      final refBin = File(p.join(entity.path, 'ref_codes.bin'));
-      final emb = File(p.join(entity.path, 'speaker.emb.txt'));
-      final hasTxt = await _hasVoiceData(refTxt);
-      final hasBin = await _hasVoiceData(refBin);
-      final hasEmb = await _hasUsableEmbedding(emb);
-      if (!hasTxt && !hasBin && !hasEmb) continue;
+      // Một nguồn sự thật cho "thư mục này có dữ liệu giọng không": nhận theo
+      // tên chuẩn (ref_codes.txt/.bin, speaker.emb.txt) RỒI theo nội dung.
+      // Mirror cộng đồng đặt tên file khác gói gốc (codes.txt, embedding.txt…)
+      // ⇒ trước đây import báo thành công nhưng giọng KHÔNG hiện trong danh
+      // sách; nay nhận ra bằng nội dung và truyền thẳng đường dẫn xuống native
+      // (audio.cpp không quan tâm tên file).
+      final resolved = await resolveVieneuVoiceFiles(entity);
+      if (!resolved.usable) continue;
+      if (resolved.resolvedByContent) {
+        debugPrint('ℹ️ VieNeu: giọng "$voiceId" nhận theo nội dung '
+            '(ref=${resolved.refCodesPath == null ? '-' : p.basename(resolved.refCodesPath!)}, '
+            'emb=${resolved.speakerEmbeddingPath == null ? '-' : p.basename(resolved.speakerEmbeddingPath!)})');
+      }
       index[voiceId] = _VoiceFiles(
         id: voiceId,
         name: names[voiceId] ?? voiceId.replaceAll('_', ' '),
         origin: origin,
-        refCodesPath: hasTxt ? refTxt.path : (hasBin ? refBin.path : ''),
-        speakerEmbeddingPath: hasEmb ? emb.path : null,
+        refCodesPath: resolved.refCodesPath ?? '',
+        speakerEmbeddingPath: resolved.speakerEmbeddingPath,
       );
     }
   }
@@ -386,6 +389,38 @@ class VieneuTtsEngine implements TtsEngine {
               origin: v.origin,
             ))
         .toList();
+  }
+
+  /// Ảnh chụp đĩa để trả lời "tôi đã import giọng mà sao không thấy".
+  ///
+  /// Chỉ đọc đĩa (không nạp model): gốc thư mục, file model, `sea_g2p.bin`, và
+  /// từng thư mục giọng kèm lý do dùng được/không. UI hiện nguyên văn — nhờ
+  /// vậy người dùng không phải đoán, còn agent thì có dữ liệu thật thay vì
+  /// phải hỏi lại.
+  Future<VieneuVoicesDiagnostics> diagnoseVoices() async {
+    final root = await _voicesRoot();
+    final presetDir = Directory(p.join(root, 'voices'));
+    final clonedDir = Directory(p.join(root, 'cloned_voices'));
+    return VieneuVoicesDiagnostics(
+      root: root,
+      modelPath: _modelPath,
+      hasPhonemeDictionary: _dictionaryExistsIn(root),
+      preset: await diagnoseVieneuVoiceFolders(presetDir),
+      cloned: await diagnoseVieneuVoiceFolders(clonedDir),
+      presetsDirExists: await presetDir.exists(),
+    );
+  }
+
+  /// Giọng lấy từ manifest nhưng KHÔNG có thư mục dữ liệu — thường là dấu
+  /// hiệu người dùng chỉ copy `voices/manifest.json` mà bỏ quên thư mục con.
+  Future<List<String>> manifestOnlyVoiceIds() async {
+    final root = await _voicesRoot();
+    final voicesDir = Directory(p.join(root, 'voices'));
+    final names = await _readManifest(voicesDir);
+    if (names.isEmpty) return const <String>[];
+    final index = <String, _VoiceFiles>{};
+    await _scanVoiceDirectory(voicesDir, index, names, origin: 'preset');
+    return names.keys.where((id) => !index.containsKey(id)).toList();
   }
 
   /// Khởi tạo worker (nạp model vào native isolate). Gọi từ TtsService trước

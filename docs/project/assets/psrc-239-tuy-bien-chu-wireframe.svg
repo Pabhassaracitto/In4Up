@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="670" viewBox="0 0 1180 670" font-family="DejaVu Sans">
+  <style>
+    .t   { fill: #E8EDF7; }
+    .mut { fill: #B9C3DA; }
+    .dim { fill: #7F8DAB; }
+    .ok  { fill: #7CD992; }
+    .warn{ fill: #F2B56B; }
+    .b   { font-weight: bold; }
+    .h1  { font-size: 20px; font-weight: bold; }
+    .h2  { font-size: 14px; font-weight: bold; }
+    .sm  { font-size: 11.5px; }
+    .xs  { font-size: 10.5px; }
+    .screen { fill: #0F1526; stroke: #263250; stroke-width: 1.2; }
+    .chip   { fill: #1B2440; stroke: #3A4870; stroke-width: 1; }
+    .grp    { fill: #141C30; stroke: #3A4870; stroke-width: 1; }
+    .sel    { fill: #2196F3; }
+    .ico    { fill: none; stroke: #B9C3DA; stroke-width: 1.4; }
+    .icoOn  { fill: #64B5F6; }
+    .swOn   { fill: #6C63FF; }
+    .swOff  { fill: #1B2440; stroke: #7F8DAB; stroke-width: 1.4; }
+    .knobOn { fill: #FFFFFF; }
+    .knobOff{ fill: #7F8DAB; }
+  </style>
+<rect width="1180" height="670" fill="#070B16"/>
+<text class="t h1" x="40.0" y="44.0">PSRC-239 · WIREFRAME — cụm «Tùy biến chữ»: một quy ước điều khiển</text>
+<text class="dim sm" x="40.0" y="66.0">Bản vẽ tay để owner duyệt hình dạng — KHÔNG phải ảnh chụp app. Kích thước chữ / khoảng cách thật do Flutter quyết định; cần xem trên máy.</text>
+<line x1="40" y1="82" x2="1140" y2="82" stroke="#24304C" stroke-width="1"/>
+<text class="t h2" x="40.0" y="114.0">TRƯỚC · 360 px</text>
+<text class="dim xs" x="40.0" y="130.0">6 chip giống hệt nhau, làm 3 loại việc khác nhau</text>
+<rect class="screen" x="40.0" y="140.0" width="360.0" height="250.0" rx="14"/>
+<text class="dim xs" x="50.0" y="162.0">Tùy biến chữ</text>
+<rect class="chip" x="50.0" y="170.0" width="82.6" height="32.0" rx="8"/>
+<circle cx="66.0" cy="186.0" r="6" class="icoOn"/>
+<text class="t sm" x="78.0" y="190.0">Độ khó</text>
+<rect class="chip" x="140.6" y="170.0" width="127.7" height="32.0" rx="8"/>
+<circle cx="156.6" cy="186.0" r="6" class="icoOn"/>
+<text class="t sm" x="168.6" y="190.0">Thông tin màu</text>
+<rect class="chip" x="50.0" y="210.0" width="127.7" height="32.0" rx="8"/>
+<circle cx="66.0" cy="226.0" r="6" class="ico"/>
+<text class="t sm" x="78.0" y="230.0">Bôi nhiều chữ</text>
+<rect class="chip" x="185.7" y="210.0" width="89.1" height="32.0" rx="8"/>
+<circle cx="201.7" cy="226.0" r="6" class="ico"/>
+<text class="t sm" x="213.7" y="230.0">Màu IPA</text>
+<rect class="chip" x="50.0" y="250.0" width="192.1" height="32.0" rx="8"/>
+<circle cx="66.0" cy="266.0" r="6" class="ico"/>
+<text class="t sm" x="78.0" y="270.0">Hướng dẫn đọc theo dòng</text>
+<rect class="chip" x="250.1" y="250.0" width="121.3" height="32.0" rx="8"/>
+<circle cx="266.1" cy="266.0" r="6" class="ico"/>
+<text class="t sm" x="278.1" y="270.0">Chế độ Focus</text>
+<text class="mut sm" x="50.0" y="310.0">Đồng bộ tự động</text>
+<text class="dim xs" x="50.0" y="325.0">Tự cuộn theo dòng đang đọc; tắt để cuộn tay.</text>
+<rect class="swOn" x="348.0" y="302.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="378.0" cy="314.0" r="8" class="knobOn"/>
+<text class="warn xs" x="40.0" y="416.0">• «Độ khó»: bấm để XOAY VÒNG 4 chế độ màu —</text>
+<text class="warn xs" x="40.0" y="432.0">   không thấy 3 lựa chọn còn lại.</text>
+<text class="warn xs" x="40.0" y="448.0">• «Thông tin màu», «Màu IPA», «Chế độ Focus»:</text>
+<text class="warn xs" x="40.0" y="464.0">   bật / tắt — chỉ đổi màu icon.</text>
+<text class="warn xs" x="40.0" y="480.0">• «Bôi nhiều chữ»: bật / tắt, nhãn đổi theo trạng thái.</text>
+<text class="warn xs" x="40.0" y="496.0">• «Hướng dẫn đọc theo dòng»: mở bảng khác —</text>
+<text class="warn xs" x="40.0" y="512.0">   trông y như các nút bật / tắt.</text>
+<text class="t h2" x="440.0" y="114.0">SAU · 360 px</text>
+<text class="dim xs" x="440.0" y="130.0">hình dạng nói lên loại việc</text>
+<rect class="screen" x="440.0" y="140.0" width="360.0" height="300.0" rx="14"/>
+<text class="dim xs" x="450.0" y="162.0">Tùy biến chữ</text>
+<rect class="grp" x="450.0" y="170.0" width="340.0" height="34.0" rx="12"/>
+<text class="mut sm" x="491.0" y="191.5" text-anchor="middle">Không màu</text>
+<text class="mut sm" x="564.5" y="191.5" text-anchor="middle">Loại từ</text>
+<text class="mut sm" x="621.9" y="191.5" text-anchor="middle">CEFR</text>
+<rect class="sel" x="647.8" y="173.0" width="56.6" height="28.0" rx="9"/>
+<text class="t sm b" x="676.1" y="191.5" text-anchor="middle">Độ khó</text>
+<rect class="grp" x="450.0" y="210.0" width="340.0" height="34.0" rx="12"/>
+<rect class="sel" x="453.0" y="213.0" width="101.7" height="28.0" rx="9"/>
+<text class="t sm b" x="503.9" y="231.5" text-anchor="middle">Bôi nhiều chữ</text>
+<text class="mut sm" x="603.1" y="231.5" text-anchor="middle">Box từng từ</text>
+<text class="mut sm" x="450.0" y="272.0">Thông tin màu</text>
+<rect class="swOn" x="572.0" y="256.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="602.0" cy="268.0" r="8" class="knobOn"/>
+<text class="mut sm" x="626.0" y="272.0">Màu IPA</text>
+<rect class="swOff" x="748.0" y="256.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="760.0" cy="268.0" r="6" class="knobOff"/>
+<text class="mut sm" x="450.0" y="312.0">Chế độ Focus</text>
+<rect class="swOff" x="572.0" y="296.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="584.0" cy="308.0" r="6" class="knobOff"/>
+<text class="mut sm" x="450.0" y="344.0">Đồng bộ tự động</text>
+<text class="dim xs" x="450.0" y="359.0">Tự cuộn theo dòng đang đọc; tắt để cuộn tay.</text>
+<rect class="swOn" x="748.0" y="336.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="778.0" cy="348.0" r="8" class="knobOn"/>
+<rect class="chip" x="450.0" y="376.0" width="206.1" height="32.0" rx="8"/>
+<circle cx="466.0" cy="392.0" r="6" class="ico"/>
+<text class="t sm" x="478.0" y="396.0">Hướng dẫn đọc theo dòng</text>
+<text class="mut h2" x="638.1" y="397.0">›</text>
+<text class="t h2" x="840.0" y="114.0">SAU · 320 px</text>
+<text class="dim xs" x="840.0" y="130.0">công tắc vẫn 2 cột; nhãn dài tự xuống hàng</text>
+<rect class="screen" x="840.0" y="140.0" width="320.0" height="300.0" rx="14"/>
+<text class="dim xs" x="850.0" y="162.0">Tùy biến chữ</text>
+<rect class="grp" x="850.0" y="170.0" width="300.0" height="34.0" rx="12"/>
+<text class="mut sm" x="891.0" y="191.5" text-anchor="middle">Không màu</text>
+<text class="mut sm" x="964.5" y="191.5" text-anchor="middle">Loại từ</text>
+<text class="mut sm" x="1021.9" y="191.5" text-anchor="middle">CEFR</text>
+<rect class="sel" x="1047.8" y="173.0" width="56.6" height="28.0" rx="9"/>
+<text class="t sm b" x="1076.1" y="191.5" text-anchor="middle">Độ khó</text>
+<rect class="grp" x="850.0" y="210.0" width="300.0" height="34.0" rx="12"/>
+<rect class="sel" x="853.0" y="213.0" width="101.7" height="28.0" rx="9"/>
+<text class="t sm b" x="903.9" y="231.5" text-anchor="middle">Bôi nhiều chữ</text>
+<text class="mut sm" x="1003.1" y="231.5" text-anchor="middle">Box từng từ</text>
+<text class="mut sm" x="850.0" y="272.0">Thông tin màu</text>
+<rect class="swOn" x="952.0" y="256.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="982.0" cy="268.0" r="8" class="knobOn"/>
+<text class="mut sm" x="1006.0" y="272.0">Màu IPA</text>
+<rect class="swOff" x="1108.0" y="256.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="1120.0" cy="268.0" r="6" class="knobOff"/>
+<text class="mut sm" x="850.0" y="312.0">Chế độ Focus</text>
+<rect class="swOff" x="952.0" y="296.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="964.0" cy="308.0" r="6" class="knobOff"/>
+<text class="mut sm" x="850.0" y="344.0">Đồng bộ tự động</text>
+<text class="dim xs" x="850.0" y="359.0">Tự cuộn theo dòng đang đọc; tắt để cuộn tay.</text>
+<rect class="swOn" x="1108.0" y="336.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="1138.0" cy="348.0" r="8" class="knobOn"/>
+<rect class="chip" x="850.0" y="376.0" width="206.1" height="32.0" rx="8"/>
+<circle cx="866.0" cy="392.0" r="6" class="ico"/>
+<text class="t sm" x="878.0" y="396.0">Hướng dẫn đọc theo dòng</text>
+<text class="mut h2" x="1038.1" y="397.0">›</text>
+<text class="t h2" x="440.0" y="470.0">Quy ước</text>
+<rect class="grp" x="440.0" y="482.0" width="150.0" height="34.0" rx="12"/>
+<rect class="sel" x="443.0" y="485.0" width="70.0" height="28.0" rx="9"/>
+<text class="t sm b" x="478.0" y="503.5" text-anchor="middle">Chọn</text>
+<text class="mut sm" x="550.0" y="503.5" text-anchor="middle">1 trong N</text>
+<text class="mut sm" x="604.0" y="504.0">Nhóm nút chung một viền = chọn 1 trong N (chọn thẳng, không xoay vòng).</text>
+<rect class="swOn" x="440.0" y="530.0" width="42.0" height="24.0" rx="12"/>
+<circle cx="470.0" cy="542.0" r="8" class="knobOn"/>
+<text class="mut sm" x="604.0" y="547.0">Công tắc = bật / tắt. Chạm cả hàng hoặc nút gạt.</text>
+<rect class="chip" x="440.0" y="568.0" width="110.0" height="32.0" rx="8"/>
+<text class="t sm" x="456.0" y="588.0">Mở bảng</text>
+<text class="mut h2" x="528.0" y="589.0">›</text>
+<text class="mut sm" x="604.0" y="588.0">Chip rời có mũi tên = mở một bảng khác.</text>
+<text class="ok sm" x="40.0" y="630.0">Không đổi: hàm được gọi, nơi lưu, 3 lối vào dùng chung một cụm (ADR-0024 D1). Cụm cao hơn trước khoảng một hàng; panel dock vẫn cuộn được.</text>
+</svg>

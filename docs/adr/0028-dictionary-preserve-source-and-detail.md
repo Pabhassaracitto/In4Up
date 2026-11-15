@@ -128,3 +128,11 @@ không dùng test giả như bằng chứng đã hỗ trợ MDD/CSS hoặc mọi
 - Test mới `dict_entry_links_test.dart`, `dict_source_entries_test.dart`,
   `dict_suggest_test.dart` kiểm tra vòng lặp, giới hạn, whitelist, UI callback,
   nguồn không lẫn; chờ CI và QA bằng file thật.
+
+### CI giai đoạn liên kết
+
+- Run `43748436062`/`43748901316` phát hiện `Uri.decodeComponent` ném
+  `ArgumentError` khi percent-escape sai; `21d85cf` xử lý an toàn, trả null.
+  CI `43749345649` xanh trên `21d85cf` (analyze, Rule 5, DICT, I4U18).
+- Đây là kiểm thử tự động/fixture; chưa nghiệm thu liên kết trong bộ thực tế
+  trên Android hoặc các format biến thể, và không xác nhận đã làm CSS/MDD.

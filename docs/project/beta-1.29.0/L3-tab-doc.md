@@ -78,7 +78,7 @@ Yêu cầu owner «I4U - Màn hình»: giao diện tab Đọc và phần cài đ
 | 2 | Cài đặt thành nhóm gập có dòng tóm tắt; tách cấu hình engine giọng đọc ra trang riêng; «Tách dòng tự động» về thanh công cụ | **xong** — PSRC-236, ADR-0030 (xem mục dưới) |
 | 3a | «Đổi vai» văn bản ⇄ bản dịch (thay cho nút đổi chiều ⇄ — owner duyệt 2026-11-15): IPA / tô màu / tra từ chạy được trên bản dịch; lưu theo tài liệu, có «Đổi lại» | **xong** — PSRC-237, ADR-0031 (xem mục dưới) |
 | 3b | Chọn ngôn ngữ nguồn («Tự nhận diện» + danh sách), tự tránh cặp trùng | **xong** — PSRC-238, ADR-0031 mục «Bổ sung — bước 3b» (xem mục dưới) |
-| 4 | Một quy ước điều khiển trong cụm Tùy biến chữ: switch = bật/tắt, nút phân đoạn = chọn 1 trong N, chip = mở bảng khác | chưa làm — **PSRC-239** |
+| 4 | Một quy ước điều khiển trong cụm Tùy biến chữ: switch = bật/tắt, nút phân đoạn = chọn 1 trong N, chip = mở bảng khác | **xong, chờ owner duyệt hình dạng** — PSRC-239, ADR-0032 (xem mục dưới) |
 
 Tên mới (một đích đến = một tên):
 
@@ -156,7 +156,7 @@ Việc kế tiếp đã ghi trên Linear (2026-11-15):
 | Issue | Nội dung | Ai làm |
 |---|---|---|
 | PSRC-238 | Bước 3b — chọn ngôn ngữ nguồn + tự tránh cặp trùng | lane L3 — **xong**, xem mục dưới |
-| PSRC-239 | Bước 4 — một quy ước điều khiển trong cụm «Tùy biến chữ» | lane L3 |
+| PSRC-239 | Bước 4 — một quy ước điều khiển trong cụm «Tùy biến chữ» | lane L3 — đã làm, xem mục PSRC-239 |
 | PSRC-240 | Thêm lại «Chế độ trải nghiệm» với hành vi thật (để sau, khi ổn) | chờ owner chốt hành vi |
 | PSRC-241 | Web Reader dùng chung đích dịch của tab Đọc | ngoài lane — hub giao |
 | PSRC-242 | Việc dọn cho hub: `read_ui_120_contract_test.dart` chưa vào CI, tài liệu lệch, lỗi dịch ghép chuỗi | hub |
@@ -188,3 +188,30 @@ Phát hiện thêm khi làm PSRC-238:
 - Step «Read actions…» chỉ ghi annotation cho lỗi so khớp (dòng `Expected:`). Test hỏng vì ném exception thì không có annotation nào — phải tải log mới biết. Commit ci của PR #187 thêm một annotation tóm tắt (tên test hỏng + vài dòng lỗi đầu). Các step test khác của `app_analyze.yml` có cùng kiểu grep ⇒ cùng điểm mù; L3 không sửa (ngoài lane) — **báo hub**, gộp vào PSRC-242.
 - File LRC / SRT trước đây **không** xoá nguồn gắn tay của tài liệu trước (hai đường nạp này không gọi `resetTranslationForNewDocument`). Nay mọi đường nạp đều khôi phục nguồn theo tài liệu ở `_setSourceMeta` nên hết.
 - Còn nguyên từ 3a: Web Reader dùng chung đích dịch và chỉ truyền nguồn khi nguồn được gắn (PSRC-241); tài liệu trộn ngôn ngữ mất mã nguồn từng dòng sau khi đổi vai rồi đổi lại.
+
+### PSRC-239 — một quy ước điều khiển trong cụm «Tùy biến chữ», bước 4/4 (2026-11-15, ngoài cổng 35 issue)
+
+Quyết định: `docs/adr/0032-doc-tab-mot-quy-uoc-dieu-khien-cum-tuy-bien-chu.md`. Nhánh `arena/16084fc2-in4up`. Bản vẽ: `docs/project/assets/psrc-239-tuy-bien-chu-wireframe.png` (nguồn `.svg`; vẽ tay, không phải ảnh chụp app).
+
+| Trước | Sau PSRC-239 |
+|---|---|
+| Chế độ màu: một chip, bấm để xoay vòng 4 chế độ | Nhóm 4 lựa chọn chung một viền, chọn thẳng |
+| «Bôi nhiều chữ» ⇄ «Box từng từ»: một chip, nhãn đổi theo trạng thái | Nhóm 2 lựa chọn, cả hai tên cùng hiện |
+| «Thông tin màu», «Màu IPA», «Chế độ Focus»: chip, trạng thái chỉ hiện qua màu icon | Công tắc (2 cột khi đủ chỗ) |
+| «Hướng dẫn đọc theo dòng»: chip giống các nút bật / tắt | Chip rời có mũi tên › |
+| «Đồng bộ tự động»: công tắc | Không đổi |
+
+Không đổi: hàm được gọi và nơi lưu (chế độ màu gọi `setColorMode` — API sẵn có, cùng chỗ lưu với `cycleColorMode`); `ReadDisplayControls` vẫn là một widget cho cả ba lối vào (ADR-0024 D1); `ReadTopBar`; chữ của lời giải thích «Box từng từ». Không thêm chuỗi i18n.
+
+Lệch so với kế hoạch (cần owner biết):
+
+1. **«Box từng từ» là nhóm 2 lựa chọn chứ không phải công tắc** — lý do ở ADR-0032 D3 (hai trạng thái đều có tên; công tắc chỉ mang được một tên). Lời giải thích khi nhấn giữ vẫn viết «Tắt = … Bật = …».
+2. **«Nút phân đoạn» không phải `SegmentedButton` của Material** mà là các lựa chọn trong một khung viền chung, được phép xuống hàng — lý do ở ADR-0032 D4 (nhãn dài ở th / my / si).
+3. **Code đi cùng bản vẽ**, không phải bản vẽ trước rồi mới code như issue ghi. PR chưa gộp cho tới khi owner duyệt; nếu owner muốn hình dạng khác thì sửa trong cùng PR.
+4. Cụm cao hơn trước khoảng một hàng (ước lượng trên bản vẽ); panel dock vẫn cuộn được.
+
+Pin cũ đã sửa: `test/read_ui_121_contract_test.dart` (ghim `tp.cycleColorMode()` trong file cụm → nay ghim `tp.setColorMode(mode)` ở cụm và `tp.cycleColorMode()` ở `read_top_bar.dart`). Pin PSRC-235 không sửa.
+
+Bằng chứng CI: mã commit và run ghi trong PR của nhánh (tài liệu này gọi commit theo vai trò — feat / docs).
+
+Chưa kiểm trên máy thật (sandbox không có Flutter SDK): hình dạng, màu và khoảng cách thật của nhóm lựa chọn; nhãn th / my / si xuống hàng; chiều cao cụm trong panel dock ở 360×640 và khi xoay ngang; nút gạt thu nhỏ có dễ chạm không; nhấn giữ «Box từng từ»; ba lối vào (dock, sheet «Bố cục đọc», mục cạnh ⚡).

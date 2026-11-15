@@ -41,12 +41,13 @@ import 'dict_pack_screen.dart';
 class DictionaryScreen extends StatefulWidget {
   /// Từ cần tra ngay khi mở (từ link, từ bong bóng, từ "Open with In4Up").
   final String? initialQuery;
+  final String? initialDictId;
 
   /// Nơi mở màn này — chỉ để ghi nhật ký/lịch sử, KHÔNG đổi cách hiển thị.
   /// `home` · `pdf` · `read` · `deep_link` · `file` · `bubble` · `unknown`.
   final String? source;
 
-  const DictionaryScreen({super.key, this.initialQuery, this.source});
+  const DictionaryScreen({super.key, this.initialQuery, this.initialDictId, this.source});
 
   /// ĐIỂM VÀO DUY NHẤT của màn Từ điển (ADR-0018).
   ///
@@ -56,16 +57,17 @@ class DictionaryScreen extends StatefulWidget {
     BuildContext context, {
     String? query,
     String? source,
+    String? dictId,
   }) {
-    return Navigator.of(context).push(route(query: query, source: source));
+    return Navigator.of(context).push(route(query: query, source: source, dictId: dictId));
   }
 
   /// Route dùng chung — cho nơi **không có `BuildContext` bên dưới Navigator**
   /// (cầu nối link `DictDeepLinkRouter` chỉ có `navigatorKey.currentState`).
   /// Vẫn là một định nghĩa màn hình duy nhất, không nhân đôi UI.
-  static Route<void> route({String? query, String? source}) {
+  static Route<void> route({String? query, String? source, String? dictId}) {
     return MaterialPageRoute<void>(
-      builder: (_) => DictionaryScreen(initialQuery: query, source: source),
+      builder: (_) => DictionaryScreen(initialQuery: query, initialDictId: dictId, source: source),
     );
   }
 
@@ -125,6 +127,11 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   Future<void> _bootstrap() async {
     await _loadDicts();
     await _loadHistory();
+    if (!mounted) return;
+    final dictId = widget.initialDictId;
+    if (dictId != null && _dicts.any((dict) => dict.id == dictId)) {
+      _selectedDictId = dictId;
+    }
     final initial = (widget.initialQuery ?? '').trim();
     if (initial.isNotEmpty) {
       _searchController.text = initial;
@@ -879,6 +886,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         DictSourceEntries(
           entries: _entries,
           initiallyExpanded: merged.isEmpty,
+          onLookupWord: (word, dictId) => DictionaryScreen.open(
+            context, query: word, source: 'dictionary_entry', dictId: dictId),
         ),
         if (sources.isNotEmpty) ...[
           const SizedBox(height: 22),

@@ -1726,6 +1726,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'บทสรุปทำใจความหลักหายไปหลายจุด',
     'ja': '要約で要点がかなり抜けています。',
   },
+  'Bản văn bản từ dữ liệu đã nhập; chưa hỗ trợ CSS, ảnh và âm thanh.': {
+    'en': 'Text from imported data; CSS, images and audio are not yet supported.',
+    'zh': '导入数据的文本；暂不支持 CSS、图片和音频。',
+    'zh_TW': '匯入資料的文字；目前不支援 CSS、圖片與音訊。',
+    'hi': 'आयात किए गए डेटा का पाठ; CSS, चित्र और ऑडियो अभी समर्थित नहीं हैं।',
+    'si': 'ආයාත කළ දත්තවල පෙළ; CSS, රූප සහ ශ්‍රව්‍ය තවමත් සහාය නොදක්වයි.',
+    'my': 'တင်သွင်းထားသော စာသားဖြစ်သည်။ CSS၊ ပုံနှင့် အသံကို မပံ့ပိုးသေးပါ။',
+    'th': 'ข้อความจากข้อมูลที่นำเข้า ยังไม่รองรับ CSS รูปภาพและเสียง',
+    'ja': '取り込んだデータのテキストです。CSS、画像、音声にはまだ対応していません。',
+  },
   'Bản văn bản từ dữ liệu đã nhập; chưa hỗ trợ CSS, ảnh, âm thanh và liên kết.': {
     'en': 'Text from the imported data; CSS, images, audio and links are not yet supported.',
     'zh': '导入数据的文本；暂不支持 CSS、图片、音频和链接。',

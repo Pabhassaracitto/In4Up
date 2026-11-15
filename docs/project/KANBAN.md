@@ -9831,3 +9831,13 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | sửa đường dẫn, test và bàn giao; chờ CI.
   - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI run 43612552890 xanh trên `7f766d2`; chờ QA máy thật, renderer CSS/MDD và xác minh license.
+
+### DICT-LINK-002 — Redirect và liên kết mục từ an toàn
+
+- **Trạng thái:** doing — code + test, chờ CI và QA với bộ nguồn thật.
+- **Nguồn:** owner yêu cầu sau PR tiếp tục hoàn thiện Dictionary, ADR-0028.
+- **Phạm vi:** `@@@LINK=` trong cùng bộ; link `entry://`/`bword://` dạng chip
+  tra từ với bộ nguồn; giới hạn vòng lặp và dữ liệu bất tín nhiệm.
+- **Chưa có:** CSS/MDD/media/link inline, nghiệm thu thiết bị và 1,22 GB MDD.
+- **Lịch sử:**
+  - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | PR #186; code + test; chờ CI.

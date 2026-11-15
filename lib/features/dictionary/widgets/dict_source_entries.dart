@@ -1,9 +1,11 @@
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
 import '../models/dict_entry.dart';
 import '../services/dictionary_service.dart';
+import '../services/dict_entry_links.dart';
 
 /// Separate source entries, without the lossy sense limits of the quick view.
 /// This is intentionally a text-only HTML subset, not an MDict renderer: no
@@ -11,11 +13,13 @@ import '../services/dictionary_service.dart';
 class DictSourceEntries extends StatelessWidget {
   final List<DictEntry> entries;
   final bool initiallyExpanded;
+  final void Function(String word, String dictId)? onLookupWord;
 
   const DictSourceEntries({
     super.key,
     required this.entries,
     this.initiallyExpanded = false,
+    this.onLookupWord,
   });
 
   @override
@@ -39,7 +43,7 @@ class DictSourceEntries extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          context.uiText('Bản văn bản từ dữ liệu đã nhập; chưa hỗ trợ CSS, ảnh, âm thanh và liên kết.'),
+          context.uiText('Bản văn bản từ dữ liệu đã nhập; chưa hỗ trợ CSS, ảnh và âm thanh.'),
           style: TextStyle(color: Colors.grey[400], fontSize: 12),
         ),
         for (final entry in entries)
@@ -65,6 +69,24 @@ class DictSourceEntries extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onLookupWord != null &&
+                  DictEntryLinks.extract(entry.definition).isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: <Widget>[
+                      for (final target in DictEntryLinks.extract(entry.definition))
+                        ActionChip(
+                          label: material.Text(target),
+                          onPressed: () => onLookupWord!(target, entry.dictId),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
             ],
           ),

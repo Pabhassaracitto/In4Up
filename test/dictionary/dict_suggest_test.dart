@@ -136,6 +136,23 @@ void main() {
     });
   });
 
+  test('redirects resolve in their own dictionary, never in another', () async {
+    final a = await install('redirect-a', <String, String>{
+      'cats': '@@@LINK=cat',
+      'cat': 'mèo từ A',
+      'missing': '@@@LINK=only-b',
+    });
+    await install('redirect-b', <String, String>{
+      'cat': 'cat from B',
+      'only-b': 'not from A',
+    });
+    final fromA = await DictionaryService.instance.lookup('cats', dictId: a.id);
+    expect(fromA.single.headword, 'cats');
+    expect(fromA.single.definition, 'mèo từ A');
+    final missing = await DictionaryService.instance.lookup('missing', dictId: a.id);
+    expect(missing.single.definition, '@@@LINK=only-b');
+  });
+
   group('DictionaryService.lookup(dictId:)', () {
     test('lọc đúng một bộ — chip lọc của màn Từ điển dựa vào đây', () async {
       final (a, b) = await installTwo();

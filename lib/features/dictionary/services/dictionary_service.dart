@@ -9,6 +9,7 @@ import '../models/dict_entry.dart';
 import '../models/dict_info.dart';
 import 'dict_bundle_scanner.dart';
 import 'dict_db_service.dart';
+import 'dict_redirect_resolver.dart';
 import 'dict_list_order.dart';
 import 'dict_sqlite_importer.dart';
 import 'dict_title_cleaner.dart';
@@ -100,7 +101,10 @@ class DictionaryService {
     for (final dict in sources) {
       try {
         final entries = await DictDbService.lookup(dict.dbPath, word);
-        results.addAll(entries);
+        results.addAll(await DictRedirectResolver.resolve(
+          entries,
+          (target) => DictDbService.lookup(dict.dbPath, target),
+        ));
       } catch (e) {
         // DB lỗi → bỏ qua
       }

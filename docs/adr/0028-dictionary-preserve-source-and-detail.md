@@ -109,3 +109,22 @@ không dùng test giả như bằng chứng đã hỗ trợ MDD/CSS hoặc mọi
   kiểm logic + wiring, chưa phải thao tác pop→sheet trên thiết bị.
 - Flutter SDK không có ở sandbox; file thật được kiểm bằng GitHub blob API và
   reader Python độc lập, chưa chạy import/download thực trên Android/iOS.
+
+## Giai đoạn tiếp: chuyển hướng và liên kết nội bộ
+
+- PR #186 dựa trên `arena/01a0251e-in4up`; chưa merge. Không đổi kiến trúc
+  lưu trữ hay tự chuyển sang đọc MDX trực tiếp.
+- `@@@LINK=` toàn record được giải quyết trong **cùng DB của từng bộ**, giữ
+  headword đã tra. Mất mục đích, vòng lặp, lỗi DB hoặc quá giới hạn thì giữ
+  record redirect gốc, không xóa dữ liệu. Giới hạn độ sâu 8, số lookup 32,
+  số record đã thăm 512; không gọi mạng.
+- Renderer văn bản thêm nút cho tối đa 30 link `entry://`/`bword://` hợp lệ,
+  mở màn tra từ với bộ nguồn đang bật. Không mở `http`, `file`, `javascript`,
+  `sound` hay đường dẫn tùy ý; không chạy script. Đây **không phải link inline**.
+- MDD/CSS/ảnh/audio vẫn chưa được hỗ trợ: bộ LAAD3 có tệp 1,22 GB + nhiều
+  phần, cần parser/truy xuất ngẫu nhiên có giới hạn, tách biệt đọc metadata,
+  decompress theo block và xác minh SAF trên máy; chưa thể nghiệm thu nếu không
+  có fixture có quyền sử dụng. Danh sách link giới hạn 30 và từ tối đa 256 rune.
+- Test mới `dict_entry_links_test.dart`, `dict_source_entries_test.dart`,
+  `dict_suggest_test.dart` kiểm tra vòng lặp, giới hạn, whitelist, UI callback,
+  nguồn không lẫn; chờ CI và QA bằng file thật.

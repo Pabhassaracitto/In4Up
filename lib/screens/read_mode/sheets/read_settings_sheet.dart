@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
-import '../../../features/translation/translation_display_mode.dart';
 import '../../../features/translation/translation_language_picker.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
@@ -101,26 +100,14 @@ class _SettingsContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // ===== EXPERIENCE MODE =====
-                  const _SectionTitle(
-                      title: 'Chế độ trải nghiệm', icon: Icons.auto_awesome),
-                  const SizedBox(height: 12),
-                  _SubModeSelector(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== FOCUS: giữ phần tiêu đề (IN4-30) =====
-                  const _SectionTitle(
-                      title: 'Chế độ Focus: giữ tiêu đề', icon: Icons.fullscreen),
-                  const SizedBox(height: 12),
-                  const _FocusTitlePositionSelector(),
-                  const SizedBox(height: 24),
-
-                  // ===== ALIGNMENT =====
-                  const _SectionTitle(
-                      title: 'Căn lề văn bản', icon: Icons.format_align_center),
-                  const SizedBox(height: 12),
-                  _AlignmentSelector(tp: tp),
-                  const SizedBox(height: 24),
+                  // PSRC-235 (bước 1 — gọn Cài đặt): thứ tự theo TẦN SUẤT dùng.
+                  // Đã bỏ khỏi bảng này:
+                  //   * «Chế độ trải nghiệm» — `subMode` không được đọc ở đâu
+                  //     trong app ⇒ bấm không đổi gì (cài đặt chết);
+                  //   * cụm «Text-to-Speech» (Đọc dòng / Đọc tất cả / Dừng +
+                  //     thanh tốc độ) — lối phát và đường tốc độ THỨ HAI, lệch
+                  //     ADR-0021 D1. Phát + tốc độ sống ở dock «Đọc».
+                  // Cài đặt chỉ chứa GIÁ TRỊ cấu hình, không chứa nút hành động.
 
                   // ===== FONT SIZE =====
                   const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
@@ -128,11 +115,11 @@ class _SettingsContent extends StatelessWidget {
                   _FontSizeControl(tp: tp),
                   const SizedBox(height: 24),
 
-                  // ===== TTS =====
+                  // ===== ALIGNMENT =====
                   const _SectionTitle(
-                      title: 'Text-to-Speech', icon: Icons.record_voice_over),
+                      title: 'Căn lề văn bản', icon: Icons.format_align_center),
                   const SizedBox(height: 12),
-                  _TtsControls(tp: tp),
+                  _AlignmentSelector(tp: tp),
                   const SizedBox(height: 24),
 
                   // ===== TRANSLATION + BILINGUAL TTS =====
@@ -178,11 +165,23 @@ class _SettingsContent extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // ===== DISPLAY OPTIONS =====
+                  // ===== LINE OPTIONS =====
+                  // PSRC-235: tên cũ «Hiển thị» trùng với popup / tab dock /
+                  // sheet. Mục này chỉ còn 2 công tắc về DÒNG; «Hiện bản dịch»
+                  // và «Box từng từ» đã có ở cụm Tùy biến chữ + nút Dịch dock.
                   const _SectionTitle(
-                      title: 'Hiển thị', icon: Icons.visibility),
+                      title: 'Dòng văn bản', icon: Icons.format_list_numbered),
                   const SizedBox(height: 12),
-                  _DisplayOptions(tp: tp),
+                  _LineOptions(tp: tp),
+
+                  const SizedBox(height: 24),
+
+                  // ===== FOCUS: giữ phần tiêu đề (IN4-30) =====
+                  // Chỉnh một lần ⇒ đứng sau các mục dùng thường xuyên.
+                  const _SectionTitle(
+                      title: 'Chế độ Focus: giữ tiêu đề', icon: Icons.fullscreen),
+                  const SizedBox(height: 12),
+                  const _FocusTitlePositionSelector(),
 
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white12),
@@ -366,102 +365,6 @@ class _FontSizeControl extends StatelessWidget {
   }
 }
 
-class _TtsControls extends StatelessWidget {
-  final TextProvider tp;
-  const _TtsControls({required this.tp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          // Speed slider
-          Row(
-            children: [
-              const Icon(Icons.speed, size: 18, color: Colors.white70),
-              const SizedBox(width: 8),
-              const Text('Tốc độ:',
-                  style: TextStyle(color: Colors.white70, fontSize: 13)),
-              Expanded(
-                child: Slider(
-                  value: tp.ttsSpeed,
-                  min: 0.25,
-                  max: 2.0,
-                  divisions: 7,
-                  activeColor: const Color(0xFF2196F3),
-                  onChanged: (v) => tp.setTtsSpeed(v),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Color(0xFF2196F3).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  context.uiText('${tp.ttsSpeed.toStringAsFixed(2)}x'),
-                  style: const TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: _TtsButton(
-                  icon: Icons.play_arrow,
-                  label: 'Đọc dòng',
-                  color: const Color(0xFF4CAF50),
-                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
-                  onTap: () {
-                    Navigator.pop(context);
-                    tp.speakCurrentLine();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _TtsButton(
-                  icon: Icons.playlist_play,
-                  label: 'Đọc tất cả',
-                  color: const Color(0xFF2196F3),
-                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
-                  onTap: () {
-                    Navigator.pop(context);
-                    tp.speakAllLines();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _TtsButton(
-                  icon: Icons.stop,
-                  label: 'Dừng',
-                  color: Colors.red,
-                  enabled: tp.isTtsActive,
-                  onTap: () => tp.stopSpeaking(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TranslationLanguageSection extends StatelessWidget {
   final TextProvider tp;
 
@@ -520,55 +423,6 @@ class _TranslationLanguageSection extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _TtsButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _TtsButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: enabled
-              ? color.withValues(alpha: 0.15)
-              : Colors.grey.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: enabled ? color.withValues(alpha: 0.3) : Colors.transparent,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: enabled ? color : Colors.grey, size: 18),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: enabled ? color : Colors.grey,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -2200,16 +2054,16 @@ InputDecoration _readDialogInputDecoration({
   );
 }
 
-class _DisplayOptions extends StatelessWidget {
-
+// PSRC-235: trước đây là `_DisplayOptions` với 4 công tắc. Hai công tắc
+// «Hiện bản dịch» và «Box từng từ» là BẢN SAO của nút Dịch ở dock / chip
+// «Bản dịch: Ẩn · Dưới · Cột» trong sheet Bố cục đọc và chip «Box từng từ ⇄
+// Bôi nhiều chữ» trong cụm Tùy biến chữ ⇒ bỏ (READ-ACT-001: mỗi thứ một chỗ).
+class _LineOptions extends StatelessWidget {
   final TextProvider tp;
-  const _DisplayOptions({required this.tp});
+  const _LineOptions({required this.tp});
 
   @override
   Widget build(BuildContext context) {
-    final visibilityAction = context.uiText(
-      tp.showTranslation ? 'ẩn' : 'hiện',
-    );
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -2218,27 +2072,6 @@ class _DisplayOptions extends StatelessWidget {
       ),
       child: Column(
         children: [
-          SwitchListTile(
-            title: const Text('Hiện bản dịch',
-                style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: Text(
-                context.uiText(tp.translatedLineCount > 0
-                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để $visibilityAction'
-                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng'),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-            value: tp.showTranslation,
-            activeThumbColor: const Color(0xFF4CAF50),
-            onChanged: (val) {
-              // Rõ ràng hơn toggle: bật = stackedBelow, tắt = hidden
-              if (val) {
-                tp.setTranslationDisplayMode(
-                    TranslationDisplayMode.stackedBelow);
-              } else {
-                tp.setTranslationDisplayMode(TranslationDisplayMode.hidden);
-              }
-            },
-          ),
-          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
           SwitchListTile(
             title: const Text('Hiện số dòng',
                 style: TextStyle(color: Colors.white, fontSize: 14)),
@@ -2258,97 +2091,8 @@ class _DisplayOptions extends StatelessWidget {
             activeThumbColor: const Color(0xFF9C27B0),
             onChanged: (v) => tp.toggleAutoSplit(v),
           ),
-          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
-          SwitchListTile(
-            title: const Text('Box từng từ (tap để lưu)',
-                style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: Text(
-              'Tắt = bôi nhiều chữ (mặc định). Bật = mỗi từ một hộp, '
-              'long-press lưu từ — nền lưu hàng loạt.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 11),
-            ),
-            value: tp.wordTapBoxes,
-            activeThumbColor: const Color(0xFFFF9800),
-            onChanged: (v) => tp.setWordTapBoxes(v),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _SubModeSelector extends StatelessWidget {
-  final TextProvider tp;
-  const _SubModeSelector({required this.tp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          _SubModeItem(
-            icon: Icons.menu_book,
-            label: 'Chế độ Đọc',
-            isSelected: tp.subMode == ReadSubMode.reading,
-            onTap: () => tp.setSubMode(ReadSubMode.reading),
-          ),
-          _SubModeItem(
-            icon: Icons.record_voice_over,
-            label: 'Chế độ Nghe (TTS)',
-            isSelected: tp.subMode == ReadSubMode.listening,
-            onTap: () => tp.setSubMode(ReadSubMode.listening),
-          ),
-          _SubModeItem(
-            icon: Icons.translate,
-            label: 'Chế độ Dịch',
-            isSelected: tp.subMode == ReadSubMode.translation,
-            onTap: () => tp.setSubMode(ReadSubMode.translation),
-          ),
-          _SubModeItem(
-            icon: Icons.directions_car,
-            label: 'Chế độ Lái xe',
-            isSelected: tp.subMode == ReadSubMode.driving,
-            onTap: () => tp.setSubMode(ReadSubMode.driving),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SubModeItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SubModeItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading:
-          Icon(icon, color: isSelected ? const Color(0xFF2196F3) : Colors.grey),
-      title: Text(label,
-          style: TextStyle(
-              color: isSelected ? Colors.white : Colors.grey[400],
-              fontSize: 14)),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle, color: Color(0xFF2196F3), size: 18)
-          : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      onTap: onTap,
-      dense: true,
     );
   }
 }

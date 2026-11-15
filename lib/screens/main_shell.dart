@@ -1726,9 +1726,13 @@ class _MainShellState extends State<MainShell> {
             tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
-          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Hiển thị» +
+          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Tùy biến» +
           // «Cài đặt». Không thêm 2 icon rời rạc (app bar reader đã có 4
           // icon + tiêu đề ⇒ 320px không đủ chỗ).
+          // PSRC-235: mục đầu từng tên «Hiển thị» — trùng với tab dock, chip
+          // trong tab và tiêu đề sheet (4 tầng cùng tên). Nay một đích đến =
+          // một tên: «Tùy biến» (panel dock) · «Bố cục đọc» (sheet) ·
+          // «Cài đặt» (Cài đặt Text Studio).
           if (isReader &&
               _readChromeLayout.useBottomDock &&
               !_readChromeLayout.displayHidden)
@@ -1736,11 +1740,11 @@ class _MainShellState extends State<MainShell> {
               padding: EdgeInsets.zero,
               icon: const Icon(Icons.tune_rounded,
                   color: Color(0xFF26C6DA), size: 20),
-              tooltip: context.uiText('Hiển thị'),
+              tooltip: context.uiText('Tùy biến'),
               onSelected: (value) {
                 if (value == 'display') {
                   if (_readChromeLayout.useBottomDock) {
-                    // READ-UI-121: 1 chạm mở đúng panel «Hiển thị» của dock
+                    // READ-UI-121: 1 chạm mở đúng panel «Tùy biến» của dock
                     // (có ReadModeController ⇒ đủ auto-sync + Focus). Vẫn là
                     // MỘT nguồn sự thật `ReadChromeLayoutStore`.
                     final store = ReadChromeLayoutStore.instance;
@@ -1758,7 +1762,7 @@ class _MainShellState extends State<MainShell> {
               itemBuilder: (menuContext) => [
                 PopupMenuItem<String>(
                   value: 'display',
-                  child: Text(menuContext.uiText('Hiển thị')),
+                  child: Text(menuContext.uiText('Tùy biến')),
                 ),
                 PopupMenuItem<String>(
                   value: 'settings',

@@ -238,6 +238,7 @@
 | TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
 | TPI-DISPLAY-02 | Tipiṭaka: ghi nhớ vị trí đọc + thẻ "Đọc tiếp" (P4a) — store px theo book_id, reader auto-restore, thư viện resume tối đa 3 sách | ✅ done (code; CÒN nghiệm thu thiết bị) | branch arena/01a10843-in4up commit 0f7fe18 |
 | TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 🔄 doing (code + CI oracle 🟢; chờ full test/AT thiết bị) | branch arena/01a10b88-in4up; CI run 37295697496 analyze + Rule #5 + Tipiṭaka tests xanh |
+| TIPI-PERF-01 | Tipiṭaka mở chậm (demo và sau khi thêm gói ngôn ngữ): tối ưu tốc độ mở thư viện/bài đọc, bỏ vòng xoay chờ | 🔨 doing (code + test mới; chờ `flutter analyze` + full test + nghiệm thu thiết bị) | branch arena/00cf7543-in4up; `docs/tipitaka_performance_plan.md`; `tipitaka_perf_cache.dart` mới; `test/tipitaka_open_performance_test.dart` mới |
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
@@ -293,6 +294,33 @@
   scroll + dispose; thư viện thẻ "Đọc tiếp" ≤3 sách resolve getBookById + nút xóa.
 - **AT:** mở sách → cuộn sâu → back → mở lại: về đúng chỗ (±vài đoạn); nhảy từ
   TOC/search KHÔNG bị restore đè; xóa vị trí → card mất entry; i18n en sạch.
+
+### TIPI-PERF-01 — Tipiṭaka mở chậm: tối ưu đường mở (đo trước, sửa đúng chỗ)
+- **Trạng thái:** doing — code + test mới; còn `flutter analyze`, full `flutter test`
+  và nghiệm thu thiết bị (DB demo + DB đã import ≥ 1 gói ngôn ngữ).
+- **Nguồn:** chủ dự án — "Tipiṭaka demo hay đã thêm ngôn ngữ đều load mở bài lâu,
+  người dùng phải chờ"; yêu cầu tối ưu tốc độ mà vẫn giữ trải nghiệm tốt.
+- **Đo được (DB tổng hợp 600k đoạn/323 MB, desktop):** probe cột ngôn ngữ rỗng
+  100 ms/lần; `getBooksByCollection` 1.139 ms cho 40 sách (4 subquery tiêu đề
+  sort toàn bộ đoạn của từng sách); `openReady` mở read-only + 3 `COUNT(*)` +
+  probe rồi mở lại handle thứ hai **mỗi lần gọi**; reader gọi `info()`
+  (đếm toàn bảng + dò 5 cột) chỉ để lấy danh sách ngôn ngữ.
+- **Sửa:** `openReady` fast path theo fingerprint (path+size+mtime);
+  `_isUsableDatabaseFile`/`_isEmptyAppDatabase` dùng `EXISTS` thay `COUNT(*)`;
+  `availableLanguages()` memo + lưu bền theo fingerprint (`tipitaka_perf_cache.dart`);
+  tiêu đề sách giải 1 lần/sách + bỏ hẳn khi DB không có dòng tiêu đề cấu trúc
+  (`_hasStructuralTitles`); index `idx_segments_book_order` tạo trong import
+  (python + `_openImportTarget`) và lazy ≤250k đoạn; `prewarm()` gọi từ tab Đọc;
+  thư viện paint từ snapshot trước khi mở SQLite (+ thanh refresh 2 px, không
+  reset sách của node đang mở); reader thay spinner bằng skeleton.
+- **Không đổi:** schema DB, API công khai của `TipitakaDb`, semantics tiêu đề
+  (SQL giữ nguyên từng chữ), và mọi cache đều keyed by fingerprint nên import
+  luôn làm mới.
+- **Brief/kế hoạch:** `docs/tipitaka_performance_plan.md`.
+- **Lịch sử:**
+  - 2026-11-15 | proposed→doing | agent arena/00cf7543-in4up | audit + 5 nhóm sửa
+    + `test/tipitaka_open_performance_test.dart`; chưa chạy được `flutter analyze`
+    trong sandbox
 
 ### TPI-DISPLAY-03 — Tipiṭaka P4b–P6 (lộ trình còn lại)
 - **Trạng thái:** doing — code Phase 2 hoàn tất; CI run `37295697496` xanh

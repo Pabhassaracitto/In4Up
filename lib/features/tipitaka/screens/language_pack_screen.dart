@@ -73,8 +73,8 @@ class _TipsLanguagePackScreenState extends State<TipsLanguagePackScreen> {
   Future<void> _refreshLanguages() async {
     try {
       final db = await TipitakaDb.openReady();
-      final info = await TipitakaDb.info(db);
-      if (mounted) setState(() => _hasPali = info.availableLanguages.contains('pi'));
+      final languages = await TipitakaDb.availableLanguages(db);
+      if (mounted) setState(() => _hasPali = languages.contains('pi'));
     } catch (_) {
       if (mounted) setState(() => _hasPali = false);
     }

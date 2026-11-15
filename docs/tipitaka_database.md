@@ -101,3 +101,33 @@ the reader opens only the normalized application DB.
       path).
 - [ ] Preserve the Pa-Auk/OpenTipitaka attribution and license terms when
       distributing downloaded/merged data.
+
+## Performance contract (TIPI-PERF-01)
+
+Opening the library or a book must not depend on the size of the canon. The
+rules that keep it that way:
+
+1. **One verification per file version.** `TipitakaDb.openReady()` remembers the
+   fingerprint (`path + size + mtime`) of the database it already verified and
+   returns the open handle for every later call. Open-path probes use
+   `SELECT 1 … LIMIT 1` (`EXISTS`), never `COUNT(*)` over `tipitaka_segments`.
+2. **No per-screen derivation.** `availableLanguages()` and the
+   "has structural headings" flag are memoised per import revision and persisted
+   in `SharedPreferences` (`tipitaka_perf_cache.dart`) under the same
+   fingerprint. `info()` still returns exact counts for the data manager but no
+   longer probes every translation column; screens that only need languages call
+   `availableLanguages()`.
+3. **Catalogue titles are resolved once per book** and skipped entirely when the
+   database has no structural heading rows (the normalised/demo shape), where the
+   old correlated subqueries always returned `NULL` after a full scan.
+4. **Paging index** `idx_segments_book_order(book_id, order_index, id)` is built
+   during import (`scripts/import_tipitaka.py` and the in-app staging open) and
+   lazily at runtime only for databases ≤ 250 000 segments. A larger database is
+   never indexed while the user is reading — re-import a pack to get it.
+5. **Prewarm, then paint.** Entering the Đọc tab calls `TipitakaDb.prewarm()`
+   after the first frame; the library paints its cached snapshot from a single
+   `stat()` before SQLite is opened and refreshes behind a 2 px progress bar.
+
+Anything that caches must stay fingerprint-keyed: imports install files through
+an atomic rename, so a changed size/mtime always invalidates the cache. See
+`docs/tipitaka_performance_plan.md` for the measurements behind these rules.

@@ -28,6 +28,7 @@ import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import 'language_detector.dart';
 import 'tts_candidate_router.dart';
+import 'tts_engine_order_merge.dart';
 import 'tts_settings.dart';
 import 'tts_text_chunker.dart';
 
@@ -186,7 +187,14 @@ class TtsService extends ChangeNotifier {
   }
 
   void _buildDefaultEngineOrder() {
-    _engineOrder = [
+    _engineOrder = buildDefaultEngineOrder();
+  }
+
+  /// PSRC-245 — danh sách engine + mức ưu tiên MẶC ĐỊNH (0 = thử trước).
+  /// Hàm thuần, để `_loadPersistedSettings` trộn được thứ tự đã lưu với
+  /// đúng mức ưu tiên mặc định thay vì nối engine mới xuống cuối.
+  static List<TtsEngineInfo> buildDefaultEngineOrder() {
+    return [
       const TtsEngineInfo(
         id: 'vieneu_tts',
         name: 'VieNeu-TTS (native)',
@@ -212,8 +220,10 @@ class TtsService extends ChangeNotifier {
       // TTS-EDGE-001 — Microsoft Edge Read Aloud (giao thức edge-tts):
       // giọng Neural cực tự nhiên, KHÔNG cần API key, miễn phí ⇒ làm
       // engine ONLINE ĐẦU TIÊN của cài đặt mới. User cũ (đã có saved
-      // order) không bị xáo trộn: merge `_loadPersistedSettings` append
-      // engine mới xuống CUỐI (kéo lên bằng UI sẵn có). Mạng chập chờn/
+      // order) không bị xáo trộn: PSRC-245 — engine mới được chèn theo
+      // mức ưu tiên MẶC ĐỊNH (xem `mergePersistedEngineOrder`), nên Edge
+      // (3) vẫn rơi SAU các engine offline đang có, còn VieNeu (0) thì
+      // KHÔNG bị đẩy xuống cuối nữa. Mạng chập chờn/
       // timeout ⇒ chuỗi `_getCandidateEngines` + emergency Offline lo
       // fallback (không nghẽn app).
       const TtsEngineInfo(
@@ -292,22 +302,27 @@ class TtsService extends ChangeNotifier {
           }
         }
 
-        final currentMap = {for (final e in _engineOrder) e.id: e};
-        final reordered = <TtsEngineInfo>[];
-        for (final id in orderList) {
-          if (currentMap.containsKey(id)) {
-            final existing = currentMap.remove(id)!;
-            reordered.add(existing.copyWith(
-              isEnabled: map[id] ?? existing.isEnabled,
-              priority: reordered.length,
-            ));
-          }
+        // PSRC-245 — KHÔNG nối engine mới xuống cuối. Trước 1.29.0-Beta
+        // hàm này append nên `vieneu_tts` bị xếp sau cả giọng máy ⇒ VieNeu
+        // không bao giờ được gọi với người dùng nâng cấp (đọc bằng
+        // Piper/hệ thống). `mergePersistedEngineOrder` chèn theo mức ưu
+        // tiên mặc định, giữ thứ tự tương đối người dùng đã sắp.
+        final mergeVersion =
+            prefs.getInt(kEngineOrderVersionKey) ?? 1;
+        _engineOrder = mergePersistedEngineOrder(
+          defaults: buildDefaultEngineOrder(),
+          persistedIds: orderList,
+          persistedEnabled: map,
+          reinsertAsNew: mergeVersion < kEngineOrderMergeVersion
+              ? kEngineOrderReinsertOnMigration
+              : const <String>{},
+        );
+        if (mergeVersion < kEngineOrderMergeVersion) {
+          // Ghi lại NGAY thứ tự đã sửa: người dùng đã sờ vào Cài đặt trên
+          // bản lỗi có thể đã bị lưu vieneu_tts ở cuối.
+          await prefs.setInt(kEngineOrderVersionKey, kEngineOrderMergeVersion);
+          await _saveSettings();
         }
-        // Thêm các engine mới chưa có trong saved json
-        for (final remaining in currentMap.values) {
-          reordered.add(remaining.copyWith(priority: reordered.length));
-        }
-        _engineOrder = reordered;
       }
       _safeNotify();
     } catch (e) {
@@ -1943,6 +1958,44 @@ class TtsService extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
     final lang = _resolveLanguage(trimmed);
+
+    // 0. PSRC-245 — VieNeu-TTS native. Trước đây hàm này chỉ đi Piper → Edge,
+    // nên "lưu âm thanh" LUÔN ra giọng khác giọng người dùng đã chọn trong
+    // Cài đặt (đúng triệu chứng "nghe lại thấy không phải VieNeu"). Chỉ thử
+    // khi engine còn bật và văn bản là tiếng Việt.
+    final vieneuEnabled = _engineOrder.any(
+      (engine) => engine.id == 'vieneu_tts' && engine.isEnabled,
+    );
+    if (vieneuEnabled && lang.startsWith('vi')) {
+      try {
+        final vieneu = VieneuTtsEngine.instance;
+        final variant = await getSelectedVieneuModelVariant();
+        await vieneu.init(
+          modelVariant: variant,
+          voiceId: _selectedVoiceId ?? await getSelectedVieneuVoiceId(),
+        );
+        if (await vieneu.isAvailable()) {
+          final result = await vieneu.synthesize(
+            text: trimmed,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: _selectedVoiceId,
+          );
+          final audio = result.audioData;
+          if (result.isSuccess && audio != null && audio.isNotEmpty) {
+            final path = '$pathWithoutExtension.wav';
+            await File(path).writeAsBytes(audio, flush: true);
+            _lastUsedEngine = '🇻🇳 VieNeu-TTS (lưu file)';
+            debugPrint('✅ TTS lưu file: $path');
+            return path;
+          }
+          debugPrint('ℹ️ synthesizeToFile: VieNeu fail (${result.error})');
+        }
+      } catch (e) {
+        debugPrint('⚠️ synthesizeToFile vieneu error: $e');
+      }
+    }
 
     // 1. Piper offline — on-device, riêng tư
     try {

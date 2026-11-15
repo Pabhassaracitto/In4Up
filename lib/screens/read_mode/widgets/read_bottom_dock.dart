@@ -46,6 +46,7 @@ class ReadBottomDock extends StatelessWidget {
     required this.showWordlistPanel,
     required this.onToggleWordlist,
     required this.onOpenSource,
+    this.onOpenReadLibrary,
   });
 
   final ReadChromeLayout layout;
@@ -54,6 +55,11 @@ class ReadBottomDock extends StatelessWidget {
   final bool showWordlistPanel;
   final VoidCallback onToggleWordlist;
   final VoidCallback? onOpenSource;
+
+  /// PSRC-246 — lối VỀ thư viện đọc thật (3 tab Gần đây/Cloud/Thiết bị).
+  /// Có mặt ⇒ chip trong panel «Công cụ đọc» nói «Về thư viện đọc» thay cho
+  /// «Mở nguồn» (hai lối mở cùng một drawer là trùng nhau).
+  final VoidCallback? onOpenReadLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -226,6 +232,7 @@ class ReadBottomDock extends StatelessWidget {
                 onLayoutChanged: onLayoutChanged,
                 textActionCallbacks: textActionCallbacks,
                 onOpenSource: onOpenSource,
+                onOpenReadLibrary: onOpenReadLibrary,
               ),
           ],
         ),
@@ -318,12 +325,14 @@ class _DockPanel extends StatelessWidget {
     required this.onLayoutChanged,
     required this.textActionCallbacks,
     required this.onOpenSource,
+    this.onOpenReadLibrary,
   });
 
   final ReadChromeLayout layout;
   final ValueChanged<ReadChromeLayout> onLayoutChanged;
   final ReadTextActionCallbacks textActionCallbacks;
   final VoidCallback? onOpenSource;
+  final VoidCallback? onOpenReadLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +377,7 @@ class _DockPanel extends StatelessWidget {
         return _ToolsPanel(
           textActionCallbacks: textActionCallbacks,
           onOpenSource: onOpenSource,
+          onOpenReadLibrary: onOpenReadLibrary,
         );
       case ReadDockPanel.display:
         if (layout.displayHidden) return const SizedBox.shrink();
@@ -554,10 +564,12 @@ class _ToolsPanel extends StatelessWidget {
   const _ToolsPanel({
     required this.textActionCallbacks,
     required this.onOpenSource,
+    this.onOpenReadLibrary,
   });
 
   final ReadTextActionCallbacks textActionCallbacks;
   final VoidCallback? onOpenSource;
+  final VoidCallback? onOpenReadLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -591,7 +603,18 @@ class _ToolsPanel extends StatelessWidget {
           spacing: 6,
           runSpacing: 4,
           children: [
-            if (onOpenSource != null)
+            // PSRC-246: nguồn Tài liệu đã có lối mở ở góc trái trên ⇒ chip
+            // này đổi thành lối VỀ thư viện đọc (3 tab). Nguồn Web/Tam tạng
+            // vẫn giữ «Mở nguồn» vì nhãn phải nói đúng đích đến thật.
+            if (onOpenReadLibrary != null)
+              ActionChip(
+                key: const Key('read-dock-open-library'),
+                avatar: const Icon(Icons.library_books_outlined,
+                    size: 13, color: Colors.white70),
+                label: Text(context.uiText('Về thư viện đọc')),
+                onPressed: onOpenReadLibrary,
+              )
+            else if (onOpenSource != null)
               ActionChip(
                 avatar: const Icon(Icons.open_in_new_rounded,
                     size: 13, color: Colors.white70),

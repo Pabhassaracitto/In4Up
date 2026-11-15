@@ -174,7 +174,7 @@ class MddReadTask {
     // Remove a cancelled waiter synchronously so _drain cannot start it
     // while its asynchronous cleanup is still pending.
     if (!_active) _pool._queue.remove(this);
-    if (kill) _isolate?.kill(priority: Isolate.immediate);
+    if (kill || error != null) _isolate?.kill(priority: Isolate.immediate);
     // An in-flight open must finish before cleanup so a late SAF handle cannot
     // escape. Do not kill the owning isolate while native I/O is outstanding.
     await _launchFuture;

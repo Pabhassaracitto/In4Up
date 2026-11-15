@@ -5886,6 +5886,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ติดตั้งชุดรัน Whisper',
     'ja': 'Whisper 実行ファイル一式をインストール',
   },
+  'Cài bộ chạy Whisper bằng tay': {
+    'en': 'Install the Whisper runtime manually',
+    'zh': '手动安装 Whisper 运行组件',
+    'zh_TW': '手動安裝 Whisper 執行元件',
+    'hi': 'Whisper रनटाइम हाथ से इंस्टॉल करें',
+    'si': 'Whisper ධාවන කොටස අතින් ස්ථාපනය කරන්න',
+    'my': 'Whisper အလုပ်လုပ်ရန် အစိတ်အပိုင်းကို ကိုယ်တိုင်ထည့်သွင်းပါ',
+    'th': 'ติดตั้งชุดรัน Whisper ด้วยตนเอง',
+    'ja': 'Whisper 実行ファイル一式を手動でインストール',
+  },
   'Cài lại / cập nhật': {
     'en': 'Reinstall / update',
     'zh': '重装／更新',
@@ -37445,6 +37455,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'my': '✅ အကြောင်းအရာ + တဂ် ထည့်ပြီး',
     'th': '✅ เพิ่มบริบทและแท็กแล้ว',
     'ja': '✅ 文脈とタグを追加しました',
+  },
+  '✅ Đã cài bộ chạy Whisper — thử tạo mục lục lại.': {
+    'en': '✅ Whisper runtime installed — try creating the chapters again.',
+    'zh': '✅ Whisper 运行组件已安装——请重试生成章节。',
+    'zh_TW': '✅ Whisper 執行元件已安裝——請重試產生章節。',
+    'hi': '✅ Whisper रनटाइम इंस्टॉल हो गया — अध्याय फिर से बनाने का प्रयास करें।',
+    'si': '✅ Whisper ධාවන කොටස ස්ථාපනය විය — පරිච්ඡේද නැවත සෑදීමට උත්සාහ කරන්න.',
+    'my': '✅ Whisper အလုပ်လုပ်ရန် အစိတ်အပိုင်း ထည့်သွင်းပြီးပါပြီ — အခန်းများ ပြန်ထုတ်ကြည့်ပါ။',
+    'th': '✅ ติดตั้งชุดรัน Whisper แล้ว — ลองสร้างบทอีกครั้ง',
+    'ja': '✅ Whisper 実行ファイル一式をインストールしました。章の作成を再試行してください。',
   },
   '✅ Đã import model ASR: {value0}': {
     'en': '✅ ASR model imported: {value0}',

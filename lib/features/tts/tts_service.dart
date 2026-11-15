@@ -1059,7 +1059,7 @@ class TtsService extends ChangeNotifier {
     if (!await sourceDir.exists()) {
       throw FileSystemException('Thư mục không tồn tại', sourceDirPath);
     }
-    final ggufFiles = await _findFilesUnder(sourceDir, maxDepth: 3)
+    final ggufFiles = await _findFilesUnder(sourceDir, maxDepth: 4)
         .where((f) => p.extension(f.path).toLowerCase() == '.gguf')
         .toList();
     String? modelPath;
@@ -1083,22 +1083,37 @@ class TtsService extends ChangeNotifier {
       }
     }
 
-    // Dò thêm mọi thư mục tên `voices` (kể cả lồng sâu) dù không có GGUF.
+    // PSRC-249-A — trước 1.29 bước này chỉ nhận thư mục có TÊN đúng
+    // `voices`, nên ba trường hợp rất thường gặp đều import 0 giọng:
+    //   * người dùng chọn THẲNG thư mục `voices/` (rất tự nhiên trong hộp
+    //     chọn thư mục của Android);
+    //   * gói tải về đổi tên (`giong/`, `cloned_voices/`, `samples/`…);
+    //   * giọng nằm sâu hơn `voices/<x>/<y>/`.
+    // Nay: quét cả cây (độ sâu ≤ 4), thư mục nào CÓ DỮ LIỆU GIỌNG theo NỘI
+    // DUNG (`folderHasVieneuVoiceData`: ref_codes / mẫu WAV / .pt) là một
+    // giọng; gặp thư mục giọng thì không đi xuống nữa (tránh `samples/` bị
+    // đếm thành một giọng thứ hai).
     final dir = await getApplicationDocumentsDirectory();
     final targetVoicesDir =
         Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
     if (!await targetVoicesDir.exists()) {
       await targetVoicesDir.create(recursive: true);
     }
-    await for (final entity in sourceDir.list(recursive: true)) {
-      if (entity is! Directory) continue;
-      if (p.basename(entity.path).toLowerCase() != 'voices') continue;
-      final ids = await _importVoiceFoldersFromDirectory(
-          entity, targetVoicesDir.path);
-      for (final id in ids) {
-        if (!voiceIds.contains(id)) voiceIds.add(id);
-      }
+    final voiceFolders = <Directory>[];
+    await _collectVoiceFolders(sourceDir, 4, voiceFolders);
+    for (final folder in voiceFolders) {
+      final id = p.basename(folder.path);
+      if (id.startsWith('_') || id == vieneuTempSamplesDirName) continue;
+      final ok = await _copyVoiceFolder(
+        folder,
+        Directory(p.join(targetVoicesDir.path, id)),
+      );
+      if (ok && !voiceIds.contains(id)) voiceIds.add(id);
     }
+    debugPrint(
+      '📁 VieNeu trọn bộ: ${voiceFolders.length} thư mục giọng tìm thấy, '
+      '${voiceIds.length} giọng nạp được',
+    );
     if (modelPath == null && voiceIds.isEmpty) {
       throw FileSystemException(
           'Không tìm thấy file .gguf hoặc giọng hợp lệ trong thư mục',
@@ -1118,6 +1133,37 @@ class TtsService extends ChangeNotifier {
       bytes: lastModelImport?.bytes ?? 0,
       readiness: readiness,
     );
+  }
+
+  /// PSRC-249-A — gom mọi thư mục là MỘT GIỌNG (theo nội dung) trong
+  /// [dir]; gặp thư mục giọng thì dừng nhánh đó. [depth] ≤ 0 thì thôi.
+  Future<void> _collectVoiceFolders(
+    Directory dir,
+    int depth,
+    List<Directory> out,
+  ) async {
+    if (depth < 0) return;
+    var isVoice = false;
+    try {
+      isVoice = await folderHasVieneuVoiceData(dir);
+    } catch (e) {
+      debugPrint('⚠️ không đọc được ${dir.path}: $e');
+      return;
+    }
+    if (isVoice) {
+      out.add(dir);
+      return;
+    }
+    try {
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        final name = p.basename(entity.path);
+        if (name.startsWith('.') || name.startsWith('_')) continue;
+        await _collectVoiceFolders(entity, depth - 1, out);
+      }
+    } catch (e) {
+      debugPrint('⚠️ không đọc được ${dir.path}: $e');
+    }
   }
 
   /// Duyệt file có giới hạn độ sâu (tránh `list(recursive: true)` đi vào

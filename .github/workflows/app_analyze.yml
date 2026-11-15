@@ -278,6 +278,39 @@ jobs:
           path: media_tools_test.log
           if-no-files-found: ignore
 
+      # PSRC-205 vòng 2 (audit 1.29.0-Beta) — file .m4a 7 phút / .mp3 17 phút:
+      # VAD băm câu thành mảnh, mỗi mảnh một lượt transcribe ⇒ chậm, lắt nhắt,
+      # thiếu đầu câu; bấm Hủy không dừng. Máy bắt gồm hàm THUẦN
+      # `mergeSpeechSegments` + hằng số mặc định của bộ cắt VAD + quét nguồn
+      # (pipeline phải gộp đoạn, mixin phải hủy cả pipeline).
+      - name: "PSRC-205 tests — gộp đoạn VAD cho file dài (không băm nát câu)"
+        id: psrc205-tests
+        run: |-
+          set +e
+          if [ ! -d test/vad ]; then
+            echo "Không có test/vad trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/vad/ -r expanded > psrc205_test.log 2>&1
+          code=$?
+          cat psrc205_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py psrc205_test.log "PSRC-205 tests" 4 || true
+            echo "### flutter test test/vad — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -60 psrc205_test.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $code
+
+      - name: Upload PSRC-205 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-psrc205-test-log
+          path: psrc205_test.log
+          if-no-files-found: ignore
+
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
         id: locale-test
         run: |

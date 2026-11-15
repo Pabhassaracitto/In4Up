@@ -102,8 +102,8 @@ cấu hình đã lưu. Chuỗi cũ vẫn ở trong pack (pin `_newStrings` của
 
 ### D5 — Ghi chú: «Chế độ trải nghiệm» TẠM bỏ, sẽ thêm lại
 
-- PSRC-235 đã xoá mục «Chế độ trải nghiệm» (Text / Âm thanh / Hình ảnh / Hội
-  thoại) vì `TextProvider.subMode` không được đọc ở đâu ⇒ mục đầu tiên của
+- PSRC-235 đã xoá mục «Chế độ trải nghiệm» (Đọc / Nghe (TTS) / Dịch / Lái
+  xe) vì `TextProvider.subMode` không được đọc ở đâu ⇒ mục đầu tiên của
   bảng bấm không đổi gì.
 - **Owner xác nhận ngày 2026-11-15:** đồng ý **tạm** bỏ; khi mọi thứ ổn thật
   sự sẽ thêm lại.

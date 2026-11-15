@@ -338,13 +338,21 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       // selected language still exists in the current DB (PSRC-159).
       await _appearance.ensureLoaded();
       final db = await TipitakaDb.openReady();
-      final total = await TipitakaDb.getBookSegmentCount(db, widget.bookId);
-      final info = await TipitakaDb.info(db);
+      // TIPI-PERF-01: `info()` probes every translation column with a full
+      // scan on a full canon, and the reader only needs the language set —
+      // which is cached per installed pack. Count and languages also run in
+      // parallel instead of one after the other.
+      final basics = await Future.wait<Object?>([
+        TipitakaDb.getBookSegmentCount(db, widget.bookId),
+        TipitakaDb.availableLanguages(db),
+      ]);
+      final total = basics[0]! as int;
+      final availableLanguages = basics[1]! as Set<String>;
       // PSRC-159: a persisted language/mode from a previous (Pāli-only) DB
       // must not keep hiding an imported target translation forever.
       final previousLanguage = _appearance.primaryLanguage;
       final displayLanguage = resolveTipitakaDisplayLanguage(
-        availableLanguages: info.availableLanguages,
+        availableLanguages: availableLanguages,
         preferredLanguage: previousLanguage,
         uiLanguage: uiLanguage,
       );
@@ -368,8 +376,8 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       if (!mounted) return;
       setState(() {
         _totalCount = total;
-        _availableLanguages = info.availableLanguages;
-        _hasPali = info.availableLanguages.contains('pi');
+        _availableLanguages = availableLanguages;
+        _hasPali = availableLanguages.contains('pi');
         _loadedOffset = requestedOffset;
         _segments = firstPage;
         _hasMore = _loadedOffset + firstPage.length < total;
@@ -1232,6 +1240,29 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   ThemeData _resolveReadingTheme(ThemeData base) {
     final theme = _appearance.readingTheme;
     if (theme == TipitakaReadingTheme.system) return base;
+    // `ColorScheme.fromSeed` runs the Material colour algorithm (~ms). The
+    // reader rebuilds on every scroll step, appearance change and TTS cue, so
+    // resolving the same seed+mode again is pure waste.
+    if (identical(base, _themeCacheBase) &&
+        theme == _themeCacheMode &&
+        _themeCache != null) {
+      return _themeCache!;
+    }
+    final resolved = _buildReadingTheme(base, theme);
+    _themeCacheBase = base;
+    _themeCacheMode = theme;
+    _themeCache = resolved;
+    return resolved;
+  }
+
+  ThemeData? _themeCache;
+  ThemeData? _themeCacheBase;
+  TipitakaReadingTheme? _themeCacheMode;
+
+  ThemeData _buildReadingTheme(
+    ThemeData base,
+    TipitakaReadingTheme theme,
+  ) {
     if (theme == TipitakaReadingTheme.light) {
       return _applyScheme(
         base,
@@ -1288,9 +1319,16 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   Widget build(BuildContext context) {
     final readerTheme = _resolveReadingTheme(Theme.of(context));
     if (_loading) {
+      // TIPI-PERF-01: a full-screen spinner told the user nothing and made a
+      // 300 ms open feel like a stall. The skeleton paints the real chrome
+      // (title, progress, page shape) on the first frame, and the text fades
+      // in as soon as the first page arrives.
       return Theme(
         data: readerTheme,
-        child: const Scaffold(body: Center(child: CircularProgressIndicator())),
+        child: _ReaderLoadingSkeleton(
+          title: widget.bookName.trim(),
+          showBackButton: !widget.embedded,
+        ),
       );
     }
     if (_error != null && _segments.isEmpty) {
@@ -2321,6 +2359,91 @@ class _SettingsSectionLabel extends StatelessWidget {
             fontWeight: FontWeight.w700,
             color: Theme.of(context).colorScheme.primary,
           ),
+    );
+  }
+}
+
+/// First-frame placeholder for the Tipiṭaka reader.
+///
+/// Shows the book's real title and the shape of a reading page instead of an
+/// indeterminate spinner, so opening a book feels instant even when the first
+/// SQLite page takes a moment on a large canon.
+class _ReaderLoadingSkeleton extends StatelessWidget {
+  final String title;
+  final bool showBackButton;
+
+  const _ReaderLoadingSkeleton({
+    required this.title,
+    required this.showBackButton,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final skeletonColor = scheme.onSurface.withValues(alpha: .08);
+    final accentColor = scheme.onSurface.withValues(alpha: .05);
+
+    Widget line(double widthFactor, double height) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: widthFactor,
+            child: Container(
+              height: height,
+              decoration: BoxDecoration(
+                color: skeletonColor,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+        );
+
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: showBackButton,
+        title: Text(
+          title.isEmpty ? 'Tipiṭaka' : title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(2),
+          child: LinearProgressIndicator(minHeight: 2),
+        ),
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final available = constraints.maxWidth;
+          final horizontal = available > 840
+              ? ((available - 800) / 2).clamp(12.0, 480.0).toDouble()
+              : 12.0;
+          return ListView(
+            padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 32),
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              line(.55, 22),
+              const SizedBox(height: 10),
+              line(.32, 12),
+              const SizedBox(height: 22),
+              for (var block = 0; block < 6; block++) ...[
+                Container(
+                  height: 10,
+                  width: 34,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                line(1, 14),
+                line(.96, 14),
+                line(.7, 14),
+                const SizedBox(height: 22),
+              ],
+            ],
+          );
+        },
+      ),
     );
   }
 }

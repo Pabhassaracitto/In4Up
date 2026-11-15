@@ -29,6 +29,10 @@ class DictInfo {
   /// File .css đi kèm set (đường dẫn tuyệt đối hoặc SAF document URI).
   final List<String> cssPaths;
 
+  /// Exact MDD files assigned at import/relink. Null means a legacy manifest;
+  /// an empty list means the bundle was scanned and no MDD was assigned.
+  final List<String>? mddPaths;
+
   /// SAF URI của MDX chính và các file thuộc bundle, nếu nguồn nằm trong SAF.
   final String? sourceMdxUri;
   final Map<String, String> sourceUris;
@@ -67,6 +71,7 @@ class DictInfo {
     this.storageMode = DictStorageMode.imported,
     this.sourceFolder,
     this.cssPaths = const [],
+    this.mddPaths,
     this.sourceMdxUri,
     this.sourceUris = const {},
     this.sourceFileName,
@@ -97,6 +102,7 @@ class DictInfo {
     DictStorageMode? storageMode,
     String? sourceFolder,
     List<String>? cssPaths,
+    List<String>? mddPaths,
     String? sourceMdxUri,
     Map<String, String>? sourceUris,
     String? sourceFileName,
@@ -119,6 +125,7 @@ class DictInfo {
         storageMode: storageMode ?? this.storageMode,
         sourceFolder: sourceFolder ?? this.sourceFolder,
         cssPaths: cssPaths ?? this.cssPaths,
+        mddPaths: mddPaths ?? this.mddPaths,
         sourceMdxUri: sourceMdxUri ?? this.sourceMdxUri,
         sourceUris: sourceUris ?? this.sourceUris,
         sourceFileName: sourceFileName ?? this.sourceFileName,
@@ -141,6 +148,7 @@ class DictInfo {
         'pack_id': packId,
         'source_folder': sourceFolder,
         'css_paths': cssPaths,
+        if (mddPaths != null) 'mdd_paths': mddPaths,
         'source_mdx_uri': sourceMdxUri,
         'source_uris': sourceUris,
         'source_file_name': sourceFileName,
@@ -170,6 +178,8 @@ class DictInfo {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      mddPaths: (json['mdd_paths'] as List<dynamic>?)
+          ?.map((e) => e.toString()).toList(),
       sourceMdxUri: json['source_mdx_uri'] as String?,
       sourceUris: rawSourceUris is Map
           ? rawSourceUris.map(

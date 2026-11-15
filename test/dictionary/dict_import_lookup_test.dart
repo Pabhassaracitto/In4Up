@@ -243,4 +243,16 @@ void main() {
     expect(await DictionaryService.instance.lookup('hello'), hasLength(1));
   });
 
+  test('failed optional copy is reported and never registered as a part', () async {
+    final mdx = await writeMdx('partial.mdx', {'hello': 'hello'});
+    final missing = '${tempDir.path}/partial.1.mdd';
+    final outcome = await DictionaryService.instance.importDictionaryBundle(
+      absoluteFilePaths: [mdx, missing], rootPath: '', mode: DictStorageMode.imported);
+    expect(outcome.isSuccess, isTrue, reason: outcome.error);
+    expect(outcome.imported.single.mddPaths, isEmpty);
+    expect(outcome.imported.single.missingResources, contains('partial.1.mdd'));
+    expect(outcome.missingParts, contains('partial.1.mdd'));
+    expect(await DictionaryService.instance.lookup('hello'), hasLength(1));
+  });
+
 }

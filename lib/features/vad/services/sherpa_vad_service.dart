@@ -41,6 +41,23 @@ class SherpaVadService implements VadService {
   static const String _kVadModelFileName = 'silero_vad.onnx';
   static const String _kVadModelFolder = 'sherpa_vad_models';
 
+  // ── PSRC-205 (audit 1.29.0-Beta): giá trị MẶC ĐỊNH của bộ cắt VAD ───────
+  //
+  // `minSilenceDurationMs` cũ = 100 ms. 100 ms là chỗ ngắt GIỮA HAI TỪ chứ
+  // không phải giữa hai câu ⇒ một câu bị cắt thành 3-8 mảnh, mỗi mảnh được
+  // transcribe riêng ⇒ "chạy rất lâu, kết quả lắt nhắt, thiếu đầu câu" (đúng
+  // báo cáo cho .m4a 7 phút và .mp3 17 phút). 500 ms = ngưỡng chuẩn của
+  // Silero VAD cho "hết câu", vẫn tách được câu nhưng không băm nát từ.
+  //
+  // `speechPadMs` cũ = 30 ms — quá nhỏ để cứu phụ âm đầu/đuôi ở biên cắt
+  // (âm tiết tiếng Việt mở đầu bằng phụ âm, bị cắt là MẤT TIẾNG). Nay 300 ms
+  // và được áp cho CẢ sherpa lẫn fallback (xem `_runSherpaVad`).
+  static const int defaultMinSpeechDurationMs = 250;
+  static const int defaultMinSilenceDurationMs = 500;
+  static const double defaultMaxSpeechDurationS = 14; // chặn trên (tránh OOM)
+  static const int defaultSpeechPadMs = 300;
+  static const double defaultSamplesOverlap = 0.1;
+
   // Sherpa VAD params (theo doc sherpa_onnx)
   final double threshold; // ngưỡng speech (0..1)
   final int minSpeechDurationMs;
@@ -57,11 +74,11 @@ class SherpaVadService implements VadService {
 
   SherpaVadService({
     this.threshold = 0.5,
-    this.minSpeechDurationMs = 250,
-    this.minSilenceDurationMs = 100,
-    this.maxSpeechDurationS = 14, // không để chunk quá dài (tránh OOM)
-    this.speechPadMs = 30,
-    this.samplesOverlap = 0.1,
+    this.minSpeechDurationMs = defaultMinSpeechDurationMs,
+    this.minSilenceDurationMs = defaultMinSilenceDurationMs,
+    this.maxSpeechDurationS = defaultMaxSpeechDurationS,
+    this.speechPadMs = defaultSpeechPadMs,
+    this.samplesOverlap = defaultSamplesOverlap,
   });
 
   /// Rule 1 & 3 tái sử dụng: absolute path + verification
@@ -230,17 +247,43 @@ class SherpaVadService implements VadService {
         '(${totalSpeechDuration.toStringAsFixed(1)}s speech)',
       );
 
+      // PSRC-205: PAD hai đầu mỗi đoạn. Silero cắt đúng biên năng lượng nên
+      // âm tiết mở đầu bằng phụ âm (tiếng Việt/Thái…) bị cụt tiếng ⇒ dòng lời
+      // "thiếu đầu câu" dù ranh giới đoạn nằm giữa câu. Pad `speechPadMs`
+      // rồi clamp trong [0, totalAudioDuration]; các đoạn chồng nhau sau khi
+      // pad sẽ được `mergeSpeechSegments` gộp lại ở pipeline.
+      final padSeconds = speechPadMs / 1000.0;
+      final paddedSegments = <SpeechSegment>[];
+      for (final seg in segments) {
+        var start = seg.startTime - padSeconds;
+        var end = seg.endTime + padSeconds;
+        if (start < 0) start = 0;
+        if (totalAudioDuration > 0 && end > totalAudioDuration) {
+          end = totalAudioDuration;
+        }
+        if (end - start <= 0.05) continue;
+        paddedSegments.add(SpeechSegment(
+          startTime: start,
+          endTime: end,
+          confidence: 0.95,
+          isSpeech: true,
+        ));
+      }
+      if (paddedSegments.isEmpty) return null;
+
+      final paddedSpeechDuration =
+          paddedSegments.fold<double>(0, (sum, x) => sum + x.duration);
+
+      debugPrint(
+        '✅ Silero VAD (pad ${speechPadMs}ms): ${paddedSegments.length} đoạn, '
+        '${paddedSpeechDuration.toStringAsFixed(1)}s speech / '
+        '${totalAudioDuration.toStringAsFixed(1)}s file',
+      );
+
       return VadResult(
-        segments: segments
-            .map((s) => SpeechSegment(
-                  startTime: s.startTime,
-                  endTime: s.endTime,
-                  confidence: 0.95,
-                  isSpeech: true,
-                ))
-            .toList(),
+        segments: paddedSegments,
         totalAudioDuration: totalAudioDuration,
-        totalSpeechDuration: totalSpeechDuration,
+        totalSpeechDuration: paddedSpeechDuration,
         processingTime: Duration.zero,
         engineUsed: 'sherpa_silero',
       );
@@ -360,9 +403,9 @@ class SherpaVadService implements VadService {
   factory SherpaVadService.singleton() => _instance;
   SherpaVadService._singletonInternal()
       : threshold = 0.5,
-        minSpeechDurationMs = 250,
-        minSilenceDurationMs = 100,
-        maxSpeechDurationS = 14,
-        speechPadMs = 30,
-        samplesOverlap = 0.1;
+        minSpeechDurationMs = defaultMinSpeechDurationMs,
+        minSilenceDurationMs = defaultMinSilenceDurationMs,
+        maxSpeechDurationS = defaultMaxSpeechDurationS,
+        speechPadMs = defaultSpeechPadMs,
+        samplesOverlap = defaultSamplesOverlap;
 }

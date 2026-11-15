@@ -1223,6 +1223,20 @@ class SttServiceFacade extends ChangeNotifier {
       '${config.whisperModel.name}${config.honorWhisperModel ? '!' : ''}_'
       '${WhisperLanguage.code(config.language)}';
 
+  /// PSRC-205 (audit 1.29.0-Beta): nhãn ngữ cảnh do CALLER gắn tạm thời.
+  ///
+  /// Pipeline VAD gọi `transcribeFile` cho từng đoạn nói; nếu không có nhãn
+  /// này thì UI chỉ thấy chuỗi lặp "Đang chuẩn bị… → Đang nhận diện chunk
+  /// 1/1…" cho mỗi đoạn và tưởng job bị treo/chạy lại từ đầu. Gắn
+  /// `progressContext = 'Đoạn 5/23 · '` thì người dùng thấy đúng tiến độ
+  /// ("Đoạn 5/23 · Đang nhận diện chunk 1/1…").
+  String? _progressContext;
+  String? get progressContext => _progressContext;
+  set progressContext(String? value) {
+    _progressContext =
+        (value == null || value.isEmpty) ? null : value;
+  }
+
   void _emitProgress(
     SttFacadeStatus status,
     double progress,
@@ -1232,10 +1246,11 @@ class SttServiceFacade extends ChangeNotifier {
     int chunkCount = 0,
   }) {
     if (_disposed) return;
+    final context = _progressContext;
     _progressSubject.add(SttProgress(
       status: status,
       progress: progress.clamp(0.0, 1.0),
-      message: message,
+      message: context == null ? message : '$context$message',
       activeEngine: engine,
       chunkIndex: chunkIndex,
       chunkCount: chunkCount,

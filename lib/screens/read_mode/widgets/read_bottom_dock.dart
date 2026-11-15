@@ -8,7 +8,7 @@
 //   * 1 hàng ~44px LUÔN HIỆN (kể cả khi cuộn chữ) — có pill «Đọc», A−/A+,
 //     Dịch, IPA, Mark, Từ đã lưu và mũi tên bung/gộp cố định ở cuối;
 //   * 1 panel inline khi bung, cao có giới hạn, đúng 1 panel/lần:
-//       Đọc | Công cụ đọc | Hiển thị
+//       Đọc | Công cụ đọc | Tùy biến   (PSRC-235: tab cuối từng tên «Hiển thị»)
 //
 // Hợp đồng kỹ thuật:
 //   * KHÔNG AnimatedSize / AnimatedSlide / AnimatedOpacity / ClipRect trên
@@ -162,7 +162,7 @@ class ReadBottomDock extends StatelessWidget {
                 _DockIcon(
                   widgetKey: const Key('read-bottom-dock-display'),
                   icon: Icons.tune_rounded,
-                  tooltip: context.uiText('Tùy biến chữ'),
+                  tooltip: context.uiText('Tùy biến'),
                   active: layout.toolsExpanded &&
                       layout.lastPanel == ReadDockPanel.display,
                   onTap: () {
@@ -391,7 +391,8 @@ class _PanelTabs extends StatelessWidget {
     const entries = <ReadDockPanel, String>{
       ReadDockPanel.audio: 'Đọc',
       ReadDockPanel.tools: 'Công cụ đọc',
-      ReadDockPanel.display: 'Hiển thị',
+      // PSRC-235: «Hiển thị» → «Tùy biến» (hết trùng tên với sheet/popup).
+      ReadDockPanel.display: 'Tùy biến',
     };
     // Nhóm «Thông tin & Hiển thị» bị Ẩn ⇒ tab của nó cũng biến mất, nhưng
     // 2 tab kia vẫn hoạt động (3 nhóm độc lập, không ẩn cả dock).
@@ -633,7 +634,7 @@ class _DisplayPanel extends StatelessWidget {
             ActionChip(
               avatar: const Icon(Icons.view_quilt_outlined,
                   size: 13, color: Colors.white70),
-              label: Text(context.uiText('Hiển thị')),
+              label: Text(context.uiText('Bố cục đọc')),
               onPressed: () => showReadDisplaySheet(
                 context,
                 controller: controller,

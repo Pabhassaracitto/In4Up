@@ -127,7 +127,7 @@ class ReadTopBar extends StatelessWidget {
             onPressed: () => ReadLineHint.showSheet(context),
           ),
           CollapsibleAction(
-            label: context.uiText('Hiển thị'),
+            label: context.uiText('Bố cục đọc'),
             icon: Icons.view_quilt_outlined,
             onPressed: () => showReadDisplaySheet(context, controller: controller),
           ),
@@ -218,7 +218,10 @@ class ReadTopBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.uiText('Hiển thị'),
+                // PSRC-235: sheet này từng tên «Hiển thị» (trùng tab dock +
+                // popup). Nội dung là preset + vị trí bản dịch + IPA + một
+                // dòng ⇒ «Bố cục đọc».
+                Text(context.uiText('Bố cục đọc'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Wrap(spacing: 8, runSpacing: 4, children: [

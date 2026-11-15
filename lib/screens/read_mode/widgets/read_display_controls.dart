@@ -97,6 +97,12 @@ class ReadDisplayControls extends StatelessWidget {
               label: Text(context.uiText(
                 tp.wordTapBoxes ? 'Box từng từ' : 'Bôi nhiều chữ',
               )),
+              // PSRC-235: công tắc trùng trong Cài đặt Text Studio đã bỏ ⇒
+              // lời giải thích của nó chuyển về đây (nhấn giữ để xem).
+              tooltip: context.uiText(
+                'Tắt = bôi nhiều chữ (mặc định). Bật = mỗi từ một hộp, '
+                'long-press lưu từ — nền lưu hàng loạt.',
+              ),
               onPressed: () {
                 SafeHaptics.selectionClick();
                 tp.setWordTapBoxes(!tp.wordTapBoxes);

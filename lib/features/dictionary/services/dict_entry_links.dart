@@ -45,6 +45,9 @@ class DictEntryLinks {
       return _safeTarget(Uri.decodeComponent(raw));
     } on FormatException {
       return null;
+    } on ArgumentError {
+      // Uri.decodeComponent throws ArgumentError for malformed percent escapes.
+      return null;
     }
   }
 

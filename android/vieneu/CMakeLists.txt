@@ -44,10 +44,16 @@ if(NOT EXISTS "${AUDIOCPP_ROOT}/CMakeLists.txt")
     return()
 endif()
 
-# ── Cấu hình audio.cpp: chỉ C API, chỉ model VieNeu v3 Turbo, chỉ CPU ────────
+# ── Cấu hình audio.cpp: chỉ C API, chỉ CPU ──────────────────────────────────
+#
+# PSRC-171: bản trước đặt `AUDIOCPP_MODEL_SET=custom` + `AUDIOCPP_MODELS=…`
+# nhưng hai option đó **không tồn tại** trong audio.cpp v0.9.4 ⇒ chúng là no-op
+# và libaudiocpp.so ra đời KHÔNG có model spec nào (`builtin_model_specs()`
+# rỗng vì `AUDIOCPP_DEPLOYMENT_BUILD` mặc định OFF). Kết quả: mọi lần nạp
+# model đều chết ở "model spec not found for family 'vietneu_tts'".
+# Cách sửa: nhúng đúng file spec của family này vào wrapper (xem khối
+# "MODEL SPEC" bên dưới) rồi truyền qua `model_spec_override`.
 set(AUDIOCPP_BUILD_C_API         ON   CACHE BOOL "" FORCE)
-set(AUDIOCPP_MODEL_SET           custom CACHE STRING "" FORCE)
-set(AUDIOCPP_MODELS              "vieneu_v3_turbo" CACHE STRING "" FORCE)
 set(AUDIOCPP_BUILD_NATIVE_MODEL_MANAGER OFF CACHE BOOL "" FORCE)
 
 set(ENGINE_ENABLE_CUDA           OFF  CACHE BOOL "" FORCE)
@@ -69,6 +75,35 @@ set(GGML_LLAMAFILE               OFF  CACHE BOOL "" FORCE)
 message(STATUS "[in4up-tts] audio.cpp C API (vieneu_v3_turbo, CPU only) từ ${AUDIOCPP_ROOT}")
 add_subdirectory(${AUDIOCPP_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/audio.cpp EXCLUDE_FROM_ALL)
 
+# ── MODEL SPEC (PSRC-171) ───────────────────────────────────────────────────
+# audio.cpp v0.9.4 KHÔNG nhúng `model_specs/*.json` vào libaudiocpp.so trừ khi
+# bật `AUDIOCPP_DEPLOYMENT_BUILD` (mặc định OFF, và bật thì tốn thêm 1,3 MB
+# cho 140 family không dùng tới). Wrapper vì thế mang theo spec của ĐÚNG family
+# này (12 279 B, sinh từ submodule đã ghim v0.9.4) và đưa cho audio.cpp qua
+# `audiocpp_model_config.model_spec_override` khi lần nạp đầu báo thiếu spec.
+set(IN4UP_VIENEU_SPEC_JSON "${AUDIOCPP_ROOT}/model_specs/vieneu_v3_turbo.json")
+if(EXISTS "${IN4UP_VIENEU_SPEC_JSON}")
+    file(READ "${IN4UP_VIENEU_SPEC_JSON}" AUDIOCPP_V3_TURBO_SPEC_JSON)
+    set(AUDIOCPP_V3_TURBO_SPEC_EMBEDDED "true")
+    # Sửa json trong submodule ⇒ CMake tự configure lại (không phải build sạch).
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+                 "${IN4UP_VIENEU_SPEC_JSON}")
+    string(LENGTH "${AUDIOCPP_V3_TURBO_SPEC_JSON}" _in4up_spec_len)
+    message(STATUS "[in4up-tts] nhúng model spec vieneu_v3_turbo.json (${_in4up_spec_len} B)")
+else()
+    # Không có submodule ⇒ đã `return()` ở trên. Giữ nhánh này cho tương lai
+    # (audio.cpp đổi layout): build vẫn xanh, wrapper báo lỗi rõ ở runtime.
+    set(AUDIOCPP_V3_TURBO_SPEC_JSON "")
+    set(AUDIOCPP_V3_TURBO_SPEC_EMBEDDED "false")
+    message(WARNING
+        "[in4up-tts] KHÔNG thấy ${IN4UP_VIENEU_SPEC_JSON} — wrapper sẽ không "
+        "nhúng model spec; audio.cpp có thể báo 'model spec not found'.")
+endif()
+configure_file(
+    "${REPO_ROOT}/native/tts_vieneu/model_spec.inc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/vieneu_model_spec.inc"
+    @ONLY)
+
 # ── Wrapper FFI cho Dart ────────────────────────────────────────────────────
 add_library(vieneu_tts SHARED
     ${REPO_ROOT}/native/tts_vieneu/vieneu_tts.cpp
@@ -76,6 +111,7 @@ add_library(vieneu_tts SHARED
 target_include_directories(vieneu_tts PRIVATE
     ${AUDIOCPP_ROOT}/include
     ${REPO_ROOT}/native/tts_vieneu
+    ${CMAKE_CURRENT_BINARY_DIR}   # vieneu_model_spec.inc (sinh ở configure)
 )
 target_link_libraries(vieneu_tts PRIVATE audiocpp)
 

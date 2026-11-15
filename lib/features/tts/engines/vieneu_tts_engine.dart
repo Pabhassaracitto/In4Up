@@ -255,6 +255,20 @@ class VieneuTtsEngine implements TtsEngine {
     return VieneuTtsCore.isNativeLibraryAvailable();
   }
 
+  /// File `speaker.emb.txt` có dùng được với audio.cpp không (đúng 192 số ở
+  /// dòng đầu)? PSRC-171: file embedding placeholder 256 số 0 của bản 1.28
+  /// nằm lại trong `cloned_voices/<id>/` làm MỌI lần đọc bằng giọng đó lỗi
+  /// ("must contain exactly 192 float values") — không truyền nó xuống native.
+  Future<bool> _hasUsableEmbedding(File file) async {
+    try {
+      if (!await file.exists()) return false;
+      if (await file.length() < 8) return false;
+      return isUsableVieneuSpeakerEmbedding(await file.readAsString());
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> _hasVoiceData(File file) async {
     try {
       if (!await file.exists()) return false;
@@ -302,7 +316,7 @@ class VieneuTtsEngine implements TtsEngine {
       final emb = File(p.join(entity.path, 'speaker.emb.txt'));
       final hasTxt = await _hasVoiceData(refTxt);
       final hasBin = await _hasVoiceData(refBin);
-      final hasEmb = await _hasVoiceData(emb);
+      final hasEmb = await _hasUsableEmbedding(emb);
       if (!hasTxt && !hasBin && !hasEmb) continue;
       index[voiceId] = _VoiceFiles(
         id: voiceId,
@@ -494,17 +508,27 @@ class VieneuTtsEngine implements TtsEngine {
       } else {
         // Native trả "ok" nhưng worker vẫn chưa sẵn sàng — hiếm, nhưng im
         // lặng ở đây là đúng kiểu "khởi tạo không được mà không nói vì sao".
-        _blockingReason = vieneuEngineBlockerMessage(
-            VieneuEngineBlocker.modelUnreadable);
+        _blockingReason =
+            vieneuEngineBlockerMessage(VieneuEngineBlocker.engineLoadFailed);
       }
     } catch (e) {
       // PSRC-216: giữ NGUYÊN VĂN lỗi native để UI/log nói đúng việc cần làm
       // thay vì câu chung "kiểm tra file gguf và thư viện native".
+      //
+      // PSRC-171: lỗi nạp model phải được PHÂN LOẠI. Trước đây nhánh này để
+      // `_blockingReason = null` ⇒ UI rơi về câu chung "Không thể tạo giọng.
+      // Hãy kiểm tra mô hình TTS và mẫu thu âm", đổ lỗi cả cho mẫu thu âm
+      // trong khi nguyên nhân thật là thiếu model spec của engine.
       debugPrint('⚠️ VieNeu-TTS init error: $e');
       _initialized = false;
       _workerVoiceId = null;
       _lastInitError = e.toString();
-      _blockingReason = e is VieneuEngineNotReadyException ? e.message : null;
+      if (e is VieneuEngineNotReadyException) {
+        _blockingReason = e.message;
+      } else {
+        final blocker = classifyVieneuNativeLoadError(_lastInitError!);
+        _blockingReason = vieneuEngineBlockerMessage(blocker);
+      }
     }
   }
 

@@ -234,6 +234,23 @@ jobs:
               || { echo "::error::Thiếu $lib trong APK"; exit 1; }
           done
 
+      # PSRC-171: audio.cpp v0.9.4 KHÔNG nhúng model_specs/*.json vào
+      # libaudiocpp.so (chỉ khi AUDIOCPP_DEPLOYMENT_BUILD=ON, mặc định OFF) ⇒
+      # engine chết ở "model spec not found for family 'vietneu_tts'" và UI báo
+      # "Không thể tạo giọng". Wrapper phải mang spec của family trong .rodata.
+      # Kiểm bằng chuỗi mô tả của spec (chỉ có trong json, không có ở wrapper).
+      - name: Verify model spec nhúng trong libvieneu_tts.so (PSRC-171)
+        run: |
+          set -euo pipefail
+          APK="$(ls build/app/outputs/flutter-apk/*.apk | head -1)"
+          unzip -p "$APK" lib/arm64-v8a/libvieneu_tts.so > /tmp/libvieneu_tts.so
+          ls -l /tmp/libvieneu_tts.so
+          if ! grep -aq '"display_name": "VieNeu-TTS v3 Turbo"' /tmp/libvieneu_tts.so; then
+            echo "::error::PSRC-171: libvieneu_tts.so KHÔNG nhúng model spec vieneu_v3_turbo.json — audio.cpp sẽ báo 'model spec not found' khi nạp model"
+            exit 1
+          fi
+          echo "OK: model spec vieneu_v3_turbo.json có trong libvieneu_tts.so"
+
       # Số đo để trả lời "engine tốn bao nhiêu" (ADR-0028 để trống ước tính).
       # Ghi bằng annotation vì log/artifact bị chặn egress từ sandbox agent.
       - name: Report measurements (annotation)

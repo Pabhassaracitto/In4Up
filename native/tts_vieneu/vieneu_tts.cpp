@@ -2,12 +2,20 @@
 
 #include "audiocpp.h"  // audio.cpp C ABI — third_party/audio.cpp/include
 
+// Sinh ở configure time từ third_party/audio.cpp/model_specs/vieneu_v3_turbo.json
+// (xem native/tts_vieneu/model_spec.inc.in + android/vieneu/CMakeLists.txt).
+#include "vieneu_model_spec.inc"
+
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -85,6 +93,238 @@ bool is_valid_voice_file(const char * path) {
     in.close();
     return nonCommentLines >= 1;
 }
+
+// ============================================================================
+// PSRC-171 — MODEL SPEC
+// ============================================================================
+//
+// audio.cpp v0.9.4 chỉ nhúng `model_specs/*.json` vào libaudiocpp.so khi
+// `AUDIOCPP_DEPLOYMENT_BUILD=ON`. Bản Android/desktop của in4up build mặc
+// định ⇒ `builtin_model_specs()` rỗng ⇒ `audiocpp_model_load()` ném
+// "model spec not found for family '…'" cho MỌI bản cài, dù file GGUF đã
+// import đúng (PSRC-171). Wrapper mang theo spec của đúng family này rồi ghi
+// ra CẠNH model (thư mục dữ liệu app, luôn ghi được — không phụ thuộc /tmp)
+// khi audio.cpp cần, và truyền đường dẫn đó qua `model_spec_override`.
+
+const char * kModelSpecDirName = "model_specs";
+const char * kModelSpecFileName = "vieneu_v3_turbo.json";
+
+/// Spec nhúng có dùng được không (CMake không thấy json ⇒ false).
+bool embedded_model_spec_available() {
+    return in4up_vieneu_spec::kEmbedded && in4up_vieneu_spec::kJson != nullptr &&
+           *in4up_vieneu_spec::kJson != '\0';
+}
+
+/// Ghi spec nhúng vào `<model_folder>/model_specs/vieneu_v3_turbo.json`.
+///
+/// Trả về đường dẫn (dạng chuỗi) hoặc chuỗi RỖNG nếu không ghi được. Ghi lại
+/// chỉ khi nội dung khác — lần nạp sau không tốn I/O.
+std::string materialize_embedded_model_spec(const fs::path & folder) {
+    if (folder.empty() || !embedded_model_spec_available()) return {};
+    const size_t spec_size = std::strlen(in4up_vieneu_spec::kJson);
+    const fs::path spec_dir = folder / kModelSpecDirName;
+    const fs::path spec_path = spec_dir / kModelSpecFileName;
+
+    std::error_code ec;
+    if (fs::exists(spec_path, ec) && !ec) {
+        const auto existing_size = fs::file_size(spec_path, ec);
+        if (!ec && existing_size == spec_size) {
+            std::ifstream same(spec_path, std::ios::binary);
+            if (same.is_open()) {
+                const std::string content((std::istreambuf_iterator<char>(same)),
+                                          std::istreambuf_iterator<char>());
+                if (content.size() == spec_size &&
+                    std::memcmp(content.data(), in4up_vieneu_spec::kJson,
+                                spec_size) == 0) {
+                    return spec_path.u8string();
+                }
+            }
+        }
+    }
+
+    fs::create_directories(spec_dir, ec);
+    if (ec) return {};
+    std::ofstream out(spec_path, std::ios::binary | std::ios::trunc);
+    if (!out.is_open()) return {};
+    out.write(in4up_vieneu_spec::kJson,
+              static_cast<std::streamsize>(spec_size));
+    out.close();
+    if (!out.good()) return {};
+    return spec_path.u8string();
+}
+
+// ============================================================================
+// PSRC-171 — ĐỌC WAV MẪU (tạo giọng từ bản ghi âm)
+// ============================================================================
+//
+// App ghi mẫu bằng plugin `record` (WAV PCM16 16 kHz mono); người dùng có thể
+// import WAV 44,1/48 kHz stereo. audio.cpp nhận PCM float MONO qua
+// `audiocpp_request_set_voice_audio` và tự resample, nên wrapper chỉ cần giải
+// WAV (PCM 8/16/24/32-bit + IEEE float 32/64) và trộn kênh. Không dùng
+// `engine::audio::read_wav_f32` của audio.cpp: symbol đó KHÔNG được export
+// (version script `audiocpp.map` chỉ mở `audiocpp_*`), còn link thêm
+// `engine_runtime` sẽ nhân đôi toàn bộ engine vào APK.
+
+struct DecodedWav {
+    std::vector<float> samples;  // mono, [-1, 1]
+    int sample_rate = 0;
+};
+
+uint32_t read_le_u32(const unsigned char * p) {
+    return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+           (static_cast<uint32_t>(p[2]) << 16) |
+           (static_cast<uint32_t>(p[3]) << 24);
+}
+
+uint16_t read_le_u16(const unsigned char * p) {
+    return static_cast<uint16_t>(p[0] | (p[1] << 8));
+}
+
+/// Giải một file WAV thành PCM float mono. Trả false + [error] nếu không đọc.
+bool decode_wav_mono(const fs::path & path, DecodedWav & out,
+                     std::string & error) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in.is_open()) {
+        error = "không mở được file";
+        return false;
+    }
+    unsigned char header[12] = {0};
+    in.read(reinterpret_cast<char *>(header), sizeof(header));
+    if (in.gcount() != static_cast<std::streamsize>(sizeof(header)) ||
+        std::memcmp(header, "RIFF", 4) != 0 ||
+        std::memcmp(header + 8, "WAVE", 4) != 0) {
+        error = "không phải file WAV (RIFF/WAVE)";
+        return false;
+    }
+
+    int format = 0;       // 1 = PCM, 3 = IEEE float
+    int channels = 0;
+    int bits = 0;
+    int sample_rate = 0;
+    std::vector<unsigned char> data;
+    bool have_fmt = false;
+
+    while (in) {
+        unsigned char chunk[8] = {0};
+        in.read(reinterpret_cast<char *>(chunk), sizeof(chunk));
+        if (in.gcount() != static_cast<std::streamsize>(sizeof(chunk))) break;
+        const uint32_t chunk_size = read_le_u32(chunk + 4);
+        if (std::memcmp(chunk, "fmt ", 4) == 0) {
+            const uint32_t to_read = chunk_size < 40u ? chunk_size : 40u;
+            unsigned char fmt[40] = {0};
+            in.read(reinterpret_cast<char *>(fmt), to_read);
+            if (in.gcount() != static_cast<std::streamsize>(to_read)) break;
+            if (chunk_size > to_read) in.seekg(chunk_size - to_read, std::ios::cur);
+            format = read_le_u16(fmt);
+            channels = read_le_u16(fmt + 2);
+            sample_rate = static_cast<int>(read_le_u32(fmt + 4));
+            bits = read_le_u16(fmt + 14);
+            // WAVE_FORMAT_EXTENSIBLE: format thật nằm ở 2 byte đầu GUID con.
+            if (format == 0xFFFE && to_read >= 26) {
+                format = read_le_u16(fmt + 24);
+            }
+            have_fmt = true;
+        } else if (std::memcmp(chunk, "data", 4) == 0) {
+            data.resize(chunk_size);
+            in.read(reinterpret_cast<char *>(data.data()), chunk_size);
+            const auto read_bytes = in.gcount();
+            if (read_bytes < 0) {
+                data.clear();
+            } else if (static_cast<uint32_t>(read_bytes) != chunk_size) {
+                // File bị cắt: dùng phần đọc được (bản ghi âm đang mở).
+                data.resize(static_cast<size_t>(read_bytes));
+            }
+            break;  // `data` là chunk cuối cần đọc
+        } else {
+            // Chunk lạ (LIST/fact/bext…): nhảy qua phần dữ liệu.
+            in.seekg(chunk_size, std::ios::cur);
+        }
+        // Chuẩn RIFF: chunk lẻ được đệm 1 byte. Chỉ cộng Ở ĐÂY (cộng cả trong
+        // nhánh trên thì con trỏ lệch 1 byte ⇒ mất chunk `data` kế tiếp —
+        // bắt được bằng harness WAV có LIST chunk).
+        if ((chunk_size & 1u) != 0u) in.seekg(1, std::ios::cur);
+    }
+
+    if (!have_fmt || data.empty() || channels <= 0 || sample_rate <= 0 ||
+        bits <= 0) {
+        error = "thiếu header fmt/data hoặc file rỗng";
+        return false;
+    }
+    const int bytes_per_sample = bits / 8;
+    if (bytes_per_sample <= 0) {
+        error = "độ sâu bit không hợp lệ";
+        return false;
+    }
+    const bool is_float = format == 3;
+    const bool is_pcm = format == 1;
+    if (!is_float && !is_pcm) {
+        error = "chỉ hỗ trợ WAV PCM hoặc IEEE float";
+        return false;
+    }
+    if (is_pcm && bytes_per_sample != 1 && bytes_per_sample != 2 &&
+        bytes_per_sample != 3 && bytes_per_sample != 4) {
+        error = "không hỗ trợ PCM " + std::to_string(bits) + " bit";
+        return false;
+    }
+    if (is_float && bytes_per_sample != 4 && bytes_per_sample != 8) {
+        error = "không hỗ trợ float " + std::to_string(bits) + " bit";
+        return false;
+    }
+
+    const size_t frame_bytes =
+        static_cast<size_t>(bytes_per_sample) * static_cast<size_t>(channels);
+    const size_t frames = data.size() / frame_bytes;
+    if (frames == 0) {
+        error = "không có mẫu âm thanh";
+        return false;
+    }
+
+    out.samples.assign(frames, 0.0f);
+    out.sample_rate = sample_rate;
+    for (size_t frame = 0; frame < frames; ++frame) {
+        float acc = 0.0f;
+        for (int channel = 0; channel < channels; ++channel) {
+            const unsigned char * sample =
+                data.data() + frame * frame_bytes +
+                static_cast<size_t>(channel) * static_cast<size_t>(bytes_per_sample);
+            float value = 0.0f;
+            if (is_float) {
+                if (bytes_per_sample == 4) {
+                    float f = 0.0f;
+                    std::memcpy(&f, sample, 4);
+                    value = f;
+                } else {
+                    double d = 0.0;
+                    std::memcpy(&d, sample, 8);
+                    value = static_cast<float>(d);
+                }
+            } else if (bytes_per_sample == 1) {
+                value = (static_cast<float>(sample[0]) - 128.0f) / 128.0f;
+            } else if (bytes_per_sample == 2) {
+                int16_t v = 0;
+                std::memcpy(&v, sample, 2);
+                value = static_cast<float>(v) / 32768.0f;
+            } else if (bytes_per_sample == 3) {
+                int32_t v = (static_cast<int32_t>(sample[2]) << 16) |
+                            (static_cast<int32_t>(sample[1]) << 8) |
+                            static_cast<int32_t>(sample[0]);
+                if ((v & 0x800000) != 0) v |= ~0xFFFFFF;  // dấu 24-bit
+                value = static_cast<float>(v) / 8388608.0f;
+            } else {
+                int32_t v = 0;
+                std::memcpy(&v, sample, 4);
+                value = static_cast<float>(static_cast<double>(v) / 2147483648.0);
+            }
+            acc += value;
+        }
+        out.samples[frame] = acc / static_cast<float>(channels);
+    }
+    return true;
+}
+
+/// Trần tham chiếu giọng: upstream cắt còn 8 s (`_MAX_REF_SECONDS`) — cắt
+/// trước ở đây để không nạp cả bản ghi 2 phút vào RAM.
+constexpr double kMaxReferenceSeconds = 8.0;
 
 }  // namespace
 
@@ -178,15 +418,54 @@ extern "C" VIENEU_TTS_API vieneu_tts_handle vieneu_tts_create(
     audiocpp_model_config model_config{};
     model_config.family_hint = "vieneu_v3_turbo";
 
-    if (audiocpp_model_load(ctx->registry, model_path, &model_config,
-                            nullptr, &ctx->model) != AUDIOCPP_OK ||
-        !ctx->model) {
-        ctx->last_error = "vieneu_tts_create: nạp model thất bại: " +
-                          std::string(audiocpp_last_error());
-        g_last_error = ctx->last_error;
-        delete ctx;
-        audiocpp_options_free(session_options);
-        return nullptr;
+    // Sống tới hết hàm: `audiocpp_model_load` chỉ đọc con trỏ, không copy.
+    std::string spec_override_path;
+
+    auto try_load_model = [&]() -> audiocpp_status {
+        return audiocpp_model_load(ctx->registry, model_path, &model_config,
+                                   nullptr, &ctx->model);
+    };
+
+    audiocpp_status load_status = try_load_model();
+    if (load_status != AUDIOCPP_OK || !ctx->model) {
+        const std::string first_error = audiocpp_last_error();
+        if (ctx->model) {
+            audiocpp_model_free(ctx->model);
+            ctx->model = nullptr;
+        }
+        // PSRC-171: chỉ thử lại khi lỗi ĐÚNG là thiếu/không khớp model spec —
+        // đó là lỗi mà bản 1.28 gặp trên mọi máy ("model spec not found for
+        // family 'vietneu_tts'"). File hỏng / hết RAM thì không thử lại (nạp
+        // lại 188 MB chỉ tốn thời gian và pin).
+        if (first_error.find("model spec") != std::string::npos) {
+            spec_override_path = materialize_embedded_model_spec(folder);
+            if (!spec_override_path.empty()) {
+                model_config.model_spec_override = spec_override_path.c_str();
+                load_status = try_load_model();
+            }
+        }
+        if (load_status != AUDIOCPP_OK || !ctx->model) {
+            ctx->last_error = "vieneu_tts_create: nạp model thất bại: ";
+            if (spec_override_path.empty()) {
+                ctx->last_error += first_error;
+                if (embedded_model_spec_available()) {
+                    ctx->last_error +=
+                        " (không ghi được model spec cạnh model: " +
+                        (folder / kModelSpecDirName / kModelSpecFileName)
+                            .u8string() +
+                        ")";
+                }
+            } else {
+                ctx->last_error += std::string(audiocpp_last_error()) +
+                                   " [đã thử model_spec_override=" +
+                                   spec_override_path + "; lỗi gốc: " +
+                                   first_error + "]";
+            }
+            g_last_error = ctx->last_error;
+            delete ctx;
+            audiocpp_options_free(session_options);
+            return nullptr;
+        }
     }
 
     if (audiocpp_session_create(ctx->model, "tts", "offline", &backend,
@@ -302,8 +581,15 @@ extern "C" VIENEU_TTS_API vieneu_tts_status vieneu_tts_synthesize(
     // PSRC-187: chỉ set option khi file CÓ NỘI DUNG HỢP LỆ; placeholder
     // `ref_codes.txt` chỉ chứa `# VieNeu-TTS default` sẽ crash native nếu
     // truyền vào audio.cpp. Dùng is_valid_voice_file thay vì file_exists.
-    if (!ctx->ref_codes_file.empty() &&
-        is_valid_voice_file(ctx->ref_codes_file.c_str())) {
+    //
+    // PSRC-171: khi ĐÃ có `ref_codes.txt` thì KHÔNG truyền `speaker_embedding_file`
+    // nữa. Bản cũ của `vieneu_tts_clone_voice` ghi một file embedding 256 số 0
+    // (placeholder) vào cùng thư mục giọng; audio.cpp đọc file đó trước và
+    // ném "must contain exactly 192 float values" ⇒ giọng vừa tạo không bao
+    // giờ đọc được. Ref codes đã đủ mô tả giọng (xem prompt builder).
+    const bool has_ref_codes = !ctx->ref_codes_file.empty() &&
+                               is_valid_voice_file(ctx->ref_codes_file.c_str());
+    if (has_ref_codes) {
         if (audiocpp_request_set_option(request, "reference_codes_file",
                                         ctx->ref_codes_file.c_str()) !=
             AUDIOCPP_OK) {
@@ -315,7 +601,7 @@ extern "C" VIENEU_TTS_API vieneu_tts_status vieneu_tts_synthesize(
             return VIENEU_TTS_ERR_RUNTIME;
         }
     }
-    if (!ctx->speaker_embedding_file.empty() &&
+    if (!has_ref_codes && !ctx->speaker_embedding_file.empty() &&
         is_valid_voice_file(ctx->speaker_embedding_file.c_str())) {
         if (audiocpp_request_set_option(request, "speaker_embedding_file",
                                         ctx->speaker_embedding_file.c_str()) !=
@@ -405,11 +691,17 @@ extern "C" VIENEU_TTS_API const char * vieneu_tts_last_error(void) {
 }
 
 extern "C" VIENEU_TTS_API int vieneu_tts_clone_voice(
+    vieneu_tts_handle handle,
     const char * voice_id,
     const char * samples_dir,
-    const char * output_embedding) {
+    const char * output_ref_codes_path) {
     g_last_error.clear();
 
+    auto * ctx = static_cast<VieneuTtsContext *>(handle);
+    if (!ctx || !ctx->initialized || !ctx->session) {
+        g_last_error = "vieneu_tts_clone_voice: engine chưa nạp model";
+        return VIENEU_TTS_ERR_NOT_READY;
+    }
     if (!voice_id || !*voice_id) {
         g_last_error = "vieneu_tts_clone_voice: voice_id là bắt buộc";
         return VIENEU_TTS_ERR_INVALID_ARGUMENT;
@@ -418,141 +710,206 @@ extern "C" VIENEU_TTS_API int vieneu_tts_clone_voice(
         g_last_error = "vieneu_tts_clone_voice: samples_dir là bắt buộc";
         return VIENEU_TTS_ERR_INVALID_ARGUMENT;
     }
-    if (!output_embedding || !*output_embedding) {
-        g_last_error = "vieneu_tts_clone_voice: output_embedding là bắt buộc";
+    if (!output_ref_codes_path || !*output_ref_codes_path) {
+        g_last_error =
+            "vieneu_tts_clone_voice: đường dẫn ref_codes.txt là bắt buộc";
         return VIENEU_TTS_ERR_INVALID_ARGUMENT;
     }
 
     std::error_code ec;
-    auto samples_path = fs::path(samples_dir);
+    const fs::path samples_path(samples_dir);
     if (!fs::exists(samples_path, ec) || !fs::is_directory(samples_path, ec)) {
         g_last_error = "vieneu_tts_clone_voice: thư mục mẫu không tồn tại: " +
                        std::string(samples_dir);
         return VIENEU_TTS_ERR_LOAD_FAILED;
     }
 
-    // Thu thập các file WAV mẫu.
+    // ---------------------------------------------------------------- mẫu WAV
+    // Sắp xếp theo tên: cùng một bộ mẫu luôn cho cùng ref codes (bản ghi có
+    // tên theo timestamp) ⇒ người dùng tạo lại giọng không bị đổi chất giọng
+    // ngẫu nhiên.
     std::vector<fs::path> sample_files;
-    for (const auto & entry : fs::directory_iterator(samples_path)) {
-        if (entry.is_regular_file()) {
-            // PSRC-185: dùng std::string + lowercase thay vì `u8string()` so
-            // sánh với `const char*` (C++20 trả std::u8string ⇒ không compile
-            // trên toolchain mới) và chấp nhận mọi biến thể hoa/thường.
-            std::string ext = entry.path().extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(),
-                           [](unsigned char c) { return std::tolower(c); });
-            if (ext == ".wav") {
-                sample_files.push_back(entry.path());
-            }
-        }
+    for (const auto & entry : fs::directory_iterator(samples_path, ec)) {
+        if (ec) break;
+        if (!entry.is_regular_file()) continue;
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (ext == ".wav") sample_files.push_back(entry.path());
     }
     if (sample_files.empty()) {
-        g_last_error = "vieneu_tts_clone_voice: không tìm thấy file WAV mẫu trong " +
-                       std::string(samples_dir);
+        g_last_error =
+            "vieneu_tts_clone_voice: không tìm thấy file WAV mẫu trong " +
+            std::string(samples_dir);
+        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    }
+    std::sort(sample_files.begin(), sample_files.end());
+
+    // Ghép các mẫu CÙNG sample rate (mẫu khác rate bị bỏ qua — audio.cpp vẫn
+    // resample được nhưng trộn hai rate trong một buffer là sai).
+    std::vector<float> reference;
+    int reference_rate = 0;
+    size_t used_files = 0;
+    std::string skipped;
+    for (const auto & file : sample_files) {
+        DecodedWav wav;
+        std::string decode_error;
+        if (!decode_wav_mono(file, wav, decode_error)) {
+            skipped += "\n  - " + file.filename().string() + ": " +
+                       decode_error;
+            continue;
+        }
+        if (reference_rate == 0) reference_rate = wav.sample_rate;
+        if (wav.sample_rate != reference_rate) {
+            skipped += "\n  - " + file.filename().string() +
+                       ": sample rate " + std::to_string(wav.sample_rate) +
+                       " Hz khác " + std::to_string(reference_rate) + " Hz";
+            continue;
+        }
+        const size_t cap = static_cast<size_t>(
+            kMaxReferenceSeconds * static_cast<double>(reference_rate));
+        if (reference.size() >= cap) break;
+        const size_t room = cap - reference.size();
+        const size_t take = std::min(room, wav.samples.size());
+        reference.insert(reference.end(), wav.samples.begin(),
+                         wav.samples.begin() + static_cast<ptrdiff_t>(take));
+        ++used_files;
+    }
+    if (reference.empty() || reference_rate <= 0) {
+        g_last_error =
+            "vieneu_tts_clone_voice: không đọc được mẫu WAV nào trong " +
+            std::string(samples_dir) + skipped;
         return VIENEU_TTS_ERR_INVALID_ARGUMENT;
     }
 
-    // Tạo file embedding + sao chép mẫu.
-    // PSRC-184: bản cũ tính `voices_dir = parent(output_embedding)` rồi
-    // `voice_dir = voices_dir / voice_id` ⇒ lồng `<voiceId>/<voiceId>` khi
-    // Dart đã truyền `.../<voiceId>/speaker.emb.txt` (không còn `..`). Sửa:
-    // coi parent của output chính là voice_dir; chỉ append voice_id nếu tên
-    // thư mục chưa khớp.
-    auto output_path = fs::path(output_embedding);
-    auto voice_dir = output_path.parent_path();
-    if (voice_dir.empty()) {
-        g_last_error = "vieneu_tts_clone_voice: output_embedding không có thư mục cha";
-        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    // ------------------------------------------------- mã hoá giọng (codes)
+    // audio.cpp: `encode_reference_only=true` + PCM tham chiếu ⇒ trả
+    // acoustic-tokens artifact (đúng nội dung `ref_codes.txt` mà
+    // `reference_codes_file` đọc lại). Không sinh câu nói nào.
+    audiocpp_request * request = audiocpp_request_create();
+    if (!request) {
+        g_last_error = "vieneu_tts_clone_voice: không tạo được request";
+        return VIENEU_TTS_ERR_OUT_OF_MEMORY;
     }
-    // Nếu voice_dir chưa mang tên voice_id (trường hợp caller truyền
-    // `.../cloned_voices/samples` hoặc path cũ với `..`), thì tạo subdir.
-    if (voice_dir.filename().string() != std::string(voice_id)) {
-        voice_dir = voice_dir / voice_id;
+    struct RequestGuard {
+        audiocpp_request * request;
+        explicit RequestGuard(audiocpp_request * r) : request(r) {}
+        ~RequestGuard() {
+            if (request) audiocpp_request_free(request);
+        }
+    } request_guard(request);
+
+    audiocpp_status status = audiocpp_request_set_voice_audio(
+        request, reference.data(), reference.size(), reference_rate, 1);
+    if (status != AUDIOCPP_OK) {
+        g_last_error =
+            "vieneu_tts_clone_voice: không đặt được âm thanh tham chiếu: " +
+            std::string(audiocpp_last_error());
+        return VIENEU_TTS_ERR_RUNTIME;
     }
-    auto voices_dir = voice_dir.parent_path();
-    std::error_code create_ec;
-    fs::create_directories(voice_dir, create_ec);
-    if (create_ec) {
-        g_last_error = "vieneu_tts_clone_voice: không tạo thư mục giọng: " +
-                       create_ec.message();
+    status = audiocpp_request_set_option(request, "encode_reference_only",
+                                         "true");
+    if (status != AUDIOCPP_OK) {
+        g_last_error =
+            "vieneu_tts_clone_voice: không đặt được encode_reference_only: " +
+            std::string(audiocpp_last_error());
         return VIENEU_TTS_ERR_RUNTIME;
     }
 
-    // Đảm bảo thư mục cha của output_embedding tồn tại (khi voice_dir vừa tạo).
-    if (output_path.has_parent_path()) {
-        fs::create_directories(output_path.parent_path(), ec);
-        ec.clear();
+    audiocpp_result * result = nullptr;
+    status = audiocpp_session_run(ctx->session, request, &result);
+    if (status != AUDIOCPP_OK || !result) {
+        g_last_error = "vieneu_tts_clone_voice: mã hoá giọng thất bại: " +
+                       std::string(audiocpp_last_error());
+        if (result) audiocpp_result_free(result);
+        return VIENEU_TTS_ERR_RUNTIME;
+    }
+    struct ResultGuard {
+        audiocpp_result * result;
+        explicit ResultGuard(audiocpp_result * r) : result(r) {}
+        ~ResultGuard() {
+            if (result) audiocpp_result_free(result);
+        }
+    } result_guard(result);
+
+    const void * codes_payload = nullptr;
+    size_t codes_bytes = 0;
+    const size_t artifact_count = audiocpp_result_artifact_count(result);
+    for (size_t index = 0; index < artifact_count; ++index) {
+        audiocpp_artifact_kind kind = AUDIOCPP_ARTIFACT_CUSTOM;
+        const char * artifact_id = nullptr;
+        const void * payload = nullptr;
+        size_t payload_bytes = 0;
+        if (audiocpp_result_artifact(result, index, &kind, &artifact_id,
+                                     &payload, &payload_bytes) != AUDIOCPP_OK) {
+            continue;
+        }
+        if (kind != AUDIOCPP_ARTIFACT_ACOUSTIC_TOKENS || !payload ||
+            payload_bytes == 0) {
+            continue;
+        }
+        codes_payload = payload;
+        codes_bytes = payload_bytes;
+        break;
+    }
+    if (!codes_payload || codes_bytes == 0) {
+        g_last_error =
+            "vieneu_tts_clone_voice: audio.cpp không trả về reference codes "
+            "cho mẫu đã cho (" +
+            std::to_string(used_files) + " file, " +
+            std::to_string(reference_rate) + " Hz)";
+        return VIENEU_TTS_ERR_RUNTIME;
     }
 
-    // Sao chép các file mẫu vào voice_dir/samples/ — nhưng KHÔNG copy nếu
-    // nguồn đã chính là voice_dir/samples (tránh tự copy lên chính mình).
-    auto samples_dest = voice_dir / "samples";
-    const bool sameDir = fs::equivalent(samples_path, samples_dest, ec) ||
-                         (samples_path == samples_dest);
-    if (ec) ec.clear();
-    if (!sameDir) {
-        fs::create_directories(samples_dest, create_ec);
-        for (const auto & src : sample_files) {
-            fs::copy_file(src, samples_dest / src.filename(),
-                          fs::copy_options::overwrite_existing, ec);
-            if (ec) {
-                g_last_error = "vieneu_tts_clone_voice: không sao chép mẫu: " +
-                               ec.message();
-                return VIENEU_TTS_ERR_RUNTIME;
-            }
+    // --------------------------------------------------------- ghi ref codes
+    const fs::path output_path(output_ref_codes_path);
+    const fs::path voice_dir = output_path.parent_path();
+    if (!voice_dir.empty() && !fs::exists(voice_dir, ec)) {
+        fs::create_directories(voice_dir, ec);
+        if (ec) {
+            g_last_error =
+                "vieneu_tts_clone_voice: không tạo được thư mục giọng: " +
+                ec.message();
+            return VIENEU_TTS_ERR_RUNTIME;
         }
     }
-
-    // Tìm encoder native (nếu có) để tính speaker embedding.
-    // VieNeu-TTS có thể đi kèm với speaker encoder bên cạnh model.
-    const char * encoder_candidates[] = {
-        "libspeaker_encoder.so", "libspeaker_encoder.dylib",
-        "libspeaker_encoder.dll", nullptr
-    };
-
-    fs::path encoder_lib;
-    for (const char * name : encoder_candidates) {
-        if (!name) break;
-        auto cand = voices_dir / name;
-        if (fs::exists(cand, ec)) {
-            encoder_lib = cand;
-            break;
+    {
+        std::ofstream out(output_path, std::ios::binary | std::ios::trunc);
+        if (!out.is_open()) {
+            g_last_error =
+                "vieneu_tts_clone_voice: không ghi được " +
+                std::string(output_ref_codes_path);
+            return VIENEU_TTS_ERR_RUNTIME;
+        }
+        out.write(static_cast<const char *>(codes_payload),
+                  static_cast<std::streamsize>(codes_bytes));
+        out.close();
+        if (!out.good()) {
+            g_last_error =
+                "vieneu_tts_clone_voice: ghi ref codes thất bại (đầy bộ nhớ?)";
+            return VIENEU_TTS_ERR_RUNTIME;
         }
     }
-
-    // Tạo file speaker.emb.txt.
-    // Format VieNeu-TTS: dòng đầu là số chiều embedding, tiếp theo là các giá trị float.
-    // VieNeu-TTS v3 Turbo dùng x-vector 256 chiều.
-    const int embedding_dim = 256;
-    std::ofstream emb_file(output_embedding,
-                           std::ios::out | std::ios::trunc);
-    if (!emb_file.is_open()) {
-        g_last_error = "vieneu_tts_clone_voice: không ghi file embedding: " +
-                       std::string(output_embedding);
+    if (!is_valid_voice_file(output_ref_codes_path)) {
+        g_last_error =
+            "vieneu_tts_clone_voice: ref codes vừa ghi không hợp lệ: " +
+            std::string(output_ref_codes_path);
         return VIENEU_TTS_ERR_RUNTIME;
     }
 
-    emb_file << embedding_dim << "\n";
-    for (int i = 0; i < embedding_dim; ++i) {
-        emb_file << 0.0f;
-        if (i + 1 < embedding_dim) emb_file << " ";
-    }
-    emb_file << "\n";
-
-    emb_file.close();
-
-    if (!emb_file.good()) {
-        g_last_error = "vieneu_tts_clone_voice: ghi file embedding thất bại";
-        return VIENEU_TTS_ERR_RUNTIME;
+    // Dọn file embedding placeholder của bản cũ (256 số 0 — audio.cpp từ chối
+    // vì cần đúng 192 giá trị). Giọng đã có ref codes thì không cần nữa.
+    if (!voice_dir.empty()) {
+        std::error_code remove_ec;
+        fs::remove(voice_dir / "speaker.emb.txt", remove_ec);
     }
 
-    g_last_error = "vieneu_tts_clone_voice: đã tạo speaker embedding cho giọng '" +
+    g_last_error = "vieneu_tts_clone_voice: đã mã hoá giọng '" +
                    std::string(voice_id) + "' từ " +
-                   std::to_string(sample_files.size()) + " file mẫu. " +
-                   (encoder_lib.empty()
-                       ? "Chưa có encoder native — embedding là placeholder. "
-                         "Cần thêm libspeaker_encoder.so để tính embedding thực tế."
-                       : "Đã tính embedding bằng encoder native.");
+                   std::to_string(used_files) + " mẫu WAV (" +
+                   std::to_string(reference_rate) + " Hz, " +
+                   std::to_string(reference.size()) +
+                   " mẫu) → " + std::string(output_ref_codes_path) + skipped;
     return VIENEU_TTS_OK;
 }
 

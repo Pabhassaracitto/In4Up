@@ -1329,7 +1329,7 @@ class TtsService extends ChangeNotifier {
           ? probe.message
           : (engine.blockingReason ??
               vieneuEngineBlockerMessage(
-                  VieneuEngineBlocker.modelUnreadable));
+                  VieneuEngineBlocker.engineLoadFailed));
       throw VieneuEngineNotReadyException(
         message: reasonKey,
         blocker: probe.blocker,

@@ -48,8 +48,10 @@ const List<String> _l6NewUiStrings = <String>[
   'Các giọng này đã có trong ứng dụng',
   'Chưa khởi tạo được engine: {value0}',
   'Khởi tạo engine thất bại: {value0}',
-  'Đã tạo giọng {value0} nhưng bằng embedding tạm (chưa có bộ mã hoá giọng) — giọng đọc gần giọng mặc định',
   'Không thể tạo giọng: {value0}',
+  'Model .gguf thiếu bảng mô tả model spec của engine — cập nhật ứng dụng rồi thử lại',
+  'Không nạp được model .gguf vào engine — xem chi tiết lỗi',
+  'Dữ liệu giọng (ref_codes.txt / speaker.emb.txt) không dùng được — tạo lại giọng',
   'Chọn file model VieNeu-TTS {value0}',
   'Đã import {value0} giọng mẫu',
   'Đã import {value0} · {value1} giọng mẫu',
@@ -364,26 +366,31 @@ void registerVieneuL6Checks() {
 
   group('PSRC-218 — tạo giọng từ mẫu: nói đúng lý do + giọng sống qua restart',
       () {
-    test('embedding placeholder toàn 0 được nhận ra', () async {
-      final dir = await Directory.systemTemp.createTemp('vieneu_l6_emb_');
-      try {
-        final placeholder = File('${dir.path}/speaker.emb.txt');
-        final zeros = List<String>.filled(256, '0.000000').join(' ');
-        await placeholder.writeAsString('256\n$zeros\n');
-        expect(await isPlaceholderVieneuEmbedding(placeholder.path), isTrue);
+    // PSRC-171: bản 1.28 ghi embedding placeholder 256 số 0; audio.cpp chỉ
+    // nhận ĐÚNG 192 số trên dòng đầu. Engine phải nhận ra file không dùng
+    // được để KHÔNG truyền xuống native (nếu truyền, mọi lần đọc bằng giọng
+    // đó lỗi "must contain exactly 192 float values").
+    test('embedding sai số chiều bị loại, embedding 192 dùng được', () {
+      final zeros256 = List<String>.filled(256, '0.000000').join(' ');
+      expect(isUsableVieneuSpeakerEmbedding('256\n$zeros256\n'), isFalse,
+          reason: 'Placeholder 256 số 0 của bản 1.28 phải bị loại');
 
-        final real = File('${dir.path}/real.emb.txt');
-        final values = List<String>.filled(256, '0.000000');
-        values[7] = '0.481200';
-        await real.writeAsString('256\n${values.join(' ')}\n');
-        expect(await isPlaceholderVieneuEmbedding(real.path), isFalse);
+      final ok192 = List<String>.filled(192, '0.012500');
+      expect(isUsableVieneuSpeakerEmbedding(ok192.join(',')), isTrue);
+      expect(isUsableVieneuSpeakerEmbedding(''), isFalse);
+      expect(isUsableVieneuSpeakerEmbedding('   \n  \n'), isFalse);
+      expect(isUsableVieneuSpeakerEmbedding('không phải số'), isFalse);
+      // 192 phần tử nhưng có phần tử không phải số ⇒ loại (audio.cpp ném lỗi).
+      final broken = List<String>.filled(192, '0.1')..[5] = 'x';
+      expect(isUsableVieneuSpeakerEmbedding(broken.join(',')), isFalse);
+    });
 
-        expect(await isPlaceholderVieneuEmbedding('${dir.path}/none.txt'),
-            isFalse,
-            reason: 'Không đọc được thì không kết luận — không doạ người dùng');
-      } finally {
-        await dir.delete(recursive: true);
-      }
+    test('ref codes: chỉ dòng toàn số mới là dữ liệu giọng thật', () {
+      expect(hasVieneuRefCodes('1 2 3\n4 5 6\n'), isTrue);
+      expect(hasVieneuRefCodes('# VieNeu-TTS default\n'), isFalse);
+      expect(hasVieneuRefCodes(''), isFalse);
+      expect(hasVieneuRefCodes('abc def\n'), isFalse);
+      expect(vieneuRefCodeFrames('1 2 3\n# chú thích\n4 5 6\n'), 2);
     });
 
     test('service: engine chưa sẵn sàng ⇒ ném lỗi CÓ LÝ DO', () {
@@ -401,13 +408,16 @@ void registerVieneuL6Checks() {
           reason: 'Câu chung cho mọi nguyên nhân là gốc của PSRC-218');
     });
 
-    test('UI clone: bắt lỗi có kiểu, cảnh báo embedding tạm, lưu lựa chọn', () {
+    test('UI tạo giọng: bắt lỗi có kiểu, dùng ref codes, lưu lựa chọn', () {
       final clone =
           _codeOnly(_read('lib/features/tts/widgets/voice_clone_section.dart'));
       expect(clone.contains('on VieneuEngineNotReadyException catch (e)'), isTrue);
-      expect(clone.contains('isPlaceholderVieneuEmbedding(embeddingPath)'),
-          isTrue);
-      expect(clone.contains('_CloneNotice.successPlaceholder'), isTrue);
+      // PSRC-171: giọng tạo ra là ref codes thật; không còn trạng thái
+      // "thành công một nửa" với embedding placeholder.
+      expect(clone.contains('refCodesFile: refCodesPath'), isTrue);
+      expect(clone.contains('_CloneNotice.successPlaceholder'), isFalse,
+          reason: 'Embedding placeholder không còn tồn tại sau PSRC-171');
+      expect(clone.contains('speakerEmbeddingFile: embeddingPath'), isFalse);
       expect(clone.contains('setSelectedVieneuVoiceId(voiceId)'), isTrue,
           reason: 'Giọng vừa tạo phải được chọn và sống qua lần mở app sau');
       expect(clone.contains('_cloneErrorDetail = e.toString()'), isTrue,

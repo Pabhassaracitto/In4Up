@@ -82,6 +82,11 @@ class ReadModeScreen extends StatefulWidget {
   /// Caller standalone giữ `true` để không mất chức năng.
   final bool showTopBar;
 
+  /// PSRC-246 — lối VỀ `ReadLibraryScreen` (3 tab Gần đây/Cloud/Thiết bị).
+  /// Shell truyền vào để panel «Công cụ đọc» có chỗ quay lại thư viện đọc
+  /// thật, thay vì lặp lại «Mở nguồn» đã có ở góc trái trên.
+  final VoidCallback? onOpenReadLibrary;
+
   const ReadModeScreen({
     super.key,
     this.currentFile,
@@ -93,6 +98,7 @@ class ReadModeScreen extends StatefulWidget {
     this.chromeLayout = ReadChromeLayout.defaults,
     this.onChromeLayoutChanged,
     this.showTopBar = true,
+    this.onOpenReadLibrary,
   });
 
   @override
@@ -585,6 +591,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                         showWordlistPanel: _showWordlistPanel,
                         onToggleWordlist: _toggleWordlist,
                         onOpenSource: _openSourceCallback,
+                        onOpenReadLibrary:
+                            _source == ReadContentSource.document
+                                ? widget.onOpenReadLibrary
+                                : null,
                       ),
                   ] else
                     CollapsibleBottomControls(

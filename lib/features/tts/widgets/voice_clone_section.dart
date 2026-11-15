@@ -97,6 +97,11 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   String? _cloneErrorDetail;
   int _sampleCount = 0;
 
+  /// PSRC-249-B — danh sách mẫu WAV đang chờ tạo giọng. Trước đây UI chỉ có
+  /// MỘT con số ⇒ người dùng import xong vẫn "không thấy gì trong danh sách"
+  /// và tưởng import hỏng. Giờ hiện tên file + dung lượng + nút xoá từng mẫu.
+  List<File> _tempSamples = const [];
+
   @override
   void initState() {
     super.initState();
@@ -156,14 +161,48 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   }
 
   Future<void> _refreshSampleCount() async {
-    int count = 0;
+    var files = <File>[];
     try {
-      count = await _countTempSamples();
+      final dir = Directory(_tempSamplesDir);
+      if (await dir.exists()) {
+        await for (final entity in dir.list()) {
+          if (entity is File && isVieneuVoiceSampleFile(entity.path)) {
+            files.add(entity);
+          }
+        }
+      }
     } catch (_) {
-      // path_provider chưa sẵn sàng trong test: giữ 0.
+      // path_provider chưa sẵn sàng trong test: giữ rỗng.
     }
+    files.sort((a, b) => p.basename(a.path).compareTo(p.basename(b.path)));
     if (!mounted) return;
-    setState(() => _sampleCount = count);
+    setState(() {
+      _tempSamples = files;
+      _sampleCount = files.length;
+    });
+  }
+
+  /// Nhãn dung lượng ngắn (KB) để mắt thường phát hiện file rỗng/hỏng.
+  String _formatSampleSize(File file) {
+    try {
+      final bytes = file.lengthSync();
+      if (bytes >= 1024 * 1024) {
+        return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      }
+      return '${(bytes / 1024).round()} KB';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Xoá MỘT mẫu khỏi vùng tạm (không đụng mẫu khác, không đụng giọng đã tạo).
+  Future<void> _deleteTempSample(File file) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (e) {
+      debugPrint('Xoá mẫu tạm lỗi: $e');
+    }
+    await _refreshSampleCount();
   }
 
   Future<void> _requestPermissions() async {
@@ -671,6 +710,58 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
           l10n.ttsCloneVoiceSamplesCount(_sampleCount),
           style: TextStyle(fontSize: 9.5, color: Colors.grey[500]),
         ),
+        if (_tempSamples.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Container(
+            key: const Key('voice-clone-sample-list'),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final file in _tempSamples)
+                  Row(
+                    children: [
+                      const Icon(Icons.audiotrack,
+                          size: 13, color: Colors.white54),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          p.basename(file.path),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[300],
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _formatSampleSize(file),
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      InkWell(
+                        key: Key('voice-clone-sample-delete-${p.basename(file.path)}'),
+                        onTap: () => _deleteTempSample(file),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close,
+                              size: 13, color: Colors.white54),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
 
         // ── IMPORT MẪU TỪ THƯ MỤC (PSRC-185) ──

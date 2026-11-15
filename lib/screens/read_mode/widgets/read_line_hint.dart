@@ -36,9 +36,9 @@ class ReadLineHint {
           // bảng tra từ bị hỏng.
           wordSource
               ? context.uiText(
-                  'Đã mở theo dòng: chạm một dòng để hiện IPA, giữ một từ để tra nghĩa.')
+                  'Đã mở theo dòng: chạm một từ để nghe, chạm đúp để đọc và dịch cả dòng.')
               : context.uiText(
-                  'Chạm một dòng để hiện IPA, giữ một từ để tra nghĩa.'),
+                  'Chạm một từ để nghe, chạm đúp để đọc và dịch cả dòng.'),
           style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
         action: SnackBarAction(
@@ -91,9 +91,21 @@ class ReadLineHint {
               // READ-HINT-001 (audit 1.e): thứ tự theo đúng việc người dùng
               // làm — dòng trước, từ sau; ghi chú IPA nằm NGAY DƯỚI dòng
               // nói về IPA (trong ngoặc) thay vì rơi xuống cuối bảng.
+              // PSRC-248 (owner 2026-11-15): rà lại TỪNG dòng theo cử chỉ
+              // thật trong mã sau PSRC-234 / READ-SELECT-002 / PSRC-236:
+              //   * `TextLineWidget.onTap`  → chọn dòng (+ seek audio)
+              //   * `WordTapPlainText`      → chạm từ = đọc từ + thẻ tra nhanh;
+              //                              chạm đúp (từ HAY dòng) = đọc +
+              //                              dịch CẢ DÒNG (popup dịch);
+              //                              giữ từ = chọn nhiều từ (kéo);
+              //   * `TextLineWidget.onLongPress` → bảng hành động của dòng
+              //     ("Sửa dòng…" nằm TRONG bảng — giữ dòng không sửa ngay).
+              // Bản cũ hứa "chạm hai lần vào từ: xem nghĩa nhanh" (không
+              // còn) và "giữ một dòng: sửa nội dung" (đã bỏ từ IN4-36).
               const _HintRow(
                 icon: Icons.touch_app_outlined,
-                label: 'Chạm một dòng: chọn dòng đó và hiện IPA ngay dưới chữ.',
+                label:
+                    'Chạm một dòng: chọn dòng đó (và nhảy audio tới đúng dòng nếu đang nghe).',
               ),
               const _HintRow(
                 icon: Icons.spellcheck,
@@ -103,11 +115,13 @@ class ReadLineHint {
               ),
               const _HintRow(
                 icon: Icons.record_voice_over_outlined,
-                label: 'Chạm một từ: nghe phát âm ngay.',
+                label:
+                    'Chạm một từ: nghe phát âm và mở thẻ tra nhanh của từ đó.',
               ),
               const _HintRow(
                 icon: Icons.flash_on_outlined,
-                label: 'Chạm hai lần vào một từ: xem nghĩa nhanh.',
+                label:
+                    'Chạm hai lần vào một từ hoặc một dòng: đọc và dịch cả dòng.',
               ),
               // READ-SELECT-002 (audit 1.e): GIỮ một từ ở chế độ ô chữ nay vào
               // chế độ CHỌN NHIỀU TỪ (kéo ngang để mở rộng) — bảng tra từ đầy
@@ -120,11 +134,8 @@ class ReadLineHint {
               ),
               const _HintRow(
                 icon: Icons.touch_app,
-                label: 'Chạm hai lần vào dòng: mở bảng hành động của dòng.',
-              ),
-              const _HintRow(
-                icon: Icons.edit_note,
-                label: 'Giữ một dòng: sửa nội dung dòng đó.',
+                label:
+                    'Giữ một dòng: mở bảng hành động của dòng (đọc, lưu, sửa dòng…).',
               ),
               const _HintRow(
                 icon: Icons.select_all,
@@ -134,7 +145,7 @@ class ReadLineHint {
               const _HintRow(
                 icon: Icons.touch_app_outlined,
                 label:
-                    'Chưa chọn từ nào: 4 nút ở trên chạy trên cả dòng đang đọc.',
+                    'Chưa chọn từ nào: 4 nút Dịch / Ngữ pháp / Phát âm / Từ điển chạy trên cả dòng đang đọc.',
               ),
               const SizedBox(height: 14),
               Row(

@@ -30,7 +30,12 @@ import 'recent_file_card.dart';
 // ═══════════════════════════════════════════════════════════
 
 class ReadLibraryScreen extends StatefulWidget {
-  const ReadLibraryScreen({super.key});
+  const ReadLibraryScreen({super.key, this.showBackButton});
+
+  /// PSRC-246 — khi thư viện được MỞ như một route (từ panel «Công cụ đọc»
+  /// của tab Đọc) thì phải có nút quay lại; khi nhúng làm nội dung (trường
+  /// hợp rỗng của tab Đọc) thì không. `null` = tự quyết theo `canPop`.
+  final bool? showBackButton;
 
   @override
   State<ReadLibraryScreen> createState() => _ReadLibraryScreenState();
@@ -779,6 +784,14 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       ),
       child: Row(
         children: [
+          if (widget.showBackButton ?? Navigator.of(context).canPop()) ...[
+            IconButton(
+              key: const Key('read-library-back'),
+              tooltip: context.uiText('Quay lại'),
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ],
           // ── Title ────────────────────────────────────────
           Expanded(
             child: Column(

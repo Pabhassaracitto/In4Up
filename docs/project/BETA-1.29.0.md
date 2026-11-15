@@ -740,3 +740,17 @@ hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK r
 - 2026-11-12 | PSRC-204 chốt | agent `arena/60e35d65-in4up` | owner duyệt mô hình nơi lưu
   ⇒ **ADR-0029** (mặc định công khai + đổi từng lần; dữ liệu app giữ riêng); lane L7 không
   phải đánh giá lại, chỉ thi công.
+- 2026-11-15 | PSRC-245/246/247/248/249 | agent `arena/60e35d65-in4up` | **vì sao bản
+  beta vẫn "đọc bằng Piper/hệ thống"**: `_loadPersistedSettings` nối engine MỚI xuống
+  CUỐI prefs ⇒ với người dùng nâng cấp, `vieneu_tts` nằm sau `offline_tts` (giọng máy,
+  luôn phát được) và **không bao giờ được gọi**. Nay có hàm thuần
+  `mergePersistedEngineOrder` (chèn theo ưu tiên mặc định, giữ thứ tự người dùng đã sắp,
+  di trú một lần cho prefs đã lỡ lưu vieneu ở cuối) + 6 unit test; `synthesizeToFile`
+  ("lưu âm thanh") cũng đi VieNeu trước Piper/Edge. Kèm 4 chỉnh UI theo yêu cầu owner:
+  panel «Công cụ đọc» có chip **Về thư viện đọc** (3 tab Gần đây/Cloud/Thiết bị, nút quay
+  lại) thay cho «Mở nguồn» trùng lối ở góc trái trên; **hoán đổi icon** robot ⇄ thư viện
+  giữa AppBar shell và header Home; **bảng «Hướng dẫn đọc theo dòng» sửa lại cho khớp cử
+  chỉ thật** sau PSRC-234 (chạm đúp = đọc + dịch cả dòng, giữ dòng = bảng hành động, không
+  còn "chạm đúp để tra nghĩa"); danh sách mẫu WAV trong Voice Clone hiện tên + dung lượng
+  + xoá từng mẫu. 15 chuỗi × 8 locale (pack 3.785 khoá). Còn mở: import TRỌN BỘ thư mục
+  (PSRC-249-A) và đồng bộ giao diện "gương màu" — **chưa kiểm máy thật**.

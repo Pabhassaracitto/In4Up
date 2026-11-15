@@ -56,9 +56,9 @@ import 'read_mode/services/read_text_action_runner.dart';
 import 'read_mode/widgets/read_top_bar.dart';
 import 'read_mode/widgets/read_source_picker.dart';
 import 'read_mode/widgets/read_text_action_hooks.dart';
+import 'read_mode/widgets/library_screen.dart';
 import 'read_mode/write_studio_screen.dart';
 import 'settings/shell_ui_settings_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
@@ -416,14 +416,15 @@ class _MainShellState extends State<MainShell> {
     return true;
   }
 
+  // PSRC-247 — ô góc trái trên KHÔNG đổi nghĩa theo tab nữa: luôn là thư viện
+  // (văn bản/âm thanh) như các tab Đọc/Nghe/Xem. Robot «Quản lý Model AI»
+  // chuyển về header của Home (cạnh nút Đăng nhập) để mỗi nơi một công dụng.
   IconData get _leadingIcon {
-    if (_currentTab == _PrimaryTab.home) return Icons.smart_toy_outlined;
     if (_currentTab == _PrimaryTab.remember) return Icons.format_list_bulleted;
     return _leftLibraryIcon;
   }
 
   Color get _leadingColor {
-    if (_currentTab == _PrimaryTab.home) return const Color(0xFFFF9800);
     if (_currentTab == _PrimaryTab.remember) return const Color(0xFF66BB6A);
     return _leftLibraryIsAudio
         ? const Color(0xFF6C63FF)
@@ -431,7 +432,6 @@ class _MainShellState extends State<MainShell> {
   }
 
   String get _leadingTooltip {
-    if (_currentTab == _PrimaryTab.home) return 'Quản lý Model AI';
     if (_currentTab == _PrimaryTab.remember) return 'Danh sách từ';
     return _leftLibraryTooltip;
   }
@@ -1403,6 +1403,7 @@ class _MainShellState extends State<MainShell> {
                 onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
               ),
               textActionCallbacks: _readTextActionCallbacks,
+              onOpenReadLibrary: _openReadLibrary,
               // READ-UI-120: picker chỉ dựng khi nhóm Nguồn được bung trong
               // «Giao diện shell». Mặc định gộp ⇒ vẫn chỉ 2 icon ở app bar.
               showSourcePicker: true,
@@ -1576,6 +1577,16 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  /// PSRC-246 — mở Thư viện đọc THẬT (3 tab Gần đây / Cloud / Thiết bị) như
+  /// một route có nút quay lại, thay vì lặp lại drawer «Mở nguồn».
+  void _openReadLibrary() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ReadLibraryScreen(showBackButton: true),
+      ),
+    );
+  }
+
   void _openTextLibrary() {
     if (_listenFirst) {
       _openRightLibrary();
@@ -1648,12 +1659,9 @@ class _MainShellState extends State<MainShell> {
               } else if (showCabin) {
                 _openTextLibrary();
               } else if (_currentTab == _PrimaryTab.home) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SttModelSettingsScreen(),
-                  ),
-                );
+                // PSRC-247 — Home dùng CHUNG nghĩa với các tab khác: thư viện
+                // văn bản (robot Model AI đã về header Home).
+                _openTextLibrary();
               } else if (_currentTab == _PrimaryTab.remember) {
                 _handleTool('word_list');
               } else {

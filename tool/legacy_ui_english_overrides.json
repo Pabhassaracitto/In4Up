@@ -4161,5 +4161,11 @@
   "App có sẵn bộ Parakeet tương thích để tải (khoảng {value0}MB).": "A compatible Parakeet set is available to download in the app (about {value0}MB).",
   "Tùy biến": "Customize",
   "Bố cục đọc": "Reading layout",
-  "Dòng văn bản": "Text lines"
+  "Dòng văn bản": "Text lines",
+  "Chữ & bố cục": "Text & layout",
+  "Màu & phiên âm": "Color & phonetics",
+  "Giọng đọc & engine": "Voice & engine",
+  "Thứ tự engine, giọng theo ngôn ngữ, model, cache": "Engine order, voices per language, models, cache",
+  "Nút đọc, tốc độ và Tách dòng tự động nằm ở thanh công cụ đọc.": "Play, speed and Auto split lines are on the reading toolbar.",
+  "Thông tin & Tùy biến": "Info & customize"
 }

@@ -154,7 +154,8 @@ void main() {
     test('nhãn nhóm là chuỗi nguồn (đi qua uiText)', () {
       expect(ReadChromeGroupId.source.label, 'Nguồn');
       expect(ReadChromeGroupId.tools.label, 'Công cụ đọc');
-      expect(ReadChromeGroupId.display.label, 'Thông tin & Hiển thị');
+      // PSRC-236 / ADR-0030 D4: khớp tab dock «Tùy biến» (PSRC-235).
+      expect(ReadChromeGroupId.display.label, 'Thông tin & Tùy biến');
     });
   });
 

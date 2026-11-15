@@ -11,6 +11,7 @@ import '../../../providers/text_provider.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../widgets/collapsible_action_bar.dart';
 import '../controllers/read_mode_controller.dart';
+import '../sheets/auto_split_sheet.dart';
 import '../sheets/read_settings_sheet.dart';
 import 'read_display_controls.dart';
 import 'read_line_hint.dart';
@@ -125,6 +126,13 @@ class ReadTopBar extends StatelessWidget {
             label: context.uiText('Hướng dẫn đọc theo dòng'),
             icon: Icons.help_outline,
             onPressed: () => ReadLineHint.showSheet(context),
+          ),
+          // PSRC-236 / ADR-0030 D3: bố cục «Công cụ ở trên» không có dock
+          // ⇒ lối vào «Tách dòng tự động» (đã rời bảng Cài đặt) nằm ở đây.
+          CollapsibleAction(
+            label: context.uiText('Tách dòng tự động'),
+            icon: Icons.auto_fix_high,
+            onPressed: () => showAutoSplitSheet(context),
           ),
           CollapsibleAction(
             label: context.uiText('Bố cục đọc'),

@@ -250,7 +250,8 @@ class _ReadChromeCard extends StatelessWidget {
           const SizedBox(height: 8),
           _GroupStateRow(
             group: ReadChromeGroupId.display,
-            label: context.uiText('Thông tin & Hiển thị'),
+            // PSRC-236 / ADR-0030 D4: khớp tab dock «Tùy biến» (PSRC-235).
+            label: context.uiText('Thông tin & Tùy biến'),
             value: value.displayState,
             onChanged: (state) => onChanged(
               ReadChromeGroupId.display.withState(value, state),

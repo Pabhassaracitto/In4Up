@@ -55,10 +55,15 @@ extension ReadChromeGroupIdX on ReadChromeGroupId {
   bool get allowHide => this != ReadChromeGroupId.source;
 
   /// Nhãn nguồn (đi qua `context.uiText`, quy tắc vàng #5).
+  ///
+  /// PSRC-236 / ADR-0030 D4: nhóm `display` từng tên «Thông tin & Hiển thị».
+  /// Tab dock mà nhóm này bật/tắt đã đổi thành «Tùy biến» (PSRC-235) ⇒ tên
+  /// nhóm đi theo, để người dùng nối được hai nơi với nhau. Chỉ đổi NHÃN:
+  /// `storageKey` (`read_chrome_group_display_v1`) giữ nguyên.
   String get label => switch (this) {
         ReadChromeGroupId.source => 'Nguồn',
         ReadChromeGroupId.tools => 'Công cụ đọc',
-        ReadChromeGroupId.display => 'Thông tin & Hiển thị',
+        ReadChromeGroupId.display => 'Thông tin & Tùy biến',
       };
 
   ReadChromeGroupState stateOf(ReadChromeLayout layout) => switch (this) {

@@ -27,6 +27,11 @@ on:
       - 'android/app/src/main/kotlin/**'
       - 'android/app/src/main/AndroidManifest.xml'
       - 'android/app/src/main/res/**'
+      # PSRC-171b: nửa Dart của cùng engine (nhận diện giọng, clone, chẩn đoán)
+      # cũng phải có APK để thử trên máy — trước đây sửa `lib/`/`packages/` thì
+      # workflow này KHÔNG chạy, nên artifact APK mới nhất vẫn là bản cũ.
+      - 'lib/features/tts/**'
+      - 'packages/in4up_stt/**'
       - 'android/vieneu/**'
       - 'android/settings.gradle.kts'
       - 'android/app/build.gradle.kts'

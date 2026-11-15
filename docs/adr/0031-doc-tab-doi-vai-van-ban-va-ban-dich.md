@@ -1,9 +1,10 @@
 # ADR-0031 — Tab Đọc: «Đổi vai» văn bản ⇄ bản dịch để dùng IPA / tô màu / tra từ trên bản dịch
 
 - **Trạng thái:** đã triển khai trên `arena/e941ce1f-in4up` (lane L3, nhánh con
-  của `arena/60e35d65-in4up`), chờ CI và nghiệm thu máy thật.
+  của `arena/60e35d65-in4up`) ở `5ff6fb4`; CI xanh (run 43741197944, chạy
+  lúc commit mang mã `f30e56d`, cùng nội dung); chờ nghiệm thu máy thật.
 - **Định danh:** Linear **PSRC-237** — bước 3a/4 của yêu cầu owner «I4U - Màn
-  hình». Bước 3b (chọn ngôn ngữ nguồn + tự tránh cặp trùng) là issue riêng,
+  hình». Bước 3b (chọn ngôn ngữ nguồn + tự tránh cặp trùng) là **PSRC-238**,
   **chưa làm**, cũng thuộc ADR này (mục «Việc kế tiếp»).
 - **Nguồn:** kế hoạch ban đầu của bước 3 có «nút đảo chiều cặp ngôn ngữ».
   Owner hỏi nút đó dùng để làm gì (2026-11-15). Đọc code thì thấy nó **không
@@ -126,6 +127,10 @@ Không dùng widget animation (READ-TOOLBAR-001).
 - Đánh dấu độ khó theo từ (`TextItem.words`) đi theo dòng, không theo ngôn ngữ.
 - Trong bảng «Cài đặt Text Studio», chọn ngôn ngữ đích khi đang đổi vai bị
   chặn nhưng lý do chỉ hiện ở thanh công cụ dịch (dòng «Lỗi: …», tiếng Việt).
+- **Web Reader dùng chung đích dịch** (`translationTargetLanguage` của
+  `TextProvider`): khi tài liệu ở tab Đọc đang đổi vai, Web Reader dịch sang
+  ngôn ngữ gốc của tài liệu đó. Sửa cần chạm file ngoài lane L3 — đã báo hub
+  trong phiếu L3.
 
 ## Việc kế tiếp (issue riêng, chưa làm)
 

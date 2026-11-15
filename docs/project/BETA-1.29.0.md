@@ -187,6 +187,27 @@ Linux/Windows/iOS giờ `tee` log ra `/tmp/build_*.log` rồi khi đỏ chạy
 **Còn nợ trước G4:** `pubspec.yaml` vẫn `1.28.0+28` ⇒ APK/IPA mang version nội bộ **1.28.0 (28)**, chỉ tên
 file là 1.29.0-Beta. Phải bump `1.29.0+29` rồi build lại lần cuối trước khi tag chính thức.
 
+### 2.6 PSRC-205 vòng 2 (2026-11-15) — file dài: "lắt nhắt, thiếu đầu câu, Hủy không dừng"
+
+Owner nghiệm thu `1.29.0-Beta` (Linear PSRC-205): `.m4a` ~7 phút lặp `Đang chuẩn bị` → `Đang nhận diện
+chunk 1/1` → …, mỗi lượt thêm **một dòng**, rất lâu, dòng **thiếu đầu câu**; bấm **Hủy không dừng**.
+`.mp3` 17 phút y hệt. Cả hai đều > 5 phút ⇒ đi đường **VAD pipeline** (`transcript_route_policy`).
+
+| # | Gốc | Chỗ mã | Sửa |
+|---|---|---|---|
+| 1 | **Băm nát câu** — ngưỡng lặng 100 ms là ngắt giữa hai TỪ; mỗi mảnh 0,5-2 s thành một lượt `transcribeFile` (một lần "Đang chuẩn bị…/chunk 1/1", một dòng LRC) | `SherpaVadService.minSilenceDurationMs = 100` | 100 → **500 ms** + bước **gộp cụm** mới `mergeSpeechSegments` (khoảng lặng ≤ 0,45 s ⇒ cùng cụm; chia **đều** ≤ 14 s để không sinh mẩu đuôi) |
+| 2 | **Cắt cụt biên** — 30 ms không cứu phụ âm đầu; đường sherpa còn không pad gì | `speechPadMs = 30`, `_runSherpaVad` map thẳng `s.startTime/endTime` | 30 → **300 ms**, pad cho **cả** đường sherpa (clamp `[0, độ dài file]`) |
+| 3 | **Hủy vô hiệu** — UI chỉ hủy facade, nhưng pipeline tự lặp và mỗi lượt `transcribeFile` gọi `resetForNewTranscription()` ⇒ xoá cờ hủy | `cancelLrcGeneration()` | hủy **cả** `_vadIntegration` (pipeline) + trong `resetLrcStateForAudioChange()` |
+| 4 | UI lặp chuỗi vô nghĩa | facade không biết đang ở đoạn nào | `SttServiceFacade.progressContext` ⇒ "Đoạn 5/23 · Đang nhận diện…" |
+
+Commit: `04cfdfc`. Guard test: `test/vad/psrc_205_segment_merger_test.dart` (13 ca, hàm thuần + hằng số VAD +
+quét nguồn cho pipeline/mixin) — **đã chạy trong CI**: step mới
+`PSRC-205 tests — gộp đoạn VAD cho file dài` 🟢 (run **43698277447**, job `analyze-and-locale-test`).
+
+**Chưa kiểm máy thật:** chưa nghe lại đúng file `.m4a` 7 phút / `.mp3` 17 phút của owner; chưa đo mức giảm
+thời gian (ước tính số lượt transcribe giảm 5-10×). Hủy giữa một đoạn đang chạy vẫn chờ đoạn đó xong trên
+desktop (không hủy được Isolate FFI); mobile dừng ngay giữa các chunk.
+
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
 ```text

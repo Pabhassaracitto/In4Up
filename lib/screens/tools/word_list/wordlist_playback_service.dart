@@ -24,14 +24,30 @@ class WordlistPlaybackService extends ChangeNotifier {
   WordlistPlaybackService.test({
     required Future<void> Function(String text, String? language) speak,
     required Future<void> Function() stop,
-  }) : _tts = null, _speakOverride = speak, _stopOverride = stop;
+    Future<void> Function()? waitForCompletion,
+  }) : _tts = null,
+       _speakOverride = speak,
+       _stopOverride = stop,
+       _waitForCompletionOverride = waitForCompletion;
 
   final TtsService? _tts;
   final Future<void> Function(String, String?)? _speakOverride;
   final Future<void> Function()? _stopOverride;
-  Future<void> _speak(String text, String? language) => _speakOverride != null
-      ? _speakOverride!(text, language)
-      : _tts!.speak(text, language: language, matchVoiceLanguage: true);
+  final Future<void> Function()? _waitForCompletionOverride;
+
+  Future<void> _speak(String text, String? language) async {
+    if (_speakOverride != null) {
+      await _speakOverride!(text, language);
+      await _waitForCompletionOverride?.call();
+      return;
+    }
+
+    // TtsService.speak() resolves when playback has been started, not when
+    // the generated audio has finished. Waiting here is essential for Play
+    // all: otherwise the next word replaces/cuts off the current audio.
+    await _tts!.speak(text, language: language, matchVoiceLanguage: true);
+    await _tts.waitForCompletion();
+  }
   Future<void> _stopAudio() => _stopOverride?.call() ?? _tts!.stop();
   static const double _kSpeakSpeed = 0.82;
 

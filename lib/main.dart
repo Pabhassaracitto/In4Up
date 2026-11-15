@@ -11,6 +11,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 import 'package:in4up/screens/memory_mode/controllers/memory_controller.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import 'package:in4up/features/media_tools/services/ffmpeg_runtime_bootstrap.dart';
+import 'package:in4up/features/media_tools/services/whisper_runtime_bootstrap.dart';
 import 'package:in4up/services/storage_service.dart';
 import 'package:in4up/services/read_chrome_layout_store.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -144,6 +145,12 @@ Future<void> main(List<String> args) async {
   // AVTOOL-002 (PLAN-047 P1) — nối FFmpeg tải về (nếu có) vào đường tìm
   // binary. Không await phần dò (chỉ stat file): khởi động không bị chậm.
   unawaited(FfmpegRuntimeBootstrap.init());
+
+  // WHISPER-CLI-WIN-001 (audit 1.29.0-Beta) — nối "bộ chạy Whisper" (nếu
+  // người dùng đã cài bằng nút trong Cài đặt) vào đường tìm binary của
+  // `in4up_stt`. Trước đây `whisper-cli.exe` chỉ được dò cạnh .exe/PATH nên
+  // báo "Khong tim thay whisper binary" dù file đã có trong documents.
+  unawaited(WhisperRuntimeBootstrap.init());
 
   // Mở box chứa hàng đợi các tác vụ đồng bộ dở dang khi mất mạng
   if (!Hive.isBoxOpen('vocab_sync_pending')) {

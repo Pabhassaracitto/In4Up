@@ -275,7 +275,7 @@ Uint8List _decodeBlock(Uint8List bytes, int expected) {
     result = payload;
   } else if (type == 2) {
     final sink = _LimitedSink(expected);
-    final decoder = const ZLibDecoder().startChunkedConversion(sink);
+    final decoder = ZLibDecoder().startChunkedConversion(sink);
     for (var i = 0; i < payload.length; i += 1024) {
       decoder.add(Uint8List.sublistView(payload, i, i + 1024 < payload.length ? i + 1024 : payload.length));
     }

@@ -32,6 +32,7 @@ import '../../services/battery_optimization_service.dart';
 import '../../services/saf_model_folder_service.dart';
 
 import 'ai_providers_screen.dart';
+import 'whisper_runtime_card.dart';
 import 'asr_unsupported_layout_text.dart';
 
 import '../../core/language/app_language.dart';
@@ -114,7 +115,16 @@ class SttModelSettingsScreen extends StatelessWidget {
               '2 dòng model: đa ngôn ngữ (99 ngôn ngữ) và English-only (.en)',
             ),
             initiallyExpanded: true,
-            children: const [_WhisperSectionBody()],
+            // KHÔNG `const`: điều kiện `if (...)` trong list const đòi hỏi hằng
+            // số biên dịch, còn `isSupported` đọc `Platform.isAndroid`.
+            children: [
+              // WHISPER-CLI-WIN-001 (audit 1.29.0-Beta) — bộ chạy CLI
+              // (whisper-cli.exe + whisper.dll + ggml*.dll + SDL2.dll). Model
+              // .bin KHÔNG đủ để chạy: thiếu whisper.dll thì Windows trả
+              // exit -1073741515 mà không in gì ra stderr.
+              if (WhisperRuntimeCard.isSupported) const WhisperRuntimeCard(),
+              const _WhisperSectionBody(),
+            ],
           ),
           // ── 2. Parakeet ───────────────────────────────────────────────
           _SettingsSection(

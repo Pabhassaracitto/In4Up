@@ -99,10 +99,11 @@ void main() {
       expect(cmake.contains('add_library(vieneu_tts SHARED'), isTrue);
       expect(cmake.contains('native/tts_vieneu/vieneu_tts.cpp'), isTrue);
       expect(cmake.contains('third_party/audio.cpp'), isTrue);
-      // PSRC-171: `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` KHÔNG tồn tại trong
-      // audio.cpp v0.9.4 — chúng là no-op và để libaudiocpp.so ra đời không
-      // có model spec ⇒ "model spec not found for family 'vietneu_tts'".
-      // Spec nay do wrapper nhúng (xem psrc171_voice_creation_test.dart).
+      // `AUDIOCPP_MODEL_SET` / `AUDIOCPP_MODELS` chỉ chọn model được biên dịch
+      // (bỏ đi ⇒ build `full` ⇒ latentsync/video.cpp lỗi trên NDK).
+      expect(cmake.contains('AUDIOCPP_MODELS'), isTrue);
+      // PSRC-171: model spec KHÔNG do hai option trên cấp (bảng spec chỉ đầy
+      // khi AUDIOCPP_DEPLOYMENT_BUILD=ON) ⇒ wrapper tự nhúng.
       expect(cmake.contains('vieneu_model_spec.inc'), isTrue);
 
       // Bất biến then chốt: audio.cpp kéo ggml riêng của nó; llama.cpp của :app

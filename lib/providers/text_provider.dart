@@ -155,6 +155,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   int _focusCueVersion = 0;
   String? _selectedText;
   String _fullText = '';
+
+  /// PSRC-237: toàn văn GỐC, giữ lại trong lúc đang đổi vai.
+  String? _fullTextBeforeRoleSwap;
   String? _currentTextPath;
   TextSourceType _currentSourceType = TextSourceType.manual;
   String? _currentCloudId;
@@ -720,6 +723,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void clearText() {
+    _dropRoleSwapForNewLines();
     _lines = [];
     _analyzedLines = [];
     _currentDocument = null;
@@ -782,6 +786,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       try {
         resetTranslationForNewDocument();
       } catch (_) {}
+      _fullTextBeforeRoleSwap = null;
       
       _fullText = content;
 
@@ -857,10 +862,63 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     }
   }
 
+  // ==================== PSRC-237 / ADR-0031 — ĐỔI VAI ====================
+
+  /// Danh tính bền của tài liệu để lưu dấu đổi vai. Văn bản dán tay / sinh
+  /// bởi AI không có danh tính ⇒ đổi vai chỉ sống trong phiên.
+  @override
+  String? get roleSwapDocumentKey {
+    final cloudId = _currentCloudId;
+    if (isCurrentTextFromCloud && cloudId != null) return 'cloud:$cloudId';
+    final path = _currentTextPath;
+    if (_currentSourceType == TextSourceType.localFile &&
+        path != null &&
+        path.isNotEmpty) {
+      return 'file:$path';
+    }
+    return null;
+  }
+
+  /// Các dòng sắp bị thay bằng nội dung khác ⇒ bỏ trạng thái đổi vai trong
+  /// bộ nhớ (dấu đã lưu của tài liệu cũ được giữ).
+  void _dropRoleSwapForNewLines() {
+    dropRoleSwapState();
+    _fullTextBeforeRoleSwap = null;
+  }
+
+  /// `content` của các dòng vừa đổi (bản dịch ⇄ bản gốc) ⇒ mọi thứ suy ra
+  /// từ `content` phải dựng lại: toàn văn, phân tích từ loại, cache IPA.
+  @override
+  void onLineRolesSwapped() {
+    final joined = _lines.map((line) => line.content).join('\n');
+    if (rolesSwapped) {
+      // Giữ nguyên toàn văn gốc (LRC/SRT còn cả mốc thời gian) để đổi lại
+      // là trả đúng từng ký tự.
+      _fullTextBeforeRoleSwap = _fullText;
+      _fullText = joined;
+    } else {
+      _fullText = _fullTextBeforeRoleSwap ?? joined;
+      _fullTextBeforeRoleSwap = null;
+    }
+    try {
+      _analyzedLines = SyntaxHighlighterService.analyzeLines(
+        _lines.map((line) => line.content).toList(),
+      );
+    } catch (e) {
+      debugPrint('⚠️ onLineRolesSwapped analyzeLines error: $e');
+      _analyzedLines = List.generate(_lines.length, (_) => []);
+    }
+    _selectedTextInfo = null;
+    _selectedText = null;
+    clearIpaMarkCaches();
+  }
+
   /// Issue2: áp dụng translations đã lưu từ Cloud entry vào lines hiện tại
   void applySavedTranslations(List<String>? savedTranslations, String langCode) {
     if (savedTranslations == null || savedTranslations.isEmpty) return;
     if (_lines.isEmpty) return;
+    // PSRC-237: đang đổi vai ⇒ dòng dịch đang giữ văn bản GỐC, không ghi đè.
+    if (rolesSwapped) return;
     
     try {
       for (var i = 0; i < _lines.length && i < savedTranslations.length; i++) {
@@ -879,6 +937,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       if (translatedLineCount > 0 && translationDisplayMode == TranslationDisplayMode.hidden) {
         setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
       }
+
+      // PSRC-237: tài liệu này lần trước đọc ở dạng đổi vai ⇒ đổi vai lại.
+      restoreSavedRoleSwap();
     } catch (e) {
       debugPrint('⚠️ applySavedTranslations error: $e');
     }
@@ -888,6 +949,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   Future<void> saveCurrentTranslationsToCloud() async {
     if (!isCurrentTextFromCloud || _currentCloudId == null) return;
     if (_lines.isEmpty) return;
+    // PSRC-237: đang đổi vai ⇒ dòng «dịch» là văn bản GỐC; không lưu nó
+    // thành bản dịch của tài liệu.
+    if (rolesSwapped) return;
     
     try {
       final targetLang = translationTargetLanguage.translationCode;
@@ -909,6 +973,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ★ THÊM: Phương thức để load kết quả từ STT
   void loadFromSttResult(SttResult result) {
+    _dropRoleSwapForNewLines();
     _writingSourceRequest = null;
     _fullText = result.fullText;
     _lines = result.segments.map((seg) {
@@ -942,6 +1007,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parseLrc(String content, {String? title}) {
+    _dropRoleSwapForNewLines();
     _fullText = content;
     _lines = [];
     // YT-LRC-LONG-001 (2026-10-28): việc đọc mốc thời gian đã tách sang hàm
@@ -994,6 +1060,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parseSrt(String content, {String? title}) {
+    _dropRoleSwapForNewLines();
     _fullText = content;
     _lines = [];
     final blocks = content.split(RegExp(r'\r?\n\r?\n+'));
@@ -2045,6 +2112,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _applyLines(List<String> lineStrings, {String? title}) {
+    // PSRC-237: dòng mới không còn mang văn bản gốc ⇒ thôi coi là đổi vai.
+    _dropRoleSwapForNewLines();
     _lines = lineStrings.asMap().entries.map((entry) {
       return TextItem(
         id: 'line_${entry.key}',

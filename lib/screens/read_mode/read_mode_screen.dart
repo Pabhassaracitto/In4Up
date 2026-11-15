@@ -8,6 +8,7 @@ import 'package:in4up/models/word_entry.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../features/grammar/grammar.dart';
+import '../../features/translation/role_swap_controls.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
 import '../../models/ipa_display_mode.dart';
@@ -530,6 +531,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                       _readerChromeVisible &&
                       (textProvider.showTranslation || hasTranslation))
                     const TranslationToolbar(),
+                  // PSRC-237 / ADR-0031: ghi rõ «đang đọc bản dịch máy» +
+                  // «Đổi lại»; hoặc gợi ý «Đổi vai» khi bật IPA / tô màu
+                  // trên văn bản không phải tiếng Anh. Tự ẩn khi không có
+                  // gì để nói; không phụ thuộc bố cục dock / thanh trên.
+                  if (!isFocusMode) const RoleSwapStatusStrip(),
                   Expanded(
                     child: _showWordlistPanel
                         ? _buildSplitView(textProvider)

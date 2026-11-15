@@ -73,34 +73,43 @@ function(copy_if_exists SRC DST)
   )
 endfunction()
 
-# Whisper / GGML — try multiple possible names
-foreach(_DLL ggml.dll whisper.dll libwhisper.dll ggml-base.dll ggml-cpu.dll)
-  if(EXISTS "${DLL_SOURCE_DIR}/${_DLL}")
-    copy_if_exists("${DLL_SOURCE_DIR}/${_DLL}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/${_DLL}")
-  endif()
-  if(EXISTS "${DLL_SOURCE_DIR}/whisper/${_DLL}")
-    copy_if_exists("${DLL_SOURCE_DIR}/whisper/${_DLL}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/${_DLL}")
-  endif()
-endforeach()
+# Whisper / GGML — COPY CẢ BỘ, không chỉ vài tên cố định.
+#
+# WHISPER-CLI-WIN-001 (audit 1.29.0-Beta): danh sách cũ chỉ có
+# `ggml.dll, whisper.dll, libwhisper.dll, ggml-base.dll, ggml-cpu.dll` nên
+# THIẾU hai thứ làm `whisper-cli.exe` không nạp được trên máy người dùng:
+#   • `ggml-cpu-<variant>.dll` — bản release x64 build với
+#     `-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON` (mỗi tập lệnh CPU một
+#     file; không có `ggml-cpu.dll` trơn);
+#   • `SDL2.dll` (bản release chính thức có nó).
+# Triệu chứng: `exit -1073741515` (0xC0000135) + STDOUT/STDERR RỖNG — loader
+# Windows chết TRƯỚC main() nên Dart không đọc được lỗi nào.
+#
+# Nay quét mọi `*.dll`/`*.exe` trong `libs/` và `libs/whisper/`. Việc chọn
+# đúng file nào là của bộ chạy nằm ở phía Dart (WhisperRuntimeInstaller).
+file(GLOB _WHISPER_ALL "${DLL_SOURCE_DIR}/*.dll" "${DLL_SOURCE_DIR}/*.exe"
+                       "${DLL_SOURCE_DIR}/whisper/*.dll" "${DLL_SOURCE_DIR}/whisper/*.exe")
+
+# Chép ngay cạnh in4up.exe ở chế độ Debug/`flutter run` (đường MSI/NSIS do
+# `install(...)` ở windows/CMakeLists.txt lo). Bắt buộc phải CÙNG thư mục với
+# .exe: ggml backend loader tìm DLL theo thư mục chứa .exe trước rồi mới tới
+# CWD — đây là lý do bản chép vào `build/windows/.../Debug` chạy được còn bản
+# để trong `windows/libs` thì không.
+if(_WHISPER_ALL)
+  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      ${_WHISPER_ALL}
+      "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+    COMMENT "[in4up] Copy Whisper runtime next to the executable"
+  )
+endif()
 
 # FFmpeg exe for desktop fallback (AudioConverter uses Process.run)
-foreach(_EXE ffmpeg.exe ffprobe.exe whisper.exe)
+foreach(_EXE ffmpeg.exe ffprobe.exe)
   if(EXISTS "${DLL_SOURCE_DIR}/${_EXE}")
     copy_if_exists("${DLL_SOURCE_DIR}/${_EXE}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/${_EXE}")
   endif()
   if(EXISTS "${DLL_SOURCE_DIR}/ffmpeg/bin/${_EXE}")
     copy_if_exists("${DLL_SOURCE_DIR}/ffmpeg/bin/${_EXE}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/${_EXE}")
   endif()
-endforeach()
-
-# Fallback: copy all dlls/exes from libs/ (already handled in top-level install, but for run in place)
-file(GLOB _ALL_DLLS "${DLL_SOURCE_DIR}/*.dll")
-foreach(_F ${_ALL_DLLS})
-  get_filename_component(_FN ${_F} NAME)
-  copy_if_exists("${_F}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/${_FN}")
-endforeach()
-file(GLOB _ALL_EXES "${DLL_SOURCE_DIR}/*.exe")
-foreach(_F ${_ALL_EXES})
-  get_filename_component(_FN ${_F} NAME)
-  copy_if_exists("${_F}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/${_FN}")
 endforeach()

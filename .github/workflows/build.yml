@@ -199,9 +199,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path "android/app"
           New-Item -ItemType Directory -Force -Path "windows/libs"
           
-          # Tạo DLL rỗng dạng Binary chuẩn thay vì chuỗi Text để tránh lỗi PE Header
-          if (-not (Test-Path "windows/libs/ggml.dll")) { [System.IO.File]::WriteAllBytes("windows/libs/ggml.dll", [byte[]]@()) }
-          if (-not (Test-Path "windows/libs/whisper.dll")) { [System.IO.File]::WriteAllBytes("windows/libs/whisper.dll", [byte[]]@()) }
+          # WHISPER-CLI-WIN-001 (audit 1.29.0-Beta): KHÔNG sinh file .dll RỖNG.
+          # File 0 byte bị Windows coi như không có khi nạp, và nó còn che mất
+          # bản DLL thật nếu người dùng chép vào sau ⇒ whisper-cli.exe chết với
+          # 0xC0000135 mà không in gì ra stderr. App chỉ cần thư mục tồn tại.
+          Write-Host "[in4up] windows/libs ready (no placeholder DLLs)"
           
           # Sinh file mock json phòng hờ cấu hình plugin rà soát
           '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' | Out-File -FilePath "android/app/google-services.json" -Encoding utf8

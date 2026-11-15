@@ -340,23 +340,23 @@ if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
     endif()
 endif()
 
-# === Manual External DLLs Management (Whisper, FFmpeg, etc.) ===
-file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
-if(EXTRA_DLLS)
-    message(STATUS "[in4up] Found extra DLLs in libs/: ${EXTRA_DLLS}")
-    install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-endif()
-
-# Also bundle FFmpeg exe if present (for desktop audio conversion fallback)
-file(GLOB EXTRA_EXES "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.exe")
-if(EXTRA_EXES)
-    message(STATUS "[in4up] Found extra EXEs in libs/: ${EXTRA_EXES}")
-    install(FILES ${EXTRA_EXES} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-endif()
-
-# Bundle Whisper binaries (ggml*.dll, whisper.dll) + ffmpeg.exe presence check
-file(GLOB WHISPER_BINS "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.exe" "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.dll")
+# Bundle Whisper runtime (whisper-cli.exe + whisper.dll + ggml*.dll + SDL2.dll).
+#
+# WHISPER-CLI-WIN-001 (audit 1.29.0-Beta): trước đây chỉ lấy `libs/whisper/`
+# nên bản đặt thẳng trong `libs/` (như hướng dẫn cũ "copy vào windows/libs/")
+# KHÔNG được đóng gói; và danh sách trong `windows/runner/CMakeLists.txt` lại
+# thiếu `ggml-cpu-*.dll` lẫn `SDL2.dll` ⇒ `whisper-cli.exe` chết với
+# `exit -1073741515` (0xC0000135) mà không in gì ra stderr.
+file(GLOB WHISPER_BINS
+  "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.exe"
+  "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.dll"
+  "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.exe"
+  "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
+# Lưu ý: `add_subdirectory("runner")` ở trên chạy TRƯỚC khối này, nên đường
+# Debug/`flutter run` do `windows/runner/CMakeLists.txt` tự glob và copy — không
+# truyền biến qua lại giữa hai file. Ở đây chỉ lo bước `install` (MSI/NSIS).
 if(WHISPER_BINS)
-    message(STATUS "[in4up] Found Whisper binaries: ${WHISPER_BINS}")
+    list(REMOVE_DUPLICATES WHISPER_BINS)
+    message(STATUS "[in4up] Found Whisper/runtime binaries: ${WHISPER_BINS}")
     install(FILES ${WHISPER_BINS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()

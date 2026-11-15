@@ -10,6 +10,14 @@ export 'stt_engine_whisper_strategy.dart';
 export 'stt_engine_native_strategy.dart';
 export 'stt_lrc_converter.dart';
 export 'utils/whisper_language.dart';
+// WHISPER-CLI-WIN-001: tìm + soi binary whisper.cpp (import table PE) để
+// đường CLI báo đúng "thiếu DLL nào" thay vì exit -1073741515 với log rỗng.
+export 'utils/src/whisper_cli_runtime.dart';
+export 'utils/src/whisper_cli_locator.dart';
+// WHISPER-CLI-WIN-001: `whisperPcmLoader` — điểm nối bộ đọc WAV→PCM cho đường
+// FFI (mặc định null ⇒ engine đi CLI). Chỉ export phần cần dùng, không mở
+// toàn bộ FFI nội bộ của engine.
+export 'stt_engine_whisper.dart' show WhisperPcmLoader, registerWhisperPcmLoader;
 export 'stt_service_facade.dart';
 export 'diarization/speaker_annotation.dart';
 export 'diarization/diarization_service.dart';

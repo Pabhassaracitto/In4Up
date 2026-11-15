@@ -37,6 +37,8 @@ import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 import 'utils/audio_converter.dart';
 import 'utils/src/whisper_chunk_guard.dart';
+import 'utils/src/whisper_cli_locator.dart';
+import 'utils/src/whisper_cli_runtime.dart';
 import 'utils/whisper_language.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1338,10 +1340,18 @@ class SttEngineWhisper {
     final sw = Stopwatch()..start();
 
     // ── Đường 1: FFI trực tiếp (cần whisper.dll build với WHISPER_SHARED) ──
-    final lib = _tryLoadWhisperLib();
+    //
+    // WHISPER-CLI-WIN-001: chỉ thử FFI khi có hàm đọc WAV → PCM thật. Trước
+    // đây bộ đọc PCM là stub trả `[]`, nên đường FFI chạy
+    // `whisper_full` với 0 mẫu rồi mới rơi xuống CLI — vừa chậm vừa che mất
+    // lỗi thật. Không có PCM loader thì đi CLI ngay (đường đã được kiểm).
+    final lib = whisperPcmLoader == null ? null : _tryLoadWhisperLib();
     if (lib != null) {
       try {
-        final pcmSamples = await _loadAudioAsPcm(audioPath);
+        final pcmSamples = await whisperPcmLoader!(audioPath);
+        if (pcmSamples.isEmpty) {
+          throw StateError('Không đọc được mẫu PCM từ audio.');
+        }
         final ctxPtr = _initWhisperContext(lib, modelPath);
         try {
           final returnCode = _buildAndRunWhisper(
@@ -1377,7 +1387,7 @@ class SttEngineWhisper {
       }
     }
 
-    // ── Đường 2: CLI whisper.exe (whisper.cpp release — có sẵn ggml DLLs) ──
+    // ── Đường 2: CLI whisper-cli.exe (bộ chạy whisper.cpp, app tự cài được) ──
     return _transcribeViaCli(
       audioPath: audioPath,
       modelPath: modelPath,
@@ -1387,12 +1397,24 @@ class SttEngineWhisper {
     );
   }
 
-  /// Chạy whisper.cpp CLI (whisper.exe) qua Process rồi parse kết quả SRT.
+  /// Chạy CLI whisper.cpp (`whisper-cli.exe`, hoặc `whisper.exe` bản cũ) rồi
+  /// parse file SRT.
   ///
-  /// Hoạt động với bộ file release chuẩn của whisper.cpp:
-  /// whisper.exe + ggml-base.dll + ggml-cpu.dll + SDL2.dll (+ ffmpeg.exe).
-  /// Đây là fallback khi whisper.dll không export C API (không phải bản
-  /// WHISPER_SHARED) — lỗi "undefined symbol: whisper_free" thường gặp đó.
+  /// WHISPER-CLI-WIN-001 (audit 1.29.0-Beta) — hai lỗi người dùng gặp trên
+  /// Windows và cách chữa tận gốc ở đây:
+  ///
+  ///  1) `Bad state: Khong tim thay whisper binary: whisper-cli.exe`
+  ///     ⇒ việc tìm binary chuyển sang [WhisperCliLocator]: bộ chạy app tự
+  ///       cài (documents/whisper_runtime), env `WHISPER_PATH`, cạnh .exe,
+  ///       `windows/libs` (chạy từ source), PATH, vị trí cài phổ biến.
+  ///       Câu báo lỗi nói rõ ĐÃ TÌM Ở ĐÂU + 3 cách chữa.
+  ///
+  ///  2) `whisper.exe thất bại (exit -1073741515)` với STDOUT/STDERR RỖNG
+  ///     ⇒ `0xC0000135 STATUS_DLL_NOT_FOUND`. "4 file" mà người dùng hay chép
+  ///       thiếu `whisper.dll`; loader Windows chạy trước `main()` nên không
+  ///       có log nào. Nay trước khi chạy, app đọc **import table của PE** để
+  ///       biết thiếu DLL nào và báo đúng tên file — xem
+  ///       `utils/src/whisper_cli_runtime.dart`.
   static Future<SttResult> _transcribeViaCli({
     required String audioPath,
     required String modelPath,
@@ -1400,270 +1422,179 @@ class SttEngineWhisper {
     required bool wordTimestamps,
     required String audioFingerprint,
   }) async {
-    final cli = _findCliBinary();
+    final sw = Stopwatch()..start();
 
-    // Kiểm tra model tồn tại trước khi chạy
-    if (!File(modelPath).existsSync()) {
+    // ── Kiểm tra model TRƯỚC (lỗi hay gặp, câu báo rõ ràng) ────────────────
+    final modelFile = File(modelPath);
+    if (!modelFile.existsSync()) {
       throw StateError(
         'Model Whisper không tồn tại: $modelPath\n'
         'Hãy tải model trong Settings > STT Model hoặc kiểm tra đường dẫn.',
       );
     }
-
-    // Kiem tra binary ton tai truoc khi chay
-    bool cliExists = false;
-    try {
-      if (File(cli).existsSync()) {
-        cliExists = true;
-      } else if (!path.isAbsolute(cli)) {
-        if (Platform.isWindows) {
-          final r = Process.runSync('where', [cli]);
-          cliExists = r.exitCode == 0 && (r.stdout as String).trim().isNotEmpty;
-        } else {
-          final r = Process.runSync('which', [cli]);
-          cliExists = r.exitCode == 0 && (r.stdout as String).trim().isNotEmpty;
-        }
-      }
-    } catch (_) {
-      cliExists = false;
-    }
-    if (!cliExists) {
+    if (modelFile.lengthSync() < 1000000) {
       throw StateError(
-        'Khong tim thay whisper binary: $cli\n'
-        'Cach fix:\n'
-        '1. Tai whisper.cpp release moi tu https://github.com/ggerganov/whisper.cpp/releases\n'
-        '   Lay file whisper-cli.exe (khong dung whisper.exe cu)\n'
-        '   Copy whisper-cli.exe + ggml-*.dll vao windows/libs/\n'
-        '2. Hoac dat env WHISPER_PATH:\n'
-        '   setx WHISPER_PATH "C:\\path\\to\\whisper-cli.exe"\n'
-        '3. Hoac copy binary canh in2up.exe trong build/windows/x64/runner/Debug/\n'
-        'Da thu: $cli Model exists=${File(modelPath).existsSync()}',
+        'File model Whisper quá nhỏ (${modelFile.lengthSync()} byte): $modelPath\n'
+        'File có thể bị tải dở/hỏng — hãy tải lại model.',
       );
     }
 
-    // whisper.cpp CLI yêu cầu file audio 16kHz mono WAV → convert trước.
-    String? wavPath;
-    try {
-      wavPath = await AudioConverter.convertToWhisperCompatible(audioPath) ??
-          audioPath;
-    } catch (e) {
-      // Nếu lỗi do thiếu ffmpeg, báo rõ để user cài
-      throw StateError('Lỗi convert audio sang WAV 16k: $e');
+    // ── Tìm binary + soi DLL phụ thuộc ─────────────────────────────────────
+    final location = WhisperCliLocator.resolve();
+    if (!location.found) {
+      throw StateError(
+        describeMissingBinary(
+          searched: location.searched,
+          suggestedDir: WhisperCliLocator.suggestedDirectory(),
+        ),
+      );
     }
 
+    final probe = location.probe;
+    if (probe != null && !probe.scanned) {
+      debugPrint(
+        '[WhisperCLI] ⚠️ Không đọc được import table của ${location.binaryPath} '
+        '(file hỏng?) — vẫn thử chạy.',
+      );
+    }
+    // Không chặn ở đây: DLL có thể nằm trong thư mục đã thêm vào PATH. Chỉ
+    // ghi log để nếu tiến trình chết với 0xC0000135 thì câu báo lỗi bên dưới
+    // đã có sẵn chẩn đoán.
+    if (probe != null && probe.scanned && !probe.isRunnable) {
+      debugPrint('[WhisperCLI] ⚠️ Thiếu DLL theo import table: ${probe.summary}');
+    }
+
+    // ── Convert sang WAV 16 kHz mono (whisper.cpp yêu cầu) ────────────────
+    String? wavPath;
+    try {
+      wavPath = await AudioConverter.convertToWhisperCompatible(audioPath) ?? audioPath;
+    } catch (e) {
+      throw StateError('Lỗi convert audio sang WAV 16k: $e');
+    }
     if (!File(wavPath).existsSync()) {
       throw StateError('File WAV tạm không tồn tại sau convert: $wavPath');
     }
 
-    // Đầu ra SRT vào thư mục temp để parse segment + timestamp.
     final outBase = path.join(
       Directory.systemTemp.path,
       'in2up_whisper_${DateTime.now().millisecondsSinceEpoch}',
     );
-    final srtPath = '$outBase.srt';
 
-    final langCode = WhisperLanguage.code(language);
-    final args = <String>[
-      '-m',
-      modelPath,
-      '-f',
-      wavPath,
-      '-l',
-      langCode,
-      '-osrt',
-      '-of',
-      outBase,
-    ];
+    final args = buildWhisperCliArgs(
+      modelPath: modelPath,
+      wavPath: wavPath,
+      // WhisperLanguage đã chuẩn hóa: 1 trong 99 mã hoặc 'auto'.
+      language: WhisperLanguage.code(language),
+      outBase: outBase,
+    );
 
-    debugPrint('[Whisper CLI] $cli ${args.join(' ')}');
+    debugPrint('[Whisper CLI] ${location.binaryPath} ${args.join(' ')}');
 
-    ProcessResult result;
-    try {
-      result = await Process.run(
-        cli,
-        args,
-        stdoutEncoding: systemEncoding,
-        stderrEncoding: systemEncoding,
-      );
-    } on ProcessException catch (e) {
-      // Binary không chạy được (thiếu DLL, ...)
-      throw StateError(
-        'Không chạy được $cli: ${e.message}\n'
-        'Chi tiết: $e\n'
-        'Kiểm tra ggml.dll, whisper.dll có cạnh whisper.exe không.',
-      );
-    }
+    final result = await _runWhisperCliProcess(
+      location: location,
+      args: args,
+    );
 
     final stdoutStr = result.stdout?.toString() ?? '';
     final stderrStr = result.stderr?.toString() ?? '';
-    final combined = (stdoutStr + '\n' + stderrStr).trim();
 
     if (result.exitCode != 0) {
-      // Dọn wav tạm trước khi throw để tránh rác
+      if (wavPath != audioPath) {
+        try {
+          await AudioConverter.cleanupConvertedFile(wavPath);
+        } catch (_) {}
+      }
+      // 0xC0000135 / 0xC000007B: loader Windows chết TRƯỚC chương trình ⇒
+      // stderr rỗng. Báo đúng file thiếu thay vì "exit -1073741515".
+      if (Platform.isWindows && isNativeLoadFailure(result.exitCode)) {
+        throw StateError(
+          describeDllLoadFailure(
+            probe: probe,
+            binaryDir: location.binaryDir,
+            exitCode: result.exitCode,
+          ),
+        );
+      }
+      throw StateError(
+        'whisper-cli thất bại (${Platform.isWindows ? describeWindowsExitCode(result.exitCode) : 'exit ${result.exitCode}'}):\n'
+        'BINARY: ${location.binaryPath}\n'
+        'ARGS: ${args.join(' ')}\n'
+        'STDOUT: ${stdoutStr.trim().isEmpty ? '(rỗng)' : stdoutStr.trim()}\n'
+        'STDERR: ${stderrStr.trim().isEmpty ? '(rỗng)' : stderrStr.trim()}\n'
+        'Model: $modelPath (exists: true)\n'
+        'WAV: $wavPath (exists: ${File(wavPath).existsSync()}, '
+        'size: ${File(wavPath).existsSync() ? File(wavPath).lengthSync() : 0})\n'
+        '${probe == null ? '' : 'Soi DLL: ${probe.summary}'}',
+      );
+    }
+
+    // ── Đọc SRT (whisper.cpp có vài cách đặt tên đuôi) ────────────────────
+    File? srtFile;
+    for (final candidate in alternateSrtPaths(outBase, wavPath)) {
+      final f = File(candidate);
+      if (await f.exists()) {
+        srtFile = f;
+        break;
+      }
+    }
+    if (srtFile == null) {
       if (wavPath != audioPath) {
         try {
           await AudioConverter.cleanupConvertedFile(wavPath);
         } catch (_) {}
       }
       throw StateError(
-        'whisper.exe thất bại (exit ${result.exitCode}):\n'
-        'ARGS: $cli ${args.join(' ')}\n'
-        'STDOUT: $stdoutStr\n'
-        'STDERR: $stderrStr\n'
-        'Combined: $combined\n'
-        'Model: $modelPath (exists: ${File(modelPath).existsSync()})\n'
-        'WAV: $wavPath (exists: ${File(wavPath).existsSync()}, size: ${File(wavPath).existsSync() ? File(wavPath).lengthSync() : 0})\n',
+        'whisper-cli không tạo file SRT (${srtPathFor(outBase)}).\n'
+        'STDOUT: ${stdoutStr.trim().isEmpty ? '(rỗng)' : stdoutStr.trim()}\n'
+        'STDERR: ${stderrStr.trim().isEmpty ? '(rỗng)' : stderrStr.trim()}',
       );
     }
 
-    final srtFile = File(srtPath);
-    if (!await srtFile.exists()) {
-      throw StateError(
-        'whisper.exe không tạo file SRT: $srtPath\n'
-        'STDOUT: $stdoutStr\n'
-        'STDERR: $stderrStr',
-      );
-    }
-
-    final segments = _parseSrt(await srtFile.readAsString(),
-        audioFingerprint: audioFingerprint);
-    await srtFile.delete();
-
-    // Dọn file tạm của converter.
+    final segments =
+        _parseSrt(await srtFile.readAsString(), audioFingerprint: audioFingerprint);
+    try {
+      await srtFile.delete();
+    } catch (_) {}
     if (wavPath != audioPath) {
-      await AudioConverter.cleanupConvertedFile(wavPath);
+      try {
+        await AudioConverter.cleanupConvertedFile(wavPath);
+      } catch (_) {}
     }
 
+    sw.stop();
     return SttResult(
       fullText: segments.map((s) => s.text).join(' ').trim(),
       segments: segments,
       engineUsed: SttEngineType.whisper,
       language: language,
-      processingTime: Duration.zero,
+      processingTime: sw.elapsed,
       audioFingerprint: audioFingerprint,
       hasWordTimestamps: false,
     );
   }
 
-  /// Tim whisper binary: uu tien ten moi whisper-cli.exe, whisper-whisper.exe
-  /// Do whisper.cpp doi ten, whisper.exe cu chi in warning roi exit 1.
-  static String _findCliBinary() {
-    const candidates = [
-      'whisper-cli.exe',
-      'whisper-whisper.exe',
-      'whisper.exe',
-      'main.exe',
-    ];
-
-    bool isValidBinary(String p) {
-      try {
-        final f = File(p);
-        if (!f.existsSync()) return false;
-        final size = f.lengthSync();
-        if (size < 50000 && p.toLowerCase().endsWith('whisper.exe')) {
-          debugPrint('[Whisper CLI] Skip small shim: $p size=$size');
-          return false;
-        }
-        return true;
-      } catch (_) {
-        return false;
-      }
-    }
-
+  /// Chạy tiến trình whisper-cli với `PATH` đã gộp thư mục DLL (bộ chạy do app
+  /// cài có DLL nằm ngoài thư mục .exe trên một số bản đóng gói).
+  static Future<ProcessResult> _runWhisperCliProcess({
+    required WhisperCliLocation location,
+    required List<String> args,
+  }) async {
     try {
-      final envPaths = [
-        Platform.environment['WHISPER_PATH'],
-        Platform.environment['WHISPER_CPP_PATH'],
-      ];
-      for (final env in envPaths) {
-        if (env == null || env.isEmpty) continue;
-        if (File(env).existsSync()) {
-          debugPrint('[Whisper CLI] Found via env: $env');
-          return env;
-        }
-        for (final name in candidates) {
-          final joined = path.join(env, name);
-          if (File(joined).existsSync()) return joined;
-        }
-      }
-    } catch (_) {}
-
-    try {
-      final exeDir = File(Platform.resolvedExecutable).parent.path;
-      for (final name in candidates) {
-        final near = path.join(exeDir, name);
-        if (isValidBinary(near)) {
-          debugPrint('[Whisper CLI] Found near exe: $near');
-          return near;
-        }
-        final nearData = path.join(exeDir, 'data', 'flutter_assets', name);
-        if (isValidBinary(nearData)) return nearData;
-        final nearData2 = path.join(exeDir, 'data', 'flutter_assets', 'assets', 'whisper', name);
-        if (isValidBinary(nearData2)) return nearData2;
-      }
-    } catch (_) {}
-
-    try {
-      final current = Directory.current.path;
-      for (final name in candidates) {
-        final devPaths = [
-          path.join(current, 'windows', 'libs', name),
-          path.join(current, 'windows', 'libs', 'whisper', name),
-          path.join(current, 'windows', 'libs', 'ffmpeg', 'bin', name),
-          path.join(current, 'build', 'windows', 'x64', 'runner', 'Debug', name),
-          path.join(current, 'build', 'windows', 'x64', 'runner', 'Release', name),
-        ];
-        for (final p in devPaths) {
-          if (isValidBinary(p)) {
-            debugPrint('[Whisper CLI] Found in dev: $p');
-            return p;
-          }
-        }
-      }
-    } catch (_) {}
-
-    if (Platform.isWindows) {
-      for (final name in candidates) {
-        try {
-          final result = Process.runSync('where', [name]);
-          if (result.exitCode == 0) {
-            final found = (result.stdout as String).split('\n').first.trim();
-            if (found.isNotEmpty && File(found).existsSync()) {
-              if (isValidBinary(found) || !found.toLowerCase().endsWith('whisper.exe')) {
-                debugPrint('[Whisper CLI] Found in PATH via where: $found');
-                return found;
-              }
-            }
-          }
-        } catch (_) {}
-      }
-    } else {
-      for (final name in ['whisper-cli', 'whisper', 'main']) {
-        try {
-          final result = Process.runSync('which', [name]);
-          if (result.exitCode == 0) {
-            final found = (result.stdout as String).trim();
-            if (found.isNotEmpty) return found;
-          }
-        } catch (_) {}
-      }
+      return await Process.run(
+        location.binaryPath,
+        args,
+        stdoutEncoding: systemEncoding,
+        stderrEncoding: systemEncoding,
+        environment: Platform.isWindows ? location.childEnvironment : null,
+        includeParentEnvironment: true,
+      );
+    } on ProcessException catch (e) {
+      throw StateError(
+        'Không chạy được ${location.binaryPath}: ${e.message}\n'
+        'Chi tiết: $e\n'
+        '${describeDllLoadFailure(probe: location.probe, binaryDir: location.binaryDir, exitCode: kStatusDllNotFound)}',
+      );
     }
-
-    const commonDirs = [
-      r'C:\whisper',
-      r'C:\whisper.cpp',
-      r'C:\ffmpeg\bin',
-      r'C:\Program Files\whisper',
-    ];
-    for (final dir in commonDirs) {
-      for (final name in candidates) {
-        final full = path.join(dir, name);
-        if (isValidBinary(full)) return full;
-      }
-    }
-
-    debugPrint('[Whisper CLI] No binary found, will throw helpful error');
-    return 'whisper-cli.exe';
   }
 
   /// Parse nội dung SRT → List<SttSegment>.
@@ -1761,56 +1692,81 @@ class SttEngineWhisper {
     }
   }
 
-  /// Cố gắng nạp thư viện Whisper cho FFI. Trả về null nếu không nạp được
-  /// hoặc file DLL không export C API (chuyển sang CLI fallback).
+  /// Cố gắng nạp thư viện Whisper cho FFI. Trả về `null` nếu không nạp được
+  /// hoặc DLL không export C API (khi đó đi đường CLI).
   ///
-  /// Tên thư viện thực tế phụ thuộc bản build của whisper.cpp:
-  ///   - Linux/macOS : libwhisper.so / libwhisper.dylib
-  ///   - Windows     : whisper.cpp CMake tạo "libwhisper.dll"
-  ///                   (kèm ggml-base.dll, ggml-cpu.dll, SDL2.dll).
-  ///                   Một số người đặt tên lại thành "whisper.dll".
-  /// Thử nhiều tên để tương thích cả hai trường hợp.
+  /// WHISPER-CLI-WIN-001 (audit 1.29.0-Beta): DLL phải được mở bằng ĐƯỜNG DẪN
+  /// TUYỆT ĐỐI. `DynamicLibrary.open('whisper.dll')` chỉ dò theo thư mục app +
+  /// PATH của Windows — bộ chạy app tự cài nằm ở `documents/whisper_runtime`
+  /// nên trước đây FFI luôn trượt rồi rơi xuống CLI (và CLI lại thiếu DLL).
+  /// Nay dùng chung [WhisperCliLocator] để biết thư mục chứa DLL.
+  ///
+  /// Điều kiện thứ hai: đường FFI cần PCM Float32 trong RAM. Chừng nào
+  /// `whisperPcmLoader` còn `null` (bản này chưa nối bộ đọc WAV) thì caller
+  /// không gọi hàm này — tránh `whisper_full` với 0 mẫu (exit -3, đúng lỗi
+  /// PSRC-198 trước đây).
   static _WhisperLib? _tryLoadWhisperLib() {
-    final candidates = Platform.isWindows
-        ? const <String>['libwhisper.dll', 'whisper.dll']
+    final names = Platform.isWindows
+        ? const <String>['whisper.dll', 'libwhisper.dll']
         : const <String>['libwhisper.so', 'libwhisper.dylib'];
 
+    final dirs = <String>[];
+    try {
+      final location = WhisperCliLocator.resolve();
+      if (location.found) dirs.add(location.binaryDir);
+      dirs.addAll(location.dllDirs);
+    } catch (_) {}
+
     Object? lastError;
-    _WhisperLib? lib;
-    String? openedName;
-    for (final name in candidates) {
+    for (final dir in dirs) {
+      for (final name in names) {
+        final full = path.join(dir, name);
+        if (!File(full).existsSync()) continue;
+        final lib = _openWhisperLib(full);
+        if (lib != null) return lib;
+      }
+    }
+
+    for (final name in names) {
       try {
         final dylib = ffi.DynamicLibrary.open(name);
-        lib = _WhisperLib(dylib);
-        openedName = name;
-        break;
+        final lib = _WhisperLib(dylib);
+        if (lib.whisperFree != null && lib.whisperFull != null) {
+          debugPrint('[Whisper] FFI nạp được $name từ PATH');
+          return lib;
+        }
       } catch (e) {
         lastError = e;
       }
     }
 
-    if (lib == null) {
-      debugPrint(
-        'ℹ️ Whisper FFI không nạp được thư viện (${candidates.join(', ')}): '
-        '$lastError → chuyển sang CLI fallback.',
-      );
+    debugPrint(
+      'ℹ️ Whisper FFI không nạp được thư viện ${names.join(', ')}'
+      '${dirs.isEmpty ? '' : ' trong ${dirs.join(', ')}'}'
+      '${lastError == null ? '' : ': $lastError'} → dùng CLI.',
+    );
+    return null;
+  }
+
+  static _WhisperLib? _openWhisperLib(String fullPath) {
+    try {
+      final dylib = ffi.DynamicLibrary.open(fullPath);
+      final lib = _WhisperLib(dylib);
+      // DLL mở được nhưng thiếu symbol ⇒ build KHÔNG phải WHISPER_SHARED
+      // (WHISPER_API rỗng nên không export whisper_*). Chỉ dùng khi có API.
+      if (lib.whisperFree == null || lib.whisperFull == null) {
+        debugPrint(
+          '[Whisper] $fullPath không export whisper_* '
+          '(build thiếu -DWHISPER_SHARED) → CLI.',
+        );
+        return null;
+      }
+      debugPrint('[Whisper] FFI nạp được DLL: $fullPath');
+      return lib;
+    } catch (e) {
+      debugPrint('[Whisper] FFI mở $fullPath thất bại: $e');
       return null;
     }
-
-    // DLL mở được nhưng thiếu symbol cần thiết (vd: whisper_free) → tức là
-    // file .dll được build KHÔNG export C API. Whisper chỉ export các hàm
-    // "whisper_*" khi được build với cờ -DWHISPER_SHARED=ON (WHISPER_API =
-    // __declspec(dllexport) trong whisper.h). Nếu không, DLL chỉ chứa logic
-    // bên trong mà không lộ hàm nào → mọi lookup đều fail "undefined symbol".
-    if (lib.whisperFree == null || lib.whisperFull == null) {
-      debugPrint(
-        'ℹ️ ${openedName ?? 'whisper DLL'} không export C API whisper_* '
-        '(undefined symbol: whisper_free/whisper_full) → chuyển sang CLI.',
-      );
-      return null;
-    }
-
-    return lib;
   }
 
   static ffi.Pointer<WhisperContext> _initWhisperContext(
@@ -1872,6 +1828,21 @@ class SttEngineWhisper {
   }
 }
 
-// Dummy/Mock implementations needed to compile for this snippet
-Future<List<double>> _loadAudioAsPcm(String path) async => [];
+/// Bộ đọc WAV → PCM Float32 cho đường FFI.
+///
+/// `null` (mặc định) = CHƯA có bộ đọc ⇒ engine đi thẳng đường CLI của
+/// whisper.cpp. Giữ điểm nối này thay vì stub trả `[]`: gọi `whisper_full`
+/// với 0 mẫu khiến whisper.cpp trả -3 và người dùng nhận lỗi khó hiểu
+/// (WHISPER-CLI-WIN-001 / PSRC-198).
+typedef WhisperPcmLoader = Future<List<double>> Function(String wavPath);
+
+/// Điểm nối ĐỔI ĐƯỢC (mặc định `null` = không dùng FFI).
+///
+/// App bơm bộ đọc WAV thật vào đây; để `null` thì engine đi đường CLI — an
+/// toàn hơn hẳn so với stub trả `[]` (xem ghi chú ở `_transcribeCore`).
+WhisperPcmLoader? whisperPcmLoader;
+
+/// Đăng ký bộ đọc PCM (dùng trong test và khi app đã có bộ giải mã WAV).
+void registerWhisperPcmLoader(WhisperPcmLoader? loader) =>
+    whisperPcmLoader = loader;
 

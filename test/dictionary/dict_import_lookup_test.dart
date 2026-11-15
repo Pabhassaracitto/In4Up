@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_info.dart';
 import 'package:in4up/features/dictionary/services/dictionary_service.dart';
+import 'package:in4up/features/dictionary/services/dict_device_channel.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'mdx_test_builder.dart';
@@ -189,4 +190,57 @@ void main() {
     expect(File('${docsDir.path}/dictionaries/manifest.json').existsSync(),
         isTrue);
   });
+  for (final mode in [DictStorageMode.linked, DictStorageMode.imported]) {
+    test('MDD bundle lookup and manifest persistence: ${mode.name}', () async {
+      final mdx = await writeMdx('media.mdx', {'hello': 'hello'});
+      final two = MdxTestBuilder(mdd: true, utf16: true,
+        entries: {'\\b': 'second'}).writeToFile('${tempDir.path}/media.2.mdd');
+      final base = MdxTestBuilder(mdd: true, utf16: true,
+        entries: {'\\a': 'first'}).writeToFile('${tempDir.path}/media.mdd');
+      final ten = MdxTestBuilder(mdd: true, utf16: true,
+        entries: {'\\c': 'tenth'}).writeToFile('${tempDir.path}/media.10.mdd');
+      final outcome = await DictionaryService.instance.importDictionaryBundle(
+        absoluteFilePaths: [mdx, ten, two, base], rootPath: '', mode: mode);
+      expect(outcome.isSuccess, isTrue, reason: outcome.error);
+      final dict = outcome.imported.single;
+      expect(dict.mddPaths, hasLength(3));
+      expect(dict.mddPaths!.map((p) => p.split('/').last),
+        ['media.mdd', 'media.2.mdd', 'media.10.mdd']);
+      if (mode == DictStorageMode.imported) {
+        expect(dict.mddPaths!.every((p) => p.startsWith(dict.resourcePath!)), isTrue);
+      } else {
+        expect(dict.mddPaths, [base, two, ten]);
+      }
+      expect(await DictionaryService.instance.readMddResource(dict.id, 'b'), 'second'.codeUnits);
+      DictionaryService.resetForTest();
+      await DictionaryService.instance.ensureInitialized();
+      expect(DictionaryService.instance.dictionaries.single.mddPaths, dict.mddPaths);
+      expect(await DictionaryService.instance.readMddResource(dict.id, 'c'), 'tenth'.codeUnits);
+      expect(await DictionaryService.instance.lookup('hello'), hasLength(1));
+    });
+  }
+
+  test('SAF relink replaces selected MDD locations and persists them', () async {
+    final mdx = await writeMdx('media.mdx', {'hello': 'hello'});
+    final outcome = await DictionaryService.instance.importDictionaryBundle(
+      absoluteFilePaths: [mdx], rootPath: '', mode: DictStorageMode.linked);
+    final id = outcome.imported.single.id;
+    DictDeviceFile file(String name, String uri) => DictDeviceFile(
+      uri: uri, name: name, relativePath: name, sizeBytes: 1,
+      extension: name.endsWith('.mdx') ? 'mdx' : 'mdd');
+    final changed = await DictionaryService.instance.relinkSafSource(id,
+      treeUri: 'content://provider/tree/root', sourceWasFolder: true,
+      files: [file('media.mdx', 'content://provider/mdx'),
+        file('media.10.mdd', 'content://provider/ten'),
+        file('media.2.mdd', 'content://provider/two')]);
+    expect(changed, isTrue);
+    expect(DictionaryService.instance.dictionaries.single.mddPaths,
+      ['content://provider/two', 'content://provider/ten']);
+    DictionaryService.resetForTest();
+    await DictionaryService.instance.ensureInitialized();
+    expect(DictionaryService.instance.dictionaries.single.mddPaths,
+      ['content://provider/two', 'content://provider/ten']);
+    expect(await DictionaryService.instance.lookup('hello'), hasLength(1));
+  });
+
 }

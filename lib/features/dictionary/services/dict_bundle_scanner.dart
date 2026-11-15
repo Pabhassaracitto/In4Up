@@ -177,6 +177,26 @@ class DictBundleScanner {
     return lower;
   }
 
+  /// Deterministic MDD precedence: base name first, then numbered parts in
+  /// numeric order; unrelated names are ordered lexically. Sort before URIs
+  /// replace names (SAF document identifiers need not contain file names).
+  static List<DictScannedFile> sortMddFiles(Iterable<DictScannedFile> files) {
+    int partNumber(String name) {
+      final lower = name.toLowerCase();
+      final base = lower.substring(0, lower.length - 4);
+      final dot = base.lastIndexOf('.');
+      return dot < 0 ? 0 : (int.tryParse(base.substring(dot + 1)) ?? 0);
+    }
+    final sorted = files.toList();
+    sorted.sort((a, b) {
+      final stem = mddStem(a.name).compareTo(mddStem(b.name));
+      if (stem != 0) return stem;
+      final part = partNumber(a.name).compareTo(partNumber(b.name));
+      return part != 0 ? part : a.path.compareTo(b.path);
+    });
+    return sorted;
+  }
+
   /// Stem của file MDX: `Oxford.MDX` → `oxford`.
   static String mdxStem(String name) {
     final lower = name.toLowerCase();

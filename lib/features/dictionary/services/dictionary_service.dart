@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path_provider/path_provider.dart';
@@ -8,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import '../models/dict_entry.dart';
 import '../models/dict_info.dart';
 import 'dict_bundle_scanner.dart';
+import 'dict_mdd_resources.dart';
 import 'dict_db_service.dart';
 import 'dict_redirect_resolver.dart';
 import 'dict_list_order.dart';
@@ -110,6 +112,16 @@ class DictionaryService {
       }
     }
     return results;
+  }
+
+  /// Foundation for future media rendering, not a UI API yet: MDD index and
+  /// decompression still run on the calling isolate. Errors (including revoked
+  /// SAF grants) propagate; lookup never alters the existing SQLite index.
+  Future<Uint8List?> readMddResource(String dictId, String key) async {
+    await ensureInitialized();
+    final matches = _dicts.where((dict) => dict.id == dictId);
+    if (matches.isEmpty) throw StateError('Dictionary not registered');
+    return DictMddResources(matches.first).read(key);
   }
 
   /// Gợi ý headword theo tiền tố cho ô tìm của MÀN TỪ ĐIỂN (ADR-0018).
@@ -546,6 +558,8 @@ class DictionaryService {
     String? resourcePath;
     String? sourceFolder;
     final cssAbs = <String>[];
+    final mddAbs = <String>[];
+    final orderedMdds = DictBundleScanner.sortMddFiles(set.mddFiles);
 
     if (mode == DictStorageMode.imported) {
       // Copy bundle vào app storage (mdx + mdd + css — asset lẻ không copy:
@@ -556,7 +570,7 @@ class DictionaryService {
         bundleDir.deleteSync(recursive: true);
       }
       bundleDir.createSync(recursive: true);
-      for (final f in [set.mdx, ...set.mddFiles, ...set.cssFiles]) {
+      for (final f in [set.mdx, ...orderedMdds, ...set.cssFiles]) {
         final abs = absOf(f);
         final dest = '${bundleDir.path}/${f.name}';
         try {
@@ -566,6 +580,7 @@ class DictionaryService {
           continue;
         }
         if (DictBundleScanner.isCssName(f.name)) cssAbs.add(dest);
+        if (DictBundleScanner.isMddName(f.name)) mddAbs.add(dest);
       }
       final copiedMdx = '${bundleDir.path}/${set.mdx.name}';
       resourcePath = bundleDir.path;
@@ -577,6 +592,7 @@ class DictionaryService {
         resourcePath: resourcePath,
         storageMode: mode,
         cssPaths: cssAbs,
+        mddPaths: mddAbs,
         langProbe: copiedMdx,
         sourceFileName: set.mdx.name,
         sourceWasFolder: sourceWasFolder,
@@ -595,6 +611,10 @@ class DictionaryService {
         final uri = sourceUris[css.path];
         if (uri != null) cssAbs.add(uri);
       }
+      mddAbs.addAll([
+        for (final mdd in orderedMdds)
+          if (sourceUris[mdd.path] != null) sourceUris[mdd.path]!,
+      ]);
       return _indexAndRegister(
         set,
         mdxToParse: null,
@@ -605,6 +625,7 @@ class DictionaryService {
         storageMode: mode,
         sourceFolder: sourceFolder,
         cssPaths: cssAbs,
+        mddPaths: mddAbs,
         langProbe: '',
         sourceUris: linkedUris,
         sourceFileName: set.mdx.name,
@@ -618,6 +639,7 @@ class DictionaryService {
     for (final f in set.cssFiles) {
       cssAbs.add(absOf(f));
     }
+    mddAbs.addAll(orderedMdds.map(absOf));
     return _indexAndRegister(
       set,
       mdxToParse: absMdx,
@@ -627,6 +649,7 @@ class DictionaryService {
       storageMode: mode,
       sourceFolder: sourceFolder,
       cssPaths: cssAbs,
+      mddPaths: mddAbs,
       langProbe: absMdx,
       sourceFileName: set.mdx.name,
       sourceWasFolder: sourceWasFolder,
@@ -644,6 +667,7 @@ class DictionaryService {
     String? resourcePath,
     String? sourceFolder,
     List<String> cssPaths = const [],
+    List<String>? mddPaths,
     required String langProbe,
     Map<String, String> sourceUris = const {},
     String? sourceFileName,
@@ -729,6 +753,7 @@ class DictionaryService {
       storageMode: storageMode,
       sourceFolder: sourceFolder,
       cssPaths: cssPaths,
+      mddPaths: mddPaths,
       sourceMdxUri: mdxUri,
       sourceUris: sourceUris,
       sourceFileName: sourceFileName ?? set.mdx.name,
@@ -842,6 +867,10 @@ class DictionaryService {
       cssPaths: [
         for (final css in match.cssFiles)
           if (uriByPath[css.path] != null) uriByPath[css.path]!,
+      ],
+      mddPaths: [
+        for (final mdd in DictBundleScanner.sortMddFiles(match.mddFiles))
+          if (uriByPath[mdd.path] != null) uriByPath[mdd.path]!,
       ],
       sourceMdxUri: mdxUri,
       sourceUris: linkedUris,

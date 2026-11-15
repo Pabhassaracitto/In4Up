@@ -29,7 +29,10 @@ void main() {
 
     test('cụm điều khiển gọi ĐÚNG API hiện có của TextProvider/Controller', () {
       for (final pin in [
-        'tp.cycleColorMode()',
+        // PSRC-239 / ADR-0032: chế độ màu là «chọn 1 trong N» ⇒ cụm gọi
+        // `setColorMode` (API sẵn có, bảng Cài đặt cũng dùng) thay cho
+        // `cycleColorMode` (xoay vòng — vẫn còn ở `ReadTopBar` cũ).
+        'tp.setColorMode(mode)',
         'tp.setShowColorModeDetails(',
         'tp.setWordTapBoxes(',
         'tp.setIpaLegendVisible(',
@@ -39,8 +42,15 @@ void main() {
       ]) {
         expect(controls.contains(pin), isTrue, reason: 'Thiếu $pin');
       }
-      expect(controls.contains('tp.colorMode.label'), isTrue,
+      expect(controls.contains('for (final mode in ColorMode.values)'), isTrue,
+          reason: 'Cả 4 chế độ màu đều hiện, lấy từ model');
+      expect(controls.contains('label: mode.label,'), isTrue,
           reason: 'Nhãn «Không màu / Loại từ / CEFR / Độ khó» lấy từ model');
+      expect(
+          _src('lib/screens/read_mode/widgets/read_top_bar.dart')
+              .contains('tp.cycleColorMode()'),
+          isTrue,
+          reason: 'Thanh trên cũ vẫn xoay vòng chế độ màu như trước');
       expect(
           _src('lib/models/color_mode.dart').contains("return 'Không màu';"),
           isTrue);

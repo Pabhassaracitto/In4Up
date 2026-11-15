@@ -77,7 +77,7 @@ Yêu cầu owner «I4U - Màn hình»: giao diện tab Đọc và phần cài đ
 | 1 | Bỏ mục chết «Chế độ trải nghiệm», bỏ lối phát/tốc độ TTS trùng trong Cài đặt, bỏ 2 công tắc trùng, hết trùng tên «Hiển thị» | **xong** — PSRC-235 |
 | 2 | Cài đặt thành nhóm gập có dòng tóm tắt; tách cấu hình engine giọng đọc ra trang riêng; «Tách dòng tự động» về thanh công cụ | **xong** — PSRC-236, ADR-0030 (xem mục dưới) |
 | 3a | «Đổi vai» văn bản ⇄ bản dịch (thay cho nút đổi chiều ⇄ — owner duyệt 2026-11-15): IPA / tô màu / tra từ chạy được trên bản dịch; lưu theo tài liệu, có «Đổi lại» | **xong** — PSRC-237, ADR-0031 (xem mục dưới) |
-| 3b | Chọn ngôn ngữ nguồn («Tự nhận diện» + danh sách), tự tránh cặp trùng | chưa làm — **PSRC-238**; API `setTranslationSourceLanguage` đã có, chưa có UI |
+| 3b | Chọn ngôn ngữ nguồn («Tự nhận diện» + danh sách), tự tránh cặp trùng | **xong** — PSRC-238, ADR-0031 mục «Bổ sung — bước 3b» (xem mục dưới) |
 | 4 | Một quy ước điều khiển trong cụm Tùy biến chữ: switch = bật/tắt, nút phân đoạn = chọn 1 trong N, chip = mở bảng khác | chưa làm — **PSRC-239** |
 
 Tên mới (một đích đến = một tên):
@@ -155,8 +155,36 @@ Việc kế tiếp đã ghi trên Linear (2026-11-15):
 
 | Issue | Nội dung | Ai làm |
 |---|---|---|
-| PSRC-238 | Bước 3b — chọn ngôn ngữ nguồn + tự tránh cặp trùng | lane L3 |
+| PSRC-238 | Bước 3b — chọn ngôn ngữ nguồn + tự tránh cặp trùng | lane L3 — **xong**, xem mục dưới |
 | PSRC-239 | Bước 4 — một quy ước điều khiển trong cụm «Tùy biến chữ» | lane L3 |
 | PSRC-240 | Thêm lại «Chế độ trải nghiệm» với hành vi thật (để sau, khi ổn) | chờ owner chốt hành vi |
 | PSRC-241 | Web Reader dùng chung đích dịch của tab Đọc | ngoài lane — hub giao |
 | PSRC-242 | Việc dọn cho hub: `read_ui_120_contract_test.dart` chưa vào CI, tài liệu lệch, lỗi dịch ghép chuỗi | hub |
+
+### PSRC-238 — chọn ngôn ngữ nguồn + tự tránh cặp trùng, bước 3b/4 (2026-11-15, ngoài cổng 35 issue)
+
+Quyết định: `docs/adr/0031-doc-tab-doi-vai-van-ban-va-ban-dich.md`, mục «Bổ sung — bước 3b» (E1–E5). Nhánh `arena/dd25d9d8-in4up`.
+
+| Trước | Sau PSRC-238 |
+|---|---|
+| Nguồn do app tự nhận diện; nhận sai (vd tiếng Anh thành tiếng Đức) thì không sửa được | Bảng chọn ngôn ngữ ở thanh dịch và trong Cài đặt chọn được cả **nguồn** («Tự nhận diện» + danh sách) lẫn đích |
+| Lựa chọn nguồn (nếu có) mất khi mở tài liệu khác | Lưu theo tài liệu (file / cloud), tự gắn lại khi mở lại; tài liệu khác và văn bản dán tay về «Tự nhận diện» |
+| Nguồn trùng đích: bấm «Dịch» ra một dòng lỗi đỏ | Bảng chọn, thanh dịch và Cài đặt đề nghị sẵn một đích khác — nút «Dịch sang …», một chạm |
+| Đang «Đổi vai», đổi ngôn ngữ trong Cài đặt bị chặn mà không thấy lý do | Lý do hiện ngay dưới nút chọn ngôn ngữ; thanh dịch báo trước khi mở bảng |
+| Giọng đọc văn bản gốc theo kết quả nhận diện | Theo nguồn hiệu dụng (đã chọn thì dùng nguồn đã chọn) |
+
+Không đổi: engine dịch, khoá cache, cách nhận diện ngôn ngữ, thẻ «Dịch màn hình» (vẫn bảng chỉ-chọn-đích). Không thêm nút đảo cặp.
+
+Bằng chứng CI (`app_analyze`):
+
+- Ba commit mã của PR #187 (feat + ci + fix; lúc chạy CI mang mã `1f92268` / `8819b1c` / `d19ac63`): run **43752025563** — xanh cả 4 job; job `analyze-and-locale-test` (132927859657): step «Analyze full app», «Rule 5 test» và «Read actions + mixed-language tests» (có `psrc_238_source_language_test.dart` và `translation_source_language_test.dart`) đều xanh.
+- Nhánh hub được rebase / viết lại lịch sử trong lúc làm, nên nhánh L3 phải rebase theo và **mã commit đổi sau mỗi lần** (nội dung không đổi). Tài liệu này vì vậy gọi commit theo vai trò (feat / ci / fix / docs); mã hiện hành và run CI trên đầu nhánh hiện hành ghi trong PR #187.
+- Hai run trước đó đỏ ở step «Read actions…» — **43750323982** (commit feat, lúc đó `1f92268`) và **43751253328** (commit ci, lúc đó `8819b1c`): 305 test đạt, 1 hỏng. Test hỏng là test **có sẵn** `translation_source_language_test.dart` › «translateLine: call site đơn dòng cũng retry với nguồn tài liệu», lần đầu được chạy trên CI: `translateLine` gọi thẳng singleton `TranslationService()` nên dựng Hive thật (`HiveError`). Sửa ở commit fix (lúc đó `d19ac63`; đi qua dịch vụ đã tiêm, như `translateAll`; production không đổi).
+
+Chưa kiểm trên máy thật (sandbox không có Flutter SDK): bảng chọn cặp ở 320 / 360 px và khi xoay ngang; hàng «nguồn → đích» với tên ngôn ngữ dài (th / my / si); chọn nguồn rồi đóng app, mở lại file / tài liệu cloud; lời đề nghị «Dịch sang …» ở thanh dịch khi bố cục hẹp; giọng đọc song ngữ sau khi đổi nguồn; đổi nguồn khi đang phát.
+
+Phát hiện thêm khi làm PSRC-238:
+
+- Step «Read actions…» chỉ ghi annotation cho lỗi so khớp (dòng `Expected:`). Test hỏng vì ném exception thì không có annotation nào — phải tải log mới biết. Commit ci của PR #187 thêm một annotation tóm tắt (tên test hỏng + vài dòng lỗi đầu). Các step test khác của `app_analyze.yml` có cùng kiểu grep ⇒ cùng điểm mù; L3 không sửa (ngoài lane) — **báo hub**, gộp vào PSRC-242.
+- File LRC / SRT trước đây **không** xoá nguồn gắn tay của tài liệu trước (hai đường nạp này không gọi `resetTranslationForNewDocument`). Nay mọi đường nạp đều khôi phục nguồn theo tài liệu ở `_setSourceMeta` nên hết.
+- Còn nguyên từ 3a: Web Reader dùng chung đích dịch và chỉ truyền nguồn khi nguồn được gắn (PSRC-241); tài liệu trộn ngôn ngữ mất mã nguồn từng dòng sau khi đổi vai rồi đổi lại.

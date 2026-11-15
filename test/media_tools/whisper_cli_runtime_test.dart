@@ -300,6 +300,28 @@ void main() {
       expect(msg, contains(r'C:\app'));
     });
 
+    test('bộ file chuẩn là ĐÚNG 6 nhóm file (không phải 4)', () {
+      // Chốt bằng số: tài liệu cũ ghi 4 file (thiếu whisper.dll + SDL2.dll) và
+      // đó chính là nguyên nhân exit -1073741515.
+      expect(kWindowsWhisperFileSet.length, 6);
+      expect(
+        kWindowsWhisperFileSet,
+        containsAll(<String>[
+          'whisper-cli.exe',
+          'whisper.dll',
+          'ggml.dll',
+          'ggml-base.dll',
+          'ggml-cpu-*.dll',
+          'SDL2.dll',
+        ]),
+      );
+      expect(
+        kWindowsWhisperFileSet.where((f) => f.endsWith('.dll')).length,
+        5,
+        reason: 'phải có 1 exe + 5 DLL',
+      );
+    });
+
     test('câu "không tìm thấy binary" KHÔNG còn hướng dẫn chép 4 file', () {
       final msg = describeMissingBinary(
         searched: <String>[r'C:\app', r'C:\app\whisper'],

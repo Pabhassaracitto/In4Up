@@ -456,9 +456,14 @@ String describeDllLoadFailure({
   if (!probe.scanned) {
     lines.add('Không đọc được PE của binary (file hỏng/rỗng?). '
         'Hãy tải lại whisper.cpp release và chép đè.');
+    lines.add('Bộ file đầy đủ cho Windows (6 file): '
+        '${kWindowsWhisperFileSet.join(', ')} → chép TẤT CẢ vào $binaryDir');
   } else if (probe.isRunnable) {
     lines.add('Đã soi import table: mọi DLL trực tiếp đều có trong $binaryDir. '
         'Nếu vẫn lỗi, kiểm tra DLL phụ thuộc bậc 2 bằng Dependencies.exe.');
+    lines.add('Bộ file đầy đủ cho Windows (6 file): '
+        '${kWindowsWhisperFileSet.join(', ')} → phải nằm CẠNH '
+        'whisper-cli.exe trong $binaryDir');
   } else {
     if (probe.missing.isNotEmpty) {
       lines.add('THIẾU trong $binaryDir: '
@@ -474,8 +479,8 @@ String describeDllLoadFailure({
     for (final note in probe.notes) {
       lines.add('• $note');
     }
-    lines.add('Bộ file đầy đủ cho Windows: ${kWindowsWhisperFileSet.join(', ')} '
-        '→ chép TẤT CẢ vào $binaryDir');
+    lines.add('Bộ file đầy đủ cho Windows (6 file, KHÔNG phải 4): '
+        '${kWindowsWhisperFileSet.join(', ')} → chép TẤT CẢ vào $binaryDir');
   }
   return lines.join('\n');
 }

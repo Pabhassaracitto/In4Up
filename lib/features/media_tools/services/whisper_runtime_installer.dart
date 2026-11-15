@@ -228,6 +228,12 @@ class WhisperRuntimeInstaller {
   /// HÀM THUẦN — chặn zip-slip: không `..`, không ổ đĩa, không tuyệt đối.
   static String? safeRelativePath(String entryName) {
     final normalized = entryName.replaceAll('\\', '/');
+    // Đường dẫn TUYỆT đối (`/etc/passwd`, `\\server\share`, `C:/x`) bị chặn
+    // hẳn. Nếu chỉ tách đoạn rỗng thì `/etc/passwd` biến thành `etc/passwd` —
+    // vẫn nằm dưới thư mục cài nên không thoát ra ngoài, nhưng nhận nó là
+    // "hợp lệ" sẽ che mất archive dựng sai (mọi entry của zip bộ chạy đều
+    // tương đối). Thà từ chối và ghi log.
+    if (normalized.trimLeft().startsWith('/')) return null;
     final parts = <String>[];
     for (final segment in normalized.split('/')) {
       final s = segment.trim();

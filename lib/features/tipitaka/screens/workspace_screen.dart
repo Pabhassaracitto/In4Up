@@ -86,9 +86,10 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
   Future<String> _catalogLanguage() async {
     final uiLanguage = Localizations.localeOf(context).languageCode;
     final db = await TipitakaDb.openReady();
-    final info = await TipitakaDb.info(db);
+    // TIPI-PERF-01: cached language set — no full-canon count/probe per call.
+    final languages = await TipitakaDb.availableLanguages(db);
     return resolveTipitakaDisplayLanguage(
-      availableLanguages: info.availableLanguages,
+      availableLanguages: languages,
       preferredLanguage: TipitakaReaderAppearance.instance.primaryLanguage,
       uiLanguage: uiLanguage,
     );

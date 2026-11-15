@@ -88,10 +88,12 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
     try {
       final uiLanguage = Localizations.localeOf(context).languageCode;
       final db = await TipitakaDb.openReady();
-      final info = await TipitakaDb.info(db);
+      // TIPI-PERF-01: only the language set is needed here — `info()` also
+      // counts every segment row and probes every translation column.
+      final languages = await TipitakaDb.availableLanguages(db);
       // PSRC-159: search results open in an imported target language.
       final language = resolveTipitakaDisplayLanguage(
-        availableLanguages: info.availableLanguages,
+        availableLanguages: languages,
         preferredLanguage: TipitakaReaderAppearance.instance.primaryLanguage,
         uiLanguage: uiLanguage,
       );

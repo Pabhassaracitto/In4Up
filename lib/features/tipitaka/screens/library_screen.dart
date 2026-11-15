@@ -62,6 +62,11 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   bool _hasPersistedExpansionState = false;
   int _loadGeneration = 0;
 
+  /// `true` while a cached catalogue is on screen and the database is being
+  /// re-verified behind it (TIPI-PERF-01). Rendered as a hairline progress bar,
+  /// never as a blocking spinner.
+  bool _refreshing = false;
+
   String _sectionKey(TipitakaCatalogSection section) =>
       'section:${section.name}';
 
@@ -115,11 +120,21 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
     }
     final sortedDivisions = divisions.values.toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    // Keep already-expanded collection nodes populated across a silent refresh:
+    // resetting this map left an expanded node showing "no books" because the
+    // tile only loads on the first expansion. Stale collections are dropped.
+    final validCollectionIds = {
+      for (final collection in snapshot.collections) collection.id,
+    };
+    final keptBooks = <int, List<TipitakaBook>>{
+      for (final entry in _booksByCollection.entries)
+        if (validCollectionIds.contains(entry.key)) entry.key: entry.value,
+    };
     if (!mounted) return;
     setState(() {
       _databaseIdentity = snapshot.databaseIdentity;
       _divisions = sortedDivisions;
-      _booksByCollection = const {};
+      _booksByCollection = keptBooks;
       _languages = snapshot.languages;
       _expandedNodeKeys = expandedNodes ?? const {};
       _hasPersistedExpansionState = expandedNodes != null;
@@ -168,46 +183,63 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
 
   Future<void> _load() async {
     final generation = ++_loadGeneration;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+
+    // STEP 1 — paint from disk metadata only. `fileFingerprint` is a single
+    // stat(): no SQLite, no plugin, no full scan. The snapshot is keyed by
+    // path+size+mtime, so an imported/replaced pack can never show a stale
+    // tree, and the library appears before the database is even opened.
+    final identity = await TipitakaDb.fileFingerprint();
+    if (!mounted || generation != _loadGeneration) return;
+    final cached = await TipitakaLibraryStateStore.loadSnapshot(identity);
+    final expandedNodes =
+        await TipitakaLibraryStateStore.loadExpandedNodes(identity);
+    if (!mounted || generation != _loadGeneration) return;
+    if (cached != null) {
+      _applyCatalogSnapshot(cached, expandedNodes);
+      if (mounted) setState(() => _refreshing = true);
+      unawaited(_loadRecentPositions());
+    } else {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    // STEP 2 — verify/replace the cached catalogue in the background. All three
+    // reads are cache-backed after the first open (prewarm already warms them),
+    // so this normally resolves in a few milliseconds without blocking paint.
     try {
       final db = await TipitakaDb.openReady();
-      final identity = await TipitakaDb.sourceIdentity();
-      final cached = await TipitakaLibraryStateStore.loadSnapshot(identity);
-      final expandedNodes =
-          await TipitakaLibraryStateStore.loadExpandedNodes(identity);
-      if (!mounted || generation != _loadGeneration) return;
-      if (cached != null) {
-        // Render the last verified index immediately. Its fingerprint includes
-        // the installed DB's size and modification time, so an imported pack
-        // cannot leave a stale tree on screen.
-        _applyCatalogSnapshot(cached, expandedNodes);
-        unawaited(_loadRecentPositions());
-        return;
-      }
-
-      final collections = await TipitakaDb.getCollections(db);
-      final indexBooks = await TipitakaDb.getCatalogIndexBooks(db);
-      final info = await TipitakaDb.info(db);
+      final results = await Future.wait<Object?>([
+        TipitakaDb.getCollections(db),
+        TipitakaDb.getCatalogIndexBooks(db),
+        TipitakaDb.availableLanguages(db),
+      ]);
       if (!mounted || generation != _loadGeneration) return;
       final snapshot = TipitakaLibrarySnapshot(
         databaseIdentity: identity,
-        collections: collections,
-        books: indexBooks,
-        languages: info.availableLanguages,
+        collections: results[0]! as List<TipitakaCollection>,
+        books: results[1]! as List<TipitakaBook>,
+        languages: results[2]! as Set<String>,
       );
-      await TipitakaLibraryStateStore.saveSnapshot(snapshot);
+      // Persisting the snapshot must never delay the paint.
+      unawaited(TipitakaLibraryStateStore.saveSnapshot(snapshot));
+      if (!mounted || generation != _loadGeneration) return;
       _applyCatalogSnapshot(snapshot, expandedNodes);
+      if (mounted) setState(() => _refreshing = false);
       unawaited(_loadRecentPositions());
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
-        _booksByCollection = const {};
-        _divisions = const [];
-        _error = error.toString();
+        _refreshing = false;
+        if (cached == null) {
+          // A cached tree stays on screen; only an empty first paint surfaces
+          // the data-manager path instead of a blank library.
+          _booksByCollection = const {};
+          _divisions = const [];
+          _error = error.toString();
+        }
       });
     }
   }
@@ -329,7 +361,13 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
           ],
         ),
       ),
-      body: TabBarView(
+      body: Column(
+        children: [
+          // Non-blocking refresh hint: while a cached catalogue is on screen
+          // the tree stays interactive (TIPI-PERF-01).
+          if (_refreshing) const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: TabBarView(
         children: [
           _loading
           ? const Center(child: CircularProgressIndicator())
@@ -454,7 +492,10 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                     ],
                   ),
                 ),
-          _HighlightsView(onOpen: _openHighlight),
+              _HighlightsView(onOpen: _openHighlight),
+            ],
+            ),
+          ),
         ],
       ),
     ));

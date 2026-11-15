@@ -8,6 +8,7 @@ import 'package:in4up/models/word_entry.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../features/grammar/grammar.dart';
+import '../../features/tipitaka/services/db_service.dart';
 import '../../features/translation/role_swap_controls.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
@@ -159,6 +160,13 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     _source = widget.initialSource;
     // IN4-30: đọc lựa chọn "chỉ giữ phần tiêu đề" khi ở chế độ Focus.
     _focusTitlePosition = StorageService().getReadFocusTitlePosition();
+    // TIPI-PERF-01: làm ấm Tipiṭaka khi người dùng vừa vào tab Đọc — mở/kiểm
+    // tra DB + cache mục lục + ngôn ngữ chạy sau frame đầu, nên bấm "Tam Tạng"
+    // là mở ngay. Lỗi (chưa cài DB, thiếu plugin trong test) bị nuốt trong
+    // prewarm và sẽ thử lại ở lần mở tab sau.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(TipitakaDb.prewarm());
+    });
   }
 
   void _handleSourceChanged(ReadContentSource source) {

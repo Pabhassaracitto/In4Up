@@ -533,6 +533,13 @@ def create_indexes(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_segments_ref ON tipitaka_segments(reference);
         CREATE INDEX IF NOT EXISTS idx_segments_source ON tipitaka_segments(source_table,source_row_key);
         CREATE INDEX IF NOT EXISTS idx_translation_language ON tipitaka_translations(language_code);
+        -- I4U TIPI-PERF-01: the reader pages with
+        --   WHERE book_id = ? ORDER BY order_index, id LIMIT n
+        -- so this composite index turns every scroll step from a sort of the
+        -- whole book into a direct range read. Built here (offline, once)
+        -- instead of on the device while the user is waiting.
+        CREATE INDEX IF NOT EXISTS idx_segments_book_order
+            ON tipitaka_segments(book_id, order_index, id);
         """
     )
 

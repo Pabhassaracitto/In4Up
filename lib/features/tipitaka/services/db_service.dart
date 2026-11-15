@@ -16,6 +16,7 @@ import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
 import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_perf_cache.dart';
 
 /// The normalized database contract used by the Tipiṭaka UI.
 ///
@@ -112,6 +113,9 @@ class TipitakaDb {
 
   static void _notifyImportChanged() {
     importRevision.value++;
+    // A new installed pack must be warmed again on the next Đọc tab entry.
+    _prewarmFuture = null;
+    _verifiedFingerprint = null;
     _clearCatalogCaches();
   }
 
@@ -123,6 +127,10 @@ class TipitakaDb {
     _catalogIndexCache = null;
     _catalogBooksCache.clear();
     _outlineCache.clear();
+    _languagesCacheToken = null;
+    _languagesCacheValue = null;
+    _bookTitleCache.clear();
+    _structuralTitleCache.clear();
   }
 
   static String? _cacheToken(DatabaseExecutor db) {
@@ -147,6 +155,19 @@ class TipitakaDb {
   static final Map<String, List<TipitakaBook>> _catalogBooksCache = {};
   static final Map<int, List<TipitakaSegment>> _outlineCache = {};
 
+  /// Fingerprint (path + size + mtime) of the last database this process
+  /// verified as usable. While it matches, [openReady] returns the already-open
+  /// handle without re-opening the file read-only and probing its contents.
+  static String? _verifiedFingerprint;
+
+  /// Language sets and catalogue heading rows resolved once per database
+  /// revision. Both are pure functions of the installed file, so caching them
+  /// by [_cacheToken] (path + import revision) is exact.
+  static String? _languagesCacheToken;
+  static Set<String>? _languagesCacheValue;
+  static final Map<String, Map<String, Object?>> _bookTitleCache = {};
+  static final Map<String, bool> _structuralTitleCache = {};
+
   static const String dbName = 'tipitaka.sqlite';
   static const String bundledAssetPath = 'assets/db/tipitaka.sqlite';
   static const String _appDirectoryName = 'in4up/tipitaka';
@@ -170,6 +191,18 @@ class TipitakaDb {
   static Future<Database> openReady() async {
     await _ensureDatabaseFactory();
     final installedPath = await installedDatabasePath();
+
+    // FAST PATH (I4U TIPI-PERF-01). Re-opening the same database while reading
+    // — the reader calls openReady() for every page, highlight save and TTS
+    // step — must not re-verify the file. Previously every call re-opened the
+    // database read-only and probed its tables, which on a full canon means two
+    // extra SQLite handles and several full scans per screen.
+    final openDb = _db;
+    if (openDb != null && openDb.isOpen && _openPath == installedPath) {
+      final fingerprint = await fileFingerprint(installedPath);
+      if (_verifiedFingerprint == fingerprint) return openDb;
+    }
+
     await _recoverInterruptedInstall(installedPath);
     await _cleanupStaleImportFiles(installedPath);
     // PSRC-160: after an explicit deletion the bundled demo must not silently
@@ -192,12 +225,22 @@ class TipitakaDb {
     if (await _isUsableDatabaseFile(installedPath)) {
       // A real import supersedes an earlier explicit deletion.
       await _clearBundledDemoMarker();
-      return openAt(installedPath, source: TipitakaDatabaseSource.installed);
+      final db = await openAt(
+        installedPath,
+        source: TipitakaDatabaseSource.installed,
+      );
+      _verifiedFingerprint = await fileFingerprint(installedPath);
+      return db;
     }
 
     final bundledPath = await copyBundledDatabaseIfPresent();
     if (bundledPath != null && await _isUsableDatabaseFile(bundledPath)) {
-      return openAt(bundledPath, source: TipitakaDatabaseSource.bundled);
+      final db = await openAt(
+        bundledPath,
+        source: TipitakaDatabaseSource.bundled,
+      );
+      _verifiedFingerprint = await fileFingerprint(bundledPath);
+      return db;
     }
 
     throw const TipitakaDatabaseException(
@@ -211,6 +254,115 @@ class TipitakaDb {
     final documents = await getApplicationDocumentsDirectory();
     return p.join(documents.path, _appDirectoryName, dbName);
   }
+
+  /// Cheap identity of a database **file** — path + byte size + modification
+  /// time, without opening or hashing it.
+  ///
+  /// Imports always install the new file through an atomic rename, so a changed
+  /// size/mtime is a reliable "content changed" signal. This is what the
+  /// library snapshot, the language cache and the catalogue title cache use, so
+  /// they can be read *before* SQLite is opened and stay correct afterwards.
+  static Future<String> fileFingerprint([String? path]) async {
+    try {
+      final target = path ?? _openPath ?? await installedDatabasePath();
+      final file = File(target);
+      if (!await file.exists()) return 'tipitaka:missing';
+      final stat = await file.stat();
+      return 'tipitaka:${p.normalize(target)}:${stat.size}:'
+          '${stat.modified.toUtc().millisecondsSinceEpoch}';
+    } catch (_) {
+      return 'tipitaka:unknown';
+    }
+  }
+
+  /// Fingerprint of the database that is currently open, or `null` when the
+  /// caller passed a handle this service does not own (tests, tools).
+  static Future<String?> _openFingerprint() async {
+    final path = _openPath;
+    if (path == null) return null;
+    return fileFingerprint(path);
+  }
+
+  /// Warms the reader's hot path while the user is still browsing the app:
+  /// opens/verifies the database, caches the catalogue and the language set.
+  ///
+  /// Called from the Đọc tab (see `read_mode_screen.dart`). Nothing is shown to
+  /// the user, every failure is swallowed, and a failed attempt (no database
+  /// yet) is retried the next time the tab opens. After this completes,
+  /// "Tam Tạng" renders from cache instead of paying for SQLite on tap.
+  static Future<bool> prewarm() async {
+    final pending = _prewarmFuture;
+    if (pending != null) return pending;
+    final future = _runPrewarm();
+    _prewarmFuture = future;
+    final warmed = await future;
+    if (!warmed) _prewarmFuture = null;
+    return warmed;
+  }
+
+  static Future<bool>? _prewarmFuture;
+
+  static Future<bool> _runPrewarm() async {
+    try {
+      // Resolve the platform documents path first. On a platform (or widget
+      // test) without path_provider this throws here, before any global SQLite
+      // factory state is touched.
+      await installedDatabasePath();
+      final db = await openReady();
+      await Future.wait<Object?>([
+        getCollections(db),
+        getCatalogIndexBooks(db),
+        // Resolve (and persist) the language set and the "does this database
+        // carry structural headings?" flag once, so neither the reader nor the
+        // first expanded catalogue branch pays for the scans on tap.
+        availableLanguages(db),
+        _hasStructuralTitles(db),
+      ]);
+      unawaited(ensurePerformanceIndexes(db));
+      return true;
+    } catch (error) {
+      debugPrint('ℹ️ Tipitaka prewarm: bỏ qua ($error)');
+      return false;
+    }
+  }
+
+  /// Builds the reader's paging index on a database installed by an older
+  /// build (imports already create it, see [_createPerformanceIndexes]).
+  ///
+  /// Deliberately bounded: a multi-second `CREATE INDEX` on a full canon would
+  /// block the single SQLite connection while the user is reading, so large
+  /// databases are left alone (re-importing a pack adds the index offline).
+  static Future<void> ensurePerformanceIndexes(
+    Database db, {
+    bool force = false,
+  }) async {
+    final memoKey = _openPath;
+    if (memoKey != null) {
+      if (_performanceIndexMemo.contains(memoKey)) return;
+      _performanceIndexMemo.add(memoKey);
+    }
+    try {
+      if (!force) {
+        final rows = await db.rawQuery(
+          'SELECT COUNT(*) AS n FROM tipitaka_segments',
+        );
+        final segments = _asInt(rows.first['n'], 0);
+        if (segments > 250000) {
+          debugPrint(
+            'ℹ️ Tipitaka: bỏ tạo idx_segments_book_order cho DB lớn '
+            '($segments đoạn) — dùng import để tạo offline.',
+          );
+          return;
+        }
+      }
+      await _createPerformanceIndexes(db);
+      await db.execute('PRAGMA optimize');
+    } catch (error) {
+      debugPrint('⚠️ Tipitaka: không tạo được index hiệu năng: $error');
+    }
+  }
+
+  static final Set<String> _performanceIndexMemo = <String>{};
 
   /// Lightweight fingerprint used by Worklist anchors. It changes when the
   /// installed database is replaced without hashing a potentially huge DB on
@@ -1180,7 +1332,27 @@ class TipitakaDb {
       singleInstance: false,
       onCreate: (db, version) => _createSchema(db),
       onUpgrade: (db, oldVersion, newVersion) => _createSchema(db),
-      onOpen: (db) => _ensureSchema(db),
+      // Imports run on a staging copy while no reader is waiting, so this is
+      // the right place to pay for the reader's paging index once (TIPI-PERF-01).
+      onOpen: (db) async {
+        await _ensureSchema(db);
+        await _createPerformanceIndexes(db);
+      },
+    );
+  }
+
+  /// Composite index used by every paged reader query and by the catalogue
+  /// heading subqueries: `WHERE book_id = ? ORDER BY order_index, id`.
+  ///
+  /// Without it SQLite sorts every paragraph of a book on each page request
+  /// (thousands of rows per scroll step). It is created during import — the
+  /// only moment a multi-second index build cannot be felt by the reader — and
+  /// lazily at runtime only for small databases (see
+  /// [ensurePerformanceIndexes]).
+  static Future<void> _createPerformanceIndexes(DatabaseExecutor db) async {
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_segments_book_order '
+      'ON tipitaka_segments(book_id, order_index, id)',
     );
   }
 
@@ -2399,6 +2571,7 @@ class TipitakaDb {
     if (_db != null && _db!.isOpen) await _db!.close();
     _db = null;
     _openPath = null;
+    _verifiedFingerprint = null;
     _openSource = TipitakaDatabaseSource.installed;
     _clearCatalogCaches();
   }
@@ -2429,8 +2602,10 @@ class TipitakaDb {
       final names = tables.map((row) => row['name'] as String).toSet();
       if (names.isEmpty) return true;
       if (!names.contains('tipitaka_segments')) return false;
-      final rows = await db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_segments');
-      return (rows.first['n'] as int? ?? 0) == 0;
+      // EXISTS stops at the first row; COUNT(*) would walk the whole table of
+      // a full canon just to answer "is it empty?".
+      final rows = await db.rawQuery('SELECT 1 FROM tipitaka_segments LIMIT 1');
+      return rows.isEmpty;
     } catch (_) {
       return false;
     } finally {
@@ -2459,12 +2634,15 @@ class TipitakaDb {
           !names.contains('tipitaka_segments')) {
         return false;
       }
+      // Presence checks, not row counts: the contract only requires "at least
+      // one row", and EXISTS is O(1) on an indexed table instead of a full
+      // scan of `tipitaka_segments` (millions of rows on a real canon).
       final counts = await Future.wait([
-        db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_collections'),
-        db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_books'),
-        db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_segments'),
+        db.rawQuery('SELECT 1 FROM tipitaka_collections LIMIT 1'),
+        db.rawQuery('SELECT 1 FROM tipitaka_books LIMIT 1'),
+        db.rawQuery('SELECT 1 FROM tipitaka_segments LIMIT 1'),
       ]);
-      if (!counts.every((rows) => (rows.first['n'] as int? ?? 0) > 0)) {
+      if (!counts.every((rows) => rows.isNotEmpty)) {
         return false;
       }
       final columns = await db.rawQuery('PRAGMA table_info(tipitaka_segments)');
@@ -2685,11 +2863,66 @@ class TipitakaDb {
     Database db, {
     TipitakaDatabaseSource? source,
   }) async {
+    // Row counts stay exact (they are index-counts, not table scans) so the
+    // data manager never shows a stale total. The *language* probe is the
+    // expensive part and is memoised — see [availableLanguages].
     final counts = await Future.wait([
       db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_collections'),
       db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_books'),
       db.rawQuery('SELECT COUNT(*) AS n FROM tipitaka_segments'),
     ]);
+    final languages = await availableLanguages(db);
+    var fileLength = 0;
+    final path = _openPath;
+    if (path != null && path.isNotEmpty && await File(path).exists()) {
+      fileLength = await File(path).length();
+    }
+    return TipitakaDatabaseInfo(
+      path: _openPath ?? '',
+      source: source ?? _openSource,
+      bytes: fileLength,
+      collectionCount: counts[0].first['n'] as int? ?? 0,
+      bookCount: counts[1].first['n'] as int? ?? 0,
+      segmentCount: counts[2].first['n'] as int? ?? 0,
+      availableLanguages: languages,
+    );
+  }
+
+  /// Languages that actually contain text in the open database.
+  ///
+  /// A full-language Tipiṭaka install has several *empty* translation columns
+  /// (only the packs the user downloaded are filled). Proving a column is empty
+  /// requires a full scan, and the reader used to trigger that scan for every
+  /// language, every time a book was opened. The result is a pure function of
+  /// the installed file, so it is cached per import revision and persisted per
+  /// file fingerprint — the reader gets it without touching SQLite.
+  static Future<Set<String>> availableLanguages(Database db) async {
+    final token = _cacheToken(db);
+    if (token != null && _languagesCacheToken == token) {
+      final cached = _languagesCacheValue;
+      if (cached != null) return cached;
+    }
+    final fingerprint = token == null ? null : await _openFingerprint();
+    if (fingerprint != null) {
+      final persisted = await TipitakaPerfCache.loadLanguages(fingerprint);
+      if (persisted != null) {
+        _languagesCacheToken = token;
+        _languagesCacheValue = persisted;
+        return persisted;
+      }
+    }
+    final languages = await _detectLanguages(db);
+    if (token != null) {
+      _languagesCacheToken = token;
+      _languagesCacheValue = languages;
+      if (fingerprint != null) {
+        await TipitakaPerfCache.saveLanguages(fingerprint, languages);
+      }
+    }
+    return languages;
+  }
+
+  static Future<Set<String>> _detectLanguages(Database db) async {
     final languages = <String>{};
     final columns = await db.rawQuery('PRAGMA table_info(tipitaka_segments)');
     final columnNames = columns.map((row) => row['name'] as String).toSet();
@@ -2720,20 +2953,7 @@ class TipitakaDb {
     if (languages.any((code) => code == 'pi' || code.startsWith('pi-'))) {
       languages.add('pi');
     }
-    var fileLength = 0;
-    final path = _openPath;
-    if (path != null && path.isNotEmpty && await File(path).exists()) {
-      fileLength = await File(path).length();
-    }
-    return TipitakaDatabaseInfo(
-      path: _openPath ?? '',
-      source: source ?? _openSource,
-      bytes: fileLength,
-      collectionCount: counts[0].first['n'] as int? ?? 0,
-      bookCount: counts[1].first['n'] as int? ?? 0,
-      segmentCount: counts[2].first['n'] as int? ?? 0,
-      availableLanguages: languages,
-    );
+    return languages;
   }
 
   static Future<bool> _hasText(Database db, String column) async {
@@ -2982,6 +3202,17 @@ class TipitakaDb {
     return books;
   }
 
+  /// Books of one collection, with content-derived titles.
+  ///
+  /// I4U TIPI-PERF-01: this method used to resolve four heading subqueries per
+  /// book inside a single statement. Each subquery sorted every paragraph of a
+  /// book (thousands of rows) to find one heading, so a 120-book collection
+  /// needed ~1 s on a desktop machine before the first row could be painted —
+  /// and it ran once per collection while the tree expanded. Titles are now
+  /// resolved once per book and memoised, and are skipped completely when the
+  /// database has no structural heading rows at all (the normalised/demo
+  /// shape), where the old subqueries were guaranteed to return `NULL` after a
+  /// full scan of every book.
   static Future<List<TipitakaBook>> getBooksByCollection(
     Database db,
     int collectionId, {
@@ -2992,6 +3223,51 @@ class TipitakaDb {
     final cacheKey = token == null ? null : '$token:$collectionId:$language';
     final cachedBooks = cacheKey == null ? null : _catalogBooksCache[cacheKey];
     if (cachedBooks != null) return cachedBooks;
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
+    final rows = await db.rawQuery(
+      'SELECT b.* FROM tipitaka_books b '
+      'WHERE b.collection_id = ? $bookFilter '
+      'ORDER BY b.order_index ASC, b.id ASC',
+      [collectionId],
+    );
+    final books = <TipitakaBook>[];
+    for (final row in rows) {
+      final bookId = row['id'];
+      final titles = bookId is int
+          ? await _titlesForBook(db, bookId, language)
+          : const <String, Object?>{};
+      books.add(
+        TipitakaBook.fromMap(<String, dynamic>{...row, ...titles}),
+      );
+    }
+    if (cacheKey != null) _catalogBooksCache[cacheKey] = books;
+    return books;
+  }
+
+  /// Resolved `_content_title_*` aliases for one book and one display language.
+  ///
+  /// Memoised per database revision + book + language. The returned values are
+  /// byte-identical to what the previous single-statement catalogue query
+  /// produced, because it is the very same SQL — only executed once per book
+  /// instead of once per book *and* screen.
+  static Future<Map<String, Object?>> _titlesForBook(
+    Database db,
+    int bookId,
+    String language,
+  ) async {
+    final token = _cacheToken(db);
+    // Only memoise handle-owned databases: a caller-supplied handle (tests,
+    // tools) must never share titles with a different database that happens to
+    // use the same book id.
+    final cacheKey = token == null ? null : '$token:$bookId:$language';
+    final cached = cacheKey == null ? null : _bookTitleCache[cacheKey];
+    if (cached != null) return cached;
+    if (!await _hasStructuralTitles(db)) {
+      const empty = <String, Object?>{};
+      if (cacheKey != null) _bookTitleCache[cacheKey] = empty;
+      return empty;
+    }
     final localeColumn = const {
       'pi': 'pali_text',
       'en': 'translation_en',
@@ -2999,12 +3275,9 @@ class TipitakaDb {
       'my': 'translation_my',
       'th': 'translation_th',
     }[language];
-    final localeTitleSql = _localeTitleSql(localeColumn);
-    final hideDemo = await _hasOfficialCatalog(db);
-    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
-    final arguments = <Object?>[language, collectionId];
-    final rows = await db.rawQuery('''
-      SELECT b.*,
+    final rows = await db.rawQuery(
+      '''
+      SELECT
         (SELECT NULLIF(TRIM(s.pali_text), '')
            FROM tipitaka_segments s
           WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
@@ -3017,14 +3290,76 @@ class TipitakaDb {
            FROM tipitaka_segments s
           WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi,
-        $localeTitleSql AS _content_title_locale
+        ${_localeTitleSql(localeColumn)} AS _content_title_locale
       FROM tipitaka_books b
-      WHERE b.collection_id = ? $bookFilter
-      ORDER BY b.order_index ASC, b.id ASC
-    ''', arguments);
-    final books = rows.map(TipitakaBook.fromMap).toList();
-    if (cacheKey != null) _catalogBooksCache[cacheKey] = books;
-    return books;
+      WHERE b.id = ?
+      LIMIT 1
+    ''',
+      [language, bookId],
+    );
+    final titles = rows.isEmpty
+        ? const <String, Object?>{}
+        : <String, Object?>{
+            '_content_title_pali': rows.first['_content_title_pali'],
+            '_content_title_en': rows.first['_content_title_en'],
+            '_content_title_vi': rows.first['_content_title_vi'],
+            '_content_title_locale': rows.first['_content_title_locale'],
+          };
+    if (cacheKey != null) _bookTitleCache[cacheKey] = titles;
+    return titles;
+  }
+
+  /// Whether any structural heading row exists in this database.
+  ///
+  /// This is a coarse, database-wide answer: `false` proves that every
+  /// `_content_title_*` subquery would return `NULL`, so the catalogue can skip
+  /// them entirely. `true` only means the subqueries are worth running. The
+  /// probe is persisted per file fingerprint, so a full canon pays for it once
+  /// per installed pack instead of once per library open.
+  static Future<bool> _hasStructuralTitles(Database db) async {
+    final token = _cacheToken(db);
+    final memoKey = token;
+    final memo = memoKey == null ? null : _structuralTitleCache[memoKey];
+    if (memo != null) return memo;
+    final fingerprint = token == null ? null : await _openFingerprint();
+    if (fingerprint != null) {
+      final persisted = await TipitakaPerfCache.loadStructuralTitles(
+        fingerprint,
+      );
+      if (persisted != null) {
+        if (memoKey != null) _structuralTitleCache[memoKey] = persisted;
+        return persisted;
+      }
+    }
+    var hasTitles = true;
+    try {
+      final structural = await db.rawQuery(
+        'SELECT 1 FROM tipitaka_segments '
+        "WHERE block_type IN ('book', 'chapter', 'heading') LIMIT 1",
+      );
+      hasTitles = structural.isNotEmpty;
+      if (!hasTitles) {
+        // Raw CSCD databases keep the marker inside the paragraph HTML.
+        final rawMarkup = await db.rawQuery(
+          'SELECT 1 FROM tipitaka_segments WHERE '
+          "pali_text LIKE '%rend=\"book\"%' OR "
+          "pali_text LIKE '%rend=\"chapter\"%' OR "
+          "pali_text LIKE '%rend=\"subhead\"%' OR "
+          "pali_text LIKE '%rend=\"heading\"%' "
+          'LIMIT 1',
+        );
+        hasTitles = rawMarkup.isNotEmpty;
+      }
+    } catch (_) {
+      // Fail open: an unreadable shape keeps the previous (correct but slower)
+      // behaviour instead of silently dropping catalogue titles.
+      hasTitles = true;
+    }
+    if (memoKey != null) _structuralTitleCache[memoKey] = hasTitles;
+    if (fingerprint != null) {
+      await TipitakaPerfCache.saveStructuralTitles(fingerprint, hasTitles);
+    }
+    return hasTitles;
   }
 
   /// PSRC-159 — when the requested language has no title, show *any* imported
@@ -3115,37 +3450,15 @@ class TipitakaDb {
     String languageCode = 'en',
   }) async {
     final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
-    final fixedColumn = const {
-      'pi': 'pali_text',
-      'en': 'translation_en',
-      'vi': 'translation_vi',
-      'my': 'translation_my',
-      'th': 'translation_th',
-    }[language];
-    final localeTitle = _localeTitleSql(fixedColumn);
     final hideDemo = await _hasOfficialCatalog(db);
     final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
-    final rows = await db.rawQuery('''
-      SELECT b.*,
-        (SELECT NULLIF(TRIM(s.pali_text), '')
-           FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
-          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_pali,
-        (SELECT NULLIF(TRIM(s.translation_en), '')
-           FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
-          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_en,
-        (SELECT NULLIF(TRIM(s.translation_vi), '')
-           FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
-          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi,
-        $localeTitle AS _content_title_locale
-      FROM tipitaka_books b
-      WHERE b.id = ? $bookFilter
-      LIMIT 1
-    ''', [language, bookId]);
+    final rows = await db.rawQuery(
+      'SELECT b.* FROM tipitaka_books b WHERE b.id = ? $bookFilter LIMIT 1',
+      [bookId],
+    );
     if (rows.isEmpty) return null;
-    return TipitakaBook.fromMap(rows.first);
+    final titles = await _titlesForBook(db, bookId, language);
+    return TipitakaBook.fromMap(<String, dynamic>{...rows.first, ...titles});
   }
 
   static Future<List<Map<String, dynamic>>> _withTranslations(

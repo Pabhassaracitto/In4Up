@@ -19,10 +19,13 @@ final RegExp _viDiacritics = RegExp(
   caseSensitive: false,
 );
 
-/// `uiText('...')`, `Text('...')` — literal một dòng, không nội suy.
+/// `uiText('...')`. CHỈ literal một dòng, không nội suy.
+///
+/// Cố ý KHÔNG quét `Text('...')`: shim `Text` dùng `translateExact`
+/// (`allowTemplates: false`), còn `uiText` mới là đường dịch đầy đủ — nhãn nội
+/// suy như `'Thiếu: ${...}'` phải đi qua `uiText` thì mới có bản dịch.
 final List<RegExp> _labels = <RegExp>[
   RegExp(r"""uiText\(\s*'((?:[^'\\\n$]|\\.){3,}?)'\s*[,)]"""),
-  RegExp(r"""Text\(\s*'((?:[^'\\\n$]|\\.){3,}?)'\s*[,)]"""),
 ];
 
 const List<String> _sources = <String>[

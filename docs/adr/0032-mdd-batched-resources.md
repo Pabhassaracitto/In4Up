@@ -11,3 +11,6 @@
 - Giới hạn: nếu một tài nguyên vượt trần, toàn bộ lô báo lỗi; chưa đo bộ thật,
   chưa hỗ trợ mọi biến thể MDD, chưa cache liên tác vụ; cần đo cold/warm, RAM,
   jank và SAF thật trước khi chọn cache lâu dài.
+
+- CI [43799648679](https://github.com/Pabhassaracitto/In4Up/actions/runs/43799648679)
+  xanh trên `d8c0196`, gồm worker/DICT và I4U18 synthetic/mock; PR #195.

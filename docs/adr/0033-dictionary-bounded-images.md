@@ -18,3 +18,11 @@
   được kiểm chứng. Test synthetic/mock + widget không thay thế QA LAAD3 1,22 GB,
   memory/jank, tính hợp lệ đa biến thể, SAF/revocation và giải mã ảnh máy thật.
   Không tự sửa, xóa nguồn hay mở network.
+
+## Kiểm chứng
+
+- CI [43799648679](https://github.com/Pabhassaracitto/In4Up/actions/runs/43799648679)
+  xanh 4/4 trên `d8c0196`: analyze, Rule 5, DICT, I4U18 và web compile. Test ảnh
+  dùng PNG/MDD synthetic, widget giả và SAF mock; chưa phải QA máy thật.
+- PR #195. Các failure CI ban đầu do fixture dùng hai dấu phân cách đầu key;
+  fixture đã sửa thành một dấu, không dùng điều đó làm bằng chứng cho bộ thật.

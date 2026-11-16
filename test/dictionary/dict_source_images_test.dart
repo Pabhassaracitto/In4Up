@@ -52,7 +52,7 @@ void main() {
     expect(DictImagePolicy.inspect(animated), isNull);
     expect(DictImagePolicy.inspect(Uint8List.sublistView(png, 0, 30)), isNull);
     expect(DictImagePolicy.inspect(Uint8List(DictImagePolicy.maxBytes + 1)), isNull);
-    final jpg = Uint8List.fromList([255,216,255,192,0,11,8,0,2,0,3,1,1,17,0]);
+    final jpg = Uint8List.fromList([255,216,255,192,0,11,8,0,2,0,3,1,1,17,0,255,218,0,8,1,1,0,0,63,0]);
     expect(DictImagePolicy.inspect(jpg)?.width, 3);
     expect(DictImagePolicy.inspect(jpg)?.height, 2);
     expect(DictImagePolicy.inspect(Uint8List.fromList([255,216,255,218,0,2,0,0,0,0,0,0])), isNull);

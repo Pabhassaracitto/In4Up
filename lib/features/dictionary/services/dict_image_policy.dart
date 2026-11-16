@@ -79,24 +79,32 @@ class DictImagePolicy {
 
   static DictImageSize? _jpeg(Uint8List b) {
     var pos = 2;
+    DictImageSize? size;
     while (pos < b.length) {
       if (b[pos++] != 0xff) return null;
       while (pos < b.length && b[pos] == 0xff) { pos++; }
       if (pos >= b.length) return null;
       final marker = b[pos++];
-      if (marker == 0xd9 || marker == 0xda || marker == 0x00) return null;
+      if (marker == 0xd9 || marker == 0x00) return null;
       if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
       if (pos + 2 > b.length) return null;
       final length = b[pos] * 256 + b[pos + 1];
       if (length < 2 || pos + length > b.length) return null;
-      if (marker == 0xc0 || marker == 0xc2) {
-        if (length < 8 || b[pos + 2] != 8) return null;
-        return _size(b[pos + 5] * 256 + b[pos + 6], b[pos + 3] * 256 + b[pos + 4]);
+      if (marker == 0xda) return size; // first scan: frame header already vetted
+      final isFrame = marker >= 0xc0 && marker <= 0xcf &&
+          marker != 0xc4 && marker != 0xc8 && marker != 0xcc;
+      if (isFrame) {
+        // Reject unsupported encodings and ambiguous multiple frame headers.
+        if (size != null || (marker != 0xc0 && marker != 0xc2) ||
+            length < 8 || b[pos + 2] != 8) return null;
+        size = _size(b[pos + 5] * 256 + b[pos + 6], b[pos + 3] * 256 + b[pos + 4]);
+        if (size == null) return null;
       }
       pos += length;
     }
     return null;
   }
+
 }
 
 class DictImageSize {

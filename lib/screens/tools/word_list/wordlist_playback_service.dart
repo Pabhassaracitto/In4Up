@@ -18,7 +18,10 @@ class WordlistPlaybackService extends ChangeNotifier {
       WordlistPlaybackService._internal();
   factory WordlistPlaybackService() => _instance;
   WordlistPlaybackService._internal()
-      : _tts = TtsService(), _speakOverride = null, _stopOverride = null;
+      : _tts = TtsService(),
+        _speakOverride = null,
+        _stopOverride = null,
+        _waitForCompletionOverride = null;
 
   @visibleForTesting
   WordlistPlaybackService.test({
@@ -46,7 +49,7 @@ class WordlistPlaybackService extends ChangeNotifier {
     // the generated audio has finished. Waiting here is essential for Play
     // all: otherwise the next word replaces/cuts off the current audio.
     await _tts!.speak(text, language: language, matchVoiceLanguage: true);
-    await _tts.waitForCompletion();
+    await _tts!.waitForCompletion();
   }
   Future<void> _stopAudio() => _stopOverride?.call() ?? _tts!.stop();
   static const double _kSpeakSpeed = 0.82;

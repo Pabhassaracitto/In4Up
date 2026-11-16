@@ -125,6 +125,18 @@ class DictionaryService {
     return _mddWorkers.start(matches.first, key);
   }
 
+  /// Resolve several resources with one short-lived index per MDD part.
+  Future<MddReadTask> startMddResourceBatch(String dictId, List<String> keys, {
+    int maxItemBytes = 2 * 1024 * 1024,
+    int maxTotalBytes = 8 * 1024 * 1024,
+  }) async {
+    await ensureInitialized();
+    final matches = _dicts.where((dict) => dict.id == dictId);
+    if (matches.isEmpty) throw StateError('Dictionary not registered');
+    return _mddWorkers.startBatch(matches.first, keys,
+      maxItemBytes: maxItemBytes, maxTotalBytes: maxTotalBytes);
+  }
+
   Future<Uint8List?> readMddResource(String dictId, String key) async =>
       (await startMddResourceRead(dictId, key)).result;
 

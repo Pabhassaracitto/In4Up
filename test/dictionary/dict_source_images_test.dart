@@ -33,7 +33,7 @@ void main() {
       '<script><img src="inside.png"></script><iframe><img src="f.png"></iframe>'
       '<img src="https://example.test/a.png"><img src="file:///a.png">'
       '<img src="../a.png"><img src="%2e%2e/a.png"><img src="x.svg">'
-      '<img src="\\\\pic.PNG"><img src="pic.png"><img src="p.jpg">'
+      '<img src="\\pic.PNG"><img src="pic.png"><img src="p.jpg">'
       '<img src="b.jpeg"><img src="c.png"><img src="extra.png">');
     expect(keys, ['pic.png', 'p.jpg', 'b.jpeg', 'c.png']);
   });
@@ -62,7 +62,7 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('dict-image-mdd-');
     addTearDown(() => dir.delete(recursive: true));
     final mdd = MdxTestBuilder(mdd: true, utf16: true,
-      entries: {'\\\\pic.png': String.fromCharCodes(png)}).writeToFile('${dir.path}/dict.mdd');
+      entries: {'\\pic.png': String.fromCharCodes(png)}).writeToFile('${dir.path}/dict.mdd');
     final info = DictInfo(id: 'd', name: 'd', entryCount: 1, dbPath: '/unused',
       importedAt: DateTime.utc(2026), mddPaths: [mdd]);
     final keys = DictImagePolicy.extract('<img src="pic.png">');

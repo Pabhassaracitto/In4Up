@@ -761,3 +761,9 @@ hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK r
   `_collectVoiceFolders` quét cây (độ sâu ≤4), nhận giọng theo NỘI DUNG
   (`folderHasVieneuVoiceData`), dừng nhánh khi gặp thư mục giọng; dò GGUF cũng lên ≤4.
   **Chưa kiểm máy thật.**
+- 2026-11-15 | REL-1.29.0 | agent `arena/60e35d65-in4up` | **chốt bản 1.29.0**: rebase
+  102 commit lên `251e` mới (`4b022c1`; chỉ 1 xung đột `KANBAN.md` — hợp cả hai bộ thẻ),
+  bump `pubspec` **1.29.0+29**, tag `1.29.0` trên **commit merge của 251e** (đúng hợp đồng
+  lane: con không tự phát hành) ⇒ workflow `build_final_complete.yml` build 4 nền tảng và
+  đẩy asset vào Release. Nhãn prerelease không bật vì tag không chứa `beta`. **Chưa kiểm
+  máy thật trên bản phát hành** — các mục PSRC-245…249 vẫn cần owner xác nhận trên máy.

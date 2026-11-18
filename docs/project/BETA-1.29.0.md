@@ -767,3 +767,10 @@ hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK r
   lane: con không tự phát hành) ⇒ workflow `build_final_complete.yml` build 4 nền tảng và
   đẩy asset vào Release. Nhãn prerelease không bật vì tag không chứa `beta`. **Chưa kiểm
   máy thật trên bản phát hành** — các mục PSRC-245…249 vẫn cần owner xác nhận trên máy.
+- 2026-11-17 | REL-1.29.0 (tuyến tính hoá) | agent `arena/96ca0168-in4up` | **251e về dạng
+  tuyến tính**: PR #196 trước đó được merge bằng `--merge` nên sinh commit nối `8a41e68`
+  (2 parent: `4b022c1` + `7a5f446`). Vì `4b022c1` đã là tổ tiên của `7a5f446` và **cây của
+  hai commit giống nhau tuyệt đối** (`521ee739…`), mũi nối không mang nội dung nào ⇒ bỏ
+  đúng commit nối, 251e trỏ `7a5f446`; **102 commit giữ nguyên SHA**, không rewrite lịch
+  sử. Backup ở `refs/backup/251e-merge-8a41e68`. Tag `1.29.0` dời sang commit tuyến tính
+  (cùng cây). Từ nay PR vào 251e phải merge bằng `--rebase` hoặc `--squash`.

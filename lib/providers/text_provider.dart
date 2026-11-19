@@ -356,11 +356,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
       final savedSpeed = _storage.getTtsSpeed();
       _ttsSpeed = (savedSpeed == 1.75 || savedSpeed == 0.0) ? 1.0 : savedSpeed;
-      _ttsService.configure(
-        speed: _ttsSpeed,
-        language: 'auto',
-        autoDetect: true,
-      );
+      _ttsService.configure(speed: _ttsSpeed);
 
       restoreTranslationTargetLanguage(
         _storage.getTranslationTargetLanguage(),
@@ -1582,6 +1578,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ==================== TTS FUNCTIONS ====================
 
+  Future<void> _speakReadText(String text, {String? language}) =>
+      _ttsService.speak(text, reader: TtsReader.read,
+          language: language ?? _ttsLanguage, matchVoiceLanguage: true);
+
   Future<void> speakSelected() async {
     if (_selectedText == null || _selectedText!.trim().isEmpty) return;
     await speak(_selectedText!);
@@ -1599,7 +1599,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       _currentLineIndex = i;
       notifyListeners();
 
-      await _ttsService.speak(_lines[i].content);
+      await _speakReadText(_lines[i].content);
 
       // Nếu user vừa bấm icon loa / swipe preview thì session này bị vô hiệu hóa
       if (!_isActiveSession(sessionId, TtsPlaybackOwner.allLines)) break;
@@ -1638,7 +1638,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _ttsSpokenLineIndex = lineIndex ?? -1;
     notifyListeners();
 
-    await _ttsService.speak(text, language: language);
+    await _speakReadText(text, language: language);
 
     _finishTtsSession(sessionId, TtsPlaybackOwner.preview);
   }
@@ -1662,11 +1662,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   Future<void> setTtsLanguage(String language) async {
     _ttsLanguage = language;
-    final isAuto = language.toLowerCase() == 'auto';
-    _ttsService.configure(
-      language: isAuto ? 'auto' : language,
-      autoDetect: isAuto,
-    );
     notifyListeners();
   }
 
@@ -1688,7 +1683,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       _currentRepeatIndex = i + 1;
       notifyListeners();
 
-      await _ttsService.speak(segment.content);
+      await _speakReadText(segment.content);
 
       if (!_isActiveSession(sessionId, TtsPlaybackOwner.segment)) break;
 
@@ -1829,7 +1824,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       for (int i = 0; i < repeatCount; i++) {
         if (!_isActiveSession(sessionId, TtsPlaybackOwner.vocabReview)) break;
 
-        await _ttsService.speak(word.word);
+        await _speakReadText(word.word);
 
         if (i < repeatCount - 1) {
           await Future.delayed(const Duration(milliseconds: 500));

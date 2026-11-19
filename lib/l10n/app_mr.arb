@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "Reader overrides",
+  "ttsSharedSettings": "Shared voice settings",
+  "ttsInherit": "Use shared settings",
+  "ttsOverride": "Override",
+  "ttsLastPlayback": "Last playback",
   "commandCenter": "कमांड सेंटर",
   "knowledgeOS": "नॉलेज ओएस",
   "manageAIModels": "AI मॉडेल्स व्यवस्थापित करा",

@@ -222,8 +222,8 @@ class MultilingualAudioService extends ChangeNotifier {
       declaredCode: declaredLang,
       text: text,
     );
-    _tts.configure(language: locale, autoDetect: false, speed: _speed);
-    await _tts.speak(text);
+    _tts.configure(speed: _speed);
+    await _tts.speak(text, language: locale, matchVoiceLanguage: true);
     await _waitForTts();
   }
 

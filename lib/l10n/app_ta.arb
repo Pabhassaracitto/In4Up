@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "Reader overrides",
+  "ttsSharedSettings": "Shared voice settings",
+  "ttsInherit": "Use shared settings",
+  "ttsOverride": "Override",
+  "ttsLastPlayback": "Last playback",
   "commandCenter": "கட்டளை மையம்",
   "knowledgeOS": "அறிவு OS",
   "manageAIModels": "AI மாடல்களை நிர்வகி",

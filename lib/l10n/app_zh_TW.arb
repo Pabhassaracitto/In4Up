@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "各閱讀器的個別設定",
+  "ttsSharedSettings": "共用語音設定",
+  "ttsInherit": "繼承共用設定",
+  "ttsOverride": "個別設定",
+  "ttsLastPlayback": "上次播放",
   "@@locale": "zh_TW",
   "tipitakaCommentaries": "註釋書",
   "tipitakaSubcommentaries": "複註書",

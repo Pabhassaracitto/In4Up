@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "Ghi đè theo nơi đọc",
+  "ttsSharedSettings": "Cấu hình giọng chung",
+  "ttsInherit": "Kế thừa cấu hình chung",
+  "ttsOverride": "Ghi đè",
+  "ttsLastPlayback": "Lần phát gần nhất",
   "tipitakaCommentaries": "Chú Giải",
   "tipitakaSubcommentaries": "Phụ Chú",
   "tipitakaExtraCanonical": "Tạng Ngoại",

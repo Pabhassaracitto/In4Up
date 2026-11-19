@@ -11,6 +11,9 @@
 // qua catalog, nên chỉ import shim.
 import 'dart:async';
 
+import 'package:in4up/features/tts/widgets/reader_voice_tile.dart';
+import 'package:in4up/features/tts/reader_voice_preference.dart';
+
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 
@@ -78,6 +81,7 @@ class PdfTtsBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (active) const ReaderPlaybackLabel(TtsReader.pdf),
                 Text(_statusLabel(context, playing, paused, active),
                     style: TextStyle(color: Colors.grey[400], fontSize: 11)),
                 const SizedBox(height: 5),

@@ -635,20 +635,18 @@ class WebReaderController extends ChangeNotifier {
   // ─── TTS ─────────────────────────────────────────────────
 
   Future<void> speakWord(String word) async {
-    _tts.configure(speed: _ttsSpeed, language: 'en-US');
     _isSpeaking = true;
     notifyListeners();
-    await _tts.speak(word);
+    await _tts.speak(word, reader: TtsReader.web, language: 'auto', matchVoiceLanguage: true);
     _isSpeaking = false;
     notifyListeners();
   }
 
   Future<void> speakText(String text) async {
-    _tts.configure(speed: _ttsSpeed, language: 'auto');
     _isSpeaking = true;
     _isPaused = false;
     notifyListeners();
-    await _tts.speak(text);
+    await _tts.speak(text, reader: TtsReader.web, language: 'auto', matchVoiceLanguage: true);
     _isSpeaking = false;
     _isPaused = false;
     notifyListeners();
@@ -681,12 +679,11 @@ class WebReaderController extends ChangeNotifier {
     if (_disposed || session != _readingSession) return;
     _articleText = text;
     articleCues = cues;
-    _tts.configure(speed: _ttsSpeed, language: 'auto');
     _isSpeaking = true;
     _isPaused = false;
     notifyListeners();
     try {
-      await _tts.speakLines(chunks,
+      await _tts.speakLines(chunks, reader: TtsReader.web, language: 'auto',
         pauseBetween: const Duration(milliseconds: 140),
         onLineChanged: (i) {
           if (_disposed || session != _readingSession) return;
@@ -767,9 +764,8 @@ class WebReaderController extends ChangeNotifier {
     String text, {
     required String pathWithoutExtension,
   }) async {
-    _tts.configure(speed: _ttsSpeed, language: 'auto');
     return _tts.synthesizeToFile(
-      text,
+      text, reader: TtsReader.web, language: 'auto',
       pathWithoutExtension: pathWithoutExtension,
     );
   }

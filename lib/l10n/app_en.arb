@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "Reader overrides",
+  "ttsSharedSettings": "Shared voice settings",
+  "ttsInherit": "Use shared settings",
+  "ttsOverride": "Override",
+  "ttsLastPlayback": "Last playback",
   "tipitakaCommentaries": "Commentaries",
   "tipitakaSubcommentaries": "Subcommentaries",
   "tipitakaExtraCanonical": "Extra-canonical texts",

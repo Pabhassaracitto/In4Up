@@ -18,6 +18,27 @@ import 'ai_provider_config.dart';
 import 'ai_settings_sync.dart';
 import 'builtin_ai_providers.dart';
 
+/// PSRC-254 — sắp xếp lại provider theo [order] mà KHÔNG mất provider nào.
+/// id lạ/trùng được bỏ; provider mới (chưa có trong order) nối cuối theo thứ
+/// tự cũ — tránh "mất provider" sau khi sync từ máy khác.
+List<AiProviderConfig> reorderAiProviders(
+  List<AiProviderConfig> providers,
+  List<String> order,
+) {
+  final byId = <String, AiProviderConfig>{for (final p in providers) p.id: p};
+  final result = <AiProviderConfig>[];
+  final seen = <String>{};
+  for (final id in order) {
+    final p = byId[id];
+    if (p == null || !seen.add(id)) continue;
+    result.add(p);
+  }
+  for (final p in providers) {
+    if (seen.add(p.id)) result.add(p);
+  }
+  return List.unmodifiable(result);
+}
+
 class AiProviderStore extends ChangeNotifier {
   AiProviderStore._();
   static final AiProviderStore instance = AiProviderStore._();
@@ -217,9 +238,26 @@ class AiProviderStore extends ChangeNotifier {
     await _persist();
   }
 
+  /// PSRC-254 — kéo-thả thứ tự ưu tiên. Thứ tự này được dùng làm đường lùi
+  /// khi provider đang chọn lỗi, và được lưu trong routing prefs để đi cùng
+  /// snapshot cloud (merge theo id không giữ thứ tự danh sách).
+  Future<void> reorderProviders(List<String> orderedIds) async {
+    await ensureLoaded();
+    final seen = <String>{};
+    final order = <String>[
+      for (final id in orderedIds)
+        if (seen.add(id)) id,
+    ];
+    _providers = reorderAiProviders(_providers, order);
+    _routing = _routing.copyWith(providerOrder: order);
+    await _persist();
+  }
+
   Future<void> updateRouting(AiRoutingPrefs routing) async {
     await ensureLoaded();
     _routing = routing;
+    // Giữ danh sách local cũng theo thứ tự đã lưu để UI/route cùng một chiều.
+    _providers = reorderAiProviders(_providers, routing.providerOrder);
     await _persist();
   }
 
@@ -258,9 +296,12 @@ class AiProviderStore extends ChangeNotifier {
     await ensureLoaded();
     // PSRC-181: bản cloud từ máy chưa cập nhật có thể còn model mặc định CŨ ⇒
     // chuẩn hoá luôn để hai máy nhìn thấy cùng một mặc định.
-    _providers = [
-      for (final p in snapshot.providers) migrateBuiltinProviderChatModel(p),
-    ];
+    _providers = reorderAiProviders(
+      [
+        for (final p in snapshot.providers) migrateBuiltinProviderChatModel(p),
+      ],
+      snapshot.routing.providerOrder,
+    );
     _routing = snapshot.routing;
     _tombstones = Map<String, int>.from(snapshot.tombstones);
     _updatedAtMs =
@@ -282,16 +323,20 @@ class AiProviderStore extends ChangeNotifier {
   /// nào" (báo cáo "AI đang chạy" + test) mà KHÔNG phải đổi trạng thái
   /// router thật. Bỏ trống ⇒ dùng loại mạng hiện tại như cũ.
   AiProviderConfig? resolveProvider(AiRouteCapability c,
-      {AiNetworkKind? network}) {
+      {AiNetworkKind? network, Set<String>? excludeIds}) {
     // YT-AUDIT-06 (IN4-104): so mode THẬT (đã resolve theo loại mạng). Không
     // có mạng ⇒ `auto` resolve thành offlineOnly ⇒ không trả provider ⇒ chắc
     // chắn không tạo được request remote.
     final kind = network ?? AiConnectivityRouter.instance.kind;
     final mode = resolveRouteMode(_routing.modeOf(c), kind);
     if (mode == AiRouteMode.offlineOnly) return null;
-    final candidates =
-        enabledProviders.where((p) => p.supports(c)).toList();
+    var candidates = enabledProviders.where((p) => p.supports(c)).toList();
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      candidates =
+          candidates.where((p) => !excludeIds.contains(p.id)).toList();
+    }
     if (candidates.isEmpty) return null;
+    candidates = reorderAiProviders(candidates, _routing.providerOrder);
     final preferredId = _routing.preferredProviderOf(c);
     if (preferredId != null) {
       for (final p in candidates) {

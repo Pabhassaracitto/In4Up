@@ -133,6 +133,8 @@ class TtsService extends ChangeNotifier {
   String _lastUsedEngine = '';
   String _detectedLanguage = '';
   String? _error;
+  String? _lastVieneuFallbackReason;
+  String? get lastVieneuFallbackReason => _lastVieneuFallbackReason;
   bool _isPrefetching = false;
 
   // Track source audio and the offline sentence being replayed after pause.
@@ -873,8 +875,15 @@ class TtsService extends ChangeNotifier {
       // mở app sau: `_selectedVoiceId` chỉ ở RAM, nên đọc thêm prefs.
       final persistedVoiceId = await getSelectedVieneuVoiceId();
       final activeVoiceId = readerVoice ?? persistedVoiceId ?? VieneuTtsCore.defaultVoiceId;
+      _lastVieneuFallbackReason = null;
       await vieneu.init(modelVariant: selectedVariant, voiceId: activeVoiceId);
-      if (!await vieneu.isAvailable()) return false;
+      if (!await vieneu.isAvailable()) {
+        _lastVieneuFallbackReason = vieneu.lastInitError ??
+            vieneu.blockingReason?.message ??
+            'VieNeu-TTS chưa sẵn sàng';
+        debugPrint('⚠️ VieNeu-TTS fallback: $_lastVieneuFallbackReason');
+        return false;
+      }
       if (isStaleEpoch(epoch)) return false;
 
       // Cache theo đúng danh tính (text + ngôn ngữ + engine + biến thể +
@@ -1148,6 +1157,21 @@ class TtsService extends ChangeNotifier {
     if (!await targetVoicesDir.exists()) {
       await targetVoicesDir.create(recursive: true);
     }
+
+    // PSRC-249 — copy sea_g2p.bin nếu có trong thư mục trọn bộ (cũng quét
+    // đệ quy độ sâu ≤ 4) để người dùng có sẵn gói offline không bị báo thiếu
+    // từ điển phát âm sau khi import trọn bộ.
+    final targetG2p = File(p.join(dir.path, 'vieneu_tts', 'sea_g2p.bin'));
+    if (!await targetG2p.exists() || await targetG2p.length() == 0) {
+      await for (final file in _findFilesUnder(sourceDir, maxDepth: 4)) {
+        if (p.basename(file.path).toLowerCase() == 'sea_g2p.bin' &&
+            await file.length() > 0) {
+          await targetG2p.parent.create(recursive: true);
+          await file.copy(targetG2p.path);
+          break;
+        }
+      }
+    }
     final voiceFolders = <Directory>[];
     await _collectVoiceFolders(sourceDir, 4, voiceFolders);
     for (final folder in voiceFolders) {
@@ -1251,8 +1275,10 @@ class TtsService extends ChangeNotifier {
 
     final folders = await findVieneuVoiceFolders(chosen);
     if (folders.isEmpty) {
-      throw const VieneuVoiceImportException(
+      final detail = await describeVieneuFolderContents(chosen);
+      throw VieneuVoiceImportException(
         VieneuVoiceImportProblem.noVoiceData,
+        detail: detail,
       );
     }
 

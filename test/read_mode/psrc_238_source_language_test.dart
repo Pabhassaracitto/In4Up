@@ -927,10 +927,18 @@ void main() {
 
       final suggestion =
           toolbar.indexOf('if (textProvider.translationBlockedBySamePair)');
-      final error =
-          toolbar.indexOf('else if (textProvider.translationError != null)');
       expect(suggestion, greaterThan(0));
-      expect(error, greaterThan(suggestion));
+      // Audit §6 moved finite error/progress/provenance chrome to a shared
+      // panel. The same-pair suggestion still takes precedence there.
+      expect(toolbar.contains('TranslationRunStatusPanel('), isTrue);
+      final statusPanel = _code(
+          'lib/features/translation/widgets/translation_engine_controls.dart');
+      final samePairGuard = statusPanel.indexOf('document.translationBlockedBySamePair');
+      final hidden = statusPanel.indexOf('return const SizedBox.shrink();', samePairGuard);
+      final error = statusPanel.indexOf('if (document.translationError != null)');
+      expect(samePairGuard, greaterThan(0));
+      expect(hidden, greaterThan(samePairGuard));
+      expect(error, greaterThan(hidden));
       expect(toolbar.contains('_SamePairSuggestion('), isTrue);
       expect(toolbar.contains('setTranslationLanguagePair('), isTrue);
     });

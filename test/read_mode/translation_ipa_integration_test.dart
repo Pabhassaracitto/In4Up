@@ -1,7 +1,5 @@
 // Integration through the REAL TextLineWidget, without constructing platform
 // audio/IPA engines. Renderer ownership stays with the word/IPA agent.
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -143,8 +141,13 @@ void main() {
             child: TextLineWidget(index: 0, scrollController: scroll),
           ))),
         ));
-        unawaited(doc.translateLine(0));
+        // Await storage-backed cache work in real async, then paint its
+        // provider notification. pumpAndSettle alone only waits for FRAMES.
+        await tester.runAsync(() => doc.translateLine(0));
         await tester.pumpAndSettle();
+        expect(doc.translationError, isNull);
+        expect(doc.lines.single.translation, 'Bản dịch google_free.',
+            reason: 'status: ${doc.translationStatus}');
         expect(doc.translationDisplayMode, display);
         expect(find.text('Bản dịch google_free.'), findsOneWidget);
         if (ipaMode != IpaDisplayMode.hidden) {

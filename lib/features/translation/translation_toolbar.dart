@@ -834,24 +834,24 @@ class _TranslationEngineSettingsSheetState
       // remains visible (and Flutter 3.44's ListTile assertion stays satisfied).
       child: Material(
         type: MaterialType.transparency,
-        child: SwitchListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          dense: true,
-          title: Text(
-            context.uiText('Chỉ dùng dịch offline'),
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
-          subtitle: Text(
-            context.uiText('Bỏ qua engine online (Hy-MT / ML Kit + từ điển).'),
-            style: TextStyle(color: Colors.grey[600], fontSize: 11),
-          ),
-          value: _offlineOnly ?? false,
-          activeColor: widget.accentColor,
-          onChanged: (v) {
-            setState(() => _offlineOnly = v);
-            widget.service.offlineOnly = v;
-          },
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        dense: true,
+        title: Text(
+          context.uiText('Chỉ dùng dịch offline'),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
+        subtitle: Text(
+          context.uiText('Bỏ qua engine online (Hy-MT / ML Kit + từ điển).'),
+          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+        ),
+        value: _offlineOnly ?? false,
+        activeColor: widget.accentColor,
+        onChanged: (v) {
+          setState(() => _offlineOnly = v);
+          widget.service.offlineOnly = v;
+        },
+      ),
       ),
     );
   }
@@ -1029,12 +1029,12 @@ class _TranslationEngineSettingsSheetState
                   widget.service.savedEnginePriority != null
                       ? context.uiText(TranslationUiLabels.policyHint)
                       : mode == AiRouteMode.onlineFirst
-                          ? context.uiText(
-                              'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.',
-                            )
-                          : context.uiText(
-                              'Routing Dịch: Ưu tiên offline — LLM chạy sau Hy-MT/ML Kit, trước từ điển.',
-                            ),
+                      ? context.uiText(
+                          'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.',
+                        )
+                      : context.uiText(
+                          'Routing Dịch: Ưu tiên offline — LLM chạy sau Hy-MT/ML Kit, trước từ điển.',
+                        ),
                 ),
               ],
             );
@@ -1104,25 +1104,25 @@ class _TranslationEngineSettingsSheetState
       ),
       child: Material(
         type: MaterialType.transparency,
-        child: ListTile(
-          dense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          leading: Icon(Icons.bookmark_border, color: widget.accentColor),
-          title: Text(
-            context.uiText('Thuật ngữ dịch (glossary)'),
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
-          subtitle: Text(
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        leading: Icon(Icons.bookmark_border, color: widget.accentColor),
+        title: Text(
+          context.uiText('Thuật ngữ dịch (glossary)'),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+        subtitle: Text(
             context
                 .uiText('Khóa thuật ngữ Phật học/Pali — engine không được đè.'),
-            style: TextStyle(color: Colors.grey[600], fontSize: 11),
-          ),
-          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-          onTap: () async {
-            await showGlossarySheet(context, accentColor: widget.accentColor);
-            if (mounted) setState(() {});
-          },
+          style: TextStyle(color: Colors.grey[600], fontSize: 11),
         ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: () async {
+          await showGlossarySheet(context, accentColor: widget.accentColor);
+          if (mounted) setState(() {});
+        },
+      ),
       ),
     );
   }
@@ -1381,17 +1381,17 @@ class _TranslationEngineSettingsSheetState
               ),
               const SizedBox(height: 4),
               Text(
-                _probeMessage ??
-                    context.uiText(
-                      'Dịch thử một câu để biết engine nào thực sự trả lời.',
-                    ),
-                style: TextStyle(
-                  color: _probeMessage == null
-                      ? Colors.grey[600]
-                      : (_probeOk ? Colors.greenAccent : Colors.redAccent),
-                  fontSize: 11,
+                  _probeMessage ??
+                      context.uiText(
+                        'Dịch thử một câu để biết engine nào thực sự trả lời.',
+                      ),
+                  style: TextStyle(
+                    color: _probeMessage == null
+                        ? Colors.grey[600]
+                        : (_probeOk ? Colors.greenAccent : Colors.redAccent),
+                    fontSize: 11,
+                  ),
                 ),
-              ),
             ],
           ),
         ],

@@ -1,7 +1,10 @@
 """CI diagnostics must retain Flutter assertions within Actions' byte cap."""
 
+from contextlib import redirect_stdout
 import importlib.util
+from io import StringIO
 from pathlib import Path
+import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/ci/emit_failure_annotation.py"
@@ -44,6 +47,20 @@ class FailureAnnotationsTest(unittest.TestCase):
                             for c in chunks))
         self.assertTrue(all(not c.endswith(("%", "%0", "%2"))
                             for c in chunks))
+
+    def test_main_escapes_embedded_newlines_in_prioritized_sections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / 'test.log'
+            log.write_text('00:01 +0 -1: a_test.dart: case [E]\n'
+                           '  Expected: true\n    Actual: false\n',
+                           encoding='utf-8')
+            output = StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(annotations.main(['annotations', str(log)]), 0)
+            commands = output.getvalue().splitlines()
+            self.assertTrue(commands)
+            self.assertTrue(all(c.startswith('::error title=') for c in commands))
+            self.assertIn('Expected: true', output.getvalue())
 
     def test_build_errors_keep_existing_priority(self):
         selected = annotations._priority_lines([

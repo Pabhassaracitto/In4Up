@@ -165,7 +165,8 @@ def main(argv: list[str]) -> int:
 
     selected = _priority_lines(lines)
     # 600 ký tự: dòng lỗi MSVC/Xcode thường dài (đường dẫn + mã lỗi + gợi ý).
-    escaped = [line[:600].replace("%", "%25") for line in selected]
+    escaped = [line[:600].replace("%", "%25").replace("\r", "%0D")
+               .replace("\n", "%0A") for line in selected]
     parts = _chunks("%0A".join(escaped))[:max_chunks]
 
     for ordinal, part in enumerate(parts, start=1):

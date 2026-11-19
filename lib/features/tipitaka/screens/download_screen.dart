@@ -10,6 +10,7 @@ import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_task_service.dart';
+import 'package:in4up/features/tipitaka/widgets/opentipitaka_credit.dart';
 
 class TipitakaDownloadScreen extends StatefulWidget {
   const TipitakaDownloadScreen({super.key});
@@ -488,6 +489,7 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
               ),
             ),
           ),
+          const OpenTipitakaCredit(compact: false),
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: info?.isReady == true ? _openLibrary : null,

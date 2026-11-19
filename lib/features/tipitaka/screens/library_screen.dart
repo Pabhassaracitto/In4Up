@@ -15,6 +15,7 @@ import 'package:in4up/features/tipitaka/services/library_state_store.dart';
 import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
+import 'package:in4up/features/tipitaka/widgets/opentipitaka_credit.dart';
 
 // Source divisions are independent of the collection_id assigned by older
 // importers (which put every unrecognised table under Sutta).
@@ -429,6 +430,9 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                         ),
                       ],
                       const SizedBox(height: 10),
+                      // PSRC-256 — ghi công nhẹ ở cuối danh sách, không cạnh
+                      // tranh với thao tác đọc/import.
+                      const OpenTipitakaCredit(),
                       for (final section in TipitakaCatalogSection.values)
                         if (_divisions.any((division) => division.section == section))
                           Card(

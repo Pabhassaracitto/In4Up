@@ -95,6 +95,22 @@ jobs:
           path: analyze.log
           if-no-files-found: ignore
 
+      - name: Read IPA layout and gesture widget tests
+        id: read-ipa-tests
+        run: |
+          set +e
+          flutter test --no-pub test/read_mode/read_line_ipa_test.dart -r expanded > read_ipa_test.log 2>&1
+          code=$?
+          cat read_ipa_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -E -m 12 -A7 'EXCEPTION CAUGHT|Failed to load|Error:|\[E\]$' read_ipa_test.log |
+              sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | fold -w 3500 |
+              while IFS= read -r part || [ -n "$part" ]; do
+                echo "::error title=Read IPA widget tests::$part"
+              done
+          fi
+          exit "$code"
+
       # LINUX-AUTH-001 — Home phải render được khi logger/sync/UI cùng
       # subscribe auth, và các primary tab phải đổi cả nội dung lẫn selected.
       # Chạy sớm, có timeout để lỗi plugin/provider không treo toàn bộ oracle.
@@ -984,7 +1000,6 @@ jobs:
                    test/read_mode/read_listen_understand_owner_requests_test.dart \
                    test/read_mode/line_sync_test.dart \
                    test/read_mode/psrc_234_plain_line_tap_test.dart \
-                   test/read_mode/read_line_ipa_test.dart \
                    test/read_mode/psrc_235_read_settings_dedup_test.dart \
                    test/read_mode/psrc_236_read_settings_groups_test.dart \
                    test/read_mode/psrc_237_role_swap_test.dart \

@@ -2027,13 +2027,13 @@ class _GemmaChatModelCard extends StatelessWidget {
     // Lấy URL TRƯỚC khi dispose — controller đã dispose thì không đọc tiếp.
     final url = controller.text.trim();
     controller.dispose();
-    if (confirmed != true || url.isEmpty || !mounted) return;
+    if (confirmed != true || url.isEmpty || !context.mounted) return;
 
     // PSRC-253 bổ sung: hỏi máy chủ dung lượng FILE trước khi tải. Đây là số
     // do HEAD báo, không phải RAM cần để chạy; nếu máy chủ không trả thì vẫn
     // tải bình thường và để preflight sau tải kiểm tra file thật.
     final probe = await facade.probeModelDownloadFit(url);
-    if (!mounted) return;
+    if (!context.mounted) return;
     var confirmedRisk = false;
     if (probe.hasSize) {
       final verdict = facade.lastModelFitVerdict;
@@ -2084,7 +2084,7 @@ class _GemmaChatModelCard extends StatelessWidget {
             ],
           ),
         );
-        if (ok != true || !mounted) return;
+        if (ok != true || !context.mounted) return;
         confirmedRisk = true;
       }
     }
@@ -2094,7 +2094,7 @@ class _GemmaChatModelCard extends StatelessWidget {
       userConfirmedRisk: confirmedRisk,
       skipSizeProbe: true, // đã dò ở trên, không gọi HEAD lần hai.
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
     final modelNote =
         facade.modelFileName != null ? ' — ${facade.modelFileName}' : '';
     messenger.showSnackBar(

@@ -2390,4 +2390,8 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   // PSRC-255 — compact Remember workspace
   '5 công cụ': '5 tools',
   'Thu gọn chi tiết': 'Collapse details',
+  // PSRC-256 — OpenTipitaka source credit
+  'Dự án Tipiṭaka đa ngữ được cộng đồng Pa-Auk hỗ trợ.': 'Multilingual Tipiṭaka project supported by the Pa-Auk community.',
+  'Không mở được trang OpenTipitaka.': 'Could not open the OpenTipitaka page.',
+  'Nguồn nội dung: OpenTipitaka · opentipitaka.org': 'Content source: OpenTipitaka · opentipitaka.org',
 };

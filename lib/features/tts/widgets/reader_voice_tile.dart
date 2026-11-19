@@ -41,6 +41,8 @@ class ReaderVoiceTile extends StatelessWidget {
               else
                 '${l.ttsOverride}: ${context.uiText(info.name)}',
               if (canPickVoice) '${l.ttsVoice}: ${pref?.voice ?? l.ttsInherit}',
+              if (service.lastReader == reader && service.playbackUnavailable)
+                l.ttsPlaybackUnavailable,
               if (last.isNotEmpty) '${l.ttsLastPlayback}: $last',
             ].join('\n')),
             onTap: () async {

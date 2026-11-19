@@ -757,8 +757,15 @@ void main() {
       final source = ttsSource();
       expect(source, contains("import 'engines/edge_tts_engine.dart';"));
       expect(source, contains("id: 'edge_tts'"));
-      final caseCount = RegExp("case 'edge_tts':").allMatches(source).length;
-      expect(caseCount, 2);
+      // Export and reader voice catalogs also dispatch on engine ID now.
+      // Check the two playback contracts, not case counts across the file.
+      for (final (start, end) in [
+        ('Future<void> speak(String', 'Future<bool> _speakPreparedChunks('),
+        ('Future<List<TtsEngine>> _getOnlineEngines(', 'String _resolveLanguage('),
+      ]) {
+        final body = source.substring(source.indexOf(start), source.indexOf(end));
+        expect(body, contains("case 'edge_tts':"));
+      }
     });
 
     test('edge_tts là ONLINE đầu tiên (trước google) cho cài đặt mới', () {

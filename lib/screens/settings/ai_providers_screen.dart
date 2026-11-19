@@ -10,6 +10,8 @@
 // - KHÔNG log/hiển thị apiKey ở dạng rõ (obscure text field).
 // - Chưa cấu hình gì → app hành xử y hệt trước khi có tầng API.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 // localized_material = material.dart (hide Text) + extension uiText đã locale-hóa.
 // `hide Text` để không đụng `Text` của material (dùng trong file này).
@@ -107,18 +109,54 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
                     ),
                   ),
                 )
-              else
-                ...providers.map(
-                  (p) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _ProviderCard(
-                      config: p,
-                      onChanged: (next) => _store.upsert(next),
-                      onEdit: () => _openForm(p),
-                      onDeleted: () => _confirmDelete(p),
-                    ),
+              else ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.drag_indicator, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          context.uiText(
+                            'Kéo để sắp xếp ưu tiên. Provider trên lỗi sẽ tự '
+                            'chuyển sang provider kế tiếp theo thứ tự này.',
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                ReorderableListView.builder(
+                  key: const Key('ai-provider-reorder-list'),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: providers.length,
+                  onReorder: (oldIndex, newIndex) {
+                    final next = List<AiProviderConfig>.from(providers);
+                    if (newIndex > oldIndex) newIndex--;
+                    final moved = next.removeAt(oldIndex);
+                    next.insert(newIndex, moved);
+                    unawaited(_store.reorderProviders(
+                      next.map((p) => p.id).toList(),
+                    ));
+                  },
+                  itemBuilder: (context, index) {
+                    final p = providers[index];
+                    return Padding(
+                      key: ValueKey('ai-provider-${p.id}'),
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ProviderCard(
+                        config: p,
+                        onChanged: (next) => _store.upsert(next),
+                        onEdit: () => _openForm(p),
+                        onDeleted: () => _confirmDelete(p),
+                      ),
+                    );
+                  },
+                ),
+              ],
               OutlinedButton.icon(
                 onPressed: () => _openForm(null),
                 icon: const Icon(Icons.add),
@@ -1115,6 +1153,17 @@ class _CloudSyncSection extends StatelessWidget {
                   context.uiText(
                       'Đăng nhập là có sẵn cấu hình (provider, key, chế độ định tuyến) ở máy khác — không phải nhập lại. Chỉ lưu trong tài khoản của bạn.'),
                   style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.uiText(
+                    'Phạm vi đồng bộ: chỉ qua tài khoản đã đăng nhập (Firebase). '
+                    'Thứ tự ưu tiên kéo-thả được lưu cùng cấu hình. Chưa đăng '
+                    'nhập ⇒ chỉ lưu trên máy; app KHÔNG có đồng bộ xuyên thiết '
+                    'bị tự động.',
+                  ),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.hintColor),
                 ),
                 const SizedBox(height: 8),
                 Row(

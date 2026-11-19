@@ -54,9 +54,10 @@ export 'src/engine/ai_connectivity_routing.dart';
 // routing offline/online, client OpenAI-compatible duy nhất.
 // WP3 (API-004) thêm chatCompletion + OpenAiChatMessage (dịch bằng LLM).
 export 'src/provider/ai_provider_config.dart';
+export 'src/provider/ai_provider_fallback.dart';
 export 'src/provider/builtin_ai_providers.dart';
 export 'src/provider/ai_provider_store.dart'
-    show AiProviderStore;
+    show AiProviderStore, reorderAiProviders;
 
 // API-SYNC-001 — đồng bộ cấu hình Server & API lên Firebase (phần THUẦN:
 // snapshot + hòa giải LWW + bia mộ; I/O nằm ở app layer).

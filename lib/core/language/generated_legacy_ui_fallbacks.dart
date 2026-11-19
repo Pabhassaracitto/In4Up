@@ -2384,4 +2384,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   '~4–7 GB · ví dụ Qwen 2.5 7B / Llama 3 8B (Q4)': '~4–7 GB · e.g. Qwen 2.5 7B / Llama 3 8B (Q4)',
   'Đang có nhiều tác vụ AI nặng chạy cùng lúc — máy có thể nóng và tốn RAM. Đợi một tác vụ xong rồi tiếp tục.': 'Several heavy AI tasks are running at once — the device may heat up and use more RAM. Wait for one to finish before continuing.',
   'Đầy đủ — máy nhiều RAM, cần tốc độ': 'Full — high-RAM devices, better speed',
+  // PSRC-254 — provider priority / sync scope
+  'Kéo để sắp xếp ưu tiên. Provider trên lỗi sẽ tự chuyển sang provider kế tiếp theo thứ tự này.': 'Drag to set priority. If the top provider fails, the app tries the next one in this order.',
+  'Phạm vi đồng bộ: chỉ qua tài khoản đã đăng nhập (Firebase). Thứ tự ưu tiên kéo-thả được lưu cùng cấu hình. Chưa đăng nhập ⇒ chỉ lưu trên máy; app KHÔNG có đồng bộ xuyên thiết bị tự động.': 'Sync scope: only via the signed-in account (Firebase). The drag-and-drop priority order is saved with the configuration. While signed out it stays on this device only; there is no automatic cross-device sync.',
 };

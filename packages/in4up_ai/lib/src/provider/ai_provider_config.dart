@@ -171,9 +171,17 @@ class AiRoutingPrefs {
   final Map<AiRouteCapability, AiRouteMode> modes;
   final Map<AiRouteCapability, String> preferredProviderIds;
 
+  /// PSRC-254 — thứ tự ưu tiên TOÀN CỤC của provider (id). Nằm trong routing
+  /// prefs để đi cùng snapshot cloud: danh sách provider trong snapshot được
+  /// hòa giải theo id (không giữ thứ tự), riêng field này giữ thứ tự kéo-thả.
+  /// Danh sách RỖNG = dùng thứ tự lưu trong `ai_providers_json_v1` (tương
+  /// thích bản cũ).
+  final List<String> providerOrder;
+
   const AiRoutingPrefs({
     this.modes = const {},
     this.preferredProviderIds = const {},
+    this.providerOrder = const [],
   });
 
   /// YT-AUDIT-06 (IN4-104): mặc định `auto` (theo loại mạng) thay vì
@@ -186,10 +194,12 @@ class AiRoutingPrefs {
   AiRoutingPrefs copyWith({
     Map<AiRouteCapability, AiRouteMode>? modes,
     Map<AiRouteCapability, String>? preferredProviderIds,
+    List<String>? providerOrder,
   }) {
     return AiRoutingPrefs(
       modes: modes ?? this.modes,
       preferredProviderIds: preferredProviderIds ?? this.preferredProviderIds,
+      providerOrder: providerOrder ?? this.providerOrder,
     );
   }
 
@@ -200,6 +210,7 @@ class AiRoutingPrefs {
         },
         'preferredProviderIds': Map<String, String>.from(preferredProviderIds
             .map((k, v) => MapEntry(k.toString().split('.').last, v))),
+        'providerOrder': List<String>.from(providerOrder),
       };
 
   static AiRoutingPrefs fromJson(Map<String, dynamic> json) {
@@ -223,7 +234,19 @@ class AiRoutingPrefs {
       final raw = rawPreferred[key] as String?;
       if (raw != null && raw.isNotEmpty) preferred[cap] = raw;
     }
-    return AiRoutingPrefs(modes: modes, preferredProviderIds: preferred);
+    final rawOrder = json['providerOrder'];
+    final order = <String>[];
+    if (rawOrder is List) {
+      for (final id in rawOrder) {
+        final value = id.toString();
+        if (value.isNotEmpty && !order.contains(value)) order.add(value);
+      }
+    }
+    return AiRoutingPrefs(
+      modes: modes,
+      preferredProviderIds: preferred,
+      providerOrder: List.unmodifiable(order),
+    );
   }
 }
 

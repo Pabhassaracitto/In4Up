@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/core/language/app_language.dart';
 import 'package:in4up/features/translation/translation_display_mode.dart';
 import 'package:in4up/features/word_lookup/services/word_insight_service.dart';
 import 'package:in4up/models/color_mode.dart';
@@ -13,6 +14,7 @@ import 'package:in4up/providers/text_provider.dart';
 import 'package:in4up/providers/vocabulary_provider.dart';
 import 'package:in4up/screens/read_mode/controllers/read_mode_controller.dart';
 import 'package:in4up/screens/read_mode/services/playback_controller.dart';
+import 'package:in4up/screens/read_mode/sheets/read_selection_sheets.dart';
 import 'package:in4up/screens/read_mode/widgets/read_word_ipa.dart';
 import 'package:in4up/screens/read_mode/widgets/text_line_widget.dart';
 import 'package:in4up/screens/read_mode/widgets/word_mini_pop.dart';
@@ -27,6 +29,12 @@ const _repeatedWordIndex = 4;
 
 class _ReaderText extends TextProvider {
   bool showIpa;
+
+  void hideIpa() {
+    showIpa = false;
+    notifyListeners();
+  }
+
   @override
   final bool wordTapBoxes;
   @override
@@ -59,6 +67,13 @@ class _ReaderText extends TextProvider {
   @override
   List<IpaSegment>? lineIpaSegmentsFor(int index) =>
       LineIpaService.buildLineIpaSegments(lines[index].content);
+  // Same-language selection keeps the sheet regression independent of engines.
+  @override
+  AppLanguage get translationTargetLanguage => AppLanguageCatalog.english;
+  @override
+  AppLanguage get translationSourceLanguage => AppLanguageCatalog.english;
+  @override
+  bool get translationSourceIsPinned => true;
   @override
   Future<void> speak(String text, {int? lineIndex, String? language}) async {
     spoken.add(text);
@@ -213,11 +228,11 @@ void main() {
         var pop = tester.widget<WordMiniPop>(find.byType(WordMiniPop));
         expect(pop.wordIndex, _repeatedWordIndex);
         expect(pop.anchorRect!.contains(wordRect.center), isTrue);
+        expect(pop.anchorRect!.contains(ipaRect.center), isTrue);
         WordMiniPop.dismiss();
         await tester.pump();
 
-        tp.showIpa = false;
-        tp.notifyListeners();
+        tp.hideIpa();
         await tester.pump();
         expect(find.byType(ReadWordIpa), findsNothing);
         if (boxes) {
@@ -246,6 +261,28 @@ void main() {
       });
     }
   }
+
+  testWidgets(
+      'double tap on a wrapped source word still opens line translation',
+      (tester) async {
+    final tp = _ReaderText(true, false, TranslationDisplayMode.stackedBelow);
+    await _mount(tester, tp);
+    final sourceWord = _sourceWord('cat').at(1);
+    await tester.tap(sourceWord);
+    await tester.pump();
+    expect(tp.spoken, ['cat']);
+    await tester.tap(sourceWord);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tp.spoken, ['cat', _source]);
+    expect(find.byType(WordMiniPop), findsNothing);
+    final sheet = tester.widget<ReadSelectionTranslateSheet>(
+      find.byType(ReadSelectionTranslateSheet),
+    );
+    expect(sheet.text, _source);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
 
   for (final boxes in [false, true]) {
     testWidgets('hold + drag from IPA across a wrapped run, boxes=$boxes',

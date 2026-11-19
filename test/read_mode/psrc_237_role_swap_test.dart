@@ -653,7 +653,7 @@ void main() {
       // bằng SnackBar (nút Dịch, 2 dòng trong bảng nhấn giữ; PSRC-238: đổi
       // ngôn ngữ chặn cả lúc MỞ bảng chọn cặp lẫn lúc áp lựa chọn).
       expect(
-        '_blockedWhileSwapped(context, textProvider)'
+        RegExp(r'_blockedWhileSwapped\(\s*context,\s*textProvider\s*\)')
             .allMatches(toolbar)
             .length,
         5,

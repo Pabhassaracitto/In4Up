@@ -7,6 +7,7 @@ import 'package:in4up_ai/in4up_ai.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/language/app_language.dart';
+import '../../core/language/translation_ui_labels.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
 import 'engines/deeplx_endpoint.dart';
@@ -21,6 +22,7 @@ import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
 import 'widgets/engine_sheet_section.dart';
+import 'widgets/translation_engine_controls.dart';
 
 /// SHELL-GEAR-001: seam log điểm nhấn gear "Cài đặt engine dịch" (ứng viên
 /// gear #2 trong card — gear #1 là drawer "Giao diện shell" ở main_shell).
@@ -46,221 +48,229 @@ class TranslationToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<TextProvider>(
-      builder: (context, textProvider, _) {
-        final isTranslating = textProvider.isTranslating;
-        final hasTranslations = textProvider.translatedLineCount > 0;
-        final displayMode = textProvider.translationDisplayMode;
-        final progress = textProvider.translationProgress;
-        // PSRC-238: nguồn HIỆU DỤNG (người dùng chọn, hoặc tự nhận diện).
-        final sourceLanguage = textProvider.translationSourceLanguage;
-        final targetLanguage = textProvider.translationTargetLanguage;
-        final sameLanguage = textProvider.translationPairUsesSameLanguage;
+      builder: (context, textProvider, _) => AnimatedBuilder(
+        animation: textProvider.translationService,
+        builder: (context, _) {
+          final isTranslating = textProvider.isTranslating;
+          final hasTranslations = textProvider.translatedLineCount > 0;
+          final displayMode = textProvider.translationDisplayMode;
+          final progress = textProvider.translationProgress;
+          // PSRC-238: nguồn HIỆU DỤNG (người dùng chọn, hoặc tự nhận diện).
+          final sourceLanguage = textProvider.translationSourceLanguage;
+          final targetLanguage = textProvider.translationTargetLanguage;
+          final sameLanguage = textProvider.translationPairUsesSameLanguage;
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.3),
-            border: Border(
-              bottom: BorderSide(
-                color: primaryColor.withValues(alpha: 0.2),
-                width: 1,
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              border: Border(
+                bottom: BorderSide(
+                  color: primaryColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
               ),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final translateButton = _TranslateButton(
-                    isTranslating: isTranslating,
-                    hasTranslations: hasTranslations,
-                    pipelineStale: textProvider.translationPipelineStale,
-                    primaryColor: primaryColor,
-                    progress: progress,
-                    totalLines: textProvider.lines.length,
-                    translatedLines: textProvider.translatedLineCount,
-                    requiresLanguageChoice: sameLanguage,
-                    onTap: () async {
-                      if (isTranslating) {
-                        textProvider.cancelTranslation();
-                      } else if (_blockedWhileSwapped(context, textProvider)) {
-                        // PSRC-237: đã báo lý do — không dịch đè văn bản gốc.
-                      } else if (sameLanguage) {
-                        // PSRC-238: bảng mở sẵn ở phía đích kèm một đích
-                        // được đề nghị; chọn xong thì dịch luôn (người dùng
-                        // vừa bấm «Dịch»).
-                        await _openLanguagePair(
-                          context,
-                          textProvider,
-                          translateAfter: true,
-                        );
-                      } else {
-                        await textProvider.translateAll(
-                          forceRetranslate:
-                              textProvider.translationPipelineStale,
-                        );
-                      }
-                    },
-                    onLongPress: () =>
-                        _showTranslationOptions(context, textProvider),
-                  );
-                  final languageButton = TranslationLanguagePickerButton(
-                    sourceLanguage: sourceLanguage,
-                    targetLanguage: targetLanguage,
-                    sourceIsAuto: !textProvider.translationSourceIsPinned,
-                    accentColor: primaryColor,
-                    onPressed: () => _openLanguagePair(context, textProvider),
-                  );
-                  final settingsButton = Listener(
-                    // SHELL-GEAR-001: raw pointer log — không đổi gesture.
-                    onPointerDown: (_) => _shellGearPointerLog('down'),
-                    onPointerUp: (_) => _shellGearPointerLog('up'),
-                    onPointerCancel: (_) => _shellGearPointerLog('cancel'),
-                    child: IconButton(
-                      onPressed: () =>
-                          _showServerSettings(context, textProvider),
-                      icon: const Icon(Icons.settings_outlined, size: 16),
-                      color: Colors.grey[500],
-                      tooltip: context.uiText('Cài đặt engine dịch'),
-                      constraints:
-                          const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                  );
-                  final blurButton = IconButton(
-                    tooltip: context.uiText('Làm mờ bản dịch'),
-                    isSelected: textProvider.blurTranslations,
-                    onPressed: displayMode == TranslationDisplayMode.hidden
-                        ? null
-                        : () => textProvider.setBlurTranslations(
-                            !textProvider.blurTranslations),
-                    icon: Icon(textProvider.blurTranslations
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined),
-                    color: textProvider.blurTranslations ? primaryColor : Colors.grey,
-                    visualDensity: VisualDensity.compact,
-                  );
-                  // PSRC-237 / ADR-0031: đưa bản dịch lên làm văn bản chính
-                  // để IPA / tô màu / tra từ chạy được trên nó.
-                  final roleSwapButton =
-                      RoleSwapButton(primaryColor: primaryColor);
-                  final layoutSelector = _LayoutSelector(
-                    displayMode: displayMode,
-                    primaryColor: primaryColor,
-                    onChanged: textProvider.setTranslationDisplayMode,
-                  );
-
-                  if (constraints.maxWidth < 560) {
-                    return Column(
-                      children: [
-                        Row(
-                          children: [
-                            translateButton,
-                            const SizedBox(width: 8),
-                            languageButton,
-                            const Spacer(),
-                            settingsButton,
-                          ],
-                        ),
-                        if (hasTranslations) ...[
-                          const SizedBox(height: 7),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                layoutSelector,
-                                blurButton,
-                                roleSwapButton,
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final translateButton = _TranslateButton(
+                      isTranslating: isTranslating,
+                      hasTranslations: hasTranslations,
+                      pipelineStale: textProvider.translationPipelineStale,
+                      primaryColor: primaryColor,
+                      progress: progress,
+                      totalLines: textProvider.lines.length,
+                      translatedLines: textProvider.translatedLineCount,
+                      requiresLanguageChoice: sameLanguage,
+                      onTap: () async {
+                        if (isTranslating) {
+                          textProvider.cancelTranslation();
+                        } else if (_blockedWhileSwapped(
+                            context, textProvider)) {
+                          // PSRC-237: đã báo lý do — không dịch đè văn bản gốc.
+                        } else if (sameLanguage) {
+                          // PSRC-238: bảng mở sẵn ở phía đích kèm một đích
+                          // được đề nghị; chọn xong thì dịch luôn (người dùng
+                          // vừa bấm «Dịch»).
+                          await _openLanguagePair(
+                            context,
+                            textProvider,
+                            translateAfter: true,
+                          );
+                        } else {
+                          await textProvider.translateAll(
+                            forceRetranslate:
+                                textProvider.translationPipelineStale,
+                          );
+                        }
+                      },
+                      onLongPress: () =>
+                          _showTranslationOptions(context, textProvider),
                     );
-                  }
-
-                  return Row(
-                    children: [
-                      translateButton,
-                      const SizedBox(width: 8),
-                      languageButton,
-                      if (hasTranslations) ...[
-                        const Spacer(),
-                        layoutSelector,
-                        blurButton,
-                        roleSwapButton,
-                      ] else
-                        const Spacer(),
-                      const SizedBox(width: 4),
-                      settingsButton,
-                    ],
-                  );
-                },
-              ),
-              if (isTranslating) ...[
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: Colors.white12,
-                      valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                      minHeight: 2),
-                ),
-                // HYMT-002: báo rõ đang dùng Hy-MT OFFLINE (có thể chậm) —
-                // kết thúc luôn ở success/error hữu hạn (isTranslating=false
-                // khi xong; mọi timeout của engine đều hữu hạn).
-                ValueListenableBuilder<String?>(
-                  valueListenable: textProvider.translationEngineNotifier,
-                  builder: (context, engineName, _) {
-                    if (engineName == null || !engineName.contains('Hy-MT')) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        context.uiText(
-                            'Đang dịch bằng Hy-MT offline, có thể chậm'),
-                        style: const TextStyle(
-                            fontSize: 10, color: Colors.white70),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    final languageButton = TranslationLanguagePickerButton(
+                      sourceLanguage: sourceLanguage,
+                      targetLanguage: targetLanguage,
+                      sourceIsAuto: !textProvider.translationSourceIsPinned,
+                      accentColor: primaryColor,
+                      onPressed: () => _openLanguagePair(context, textProvider),
+                    );
+                    final settingsButton = Listener(
+                      // SHELL-GEAR-001: raw pointer log — không đổi gesture.
+                      onPointerDown: (_) => _shellGearPointerLog('down'),
+                      onPointerUp: (_) => _shellGearPointerLog('up'),
+                      onPointerCancel: (_) => _shellGearPointerLog('cancel'),
+                      child: IconButton(
+                        onPressed: () =>
+                            _showServerSettings(context, textProvider),
+                        icon: const Icon(Icons.settings_outlined, size: 16),
+                        color: Colors.grey[500],
+                        tooltip: context.uiText('Cài đặt engine dịch'),
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                        padding: EdgeInsets.zero,
                       ),
+                    );
+                    final blurButton = IconButton(
+                      tooltip: context.uiText('Làm mờ bản dịch'),
+                      isSelected: textProvider.blurTranslations,
+                      onPressed: displayMode == TranslationDisplayMode.hidden
+                          ? null
+                          : () => textProvider.setBlurTranslations(
+                              !textProvider.blurTranslations),
+                      icon: Icon(textProvider.blurTranslations
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                      color: textProvider.blurTranslations
+                          ? primaryColor
+                          : Colors.grey,
+                      visualDensity: VisualDensity.compact,
+                    );
+                    // PSRC-237 / ADR-0031: đưa bản dịch lên làm văn bản chính
+                    // để IPA / tô màu / tra từ chạy được trên nó.
+                    final roleSwapButton =
+                        RoleSwapButton(primaryColor: primaryColor);
+                    final layoutSelector = _LayoutSelector(
+                      displayMode: displayMode,
+                      primaryColor: primaryColor,
+                      onChanged: textProvider.setTranslationDisplayMode,
+                    );
+
+                    if (constraints.maxWidth < 560) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              translateButton,
+                              const SizedBox(width: 8),
+                              languageButton,
+                              const Spacer(),
+                              settingsButton,
+                            ],
+                          ),
+                          if (hasTranslations) ...[
+                            const SizedBox(height: 7),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  layoutSelector,
+                                  blurButton,
+                                  roleSwapButton,
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        translateButton,
+                        const SizedBox(width: 8),
+                        languageButton,
+                        if (hasTranslations) ...[
+                          const Spacer(),
+                          layoutSelector,
+                          blurButton,
+                          roleSwapButton,
+                        ] else
+                          const Spacer(),
+                        const SizedBox(width: 4),
+                        settingsButton,
+                      ],
                     );
                   },
                 ),
-              ],
-              if (textProvider.translationBlockedBySamePair)
-                // PSRC-238: nguồn trùng đích ⇒ đề nghị một đích khác ngay
-                // tại chỗ thay cho dòng lỗi đỏ.
-                _SamePairSuggestion(
-                  suggestion: textProvider.suggestedTranslationTarget(
-                    uiLanguageCode:
-                        Localizations.localeOf(context).toLanguageTag(),
-                  ),
-                  primaryColor: primaryColor,
-                  onAccept: (language) => _applyLanguagePair(
-                    context,
-                    textProvider,
-                    TranslationPairChoice(target: language),
-                    translateAfter: true,
-                  ),
-                )
-              else if (textProvider.translationError != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  context.uiText('Lỗi: ${textProvider.translationError}'),
-                  style: const TextStyle(fontSize: 10, color: Colors.redAccent),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 8),
+                TranslationEnginePicker(
+                  service: textProvider.translationService,
+                  enabled: !isTranslating,
                 ),
+                TranslationRunStatusPanel(
+                  document: textProvider,
+                  onRetry: isTranslating || textProvider.rolesSwapped
+                      ? null
+                      : () => textProvider.translateAll(forceRetranslate: true),
+                ),
+                if (isTranslating) ...[
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.white12,
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                        minHeight: 2),
+                  ),
+                  // HYMT-002: báo rõ đang dùng Hy-MT OFFLINE (có thể chậm) —
+                  // kết thúc luôn ở success/error hữu hạn (isTranslating=false
+                  // khi xong; mọi timeout của engine đều hữu hạn).
+                  ValueListenableBuilder<String?>(
+                    valueListenable: textProvider.translationEngineNotifier,
+                    builder: (context, engineName, _) {
+                      if (engineName == null || !engineName.contains('Hy-MT')) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(
+                          context.uiText(
+                              'Đang dịch bằng Hy-MT offline, có thể chậm'),
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+                if (textProvider.translationBlockedBySamePair)
+                  // PSRC-238: nguồn trùng đích ⇒ đề nghị một đích khác ngay
+                  // tại chỗ thay cho dòng lỗi đỏ.
+                  _SamePairSuggestion(
+                    suggestion: textProvider.suggestedTranslationTarget(
+                      uiLanguageCode:
+                          Localizations.localeOf(context).toLanguageTag(),
+                    ),
+                    primaryColor: primaryColor,
+                    onAccept: (language) => _applyLanguagePair(
+                      context,
+                      textProvider,
+                      TranslationPairChoice(target: language),
+                      translateAfter: true,
+                    ),
+                  ),
               ],
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -317,7 +327,8 @@ class TranslationToolbar extends StatelessWidget {
         SnackBar(
           content: Text(
             target.translationCode != targetBefore
-                ? context.uiText('${target.flag} Đã đổi bản dịch và giọng đọc sang ${target.nativeName}')
+                ? context.uiText(
+                    '${target.flag} Đã đổi bản dịch và giọng đọc sang ${target.nativeName}')
                 : context.uiText('Ngôn ngữ nguồn: $sourceLabel'),
           ),
           duration: const Duration(seconds: 2),
@@ -408,7 +419,7 @@ class TranslationToolbar extends StatelessWidget {
     TextProvider textProvider,
   ) {
     // ★ SỬA 1: Tạo instance, không dùng static
-    final service = TranslationService();
+    final service = textProvider.translationService;
 
     showModalBottomSheet(
       context: context,
@@ -443,9 +454,11 @@ class TranslationEngineSettingsSheet extends StatefulWidget {
       _TranslationEngineSettingsSheetState();
 }
 
-class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettingsSheet> {
+class _TranslationEngineSettingsSheetState
+    extends State<TranslationEngineSettingsSheet> {
   late final TextEditingController _urlController =
       TextEditingController(text: widget.service.deeplxUrl ?? '');
+  bool _urlEdited = false;
 
   /// PSRC-28: danh sách gói ML Kit = 3 ngôn ngữ phổ biến hiện sẵn + phần còn
   /// lại trong 26 ngôn ngữ của app (mở bằng "Thêm ngôn ngữ").
@@ -459,8 +472,10 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   bool? _offlineOnly;
   HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
   bool _hymtHas = false;
+
   /// Lý do cụ thể khi model hiện có KHÔNG dùng được (null = không có vấn đề).
   String? _hymtIssue;
+
   /// File 2-bit cũ còn chiếm chỗ (~601 MB) và KHÔNG load được — mời xoá.
   bool _hymtLegacy = false;
   bool _hymtBusy = false;
@@ -493,6 +508,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   void initState() {
     super.initState();
     _packs.addListener(_onPacksChanged);
+    widget.service.addListener(_onRoutingChanged);
+    widget.service.activeEngineNotifier.addListener(_onRoutingChanged);
     _offlineOnly = widget.service.offlineOnly;
     _enginePref = widget.service.offlineEnginePref;
     _llmInfo = _loadLlmInfo();
@@ -523,8 +540,22 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   @override
   void dispose() {
     _packs.removeListener(_onPacksChanged);
+    widget.service.removeListener(_onRoutingChanged);
+    widget.service.activeEngineNotifier.removeListener(_onRoutingChanged);
     _urlController.dispose();
     super.dispose();
+  }
+
+  void _onRoutingChanged() {
+    if (!mounted) return;
+    setState(() {
+      _offlineOnly = widget.service.offlineOnly;
+      _enginePref = widget.service.offlineEnginePref;
+      if (!_urlEdited) {
+        final url = widget.service.deeplxUrl ?? '';
+        if (_urlController.text != url) _urlController.text = url;
+      }
+    });
   }
 
   /// Registry đổi trạng thái (kể cả khi lượt tải chạy tiếp sau khi sheet đã
@@ -654,6 +685,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             const SizedBox(height: 8),
             _buildLiveEngineStatus(),
             const SizedBox(height: 12),
+            _buildEnginePrioritySection(),
 
             // ── Nhóm THƯỜNG DÙNG (mở sẵn) ────────────────────────────
             EngineSheetSection(
@@ -678,8 +710,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               alignment: Alignment.centerRight,
               child: ElevatedButton(
                 onPressed: _saveAndClose,
-                style:
-                    ElevatedButton.styleFrom(backgroundColor: widget.accentColor),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.accentColor),
                 child: Text(context.uiText('Lưu')),
               ),
             ),
@@ -688,6 +720,19 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       ),
     );
   }
+
+  Widget _buildEnginePrioritySection() => EngineSheetSection(
+        title: context.uiText(TranslationUiLabels.order),
+        subtitle: widget.service.selectedEngineName,
+        icon: Icons.reorder,
+        accentColor: widget.accentColor,
+        children: [
+          TranslationEngineOrderList(
+            service: widget.service,
+            accentColor: widget.accentColor,
+          ),
+        ],
+      );
 
   /// Badge trên tiêu đề nhóm gói offline: cho biết NGAY đã tải được mấy gói
   /// mà không phải mở thẻ.
@@ -699,10 +744,12 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       );
     }
     final ready = _catalog.all
-        .where((language) => _packs.statusOf(_bcpOf(language.translationCode)).isReady)
+        .where((language) =>
+            _packs.statusOf(_bcpOf(language.translationCode)).isReady)
         .length;
     final downloading = _catalog.all.any(
-      (language) => _packs.statusOf(_bcpOf(language.translationCode)).isDownloading,
+      (language) =>
+          _packs.statusOf(_bcpOf(language.translationCode)).isDownloading,
     );
     final label = downloading
         ? context.uiText('Đang tải ngầm...')
@@ -746,7 +793,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: () => setState(() => _showAllLanguages = !_showAllLanguages),
+            onPressed: () =>
+                setState(() => _showAllLanguages = !_showAllLanguages),
             icon: Icon(
               _showAllLanguages
                   ? Icons.expand_less_rounded
@@ -782,6 +830,10 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               : Colors.grey.withValues(alpha: 0.25),
         ),
       ),
+      // The Material must be ABOVE this card's decoration so ListTile ink
+      // remains visible (and Flutter 3.44's ListTile assertion stays satisfied).
+      child: Material(
+        type: MaterialType.transparency,
       child: SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
         dense: true,
@@ -799,6 +851,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
           setState(() => _offlineOnly = v);
           widget.service.offlineOnly = v;
         },
+      ),
       ),
     );
   }
@@ -962,8 +1015,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                     // Label/model là dữ liệu user nhập — không dịch.
                     Expanded(
                       child: Text(
-                        context
-                            .uiText('${provider.label} · ${provider.chatModel ?? ''}'),
+                        context.uiText(
+                            '${provider.label} · ${provider.chatModel ?? ''}'),
                         style:
                             const TextStyle(color: Colors.white, fontSize: 12),
                         overflow: TextOverflow.ellipsis,
@@ -973,7 +1026,9 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                 ),
                 const SizedBox(height: 2),
                 EngineSheetHint(
-                  mode == AiRouteMode.onlineFirst
+                  widget.service.savedEnginePriority != null
+                      ? context.uiText(TranslationUiLabels.policyHint)
+                      : mode == AiRouteMode.onlineFirst
                       ? context.uiText(
                           'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.',
                         )
@@ -999,6 +1054,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       children: [
         TextField(
           controller: _urlController,
+          onChanged: (_) => _urlEdited = true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: context.uiText('Để trống → dùng Google Free'),
@@ -1046,6 +1102,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
       ),
+      child: Material(
+        type: MaterialType.transparency,
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1055,7 +1113,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
           style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
         subtitle: Text(
-          context.uiText('Khóa thuật ngữ Phật học/Pali — engine không được đè.'),
+            context
+                .uiText('Khóa thuật ngữ Phật học/Pali — engine không được đè.'),
           style: TextStyle(color: Colors.grey[600], fontSize: 11),
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
@@ -1063,6 +1122,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
           await showGlossarySheet(context, accentColor: widget.accentColor);
           if (mounted) setState(() {});
         },
+      ),
       ),
     );
   }
@@ -1076,7 +1136,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final verdict = assessDeepLXEndpoint(raw);
     // AUDIT-1.21.0 #6: đừng lưu link bài hướng dẫn/forum làm endpoint. Nói rõ
     // ngay trong sheet (không pop im lặng).
-    if (!verdict.isValid && verdict.issue != DeepLXEndpointIssue.notConfigured) {
+    if (!verdict.isValid &&
+        verdict.issue != DeepLXEndpointIssue.notConfigured) {
       setState(() {
         _deeplxTestOk = false;
         // verdict.message đã là English canonical (rule #5), không cần uiText
@@ -1169,8 +1230,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       if (!mounted) return;
       setState(() {
         _probing = false;
-        _probeOk = result.isSuccess &&
-            result.translatedText.trim().isNotEmpty;
+        _probeOk = result.isSuccess && result.translatedText.trim().isNotEmpty;
         if (_probeOk) {
           final engine = result.engineName.trim();
           _probeMessage = engine.isEmpty
@@ -1213,7 +1273,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
           language.translationCode,
     ];
     final mlkitDownloading = _catalog.all.any(
-      (language) => _packs.statusOf(_bcpOf(language.translationCode)).isDownloading,
+      (language) =>
+          _packs.statusOf(_bcpOf(language.translationCode)).isDownloading,
     );
     final grey = TextStyle(color: Colors.grey[500], fontSize: 11);
 
@@ -1243,7 +1304,9 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               ),
               Chip(
                 label: Text(
-                  online ? context.uiText('Online') : context.uiText('Chỉ offline'),
+                  online
+                      ? context.uiText('Online')
+                      : context.uiText('Chỉ offline'),
                   style: const TextStyle(fontSize: 10),
                 ),
                 visualDensity: VisualDensity.compact,
@@ -1254,6 +1317,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          TranslationEnginePicker(service: service),
           const SizedBox(height: 6),
           Text(
             context.uiText('Thứ tự ưu tiên'),
@@ -1300,7 +1365,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             ],
           ),
           const SizedBox(height: 8),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextButton.icon(
                 onPressed: _probing ? null : _probeEngine,
@@ -1313,9 +1379,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                     : const Icon(Icons.science_outlined, size: 16),
                 label: Text(context.uiText('Kiểm tra engine ngay')),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
+              const SizedBox(height: 4),
+              Text(
                   _probeMessage ??
                       context.uiText(
                         'Dịch thử một câu để biết engine nào thực sự trả lời.',
@@ -1327,7 +1392,6 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                     fontSize: 11,
                   ),
                 ),
-              ),
             ],
           ),
         ],

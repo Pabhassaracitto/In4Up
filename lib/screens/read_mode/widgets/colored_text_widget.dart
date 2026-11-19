@@ -18,6 +18,7 @@ import '../services/read_text_action_runner.dart';
 import '../services/word_range_selection.dart';
 import '../sheets/word_actions_sheet.dart';
 import 'read_text_action_hooks.dart';
+import 'read_word_ipa.dart';
 import 'word_mini_pop.dart';
 
 /// Chế độ ô chữ (tô màu / IPA) của tab Đọc — mỗi từ một ô chạm được.
@@ -49,6 +50,7 @@ class ColoredTextWidget extends StatefulWidget {
   /// Căn lề của dòng (IN4: dòng dài rớt hàng thì phần rớt bị canh TRÁI
   /// trong khi hàng đầu canh giữa). Dùng để canh **từng hàng** của Wrap.
   final TextAlign textAlign;
+  final Map<int, InlineSpan> wordIpa;
 
   const ColoredTextWidget({
     super.key,
@@ -58,6 +60,7 @@ class ColoredTextWidget extends StatefulWidget {
     required this.lineIndex,
     this.lineStartOffset,
     this.textAlign = TextAlign.left,
+    this.wordIpa = const {},
   });
 
   @override
@@ -191,6 +194,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
     return _ColoredWord(
       key: _wordKeys[index],
       word: widget.words[index],
+      ipa: widget.wordIpa[index],
       fontSize: widget.fontSize,
       colorMode: widget.colorMode,
       // READ-WORDSTYLE-001: nền màu / chỉ màu chữ / gạch chân.
@@ -470,6 +474,7 @@ class _ColoredWord extends StatelessWidget {
   final bool isAnchor;
   final bool selectionActive;
 
+  final InlineSpan? ipa;
   final VoidCallback onTap;
   final VoidCallback onLongPressStart;
   final void Function(Offset globalPosition) onLongPressMoveUpdate;
@@ -477,6 +482,7 @@ class _ColoredWord extends StatelessWidget {
   const _ColoredWord({
     super.key,
     required this.word,
+    this.ipa,
     required this.fontSize,
     required this.colorMode,
     this.colorStyle = WordColorStyle.textOnly,
@@ -530,7 +536,8 @@ class _ColoredWord extends StatelessWidget {
 
     final baseBackground =
         grammarResolved?.background ?? word.getBackgroundColor(colorMode);
-    final baseForeground = grammarResolved?.foreground ?? word.getColor(colorMode);
+    final baseForeground =
+        grammarResolved?.foreground ?? word.getColor(colorMode);
 
     // READ-WORDSTYLE-001: kiểu hiển thị do người dùng chọn ở Cài đặt.
     //  • fill      = nền màu (mặc định cũ)
@@ -545,9 +552,8 @@ class _ColoredWord extends StatelessWidget {
     final bgColor = selected
         ? const Color(0xFF2196F3).withValues(alpha: isAnchor ? 0.45 : 0.30)
         : (filled ? baseBackground : Colors.transparent);
-    final textColor = selected && grammarResolved == null
-        ? Colors.white
-        : baseForeground;
+    final textColor =
+        selected && grammarResolved == null ? Colors.white : baseForeground;
     final decoration = !selected && (underlined || hasNestedUnderline)
         ? TextDecoration.underline
         : null;
@@ -612,6 +618,7 @@ class _ColoredWord extends StatelessWidget {
                 height: 1.6,
               ),
             ),
+            if (ipa != null) ReadWordIpa(span: ipa!),
             if (showModeDetails &&
                 colorMode != ColorMode.none &&
                 _colorModeDetailLabel(word, colorMode).isNotEmpty)

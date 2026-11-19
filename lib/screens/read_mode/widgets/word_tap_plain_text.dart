@@ -16,7 +16,8 @@
 // cho biết KHOẢNG ĐÃ CHỌN, không cho biết người dùng chạm vào ĐÂU, và chạm
 // một lần thì nó chỉ đặt con trỏ ⇒ dòng không box là "câm" (đúng triệu chứng
 // PSRC-234). Ở đây dòng được vẽ bằng MỘT `RichText`; `RenderParagraph` đổi
-// toạ độ chạm → chỉ số ký tự → từ (`services/line_word_hit.dart`).
+// toạ độ chạm → chỉ số ký tự → từ (`services/line_word_hit.dart`), kể cả
+// khi một số từ được vẽ thành WidgetSpan chứa cả chữ và IPA.
 //
 // Đánh đổi đã cân nhắc: mất bôi chọn bằng tay cầm (handles) của
 // `SelectableText`, nhưng giữ đúng trải nghiệm "giữ rồi kéo" của chế độ ô chữ
@@ -37,17 +38,8 @@ import '../services/read_text_action_runner.dart';
 import '../services/word_range_selection.dart';
 import 'floating_text_actions.dart';
 import 'read_text_action_hooks.dart';
+import 'read_word_ipa.dart';
 import 'word_mini_pop.dart';
-
-/// Dựng spans của dòng — nhận vùng chọn hiện tại để tô nền phần đang chọn.
-///
-/// Chọn theo CHỈ SỐ TỪ (không theo offset) vì vùng chọn của tab Đọc được quản
-/// lý bằng từ (`WordRange`); tầng dòng (`text_line_widget.dart`) mới là nơi
-/// biết spans được tô màu thế nào.
-typedef WordTapSpanBuilder = List<InlineSpan> Function({
-  int? selectedWordStart,
-  int? selectedWordEnd,
-});
 
 /// Một dòng chữ "liền" (không ô từng từ) nhưng vẫn chạm/giữ được từng từ.
 class WordTapPlainText extends StatefulWidget {
@@ -57,7 +49,8 @@ class WordTapPlainText extends StatefulWidget {
     required this.words,
     required this.lineIndex,
     required this.fontSize,
-    required this.spansBuilder,
+    required this.wordStyle,
+    this.wordIpa = const {},
     this.textAlign = TextAlign.left,
     this.lineStartOffset,
   });
@@ -73,8 +66,8 @@ class WordTapPlainText extends StatefulWidget {
 
   final double fontSize;
 
-  /// Dựng spans (màu theo chế độ hiện tại + nền vùng chọn).
-  final WordTapSpanBuilder spansBuilder;
+  final TextStyle Function(int wordIndex, bool selected) wordStyle;
+  final Map<int, InlineSpan> wordIpa;
 
   final TextAlign textAlign;
 
@@ -93,8 +86,13 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
   final GlobalKey _textKey = GlobalKey();
 
   final LineTapClassifier _tap = LineTapClassifier();
+  int? _lastTappedWord;
 
   List<LineWordSpan> _spans = const <LineWordSpan>[];
+
+  // Offsets in the rendered paragraph, which counts each WidgetSpan as one
+  // character. Selection/copy must still use _spans and the source text.
+  List<LineWordSpan> _displaySpans = const <LineWordSpan>[];
 
   WordRange? _range;
 
@@ -109,7 +107,10 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.lineIndex != widget.lineIndex ||
         oldWidget.content != widget.content ||
-        oldWidget.words.length != widget.words.length) {
+        oldWidget.words.length != widget.words.length ||
+        !Iterable<int>.generate(widget.words.length).every(
+          (i) => oldWidget.words[i].word == widget.words[i].word,
+        )) {
       _rebuildWordSpans();
       _tap.reset();
       // Dòng đổi nội dung (sửa dòng, đổi tài liệu) ⇒ vùng chọn cũ vô nghĩa.
@@ -169,9 +170,10 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
       });
     }
 
-    final spans = widget.spansBuilder(
-      selectedWordStart: range?.start,
-      selectedWordEnd: range?.end,
+    final style = TextStyle(
+      fontSize: widget.fontSize,
+      color: Colors.white,
+      height: 1.6,
     );
 
     return GestureDetector(
@@ -179,7 +181,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
       // xuống tầng dưới), nhưng KHÔNG có `onDoubleTap` ở đây — xem
       // `LineTapClassifier` (double tap của GestureDetector giữ arena 300 ms).
       behavior: HitTestBehavior.opaque,
-      onTapUp: (details) => _handleTapUp(context, details.localPosition),
+      onTapUp: (details) => _handleTapUp(context, details),
       onLongPressStart: (details) =>
           _startSelection(context, details.localPosition),
       onLongPressMoveUpdate: (details) =>
@@ -187,12 +189,8 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
       child: RichText(
         key: _textKey,
         text: TextSpan(
-          style: TextStyle(
-            fontSize: widget.fontSize,
-            color: Colors.white,
-            height: 1.6,
-          ),
-          children: spans,
+          style: style,
+          children: _buildSpans(style, range),
         ),
         textAlign: widget.textAlign,
         textDirection: Directionality.of(context),
@@ -204,17 +202,81 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
     );
   }
 
+  List<InlineSpan> _buildSpans(TextStyle baseStyle, WordRange? range) {
+    final children = <InlineSpan>[];
+    final displaySpans = <LineWordSpan>[];
+    var cursor = 0;
+    var removed = 0;
+    for (final span in _spans) {
+      if (span.start > cursor) {
+        children
+            .add(TextSpan(text: widget.content.substring(cursor, span.start)));
+      }
+      final index = span.wordIndex;
+      final text = widget.content.substring(span.start, span.end);
+      final style = widget.wordStyle(index, range?.contains(index) ?? false);
+      final ipa = widget.wordIpa[index];
+      final displayStart = span.start - removed;
+      if (ipa == null) {
+        children.add(TextSpan(text: text, style: style));
+      } else {
+        // A single placeholder keeps the source word and IPA on the same
+        // run. Punctuation and whitespace remain ordinary paragraph text.
+        children.add(WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RichText(
+                text: TextSpan(text: text, style: baseStyle.merge(style)),
+                textAlign: TextAlign.center,
+              ),
+              ReadWordIpa(span: ipa, inline: true),
+            ],
+          ),
+        ));
+        removed += span.length - 1;
+      }
+      displaySpans.add(LineWordSpan(
+        wordIndex: index,
+        start: displayStart,
+        end: span.end - removed,
+      ));
+      cursor = span.end;
+    }
+    if (cursor < widget.content.length) {
+      children.add(TextSpan(text: widget.content.substring(cursor)));
+    }
+    _displaySpans = displaySpans;
+    return children;
+  }
+
   // ── Đổi toạ độ → từ ─────────────────────────────────────────────────────
 
   /// Từ nằm dưới điểm chạm [local] (toạ độ của `RichText`). `null` = dòng
   /// chưa đo được / không ghép được từ nào.
   int? _wordAt(Offset local) {
-    if (_spans.isEmpty) return null;
+    if (_displaySpans.isEmpty) return null;
     final renderObject = _textKey.currentContext?.findRenderObject();
     if (renderObject is! RenderParagraph) return null;
     final position = renderObject.getPositionForOffset(local);
+    if (widget.wordIpa.isNotEmpty) {
+      // Caret offsets are shared at token boundaries. In particular the
+      // right half of a WidgetSpan may return its end, not its start.
+      for (final span in _displaySpans) {
+        if (!span.contains(position.offset)) continue;
+        if (renderObject
+            .getBoxesForSelection(
+              TextSelection(baseOffset: span.start, extentOffset: span.end),
+            )
+            .any((box) => box.toRect().contains(local))) {
+          return span.wordIndex;
+        }
+      }
+    }
     return wordIndexAtCharOffset(
-      spans: _spans,
+      spans: _displaySpans,
       charOffset: position.offset,
     );
   }
@@ -222,7 +284,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
   /// Hình chữ nhật (toạ độ toàn cục) của từ [#wordIndex] — để pop tra nhanh
   /// trồi lên đúng cạnh từ vừa chạm. `null` = chưa đo được, pop tự chọn chỗ.
   Rect? _wordRect(int wordIndex) {
-    final span = lineWordSpanFor(spans: _spans, wordIndex: wordIndex);
+    final span = lineWordSpanFor(spans: _displaySpans, wordIndex: wordIndex);
     if (span == null) return null;
     final renderObject = _textKey.currentContext?.findRenderObject();
     if (renderObject is! RenderParagraph) return null;
@@ -241,12 +303,16 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
 
   // ── Thao tác ────────────────────────────────────────────────────────────
 
-  void _handleTapUp(BuildContext context, Offset local) {
-    final wordIndex = _wordAt(local);
+  void _handleTapUp(BuildContext context, TapUpDetails details) {
+    final wordIndex = _wordAt(details.localPosition);
+    // Two short neighboring words can be within the double-tap distance.
+    if (_lastTappedWord != wordIndex) _tap.reset();
+    _lastTappedWord = wordIndex;
 
     // Chạm đúp là thao tác của CẢ DÒNG nên vẫn phải chạy kể cả khi cú chạm
     // không ghép được từ nào (dòng chỉ có dấu câu, phân tích lệch nội dung).
-    if (_tap.registerTap(position: local, at: DateTime.now())) {
+    if (_tap.registerTap(
+        position: details.globalPosition, at: DateTime.now())) {
       _handleLineDoubleTap(context);
       return;
     }
@@ -307,6 +373,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
 
   /// GIỮ một từ ⇒ vào chế độ chọn nhiều từ, từ đó là mỏ neo (READ-SELECT-002).
   void _startSelection(BuildContext context, Offset local) {
+    _tap.reset();
     final wordIndex = _wordAt(local);
     if (wordIndex == null) return;
     _startSelectionAt(context, wordIndex);

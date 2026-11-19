@@ -1,4 +1,4 @@
-# ADR-0029 — Bộ chạy Whisper trên desktop: app tự cài + chẩn đoán thiếu DLL
+# ADR-0035 — Bộ chạy Whisper trên desktop: app tự cài + chẩn đoán thiếu DLL
 
 - **Trạng thái:** ✅ accepted (đã code, chờ CI + nghiệm thu máy Windows thật).
 - **Nguồn:** owner (2026-11-15) báo lỗi thực tế trên bản `1.29.0-Beta`:

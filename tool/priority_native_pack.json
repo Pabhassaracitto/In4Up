@@ -9,276 +9,6 @@
     "th": "สแกนวิดีโอ",
     "ja": "動画をスキャン"
   },
-  "Tệp đã chọn không phải .gguf": {
-    "en": "The selected file is not a .gguf file",
-    "hi": "चुनी गई फ़ाइल .gguf नहीं है",
-    "zh": "所选文件不是 .gguf 文件",
-    "zh_TW": "所選檔案不是 .gguf 檔案",
-    "si": "තෝරාගත් ගොනුව .gguf එකක් නොවේ",
-    "my": "ရွေးထားသော ဖိုင်သည် .gguf မဟုတ်ပါ",
-    "th": "ไฟล์ที่เลือกไม่ใช่ .gguf",
-    "ja": "選択したファイルは .gguf ではありません"
-  },
-  "Tệp đã chọn rỗng — có thể quá trình tải/chép bị lỗi": {
-    "en": "The selected file is empty — the download or copy may have failed",
-    "hi": "चुनी गई फ़ाइल खाली है — डाउनलोड या कॉपी विफल रही होगी",
-    "zh": "所选文件为空——下载或复制可能失败",
-    "zh_TW": "所選檔案為空——下載或複製可能失敗",
-    "si": "තෝරාගත් ගොනුව හිස්ය — බාගැනීම හෝ පිටපත් කිරීම අසාර්ථක විය හැක",
-    "my": "ရွေးထားသော ဖိုင် ဗလာဖြစ်သည် — ဒေါင်းလုဒ် သို့မဟုတ် ကူးယူမှု မအောင်မြင်နိုင်ပါ",
-    "th": "ไฟล์ที่เลือกว่างเปล่า — การดาวน์โหลดหรือคัดลอกอาจล้มเหลว",
-    "ja": "選択したファイルが空です。ダウンロードまたはコピーに失敗した可能性があります"
-  },
-  "Tệp .gguf quá nhỏ (dưới 32 MB) — có thể tải hụt, tải lại rồi import": {
-    "en": "The .gguf file is too small (under 32 MB) — it may be incomplete; download it again and import",
-    "hi": ".gguf फ़ाइल बहुत छोटी है (32 MB से कम) — अधूरी हो सकती है; दोबारा डाउनलोड करके आयात करें",
-    "zh": ".gguf 文件过小（不足 32 MB）——可能未下载完整，请重新下载后再导入",
-    "zh_TW": ".gguf 檔案過小（不足 32 MB）——可能未下載完整，請重新下載後再匯入",
-    "si": ".gguf ගොනුව ඉතා කුඩාය (32 MB ට අඩු) — අසම්පූර්ණ විය හැක; නැවත බාගෙන ආයාත කරන්න",
-    "my": ".gguf ဖိုင် အလွန်သေးငယ်သည် (32 MB အောက်) — မပြည့်စုံနိုင်ပါ; ပြန်ဒေါင်းလုဒ်လုပ်ပြီး ထည့်သွင်းပါ",
-    "th": "ไฟล์ .gguf เล็กเกินไป (ต่ำกว่า 32 MB) — อาจดาวน์โหลดไม่ครบ ดาวน์โหลดใหม่แล้วนำเข้าอีกครั้ง",
-    "ja": ".gguf ファイルが小さすぎます（32 MB 未満）。ダウンロードが不完全な可能性があります。再取得してからインポートしてください"
-  },
-  "Tệp không phải model GGUF hợp lệ (thiếu chữ ký GGUF) — kiểm tra lại nguồn tải": {
-    "en": "The file is not a valid GGUF model (GGUF signature missing) — check where it was downloaded from",
-    "hi": "फ़ाइल मान्य GGUF मॉडल नहीं है (GGUF हस्ताक्षर नहीं मिला) — डाउनलोड स्रोत जाँचें",
-    "zh": "该文件不是有效的 GGUF 模型（缺少 GGUF 签名）——请检查下载来源",
-    "zh_TW": "該檔案不是有效的 GGUF 模型（缺少 GGUF 簽章）——請檢查下載來源",
-    "si": "ගොනුව වලංගු GGUF මාදිලියක් නොවේ (GGUF අත්සන නැත) — බාගත කළ මූලය පරීක්ෂා කරන්න",
-    "my": "ဖိုင်သည် တရားဝင် GGUF မော်ဒယ် မဟုတ်ပါ (GGUF လက်မှတ် မရှိ) — ဒေါင်းလုဒ်ရင်းမြစ်ကို စစ်ဆေးပါ",
-    "th": "ไฟล์ไม่ใช่โมเดล GGUF ที่ถูกต้อง (ไม่พบลายเซ็น GGUF) — ตรวจสอบแหล่งดาวน์โหลด",
-    "ja": "有効な GGUF モデルではありません（GGUF シグネチャがありません）。ダウンロード元を確認してください"
-  },
-  "Chọn file model VieNeu-TTS {value0}": {
-    "en": "Choose a VieNeu-TTS model file {value0}",
-    "hi": "VieNeu-TTS मॉडल फ़ाइल चुनें {value0}",
-    "zh": "选择 VieNeu-TTS 模型文件 {value0}",
-    "zh_TW": "選擇 VieNeu-TTS 模型檔案 {value0}",
-    "si": "VieNeu-TTS මාදිලි ගොනුවක් තෝරන්න {value0}",
-    "my": "VieNeu-TTS မော်ဒယ်ဖိုင် ရွေးပါ {value0}",
-    "th": "เลือกไฟล์โมเดล VieNeu-TTS {value0}",
-    "ja": "VieNeu-TTS モデルファイルを選択 {value0}"
-  },
-  "Không đọc được tệp đã chọn — thử chọn lại": {
-    "en": "Could not read the selected file — please pick it again",
-    "hi": "चुनी गई फ़ाइल पढ़ी नहीं जा सकी — फिर से चुनें",
-    "zh": "无法读取所选文件——请重新选择",
-    "zh_TW": "無法讀取所選檔案——請重新選擇",
-    "si": "තෝරාගත් ගොනුව කියවිය නොහැක — නැවත තෝරන්න",
-    "my": "ရွေးထားသော ဖိုင်ကို ဖတ်၍မရပါ — ပြန်ရွေးပါ",
-    "th": "อ่านไฟล์ที่เลือกไม่ได้ — กรุณาเลือกใหม่",
-    "ja": "選択したファイルを読み取れません。もう一度選択してください"
-  },
-  "Lỗi import {value0}": {
-    "en": "Import error: {value0}",
-    "hi": "आयात त्रुटि: {value0}",
-    "zh": "导入失败：{value0}",
-    "zh_TW": "匯入失敗：{value0}",
-    "si": "ආයාත දෝෂය: {value0}",
-    "my": "ထည့်သွင်းမှု အမှား: {value0}",
-    "th": "นำเข้าผิดพลาด: {value0}",
-    "ja": "インポートエラー: {value0}"
-  },
-  "Đã import {value0} · engine sẵn sàng": {
-    "en": "Imported {value0} · engine ready",
-    "hi": "{value0} आयात हुआ · इंजन तैयार",
-    "zh": "已导入 {value0} · 引擎已就绪",
-    "zh_TW": "已匯入 {value0} · 引擎已就緒",
-    "si": "{value0} ආයාත විය · එන්ජිම සූදානම්",
-    "my": "{value0} ထည့်သွင်းပြီး · အင်ဂျင် အသင့်ဖြစ်သည်",
-    "th": "นำเข้า {value0} แล้ว · เอนจินพร้อมใช้งาน",
-    "ja": "{value0} をインポートしました · エンジン準備完了"
-  },
-  "Đã import {value0} nhưng engine chưa sẵn sàng: {value1}": {
-    "en": "Imported {value0} but the engine is not ready yet: {value1}",
-    "hi": "{value0} आयात हुआ, पर इंजन अभी तैयार नहीं: {value1}",
-    "zh": "已导入 {value0}，但引擎尚未就绪：{value1}",
-    "zh_TW": "已匯入 {value0}，但引擎尚未就緒：{value1}",
-    "si": "{value0} ආයාත විය, නමුත් එන්ජිම තවම සූදානම් නැත: {value1}",
-    "my": "{value0} ထည့်သွင်းပြီးပါပြီ၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value1}",
-    "th": "นำเข้า {value0} แล้ว แต่เอนจินยังไม่พร้อม: {value1}",
-    "ja": "{value0} をインポートしましたが、エンジンはまだ準備できていません: {value1}"
-  },
-  "Đã import {value0} giọng mẫu": {
-    "en": "Imported {value0} sample voices",
-    "hi": "{value0} नमूना वाणी आयात हुईं",
-    "zh": "已导入 {value0} 个示例音色",
-    "zh_TW": "已匯入 {value0} 個範例音色",
-    "si": "නියැදි හඬ {value0}ක් ආයාත විය",
-    "my": "နမူနာ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ",
-    "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว",
-    "ja": "サンプル音声 {value0} 件をインポートしました"
-  },
-  "Đã import {value0} · {value1} giọng mẫu": {
-    "en": "Imported {value0} · {value1} sample voices",
-    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी",
-    "zh": "已导入 {value0} · {value1} 个示例音色",
-    "zh_TW": "已匯入 {value0} · {value1} 個範例音色",
-    "si": "{value0} ආයාත විය · නියැදි හඬ {value1}",
-    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1}",
-    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ",
-    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件"
-  },
-  "Đã import {value0} · {value1} giọng mẫu · engine sẵn sàng": {
-    "en": "Imported {value0} · {value1} sample voices · engine ready",
-    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी · इंजन तैयार",
-    "zh": "已导入 {value0} · {value1} 个示例音色 · 引擎已就绪",
-    "zh_TW": "已匯入 {value0} · {value1} 個範例音色 · 引擎已就緒",
-    "si": "{value0} ආයාත විය · නියැදි හඬ {value1} · එන්ජිම සූදානම්",
-    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1} · အင်ဂျင် အသင့်ဖြစ်သည်",
-    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ · เอนจินพร้อมใช้งาน",
-    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件 · エンジン準備完了"
-  },
-  "Đã import {value0} · {value1} giọng mẫu nhưng engine chưa sẵn sàng: {value2}": {
-    "en": "Imported {value0} · {value1} sample voices but the engine is not ready yet: {value2}",
-    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी, पर इंजन अभी तैयार नहीं: {value2}",
-    "zh": "已导入 {value0} · {value1} 个示例音色，但引擎尚未就绪：{value2}",
-    "zh_TW": "已匯入 {value0} · {value1} 個範例音色，但引擎尚未就緒：{value2}",
-    "si": "{value0} ආයාත විය · නියැදි හඬ {value1}, නමුත් එන්ජිම තවම සූදානම් නැත: {value2}",
-    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1}၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value2}",
-    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ แต่เอนจินยังไม่พร้อม: {value2}",
-    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件。ただしエンジンはまだ準備できていません: {value2}"
-  },
-  "Đã import {value0} giọng mẫu nhưng engine chưa sẵn sàng: {value1}": {
-    "en": "Imported {value0} sample voices but the engine is not ready yet: {value1}",
-    "hi": "{value0} नमूना वाणी आयात हुई, पर इंजन अभी तैयार नहीं: {value1}",
-    "zh": "已导入 {value0} 个示例音色，但引擎尚未就绪：{value1}",
-    "zh_TW": "已匯入 {value0} 個範例音色，但引擎尚未就緒：{value1}",
-    "si": "නියැදි හඬ {value0}ක් ආයාත විය, නමුත් එන්ජිම තවම සූදානම් නැත: {value1}",
-    "my": "နမူနာ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value1}",
-    "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว แต่เอนจินยังไม่พร้อม: {value1}",
-    "ja": "サンプル音声 {value0} 件をインポートしましたが、エンジンはまだ準備できていません: {value1}"
-  },
-  "Chưa import model VieNeu-TTS (.gguf)": {
-    "en": "No VieNeu-TTS model (.gguf) imported yet",
-    "hi": "अभी कोई VieNeu-TTS मॉडल (.gguf) आयात नहीं हुआ",
-    "zh": "尚未导入 VieNeu-TTS 模型（.gguf）",
-    "zh_TW": "尚未匯入 VieNeu-TTS 模型（.gguf）",
-    "si": "VieNeu-TTS මාදිලියක් (.gguf) තවම ආයාත කර නැත",
-    "my": "VieNeu-TTS မော်ဒယ် (.gguf) ကို မထည့်သွင်းရသေးပါ",
-    "th": "ยังไม่ได้นำเข้าโมเดล VieNeu-TTS (.gguf)",
-    "ja": "VieNeu-TTS モデル（.gguf）がまだインポートされていません"
-  },
-  "File model .gguf không dùng được (hỏng hoặc không phải GGUF) — import lại": {
-    "en": "The .gguf model cannot be used (corrupt or not GGUF) — import it again",
-    "hi": ".gguf मॉडल उपयोग नहीं हो सकता (क्षतिग्रस्त या GGUF नहीं) — फिर से आयात करें",
-    "zh": ".gguf 模型无法使用（损坏或不是 GGUF）——请重新导入",
-    "zh_TW": ".gguf 模型無法使用（損毀或不是 GGUF）——請重新匯入",
-    "si": ".gguf මාදිලිය භාවිත කළ නොහැක (හානි වූ හෝ GGUF නොවේ) — නැවත ආයාත කරන්න",
-    "my": ".gguf မော်ဒယ်ကို အသုံးမပြုနိုင်ပါ (ပျက်စီး သို့မဟုတ် GGUF မဟုတ်) — ပြန်ထည့်သွင်းပါ",
-    "th": "โมเดล .gguf ใช้งานไม่ได้ (เสียหายหรือไม่ใช่ GGUF) — นำเข้าอีกครั้ง",
-    "ja": ".gguf モデルを使用できません（破損、または GGUF ではありません）。再インポートしてください"
-  },
-  "Bản cài này chưa kèm engine VieNeu-TTS (libvieneu_tts) nên model đã import chưa đọc được": {
-    "en": "This build does not include the VieNeu-TTS engine (libvieneu_tts), so the imported model cannot speak yet",
-    "hi": "इस बिल्ड में VieNeu-TTS इंजन (libvieneu_tts) शामिल नहीं है, इसलिए आयातित मॉडल अभी नहीं पढ़ सकता",
-    "zh": "此版本未包含 VieNeu-TTS 引擎（libvieneu_tts），因此已导入的模型还无法朗读",
-    "zh_TW": "此版本未包含 VieNeu-TTS 引擎（libvieneu_tts），因此已匯入的模型還無法朗讀",
-    "si": "මෙම ගොනුවට VieNeu-TTS එන්ජිම (libvieneu_tts) ඇතුළත් නැත, එබැවින් ආයාත කළ මාදිලියට තවම කියවිය නොහැක",
-    "my": "ဤဗားရှင်းတွင် VieNeu-TTS အင်ဂျင် (libvieneu_tts) မပါဝင်ပါ၊ ထို့ကြောင့် ထည့်သွင်းထားသော မော်ဒယ်ကို ဖတ်နိုင်ခြင်း မရှိသေးပါ",
-    "th": "เวอร์ชันนี้ไม่ได้รวมเอนจิน VieNeu-TTS (libvieneu_tts) จึงยังอ่านด้วยโมเดลที่นำเข้าไม่ได้",
-    "ja": "このビルドには VieNeu-TTS エンジン（libvieneu_tts）が含まれていないため、インポート済みのモデルではまだ読み上げできません"
-  },
-  "Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc": {
-    "en": "Missing the sea_g2p.bin pronunciation dictionary — download it in Settings › Voice",
-    "hi": "उच्चारण शब्दकोश sea_g2p.bin नहीं है — सेटिंग्स › वाणी में डाउनलोड करें",
-    "zh": "缺少发音词典 sea_g2p.bin——请在“设置 › 语音”中下载",
-    "zh_TW": "缺少發音詞典 sea_g2p.bin——請在「設定 › 語音」中下載",
-    "si": "sea_g2p.bin උච්චාරණ ශබ්දකෝෂය නැත — සැකසීම් › හඬ තුළ බාගන්න",
-    "my": "sea_g2p.bin အသံထွက် အဘိဓာန် မရှိပါ — ဆက်တင် › အသံ ထဲတွင် ဒေါင်းလုဒ်လုပ်ပါ",
-    "th": "ไม่พบพจนานุกรมการออกเสียง sea_g2p.bin — ดาวน์โหลดได้ที่ การตั้งค่า › เสียง",
-    "ja": "発音辞書 sea_g2p.bin がありません。設定 › 音声 からダウンロードしてください"
-  },
-  "Chưa khởi tạo được engine: {value0}": {
-    "en": "Could not start the engine: {value0}",
-    "hi": "इंजन शुरू नहीं हो सका: {value0}",
-    "zh": "无法启动引擎：{value0}",
-    "zh_TW": "無法啟動引擎：{value0}",
-    "si": "එන්ජිම ආරම්භ කළ නොහැක: {value0}",
-    "my": "အင်ဂျင်ကို စတင်၍ မရပါ: {value0}",
-    "th": "เริ่มเอนจินไม่ได้: {value0}",
-    "ja": "エンジンを起動できません: {value0}"
-  },
-  "Khởi tạo engine thất bại: {value0}": {
-    "en": "Engine start failed: {value0}",
-    "hi": "इंजन शुरू करना विफल: {value0}",
-    "zh": "引擎启动失败：{value0}",
-    "zh_TW": "引擎啟動失敗：{value0}",
-    "si": "එන්ජිම ආරම්භ කිරීම අසාර්ථකයි: {value0}",
-    "my": "အင်ဂျင် စတင်မှု မအောင်မြင်ပါ: {value0}",
-    "th": "เริ่มเอนจินล้มเหลว: {value0}",
-    "ja": "エンジンの起動に失敗しました: {value0}"
-  },
-  "Đã khởi tạo engine VieNeu-TTS ({value0})": {
-    "en": "VieNeu-TTS engine ready ({value0})",
-    "hi": "VieNeu-TTS इंजन तैयार ({value0})",
-    "zh": "VieNeu-TTS 引擎已就绪（{value0}）",
-    "zh_TW": "VieNeu-TTS 引擎已就緒（{value0}）",
-    "si": "VieNeu-TTS එන්ජිම සූදානම් ({value0})",
-    "my": "VieNeu-TTS အင်ဂျင် အသင့်ဖြစ်သည် ({value0})",
-    "th": "เอนจิน VieNeu-TTS พร้อมใช้งาน ({value0})",
-    "ja": "VieNeu-TTS エンジン準備完了（{value0}）"
-  },
-  "Thư mục không có dữ liệu giọng hợp lệ — cần ref_codes.txt hoặc speaker.emb.txt": {
-    "en": "The folder has no valid voice data — it needs ref_codes.txt or speaker.emb.txt",
-    "hi": "फ़ोल्डर में मान्य वाणी डेटा नहीं है — ref_codes.txt या speaker.emb.txt चाहिए",
-    "zh": "该文件夹没有有效的音色数据——需要 ref_codes.txt 或 speaker.emb.txt",
-    "zh_TW": "該資料夾沒有有效的音色資料——需要 ref_codes.txt 或 speaker.emb.txt",
-    "si": "ෆෝල්ඩරයේ වලංගු හඬ දත්ත නැත — ref_codes.txt හෝ speaker.emb.txt අවශ්‍යයි",
-    "my": "ဖိုလ်ဒါတွင် တရားဝင် အသံဒေတာ မရှိပါ — ref_codes.txt သို့မဟုတ် speaker.emb.txt လိုအပ်သည်",
-    "th": "โฟลเดอร์ไม่มีข้อมูลเสียงที่ถูกต้อง — ต้องมี ref_codes.txt หรือ speaker.emb.txt",
-    "ja": "このフォルダーには有効な音声データがありません。ref_codes.txt または speaker.emb.txt が必要です"
-  },
-  "Không đọc được thư mục đã chọn — cấp quyền truy cập hoặc chọn tệp trực tiếp": {
-    "en": "Cannot read the selected folder — grant access or pick the files directly",
-    "hi": "चुना गया फ़ोल्डर पढ़ा नहीं जा सका — पहुँच दें या सीधे फ़ाइलें चुनें",
-    "zh": "无法读取所选文件夹——请授予访问权限或直接选择文件",
-    "zh_TW": "無法讀取所選資料夾——請授予存取權限或直接選擇檔案",
-    "si": "තෝරාගත් ෆෝල්ඩරය කියවිය නොහැක — ප්‍රවේශය දෙන්න හෝ ගොනු කෙලින්ම තෝරන්න",
-    "my": "ရွေးထားသော ဖိုလ်ဒါကို ဖတ်၍မရပါ — ခွင့်ပြုချက်ပေးပါ သို့မဟုတ် ဖိုင်များကို တိုက်ရိုက်ရွေးပါ",
-    "th": "อ่านโฟลเดอร์ที่เลือกไม่ได้ — ให้สิทธิ์เข้าถึงหรือเลือกไฟล์โดยตรง",
-    "ja": "選択したフォルダーを読み取れません。アクセスを許可するか、ファイルを直接選んでください"
-  },
-  "Các giọng này đã có trong ứng dụng": {
-    "en": "These voices are already in the app",
-    "hi": "ये वाणी पहले से ऐप में हैं",
-    "zh": "这些音色已存在于应用中",
-    "zh_TW": "這些音色已存在於應用程式中",
-    "si": "මෙම හඬ දැනටමත් යෙදුමේ ඇත",
-    "my": "ဤအသံများ အက်ပ်ထဲတွင် ရှိပြီးဖြစ်သည်",
-    "th": "เสียงเหล่านี้มีอยู่ในแอปแล้ว",
-    "ja": "これらの音声はすでにアプリに入っています"
-  },
-  "Đã import {value0} giọng từ thư mục": {
-    "en": "Imported {value0} voices from the folder",
-    "hi": "फ़ोल्डर से {value0} वाणी आयात हुईं",
-    "zh": "已从文件夹导入 {value0} 个音色",
-    "zh_TW": "已從資料夾匯入 {value0} 個音色",
-    "si": "ෆෝල්ඩරයෙන් හඬ {value0}ක් ආයාත විය",
-    "my": "ဖိုလ်ဒါမှ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ",
-    "th": "นำเข้าเสียง {value0} รายการจากโฟลเดอร์",
-    "ja": "フォルダーから音声 {value0} 件をインポートしました"
-  },
-  "Đã tạo giọng {value0} nhưng bằng embedding tạm (chưa có bộ mã hoá giọng) — giọng đọc gần giọng mặc định": {
-    "en": "Created voice {value0} with a temporary embedding (no voice encoder yet) — it sounds close to the default voice",
-    "hi": "वाणी {value0} बन गई, पर अस्थायी एम्बेडिंग से (अभी वॉइस एनकोडर नहीं) — यह डिफ़ॉल्ट वाणी जैसी सुनाई देगी",
-    "zh": "已创建音色 {value0}，但使用的是临时嵌入（尚无音色编码器）——听起来接近默认音色",
-    "zh_TW": "已建立音色 {value0}，但使用的是臨時嵌入（尚無音色編碼器）——聽起來接近預設音色",
-    "si": "හඬ {value0} සාදන ලදී, නමුත් තාවකාලික එම්බෙඩින්ග් එකකින් (හඬ එන්කෝඩරයක් තවම නැත) — පෙරනිමි හඬට සමීපව ශ්‍රව්‍ය වේ",
-    "my": "အသံ {value0} ကို ဖန်တီးပြီးပါပြီ၊ သို့သော် ယာယီ embedding ဖြင့်သာ (အသံ အင်ကုတ်ဒါ မရှိသေး) — မူလအသံနှင့် နီးစပ်စွာ ကြားရမည်",
-    "th": "สร้างเสียง {value0} แล้ว แต่ใช้ embedding ชั่วคราว (ยังไม่มีตัวเข้ารหัสเสียง) — จะฟังใกล้เคียงเสียงเริ่มต้น",
-    "ja": "音声 {value0} を作成しましたが、一時的な埋め込みを使用しています（音声エンコーダーが未導入）。既定の音声に近い響きになります"
-  },
-  "Không thể tạo giọng: {value0}": {
-    "en": "Could not create the voice: {value0}",
-    "hi": "वाणी नहीं बन सकी: {value0}",
-    "zh": "无法创建音色：{value0}",
-    "zh_TW": "無法建立音色：{value0}",
-    "si": "හඬ සෑදිය නොහැක: {value0}",
-    "my": "အသံ ဖန်တီး၍ မရပါ: {value0}",
-    "th": "สร้างเสียงไม่ได้: {value0}",
-    "ja": "音声を作成できません: {value0}"
-  },
   "Chưa được cấp quyền đọc video.": {
     "en": "Video access has not been granted.",
     "hi": "वीडियो पढ़ने की अनुमति नहीं दी गई है।",
@@ -12280,14 +12010,14 @@
     "ja": "ファイルを読み取れません — 旧 .doc は .docx か .txt で保存してください"
   },
   "Không đọc được nội dung. App mở được .docx (Word 2007+), .txt, .md — không mở .doc cũ (Word 97–2003).": {
-    "en": "Could not read document content. Supported formats: .docx (Word 2007+), .txt, .md — legacy .doc (Word 97–2003) is not supported.",
-    "hi": "दस्तावेज़ की सामग्री नहीं पढ़ी जा सकी। समर्थित प्रारूप: .docx (Word 2007+), .txt, .md — पुराना .doc (Word 97–2003) समर्थित नहीं है।",
-    "zh": "无法读取文档内容。应用支持 .docx（Word 2007+）、.txt、.md，不支持旧版 .doc（Word 97–2003）。",
-    "zh_TW": "無法讀取文件內容。應用程式支援 .docx（Word 2007+）、.txt、.md，不支援舊版 .doc（Word 97–2003）。",
-    "si": "ලේඛන අන්තර්ගතය කියවිය නොහැක. සහාය දක්වන්නේ .docx (Word 2007+), .txt, .md — පැරණි .doc (Word 97–2003) සහාය නොදක්වයි.",
-    "my": "စာရွက်စာတမ်း အကြောင်းအရာကို ဖတ်မရပါ။ .docx (Word 2007+), .txt, .md တို့ကို ပံ့ပိုးပြီး .doc အဟောင်း (Word 97–2003) ကို မပံ့ပိုးပါ။",
-    "th": "อ่านเนื้อหาเอกสารไม่ได้ แอปรองรับ .docx (Word 2007+), .txt, .md — ไม่รองรับ .doc รุ่นเก่า (Word 97–2003)",
-    "ja": "文書の内容を読み取れませんでした。.docx（Word 2007以降）、.txt、.md に対応しており、旧形式 .doc（Word 97–2003）には非対応です。"
+    "en": "Could not read the content. The app opens .docx (Word 2007+), .txt and .md — legacy .doc (Word 97–2003) is not supported.",
+    "hi": "सामग्री पढ़ी नहीं जा सकी। ऐप .docx (Word 2007+), .txt, .md खोलता है — पुरानी .doc (Word 97–2003) नहीं।",
+    "zh": "无法读取内容。应用支持 .docx（Word 2007+）、.txt、.md——不支持旧版 .doc（Word 97–2003）。",
+    "zh_TW": "無法讀取內容。應用程式支援 .docx（Word 2007+）、.txt、.md——不支援舊版 .doc（Word 97–2003）。",
+    "si": "අන්තර්ගතය කියවිය නොහැක. app එක .docx (Word 2007+), .txt, .md විවෘත කරයි — පැරණි .doc (Word 97–2003) නොවේ.",
+    "my": "အကြောင်းအရာ ဖတ်၍ မရပါ။ app သည် .docx (Word 2007+), .txt, .md ဖွင့်နိုင်သည် — .doc အိုဟောင်း (Word 97–2003) မဖွင့်ပါ။",
+    "th": "อ่านเนื้อหาไม่ได้ แอปเปิดได้เฉพาะ .docx (Word 2007+), .txt, .md — ไม่รองรับ .doc แบบเก่า (Word 97–2003)",
+    "ja": "内容を読み取れません。.docx（Word 2007+）・.txt・.md に対応し、旧形式の .doc（Word 97–2003）には非対応です。"
   },
   "Không đọc được thư mục đã chọn.": {
     "en": "Could not read the selected folder.",
@@ -36908,6 +36638,406 @@
     "my": "တင်သွင်းထားသော စာသားဖြစ်သည်။ CSS၊ ပုံနှင့် အသံကို မပံ့ပိုးသေးပါ။",
     "th": "ข้อความจากข้อมูลที่นำเข้า ยังไม่รองรับ CSS รูปภาพและเสียง",
     "ja": "取り込んだデータのテキストです。CSS、画像、音声にはまだ対応していません。"
+  },
+  "Bộ chạy Whisper (whisper-cli.exe)": {
+    "en": "Whisper runtime (whisper-cli.exe)",
+    "hi": "Whisper रनटाइम (whisper-cli.exe)",
+    "zh": "Whisper 运行组件（whisper-cli.exe）",
+    "zh_TW": "Whisper 執行元件（whisper-cli.exe）",
+    "si": "Whisper ධාවන කොටස (whisper-cli.exe)",
+    "my": "Whisper အလုပ်လုပ်ရန် အစိတ်အပိုင်း (whisper-cli.exe)",
+    "th": "ชุดรัน Whisper (whisper-cli.exe)",
+    "ja": "Whisper 実行ファイル一式（whisper-cli.exe）"
+  },
+  "Đã sẵn sàng: app tìm thấy đủ file để chạy.": {
+    "en": "Ready: every required file is present.",
+    "hi": "तैयार: चलाने के लिए सभी आवश्यक फ़ाइलें मौजूद हैं।",
+    "zh": "已就绪：运行所需的文件齐全。",
+    "zh_TW": "已就緒：執行所需的檔案齊全。",
+    "si": "සූදානම්: ක්‍රියාත්මක වීමට අවශ්‍ය සියලු ගොනු ඇත.",
+    "my": "အသင့်ဖြစ်ပါပြီ- လည်ပတ်ရန် လိုအပ်သော ဖိုင်အားလုံး ရှိပါသည်။",
+    "th": "พร้อมใช้งาน: มีไฟล์ที่จำเป็นครบแล้ว",
+    "ja": "準備完了：実行に必要なファイルが揃っています。"
+  },
+  "Chưa có whisper-cli.exe trên máy. Tạo mục lục/lời thoại bằng Whisper sẽ báo lỗi cho tới khi cài.": {
+    "en": "whisper-cli.exe is not on this machine yet. Whisper chapter/lyrics generation will fail until it is installed.",
+    "hi": "इस मशीन पर अभी whisper-cli.exe नहीं है। इंस्टॉल होने तक Whisper से अध्याय/गीत बनाना विफल रहेगा।",
+    "zh": "本机还没有 whisper-cli.exe。安装之前用 Whisper 生成章节/歌词会失败。",
+    "zh_TW": "本機還沒有 whisper-cli.exe。安裝之前用 Whisper 產生章節/歌詞會失敗。",
+    "si": "මෙම උපාංගයේ තවම whisper-cli.exe නොමැත. ස්ථාපනය කරන තෙක් Whisper මගින් පරිච්ඡේද/ගී පද ජනනය අසාර්ථක වේ.",
+    "my": "ဤစက်တွင် whisper-cli.exe မရှိသေးပါ။ ထည့်သွင်းပြီးသည်အထိ Whisper ဖြင့် အခန်း/သီချင်းစာသား ထုတ်လုပ်ခြင်း မအောင်မြင်ပါ။",
+    "th": "เครื่องนี้ยังไม่มี whisper-cli.exe การสร้างบท/เนื้อเพลงด้วย Whisper จะล้มเหลวจนกว่าจะติดตั้ง",
+    "ja": "この端末にはまだ whisper-cli.exe がありません。インストールするまで Whisper での章・歌詞の生成は失敗します。"
+  },
+  "Tìm thấy binary nhưng THIẾU file chạy được — xem danh sách bên dưới rồi bấm Cài lại.": {
+    "en": "The binary was found but files it needs are MISSING — check the list below, then reinstall.",
+    "hi": "बाइनरी मिल गई लेकिन चलाने के लिए ज़रूरी फ़ाइलें गायब हैं — नीचे सूची देखें, फिर दोबारा इंस्टॉल करें।",
+    "zh": "找到了可执行文件，但缺少运行所需的文件——请查看下面的清单后重新安装。",
+    "zh_TW": "找到了執行檔，但缺少執行所需的檔案——請查看下方清單後重新安裝。",
+    "si": "බයිනරි හමු විය, නමුත් ධාවනයට අවශ්‍ය ගොනු අඩුය — පහත ලැයිස්තුව බලා නැවත ස්ථාපනය කරන්න.",
+    "my": "binary ကို တွေ့သော်လည်း လည်ပတ်ရန် လိုအပ်သော ဖိုင်များ မရှိပါ — အောက်စာရင်းကို ကြည့်ပြီး ပြန်ထည့်သွင်းပါ။",
+    "th": "พบไฟล์เรียกใช้งานแล้วแต่ยังขาดไฟล์ที่ต้องใช้ — ดูรายการด้านล่างแล้วติดตั้งใหม่",
+    "ja": "実行ファイルは見つかりましたが、必要なファイルが不足しています。下の一覧を確認して再インストールしてください。"
+  },
+  "File rỗng 0 byte: {value0}": {
+    "en": "Empty 0-byte files: {value0}",
+    "hi": "खाली 0-बाइट फ़ाइलें: {value0}",
+    "zh": "0 字节空文件：{value0}",
+    "zh_TW": "0 位元組空檔案：{value0}",
+    "si": "හිස් බයිට් 0 ගොනු: {value0}",
+    "my": "ဘိုက် 0 ဖိုင်- {value0}",
+    "th": "ไฟล์ว่าง 0 ไบต์: {value0}",
+    "ja": "0 バイトの空ファイル: {value0}"
+  },
+  "Cài lại bộ chạy": {
+    "en": "Reinstall runtime",
+    "hi": "रनटाइम फिर से इंस्टॉल करें",
+    "zh": "重新安装运行组件",
+    "zh_TW": "重新安裝執行元件",
+    "si": "ධාවන කොටස නැවත ස්ථාපනය",
+    "my": "အလုပ်လုပ်ရန် အစိတ်အပိုင်း ပြန်ထည့်ပါ",
+    "th": "ติดตั้งชุดรันใหม่",
+    "ja": "実行ファイル一式を再インストール"
+  },
+  "Cài bộ chạy Whisper": {
+    "en": "Install Whisper runtime",
+    "hi": "Whisper रनटाइम इंस्टॉल करें",
+    "zh": "安装 Whisper 运行组件",
+    "zh_TW": "安裝 Whisper 執行元件",
+    "si": "Whisper ධාවන කොටස ස්ථාපනය කරන්න",
+    "my": "Whisper အလုပ်လုပ်ရန် အစိတ်အပိုင်း ထည့်သွင်းပါ",
+    "th": "ติดตั้งชุดรัน Whisper",
+    "ja": "Whisper 実行ファイル一式をインストール"
+  },
+  "Đang kiểm tra đủ file…": {
+    "en": "Verifying every file is present…",
+    "hi": "सभी फ़ाइलें मौजूद हैं या नहीं, जाँच रहे हैं…",
+    "zh": "正在检查文件是否齐全…",
+    "zh_TW": "正在檢查檔案是否齊全…",
+    "si": "සියලු ගොනු ඇත්දැයි පරීක්ෂා කරමින්…",
+    "my": "ဖိုင်အားလုံး ရှိမရှိ စစ်ဆေးနေသည်…",
+    "th": "กำลังตรวจสอบว่ามีไฟล์ครบ…",
+    "ja": "ファイルが揃っているか確認中…"
+  },
+  "Cách khác": {
+    "en": "Other options",
+    "hi": "अन्य तरीके",
+    "zh": "其他方式",
+    "zh_TW": "其他方式",
+    "si": "වෙනත් ක්‍රම",
+    "my": "အခြားနည်းလမ်းများ",
+    "th": "วิธีอื่น",
+    "ja": "他の方法"
+  },
+  "Xong.": {
+    "en": "Done.",
+    "hi": "हो गया।",
+    "zh": "完成。",
+    "zh_TW": "完成。",
+    "si": "නිමයි.",
+    "my": "ပြီးပါပြီ။",
+    "th": "เสร็จแล้ว",
+    "ja": "完了。"
+  },
+  "Đang tải bộ chạy (~25 MB)… {value0}%": {
+    "en": "Downloading the runtime (~25 MB)… {value0}%",
+    "hi": "रनटाइम डाउनलोड हो रहा है (~25 MB)… {value0}%",
+    "zh": "正在下载运行组件（约 25 MB）… {value0}%",
+    "zh_TW": "正在下載執行元件（約 25 MB）… {value0}%",
+    "si": "ධාවන කොටස බාගනිමින් (~25 MB)… {value0}%",
+    "my": "အလုပ်လုပ်ရန် အစိတ်အပိုင်း ဒေါင်းလုဒ်လုပ်နေသည် (~25 MB)… {value0}%",
+    "th": "กำลังดาวน์โหลดชุดรัน (~25 MB)… {value0}%",
+    "ja": "実行ファイル一式をダウンロード中（約 25 MB）… {value0}%"
+  },
+  "Cài bộ chạy Whisper bằng tay": {
+    "en": "Install the Whisper runtime manually",
+    "hi": "Whisper रनटाइम हाथ से इंस्टॉल करें",
+    "zh": "手动安装 Whisper 运行组件",
+    "zh_TW": "手動安裝 Whisper 執行元件",
+    "si": "Whisper ධාවන කොටස අතින් ස්ථාපනය කරන්න",
+    "my": "Whisper အလုပ်လုပ်ရန် အစိတ်အပိုင်းကို ကိုယ်တိုင်ထည့်သွင်းပါ",
+    "th": "ติดตั้งชุดรัน Whisper ด้วยตนเอง",
+    "ja": "Whisper 実行ファイル一式を手動でインストール"
+  },
+  "✅ Đã cài bộ chạy Whisper — thử tạo mục lục lại.": {
+    "en": "✅ Whisper runtime installed — try creating the chapters again.",
+    "hi": "✅ Whisper रनटाइम इंस्टॉल हो गया — अध्याय फिर से बनाने का प्रयास करें।",
+    "zh": "✅ Whisper 运行组件已安装——请重试生成章节。",
+    "zh_TW": "✅ Whisper 執行元件已安裝——請重試產生章節。",
+    "si": "✅ Whisper ධාවන කොටස ස්ථාපනය විය — පරිච්ඡේද නැවත සෑදීමට උත්සාහ කරන්න.",
+    "my": "✅ Whisper အလုပ်လုပ်ရန် အစိတ်အပိုင်း ထည့်သွင်းပြီးပါပြီ — အခန်းများ ပြန်ထုတ်ကြည့်ပါ။",
+    "th": "✅ ติดตั้งชุดรัน Whisper แล้ว — ลองสร้างบทอีกครั้ง",
+    "ja": "✅ Whisper 実行ファイル一式をインストールしました。章の作成を再試行してください。"
+  },
+  "Tệp đã chọn không phải .gguf": {
+    "en": "The selected file is not a .gguf file",
+    "hi": "चुनी गई फ़ाइल .gguf नहीं है",
+    "zh": "所选文件不是 .gguf 文件",
+    "zh_TW": "所選檔案不是 .gguf 檔案",
+    "si": "තෝරාගත් ගොනුව .gguf එකක් නොවේ",
+    "my": "ရွေးထားသော ဖိုင်သည် .gguf မဟုတ်ပါ",
+    "th": "ไฟล์ที่เลือกไม่ใช่ .gguf",
+    "ja": "選択したファイルは .gguf ではありません"
+  },
+  "Tệp đã chọn rỗng — có thể quá trình tải/chép bị lỗi": {
+    "en": "The selected file is empty — the download or copy may have failed",
+    "hi": "चुनी गई फ़ाइल खाली है — डाउनलोड या कॉपी विफल रही होगी",
+    "zh": "所选文件为空——下载或复制可能失败",
+    "zh_TW": "所選檔案為空——下載或複製可能失敗",
+    "si": "තෝරාගත් ගොනුව හිස්ය — බාගැනීම හෝ පිටපත් කිරීම අසාර්ථක විය හැක",
+    "my": "ရွေးထားသော ဖိုင် ဗလာဖြစ်သည် — ဒေါင်းလုဒ် သို့မဟုတ် ကူးယူမှု မအောင်မြင်နိုင်ပါ",
+    "th": "ไฟล์ที่เลือกว่างเปล่า — การดาวน์โหลดหรือคัดลอกอาจล้มเหลว",
+    "ja": "選択したファイルが空です。ダウンロードまたはコピーに失敗した可能性があります"
+  },
+  "Tệp .gguf quá nhỏ (dưới 32 MB) — có thể tải hụt, tải lại rồi import": {
+    "en": "The .gguf file is too small (under 32 MB) — it may be incomplete; download it again and import",
+    "hi": ".gguf फ़ाइल बहुत छोटी है (32 MB से कम) — अधूरी हो सकती है; दोबारा डाउनलोड करके आयात करें",
+    "zh": ".gguf 文件过小（不足 32 MB）——可能未下载完整，请重新下载后再导入",
+    "zh_TW": ".gguf 檔案過小（不足 32 MB）——可能未下載完整，請重新下載後再匯入",
+    "si": ".gguf ගොනුව ඉතා කුඩාය (32 MB ට අඩු) — අසම්පූර්ණ විය හැක; නැවත බාගෙන ආයාත කරන්න",
+    "my": ".gguf ဖိုင် အလွန်သေးငယ်သည် (32 MB အောက်) — မပြည့်စုံနိုင်ပါ; ပြန်ဒေါင်းလုဒ်လုပ်ပြီး ထည့်သွင်းပါ",
+    "th": "ไฟล์ .gguf เล็กเกินไป (ต่ำกว่า 32 MB) — อาจดาวน์โหลดไม่ครบ ดาวน์โหลดใหม่แล้วนำเข้าอีกครั้ง",
+    "ja": ".gguf ファイルが小さすぎます（32 MB 未満）。ダウンロードが不完全な可能性があります。再取得してからインポートしてください"
+  },
+  "Tệp không phải model GGUF hợp lệ (thiếu chữ ký GGUF) — kiểm tra lại nguồn tải": {
+    "en": "The file is not a valid GGUF model (GGUF signature missing) — check where it was downloaded from",
+    "hi": "फ़ाइल मान्य GGUF मॉडल नहीं है (GGUF हस्ताक्षर नहीं मिला) — डाउनलोड स्रोत जाँचें",
+    "zh": "该文件不是有效的 GGUF 模型（缺少 GGUF 签名）——请检查下载来源",
+    "zh_TW": "該檔案不是有效的 GGUF 模型（缺少 GGUF 簽章）——請檢查下載來源",
+    "si": "ගොනුව වලංගු GGUF මාදිලියක් නොවේ (GGUF අත්සන නැත) — බාගත කළ මූලය පරීක්ෂා කරන්න",
+    "my": "ဖိုင်သည် တရားဝင် GGUF မော်ဒယ် မဟုတ်ပါ (GGUF လက်မှတ် မရှိ) — ဒေါင်းလုဒ်ရင်းမြစ်ကို စစ်ဆေးပါ",
+    "th": "ไฟล์ไม่ใช่โมเดล GGUF ที่ถูกต้อง (ไม่พบลายเซ็น GGUF) — ตรวจสอบแหล่งดาวน์โหลด",
+    "ja": "有効な GGUF モデルではありません（GGUF シグネチャがありません）。ダウンロード元を確認してください"
+  },
+  "Chọn file model VieNeu-TTS {value0}": {
+    "en": "Choose a VieNeu-TTS model file {value0}",
+    "hi": "VieNeu-TTS मॉडल फ़ाइल चुनें {value0}",
+    "zh": "选择 VieNeu-TTS 模型文件 {value0}",
+    "zh_TW": "選擇 VieNeu-TTS 模型檔案 {value0}",
+    "si": "VieNeu-TTS මාදිලි ගොනුවක් තෝරන්න {value0}",
+    "my": "VieNeu-TTS မော်ဒယ်ဖိုင် ရွေးပါ {value0}",
+    "th": "เลือกไฟล์โมเดล VieNeu-TTS {value0}",
+    "ja": "VieNeu-TTS モデルファイルを選択 {value0}"
+  },
+  "Không đọc được tệp đã chọn — thử chọn lại": {
+    "en": "Could not read the selected file — please pick it again",
+    "hi": "चुनी गई फ़ाइल पढ़ी नहीं जा सकी — फिर से चुनें",
+    "zh": "无法读取所选文件——请重新选择",
+    "zh_TW": "無法讀取所選檔案——請重新選擇",
+    "si": "තෝරාගත් ගොනුව කියවිය නොහැක — නැවත තෝරන්න",
+    "my": "ရွေးထားသော ဖိုင်ကို ဖတ်၍မရပါ — ပြန်ရွေးပါ",
+    "th": "อ่านไฟล์ที่เลือกไม่ได้ — กรุณาเลือกใหม่",
+    "ja": "選択したファイルを読み取れません。もう一度選択してください"
+  },
+  "Lỗi import {value0}": {
+    "en": "Import error: {value0}",
+    "hi": "आयात त्रुटि: {value0}",
+    "zh": "导入失败：{value0}",
+    "zh_TW": "匯入失敗：{value0}",
+    "si": "ආයාත දෝෂය: {value0}",
+    "my": "ထည့်သွင်းမှု အမှား: {value0}",
+    "th": "นำเข้าผิดพลาด: {value0}",
+    "ja": "インポートエラー: {value0}"
+  },
+  "Đã import {value0} · engine sẵn sàng": {
+    "en": "Imported {value0} · engine ready",
+    "hi": "{value0} आयात हुआ · इंजन तैयार",
+    "zh": "已导入 {value0} · 引擎已就绪",
+    "zh_TW": "已匯入 {value0} · 引擎已就緒",
+    "si": "{value0} ආයාත විය · එන්ජිම සූදානම්",
+    "my": "{value0} ထည့်သွင်းပြီး · အင်ဂျင် အသင့်ဖြစ်သည်",
+    "th": "นำเข้า {value0} แล้ว · เอนจินพร้อมใช้งาน",
+    "ja": "{value0} をインポートしました · エンジン準備完了"
+  },
+  "Đã import {value0} nhưng engine chưa sẵn sàng: {value1}": {
+    "en": "Imported {value0} but the engine is not ready yet: {value1}",
+    "hi": "{value0} आयात हुआ, पर इंजन अभी तैयार नहीं: {value1}",
+    "zh": "已导入 {value0}，但引擎尚未就绪：{value1}",
+    "zh_TW": "已匯入 {value0}，但引擎尚未就緒：{value1}",
+    "si": "{value0} ආයාත විය, නමුත් එන්ජිම තවම සූදානම් නැත: {value1}",
+    "my": "{value0} ထည့်သွင်းပြီးပါပြီ၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value1}",
+    "th": "นำเข้า {value0} แล้ว แต่เอนจินยังไม่พร้อม: {value1}",
+    "ja": "{value0} をインポートしましたが、エンジンはまだ準備できていません: {value1}"
+  },
+  "Đã import {value0} giọng mẫu": {
+    "en": "Imported {value0} sample voices",
+    "hi": "{value0} नमूना वाणी आयात हुईं",
+    "zh": "已导入 {value0} 个示例音色",
+    "zh_TW": "已匯入 {value0} 個範例音色",
+    "si": "නියැදි හඬ {value0}ක් ආයාත විය",
+    "my": "နမူနာ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ",
+    "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว",
+    "ja": "サンプル音声 {value0} 件をインポートしました"
+  },
+  "Đã import {value0} · {value1} giọng mẫu": {
+    "en": "Imported {value0} · {value1} sample voices",
+    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी",
+    "zh": "已导入 {value0} · {value1} 个示例音色",
+    "zh_TW": "已匯入 {value0} · {value1} 個範例音色",
+    "si": "{value0} ආයාත විය · නියැදි හඬ {value1}",
+    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1}",
+    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ",
+    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件"
+  },
+  "Đã import {value0} · {value1} giọng mẫu · engine sẵn sàng": {
+    "en": "Imported {value0} · {value1} sample voices · engine ready",
+    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी · इंजन तैयार",
+    "zh": "已导入 {value0} · {value1} 个示例音色 · 引擎已就绪",
+    "zh_TW": "已匯入 {value0} · {value1} 個範例音色 · 引擎已就緒",
+    "si": "{value0} ආයාත විය · නියැදි හඬ {value1} · එන්ජිම සූදානම්",
+    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1} · အင်ဂျင် အသင့်ဖြစ်သည်",
+    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ · เอนจินพร้อมใช้งาน",
+    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件 · エンジン準備完了"
+  },
+  "Đã import {value0} · {value1} giọng mẫu nhưng engine chưa sẵn sàng: {value2}": {
+    "en": "Imported {value0} · {value1} sample voices but the engine is not ready yet: {value2}",
+    "hi": "{value0} आयात हुआ · {value1} नमूना वाणी, पर इंजन अभी तैयार नहीं: {value2}",
+    "zh": "已导入 {value0} · {value1} 个示例音色，但引擎尚未就绪：{value2}",
+    "zh_TW": "已匯入 {value0} · {value1} 個範例音色，但引擎尚未就緒：{value2}",
+    "si": "{value0} ආයාත විය · නියැදි හඬ {value1}, නමුත් එන්ජිම තවම සූදානම් නැත: {value2}",
+    "my": "{value0} ထည့်သွင်းပြီး · နမူနာ အသံ {value1}၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value2}",
+    "th": "นำเข้า {value0} แล้ว · ตัวอย่างเสียง {value1} รายการ แต่เอนจินยังไม่พร้อม: {value2}",
+    "ja": "{value0} をインポートしました · サンプル音声 {value1} 件。ただしエンジンはまだ準備できていません: {value2}"
+  },
+  "Đã import {value0} giọng mẫu nhưng engine chưa sẵn sàng: {value1}": {
+    "en": "Imported {value0} sample voices but the engine is not ready yet: {value1}",
+    "hi": "{value0} नमूना वाणी आयात हुई, पर इंजन अभी तैयार नहीं: {value1}",
+    "zh": "已导入 {value0} 个示例音色，但引擎尚未就绪：{value1}",
+    "zh_TW": "已匯入 {value0} 個範例音色，但引擎尚未就緒：{value1}",
+    "si": "නියැදි හඬ {value0}ක් ආයාත විය, නමුත් එන්ජිම තවම සූදානම් නැත: {value1}",
+    "my": "နမူနာ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ၊ သို့သော် အင်ဂျင် အသင့်မဖြစ်သေးပါ: {value1}",
+    "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว แต่เอนจินยังไม่พร้อม: {value1}",
+    "ja": "サンプル音声 {value0} 件をインポートしましたが、エンジンはまだ準備できていません: {value1}"
+  },
+  "Chưa import model VieNeu-TTS (.gguf)": {
+    "en": "No VieNeu-TTS model (.gguf) imported yet",
+    "hi": "अभी कोई VieNeu-TTS मॉडल (.gguf) आयात नहीं हुआ",
+    "zh": "尚未导入 VieNeu-TTS 模型（.gguf）",
+    "zh_TW": "尚未匯入 VieNeu-TTS 模型（.gguf）",
+    "si": "VieNeu-TTS මාදිලියක් (.gguf) තවම ආයාත කර නැත",
+    "my": "VieNeu-TTS မော်ဒယ် (.gguf) ကို မထည့်သွင်းရသေးပါ",
+    "th": "ยังไม่ได้นำเข้าโมเดล VieNeu-TTS (.gguf)",
+    "ja": "VieNeu-TTS モデル（.gguf）がまだインポートされていません"
+  },
+  "File model .gguf không dùng được (hỏng hoặc không phải GGUF) — import lại": {
+    "en": "The .gguf model cannot be used (corrupt or not GGUF) — import it again",
+    "hi": ".gguf मॉडल उपयोग नहीं हो सकता (क्षतिग्रस्त या GGUF नहीं) — फिर से आयात करें",
+    "zh": ".gguf 模型无法使用（损坏或不是 GGUF）——请重新导入",
+    "zh_TW": ".gguf 模型無法使用（損毀或不是 GGUF）——請重新匯入",
+    "si": ".gguf මාදිලිය භාවිත කළ නොහැක (හානි වූ හෝ GGUF නොවේ) — නැවත ආයාත කරන්න",
+    "my": ".gguf မော်ဒယ်ကို အသုံးမပြုနိုင်ပါ (ပျက်စီး သို့မဟုတ် GGUF မဟုတ်) — ပြန်ထည့်သွင်းပါ",
+    "th": "โมเดล .gguf ใช้งานไม่ได้ (เสียหายหรือไม่ใช่ GGUF) — นำเข้าอีกครั้ง",
+    "ja": ".gguf モデルを使用できません（破損、または GGUF ではありません）。再インポートしてください"
+  },
+  "Bản cài này chưa kèm engine VieNeu-TTS (libvieneu_tts) nên model đã import chưa đọc được": {
+    "en": "This build does not include the VieNeu-TTS engine (libvieneu_tts), so the imported model cannot speak yet",
+    "hi": "इस बिल्ड में VieNeu-TTS इंजन (libvieneu_tts) शामिल नहीं है, इसलिए आयातित मॉडल अभी नहीं पढ़ सकता",
+    "zh": "此版本未包含 VieNeu-TTS 引擎（libvieneu_tts），因此已导入的模型还无法朗读",
+    "zh_TW": "此版本未包含 VieNeu-TTS 引擎（libvieneu_tts），因此已匯入的模型還無法朗讀",
+    "si": "මෙම ගොනුවට VieNeu-TTS එන්ජිම (libvieneu_tts) ඇතුළත් නැත, එබැවින් ආයාත කළ මාදිලියට තවම කියවිය නොහැක",
+    "my": "ဤဗားရှင်းတွင် VieNeu-TTS အင်ဂျင် (libvieneu_tts) မပါဝင်ပါ၊ ထို့ကြောင့် ထည့်သွင်းထားသော မော်ဒယ်ကို ဖတ်နိုင်ခြင်း မရှိသေးပါ",
+    "th": "เวอร์ชันนี้ไม่ได้รวมเอนจิน VieNeu-TTS (libvieneu_tts) จึงยังอ่านด้วยโมเดลที่นำเข้าไม่ได้",
+    "ja": "このビルドには VieNeu-TTS エンジン（libvieneu_tts）が含まれていないため、インポート済みのモデルではまだ読み上げできません"
+  },
+  "Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc": {
+    "en": "Missing the sea_g2p.bin pronunciation dictionary — download it in Settings › Voice",
+    "hi": "उच्चारण शब्दकोश sea_g2p.bin नहीं है — सेटिंग्स › वाणी में डाउनलोड करें",
+    "zh": "缺少发音词典 sea_g2p.bin——请在“设置 › 语音”中下载",
+    "zh_TW": "缺少發音詞典 sea_g2p.bin——請在「設定 › 語音」中下載",
+    "si": "sea_g2p.bin උච්චාරණ ශබ්දකෝෂය නැත — සැකසීම් › හඬ තුළ බාගන්න",
+    "my": "sea_g2p.bin အသံထွက် အဘိဓာန် မရှိပါ — ဆက်တင် › အသံ ထဲတွင် ဒေါင်းလုဒ်လုပ်ပါ",
+    "th": "ไม่พบพจนานุกรมการออกเสียง sea_g2p.bin — ดาวน์โหลดได้ที่ การตั้งค่า › เสียง",
+    "ja": "発音辞書 sea_g2p.bin がありません。設定 › 音声 からダウンロードしてください"
+  },
+  "Chưa khởi tạo được engine: {value0}": {
+    "en": "Could not start the engine: {value0}",
+    "hi": "इंजन शुरू नहीं हो सका: {value0}",
+    "zh": "无法启动引擎：{value0}",
+    "zh_TW": "無法啟動引擎：{value0}",
+    "si": "එන්ජිම ආරම්භ කළ නොහැක: {value0}",
+    "my": "အင်ဂျင်ကို စတင်၍ မရပါ: {value0}",
+    "th": "เริ่มเอนจินไม่ได้: {value0}",
+    "ja": "エンジンを起動できません: {value0}"
+  },
+  "Khởi tạo engine thất bại: {value0}": {
+    "en": "Engine start failed: {value0}",
+    "hi": "इंजन शुरू करना विफल: {value0}",
+    "zh": "引擎启动失败：{value0}",
+    "zh_TW": "引擎啟動失敗：{value0}",
+    "si": "එන්ජිම ආරම්භ කිරීම අසාර්ථකයි: {value0}",
+    "my": "အင်ဂျင် စတင်မှု မအောင်မြင်ပါ: {value0}",
+    "th": "เริ่มเอนจินล้มเหลว: {value0}",
+    "ja": "エンジンの起動に失敗しました: {value0}"
+  },
+  "Đã khởi tạo engine VieNeu-TTS ({value0})": {
+    "en": "VieNeu-TTS engine ready ({value0})",
+    "hi": "VieNeu-TTS इंजन तैयार ({value0})",
+    "zh": "VieNeu-TTS 引擎已就绪（{value0}）",
+    "zh_TW": "VieNeu-TTS 引擎已就緒（{value0}）",
+    "si": "VieNeu-TTS එන්ජිම සූදානම් ({value0})",
+    "my": "VieNeu-TTS အင်ဂျင် အသင့်ဖြစ်သည် ({value0})",
+    "th": "เอนจิน VieNeu-TTS พร้อมใช้งาน ({value0})",
+    "ja": "VieNeu-TTS エンジン準備完了（{value0}）"
+  },
+  "Thư mục không có dữ liệu giọng hợp lệ — cần ref_codes.txt hoặc speaker.emb.txt": {
+    "en": "The folder has no valid voice data — it needs ref_codes.txt or speaker.emb.txt",
+    "hi": "फ़ोल्डर में मान्य वाणी डेटा नहीं है — ref_codes.txt या speaker.emb.txt चाहिए",
+    "zh": "该文件夹没有有效的音色数据——需要 ref_codes.txt 或 speaker.emb.txt",
+    "zh_TW": "該資料夾沒有有效的音色資料——需要 ref_codes.txt 或 speaker.emb.txt",
+    "si": "ෆෝල්ඩරයේ වලංගු හඬ දත්ත නැත — ref_codes.txt හෝ speaker.emb.txt අවශ්‍යයි",
+    "my": "ဖိုလ်ဒါတွင် တရားဝင် အသံဒေတာ မရှိပါ — ref_codes.txt သို့မဟုတ် speaker.emb.txt လိုအပ်သည်",
+    "th": "โฟลเดอร์ไม่มีข้อมูลเสียงที่ถูกต้อง — ต้องมี ref_codes.txt หรือ speaker.emb.txt",
+    "ja": "このフォルダーには有効な音声データがありません。ref_codes.txt または speaker.emb.txt が必要です"
+  },
+  "Không đọc được thư mục đã chọn — cấp quyền truy cập hoặc chọn tệp trực tiếp": {
+    "en": "Cannot read the selected folder — grant access or pick the files directly",
+    "hi": "चुना गया फ़ोल्डर पढ़ा नहीं जा सका — पहुँच दें या सीधे फ़ाइलें चुनें",
+    "zh": "无法读取所选文件夹——请授予访问权限或直接选择文件",
+    "zh_TW": "無法讀取所選資料夾——請授予存取權限或直接選擇檔案",
+    "si": "තෝරාගත් ෆෝල්ඩරය කියවිය නොහැක — ප්‍රවේශය දෙන්න හෝ ගොනු කෙලින්ම තෝරන්න",
+    "my": "ရွေးထားသော ဖိုလ်ဒါကို ဖတ်၍မရပါ — ခွင့်ပြုချက်ပေးပါ သို့မဟုတ် ဖိုင်များကို တိုက်ရိုက်ရွေးပါ",
+    "th": "อ่านโฟลเดอร์ที่เลือกไม่ได้ — ให้สิทธิ์เข้าถึงหรือเลือกไฟล์โดยตรง",
+    "ja": "選択したフォルダーを読み取れません。アクセスを許可するか、ファイルを直接選んでください"
+  },
+  "Các giọng này đã có trong ứng dụng": {
+    "en": "These voices are already in the app",
+    "hi": "ये वाणी पहले से ऐप में हैं",
+    "zh": "这些音色已存在于应用中",
+    "zh_TW": "這些音色已存在於應用程式中",
+    "si": "මෙම හඬ දැනටමත් යෙදුමේ ඇත",
+    "my": "ဤအသံများ အက်ပ်ထဲတွင် ရှိပြီးဖြစ်သည်",
+    "th": "เสียงเหล่านี้มีอยู่ในแอปแล้ว",
+    "ja": "これらの音声はすでにアプリに入っています"
+  },
+  "Đã import {value0} giọng từ thư mục": {
+    "en": "Imported {value0} voices from the folder",
+    "hi": "फ़ोल्डर से {value0} वाणी आयात हुईं",
+    "zh": "已从文件夹导入 {value0} 个音色",
+    "zh_TW": "已從資料夾匯入 {value0} 個音色",
+    "si": "ෆෝල්ඩරයෙන් හඬ {value0}ක් ආයාත විය",
+    "my": "ဖိုလ်ဒါမှ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ",
+    "th": "นำเข้าเสียง {value0} รายการจากโฟลเดอร์",
+    "ja": "フォルダーから音声 {value0} 件をインポートしました"
+  },
+  "Đã tạo giọng {value0} nhưng bằng embedding tạm (chưa có bộ mã hoá giọng) — giọng đọc gần giọng mặc định": {
+    "en": "Created voice {value0} with a temporary embedding (no voice encoder yet) — it sounds close to the default voice",
+    "hi": "वाणी {value0} बन गई, पर अस्थायी एम्बेडिंग से (अभी वॉइस एनकोडर नहीं) — यह डिफ़ॉल्ट वाणी जैसी सुनाई देगी",
+    "zh": "已创建音色 {value0}，但使用的是临时嵌入（尚无音色编码器）——听起来接近默认音色",
+    "zh_TW": "已建立音色 {value0}，但使用的是臨時嵌入（尚無音色編碼器）——聽起來接近預設音色",
+    "si": "හඬ {value0} සාදන ලදී, නමුත් තාවකාලික එම්බෙඩින්ග් එකකින් (හඬ එන්කෝඩරයක් තවම නැත) — පෙරනිමි හඬට සමීපව ශ්‍රව්‍ය වේ",
+    "my": "အသံ {value0} ကို ဖန်တီးပြီးပါပြီ၊ သို့သော် ယာယီ embedding ဖြင့်သာ (အသံ အင်ကုတ်ဒါ မရှိသေး) — မူလအသံနှင့် နီးစပ်စွာ ကြားရမည်",
+    "th": "สร้างเสียง {value0} แล้ว แต่ใช้ embedding ชั่วคราว (ยังไม่มีตัวเข้ารหัสเสียง) — จะฟังใกล้เคียงเสียงเริ่มต้น",
+    "ja": "音声 {value0} を作成しましたが、一時的な埋め込みを使用しています（音声エンコーダーが未導入）。既定の音声に近い響きになります"
+  },
+  "Không thể tạo giọng: {value0}": {
+    "en": "Could not create the voice: {value0}",
+    "hi": "वाणी नहीं बन सकी: {value0}",
+    "zh": "无法创建音色：{value0}",
+    "zh_TW": "無法建立音色：{value0}",
+    "si": "හඬ සෑදිය නොහැක: {value0}",
+    "my": "အသံ ဖန်တီး၍ မရပါ: {value0}",
+    "th": "สร้างเสียงไม่ได้: {value0}",
+    "ja": "音声を作成できません: {value0}"
   },
   "Từ điển phát âm (SEA-G2P)": {
     "en": "Pronunciation dictionary (SEA-G2P)",

@@ -5,6 +5,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show File;
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up_core/heavy_task_monitor.dart';
@@ -24,6 +25,7 @@ import '../loader/ai_model_loader.dart';
 import '../loader/model_copy_cancel_token.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
+import '../model/ai_local_model_fit.dart';
 import '../provider/ai_provider_config.dart';
 import '../provider/ai_provider_store.dart';
 import '../provider/ai_sse.dart';
@@ -232,6 +234,54 @@ class AiServiceFacade extends ChangeNotifier {
 
   String? get modelFileName => _loader.currentModelName;
   int? get modelSizeBytes => _loader.currentModelSizeBytes;
+
+  // ── PSRC-253: preflight RAM trước khi nạp model local ──
+
+  /// TỔNG RAM thiết bị ĐO ĐƯỢC (byte) do app layer cung cấp (native Android).
+  /// null = nền tảng không trả số liệu ⇒ KHÔNG được giả vờ đã đo.
+  int? _measuredTotalRamBytes;
+  int? get measuredTotalRamBytes => _measuredTotalRamBytes;
+
+  AiMemoryEvidence get memoryEvidence => _measuredTotalRamBytes != null &&
+          _measuredTotalRamBytes! > 0
+      ? AiMemoryEvidence.measuredTotalRam
+      : AiMemoryEvidence.unavailable;
+
+  void setMeasuredTotalRamBytes(int? bytes) {
+    if (bytes != null && bytes <= 0) return;
+    if (bytes == _measuredTotalRamBytes) return;
+    _measuredTotalRamBytes = bytes;
+    if (!_disposed) notifyListeners();
+  }
+
+  /// Kết luận gần nhất của preflight (null = chưa từng import/tải model).
+  AiModelFitVerdict? lastModelFitVerdict;
+
+  /// Gọi trước khi nạp file vào native. Trả false + ghi importError khi model
+  /// vượt ngưỡng RAM đo được. Giữ nguyên model cũ đang chạy nếu bị chặn.
+  bool _preflightModelFile(String path, {bool userConfirmedRisk = false}) {
+    int fileBytes;
+    try {
+      fileBytes = File(path).lengthSync();
+    } catch (_) {
+      lastModelFitVerdict = null;
+      return true; // không đo được file ⇒ để engine báo lỗi thật, không chặn oan.
+    }
+    final verdict = assessAiLocalModelFit(
+      modelFileBytes: fileBytes,
+      totalRamBytes: _measuredTotalRamBytes,
+      userConfirmedRisk: userConfirmedRisk,
+    );
+    lastModelFitVerdict = verdict;
+    if (verdict.isBlocked) {
+      _setImportStage(
+        AiImportStage.failed,
+        error: 'Model vượt ngưỡng RAM đo được — chọn profile nhẹ hơn (lite/balanced).',
+      );
+      return false;
+    }
+    return true;
+  }
 
   void _setImportStage(
     AiImportStage stage, {
@@ -1527,7 +1577,7 @@ class AiServiceFacade extends ChangeNotifier {
   })? debugImportModel;
 
   /// Import a GGUF model, keeping the current model until transfer succeeds.
-  Future<bool> importModelFromUser() async {
+  Future<bool> importModelFromUser({bool userConfirmedRisk = false}) async {
     if (isImportActive) return false;
     final token = ModelCopyCancelToken();
     _activeImportToken = token;
@@ -1553,6 +1603,10 @@ class AiServiceFacade extends ChangeNotifier {
       }
       _modelStatus = result;
       if (result.success && result.modelPath != null) {
+        if (!_preflightModelFile(result.modelPath!,
+            userConfirmedRisk: userConfirmedRisk)) {
+          return false;
+        }
         return await _adoptModel(result.modelPath!);
       }
       _setImportStage(AiImportStage.failed,
@@ -1571,7 +1625,7 @@ class AiServiceFacade extends ChangeNotifier {
   }
 
   /// Download a model; stop cancellation before persisting the new path.
-  Future<bool> downloadModel(String url) async {
+  Future<bool> downloadModel(String url, {bool userConfirmedRisk = false}) async {
     if (isImportActive) return false;
     final token = ModelCopyCancelToken();
     _activeImportToken = token;
@@ -1597,6 +1651,10 @@ class AiServiceFacade extends ChangeNotifier {
       }
       _modelStatus = result;
       if (result.success && result.modelPath != null) {
+        if (!_preflightModelFile(result.modelPath!,
+            userConfirmedRisk: userConfirmedRisk)) {
+          return false;
+        }
         return await _adoptModel(result.modelPath!);
       }
       _setImportStage(AiImportStage.failed,

@@ -13,6 +13,9 @@ export 'src/chat/chat_context_policy.dart';
 // Defensive model-output parsing
 export 'src/mapper/ai_model_mapper.dart';
 
+// PSRC-253 — preflight RAM / profile model local (thuần logic, test được).
+export 'src/model/ai_local_model_fit.dart';
+
 // Loader - cho UI hiển thị trạng thái model
 export 'src/loader/ai_model_loader.dart'
     show AiModelLoader, ModelLoadResult, ModelSource, AiModelConfig;

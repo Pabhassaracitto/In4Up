@@ -1,3 +1,5 @@
+import 'package:in4up/features/tts/widgets/reader_voice_tile.dart';
+import 'package:in4up/features/tts/reader_voice_preference.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
@@ -577,6 +579,7 @@ class _PdfOptionsSheet extends StatelessWidget {
               style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 8),
           _TtsLanguageSelector(controller: controller),
+          const ReaderVoiceTile(TtsReader.pdf),
 
           const SizedBox(height: 16),
 
@@ -788,6 +791,7 @@ class _TtsLanguageSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = <(String, String)>[
+      ('auto', context.uiText('Tự động')),
       ('en-US', '🇺🇸 English'),
       ('vi-VN', '🇻🇳 Tiếng Việt'),
       if (controller.isBilingualTtsAvailable) ('bilingual', '🔀 Song ngữ'),

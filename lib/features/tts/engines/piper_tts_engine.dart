@@ -64,7 +64,7 @@ class PiperTtsEngine implements TtsEngine {
     final want = PiperVoicePrefs.normalizeLang(language);
     return voices
         .where((v) {
-          final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+          final lang = _voiceLanguage(v);
           if (want.isEmpty) return true;
           if (lang.isEmpty) return true;
           return lang.toLowerCase() == want.toLowerCase() ||
@@ -75,9 +75,7 @@ class PiperTtsEngine implements TtsEngine {
           (v) => TtsVoice(
             id: v.name,
             name: v.name,
-            language: SherpaPiperTtsCore.langFromVoiceName(v.name).isEmpty
-                ? language
-                : SherpaPiperTtsCore.langFromVoiceName(v.name),
+            language: _voiceLanguage(v).isEmpty ? language : _voiceLanguage(v),
             gender: 'neural',
             engine: id,
             isNeural: true,
@@ -110,11 +108,10 @@ class PiperTtsEngine implements TtsEngine {
     //    (Bản cũ nhận bừa ⇒ chọn giọng Việt trong setting là mọi câu tiếng
     //    Anh cũng đọc bằng giọng Việt.)
     final explicit = (voiceId ?? '').trim();
-    if (explicit.isNotEmpty &&
-        PiperVoicePrefs.isVoiceCompatibleWithLanguage(explicit, language)) {
-      for (final v in voices) {
-        if (v.name == explicit) return v.name;
-      }
+    bool compatible(PiperTtsVoice v) => PiperVoicePrefs.isVoiceCompatibleWithLanguage(
+        v.name, language, languageOfVoice: (_) => PiperVoicePrefs.normalizeLang(_voiceLanguage(v)));
+    for (final v in voices) {
+      if (v.name == explicit && compatible(v)) return v.name;
     }
 
     // 2. Giọng đã lưu cho CHÍNH ngôn ngữ này (không rơi về giọng ngôn ngữ
@@ -122,7 +119,7 @@ class PiperTtsEngine implements TtsEngine {
     final preferred = await PiperVoicePrefs.instance.voiceForLang(language);
     if (preferred != null) {
       for (final v in voices) {
-        if (v.name == preferred) return v.name;
+        if (v.name == preferred && compatible(v)) return v.name;
       }
     }
 

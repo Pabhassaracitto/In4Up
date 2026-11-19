@@ -21,6 +21,7 @@ class OfflineTtsEngine extends TtsEngine {
   double _lastSpeed = 1.0;
   double _lastPitch = 1.0;
   String? _lastVoiceId;
+  String? _lastVoiceLocale;
   bool _paused = false;
   int _playGeneration = 0;
 
@@ -123,7 +124,9 @@ class OfflineTtsEngine extends TtsEngine {
     double speed = 1.0,
     double pitch = 1.0,
     String? voiceId,
+    String? voiceLocale,
   }) async {
+    _lastVoiceLocale = voiceLocale;
     _lastText = text;
     _lastLanguage = language;
     _lastSpeed = speed;
@@ -140,7 +143,7 @@ class OfflineTtsEngine extends TtsEngine {
       if (result == 0) {
         // Thử format khác
         final shortLang = language.split('-').first;
-        await _tts.setLanguage(shortLang);
+        if (await _tts.setLanguage(shortLang) == 0) throw StateError('Unsupported TTS locale: $language');
       }
 
       // Set speed (flutter_tts: 0.0 - 1.0, default 0.5)
@@ -152,13 +155,16 @@ class OfflineTtsEngine extends TtsEngine {
 
       // Set voice nếu có — và CHỈ khi giọng đó đúng ngôn ngữ của câu
       // (PSRC-230: giọng đã áp vẫn dính sang các câu sau).
-      if (voiceId != null && voiceMatchesLanguage(voiceId, language)) {
-        await _tts.setVoice({'name': voiceId, 'locale': language});
+      if (voiceId != null && voiceMatchesLanguage(voiceLocale ?? voiceId, language)) {
+        await _tts.setVoice({'name': voiceId, 'locale': voiceLocale ?? language});
       }
 
       // Stop/restart may have been requested while plugin settings were applied.
       if (generation != _playGeneration) return;
-      await _tts.speak(text);
+      final resultCode = await _tts.speak(text);
+      if (resultCode == 0 && generation == _playGeneration && !_paused) {
+        throw StateError('System TTS did not play');
+      }
     } catch (e) {
       debugPrint('OfflineTTS speak error: $e');
       rethrow;
@@ -198,6 +204,7 @@ class OfflineTtsEngine extends TtsEngine {
     final speed = _lastSpeed;
     final pitch = _lastPitch;
     final voiceId = _lastVoiceId;
+    final voiceLocale = _lastVoiceLocale;
     _paused = false;
     final generation = ++_playGeneration;
     await _tts.stop();
@@ -208,6 +215,7 @@ class OfflineTtsEngine extends TtsEngine {
       speed: speed,
       pitch: pitch,
       voiceId: voiceId,
+      voiceLocale: voiceLocale,
     );
   }
 

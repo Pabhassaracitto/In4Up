@@ -1,7 +1,10 @@
+import 'translation_ui_labels.dart';
+
 /// High-quality native strings for priority locales (en, hi, zh, zh_TW, si).
 /// Merged first in [AppUITranslations.translate] so Home/settings labels
 /// do not stay Vietnamese when the catalog is incomplete.
 const Map<String, Map<String, String>> priorityUiOverrides = {
+  ...translationUiOverrides,
   // PSRC-22: Memory Garden ratings and review feedback.
   'Lại': {
     'en': 'Again',

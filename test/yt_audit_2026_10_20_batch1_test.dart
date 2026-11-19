@@ -18,24 +18,19 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final player =
       File('lib/features/youtube/yt_player_screen.dart').readAsStringSync();
-  final explorer =
-      File('lib/features/youtube/youtube_explorer_screen.dart')
-          .readAsStringSync();
-  final downloader =
-      File('lib/features/youtube/services/yt_downloader.dart')
-          .readAsStringSync();
-  final settings =
-      File('lib/features/youtube/models/yt_learning_settings.dart')
-          .readAsStringSync();
+  final explorer = File('lib/features/youtube/youtube_explorer_screen.dart')
+      .readAsStringSync();
+  final downloader = File('lib/features/youtube/services/yt_downloader.dart')
+      .readAsStringSync();
+  final settings = File('lib/features/youtube/models/yt_learning_settings.dart')
+      .readAsStringSync();
   final sheet =
       File('lib/features/youtube/widgets/yt_subtitle_settings_sheet.dart')
           .readAsStringSync();
-  final panel =
-      File('lib/features/youtube/widgets/yt_word_panel.dart')
-          .readAsStringSync();
-  final translation =
-      File('lib/features/translation/translation_service.dart')
-          .readAsStringSync();
+  final panel = File('lib/features/youtube/widgets/yt_word_panel.dart')
+      .readAsStringSync();
+  final translation = File('lib/features/translation/translation_service.dart')
+      .readAsStringSync();
   final syntax =
       File('lib/services/syntax_highlighter_service.dart').readAsStringSync();
 
@@ -159,13 +154,24 @@ void main() {
     });
 
     test('áp dụng tại mọi điểm nhận kết quả trong chuỗi engine', () {
-      final uses = '_looksUntranslated('.allMatches(translation).length;
-      expect(
-        uses >= 5,
-        isTrue,
-        reason: 'Phải soi ở online engines, Hy-MT, ML Kit và LLM '
-            '(tìm thấy $uses chỗ, cần ít nhất 5: 1 định nghĩa + 4 điểm dùng).',
-      );
+      // Audit 1.29 §6 unifies all engines into ONE ordered loop. Requiring
+      // four copied guards would forbid that design while proving no runtime
+      // behavior. Pin the common guard before success, then exercise actual
+      // fallthrough in engine_priority_test.dart (online, ML Kit and LLM).
+      final start =
+          translation.indexOf('Future<TranslationResult> _runEngineChain(');
+      final chain = translation.substring(
+          start, translation.indexOf('Duration _llmBudget(', start));
+      expect(chain, contains('for (final engine in engines)'));
+      final guard = chain.indexOf('_looksUntranslated(');
+      final accept =
+          chain.indexOf('return traced(result, actualId: engine.id)');
+      expect(guard, greaterThanOrEqualTo(0));
+      expect(accept, greaterThan(guard),
+          reason: 'every successful sentence engine passes the common guard');
+      expect(chain, contains('!identical(engine, _offlineEngine)'));
+      expect(translation, contains('if (_hymt != null) _hymt!'));
+      expect(translation, contains('if (_llmMt != null) _llmMt!'));
     });
 
     test('có log để owner đọc được trên logcat khi bỏ qua', () {
@@ -259,8 +265,7 @@ void main() {
   });
 
   // ── #10 — IN4-102: tab VĂN BẢN tự động theo dòng hiện tại ─────────────
-  group('#10 (IN4-102) — tab VĂN BẢN: tự do / tự động (mặc định tự động)',
-      () {
+  group('#10 (IN4-102) — tab VĂN BẢN: tự do / tự động (mặc định tự động)', () {
     test('cài đặt mặc định BẬT và được lưu', () {
       expect(
         settings.contains('this.transcriptAutoFollow = true,'),

@@ -169,9 +169,13 @@ class LlmMtPrompts {
     // present in the source and should be translated/preserved as content.
     if (sourceText == null ||
         (!sourceText.contains('**') && !sourceText.contains('__'))) {
+      // Dart's replaceAll treats '$1' literally (unlike many regex APIs).
+      // Preserve the captured translation instead of displaying "$1" in Read.
       out = out
-          .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1');
+          .replaceAllMapped(RegExp(r'\*\*(.+?)\*\*', dotAll: true),
+              (match) => match.group(1)!)
+          .replaceAllMapped(
+              RegExp(r'__(.+?)__', dotAll: true), (match) => match.group(1)!);
     }
     return out.trim();
   }

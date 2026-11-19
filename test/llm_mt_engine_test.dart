@@ -117,7 +117,9 @@ class _RecordingEngine extends TranslationEngine {
     String sourceLang = 'auto',
   }) async {
     inputs.add(text);
-    final out = transform?.call(text) ?? text;
+    // Successful EN→VI fixtures must translate, not echo the source: the
+    // shared chain rejects untranslated output before accepting an engine.
+    final out = transform?.call(text) ?? 'Đây là bản dịch của engine miễn phí.';
     return TranslationResult.success(
       original: text,
       translated: out,
@@ -245,7 +247,10 @@ void main() {
           captured = request;
           return http.Response(
               '{"choices":[{"message":{"role":"assistant","content":"Bản dịch"}}]}',
-              200);
+              200,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              });
         }),
       );
       final content = await client.chatCompletion(
@@ -410,6 +415,16 @@ void main() {
       );
     });
 
+    test('emphasis cleanup preserves translated text and protected slots', () {
+      expect(LlmMtPrompts.cleanOutput('**Xin chào** và __cảm ơn__'),
+          'Xin chào và cảm ơn');
+      expect(LlmMtPrompts.cleanOutput('**first\nsecond**'), 'first\nsecond');
+      expect(
+        LlmMtPrompts.cleanOutput('__G0__ là tốt', sourceText: 'the __G0__ is good'),
+        '__G0__ là tốt',
+      );
+    });
+
     test('bỏ toàn bộ khi model chỉ trả phân tích, không có bản dịch', () {
       expect(
         LlmMtPrompts.cleanOutput('1. **Analyze the Request:**\nSource Text: hello'),
@@ -465,7 +480,7 @@ void main() {
     test('provider có nhưng mất mạng → no_network', () async {
       final backend = _ScriptedBackend((call, i) => 'không bao giờ gọi');
       final engine = LlmMtEngine.forTest(
-        env: _FakeEnv(network: false),
+        env: _FakeEnv(provider: _lanProvider, network: false),
         backend: backend,
       );
       final result =

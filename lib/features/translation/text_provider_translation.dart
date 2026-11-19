@@ -15,6 +15,15 @@ import 'translation_display_mode.dart';
 import 'translation_service.dart';
 import 'translation_source_choice.dart';
 
+enum TranslationRunStatus {
+  idle,
+  translating,
+  succeeded,
+  partial,
+  failed,
+  cancelled
+}
+
 mixin TranslationMixin on ChangeNotifier {
   TranslationDisplayMode _translationDisplayMode =
       TranslationDisplayMode.hidden;
@@ -37,8 +46,55 @@ mixin TranslationMixin on ChangeNotifier {
     final storage = StorageService();
     if (storage.isInitialized) {
       _blurTranslations = storage.getSetting<bool>('read_blur_translations',
-              defaultValue: false) ?? false;
+              defaultValue: false) ??
+          false;
     }
+  }
+
+  TranslationRunStatus _translationStatus = TranslationRunStatus.idle;
+  TranslationRunStatus get translationStatus => _isTranslating
+      ? TranslationRunStatus.translating
+      : _translationError != null
+          ? (_successfulTranslations > 0
+              ? TranslationRunStatus.partial
+              : TranslationRunStatus.failed)
+          : _translationStatus;
+  int _successfulTranslations = 0;
+  int _failedTranslations = 0;
+  int get successfulTranslations => _successfulTranslations;
+  int get failedTranslations => _failedTranslations;
+  TranslationResult? _lastTranslationResult;
+  TranslationResult? get lastTranslationResult => _lastTranslationResult;
+
+  /// All engine selectors/settings observe the same service, including tests.
+  TranslationService get translationService => _translationService;
+
+  void _revealTranslationResult() {
+    if (_translationDisplayMode == TranslationDisplayMode.hidden) {
+      _translationDisplayMode = TranslationDisplayMode.stackedBelow;
+    }
+  }
+
+  void _startTranslation() {
+    _isTranslating = true;
+    _translationStatus = TranslationRunStatus.translating;
+    _successfulTranslations = 0;
+    _failedTranslations = 0;
+    _lastTranslationResult = null;
+    _currentEngine = '';
+    _translationProgress = 0;
+    _translationError = null;
+    // Reveal before awaiting the first result, including single-line actions.
+    // Explicit side-by-side / blur choices are preserved; IPA is independent.
+    _revealTranslationResult();
+    notifyListeners();
+  }
+
+  void _resetTranslationOutcome() {
+    _translationStatus = TranslationRunStatus.idle;
+    _successfulTranslations = 0;
+    _failedTranslations = 0;
+    _lastTranslationResult = null;
   }
 
   bool _isTranslating = false;
@@ -270,7 +326,7 @@ mixin TranslationMixin on ChangeNotifier {
   /// "Đang dịch bằng Hy-MT offline, có thể chậm" khi Hy-MT đang xử lý
   /// (HYMT-002). `null` = không có engine chạy.
   ValueNotifier<String?> get translationEngineNotifier =>
-      TranslationService().activeEngineNotifier;
+      _translationService.activeEngineNotifier;
 
   bool get translationPipelineStale {
     final current = _translationService.pipelineTag;
@@ -336,6 +392,7 @@ mixin TranslationMixin on ChangeNotifier {
     _isTranslating = false;
     _translationProgress = 0;
     _translationError = null;
+    _resetTranslationOutcome();
     _pinnedTranslationSourceCode = newCode;
     final key = roleSwapDocumentKey;
     if (key != null) {
@@ -492,6 +549,7 @@ mixin TranslationMixin on ChangeNotifier {
     _isTranslating = false;
     _translationProgress = 0;
     _translationError = null;
+    _resetTranslationOutcome();
     service.configure(targetLang: language.translationCode);
     final storage = StorageService();
     if (storage.isInitialized) {
@@ -633,6 +691,7 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   Future<void> translateLine(int index) async {
+    if (_isTranslating) return;
     if (index < 0 || index >= lines.length) return;
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
@@ -657,36 +716,58 @@ mixin TranslationMixin on ChangeNotifier {
       notifyListeners();
       return;
     }
-    final runId = _translationRunId;
-    // Qua `service` (production vẫn là singleton) như `translateAll` — gọi
-    // thẳng singleton ở đây làm test dịch một dòng dựng engine + Hive thật.
-    service.activeEngineNotifier.value = null;
-    final (result, appliedSource) = await _translateLineContent(
-      service,
-      content: line.content,
-      documentSource: source,
-      lineSource: lineSource,
-      targetCode: target.translationCode,
-      skipCache: true,
-    );
-
-    if (runId != _translationRunId || index >= lines.length) return;
-    if (service.targetLang != target.translationCode) return;
-
-    if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-      lines[index] = line.copyWith(
-        translation: result.translatedText,
-        sourceLanguageCode:
-            result.detectedLang ?? appliedSource.translationCode,
-        translationLanguageCode: target.translationCode,
+    final runId = ++_translationRunId;
+    _startTranslation();
+    try {
+      await service.settingsReady;
+      await service.refreshRoutingPolicy();
+      if (runId != _translationRunId) return;
+      final pipelineTag = service.pipelineTag;
+      final (result, appliedSource) = await _translateLineContent(
+        service,
+        content: line.content,
+        documentSource: source,
+        lineSource: lineSource,
+        targetCode: target.translationCode,
+        skipCache: true,
       );
-      _currentEngine = service.lastUsedEngine;
-      _appliedPipelineTag = service.pipelineTag;
-      _translationError = null;
-    } else {
-      _translationError = _translationErrorFor(result, lineSource: lineSource);
+      if (runId != _translationRunId || index >= lines.length) return;
+      if (service.targetLang != target.translationCode) {
+        _translationStatus = TranslationRunStatus.cancelled;
+        return;
+      }
+
+      _lastTranslationResult = result;
+      if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+        lines[index] = line.copyWith(
+          translation: result.translatedText,
+          sourceLanguageCode:
+              result.detectedLang ?? appliedSource.translationCode,
+          translationLanguageCode: target.translationCode,
+        );
+        _currentEngine = result.engineName;
+        _appliedPipelineTag = pipelineTag;
+        _successfulTranslations = 1;
+        _translationStatus = TranslationRunStatus.succeeded;
+      } else {
+        _failedTranslations = 1;
+        _translationError =
+            _translationErrorFor(result, lineSource: lineSource);
+        _translationStatus = TranslationRunStatus.failed;
+      }
+      _translationProgress = 1;
+    } catch (error) {
+      if (runId == _translationRunId) {
+        _failedTranslations = 1;
+        _translationError = error.toString();
+        _translationStatus = TranslationRunStatus.failed;
+      }
+    } finally {
+      if (runId == _translationRunId) {
+        _isTranslating = false;
+        notifyListeners();
+      }
     }
-    notifyListeners();
   }
 
   Future<void> translateAll({bool forceRetranslate = false}) async {
@@ -711,15 +792,22 @@ mixin TranslationMixin on ChangeNotifier {
       // dấu để thanh dịch đề nghị một đích khác thay vì dừng ở dòng đỏ.
       _translationError = _samePairErrorText =
           '${source.flag} ${source.nativeName} đã là ngôn ngữ đích. '
-          'Hãy chọn một ngôn ngữ khác.';
+              'Hãy chọn một ngôn ngữ khác.';
       notifyListeners();
       return;
     }
 
+    final previousResult = _lastTranslationResult;
+    final previousEngine = _currentEngine;
+    final runId = ++_translationRunId;
+    _startTranslation();
+    await service.settingsReady;
+    await service.refreshRoutingPolicy();
+    if (runId != _translationRunId) return;
     final targetCode = target.translationCode;
     final pipelineTag = service.pipelineTag;
-    final pipelineChanged = _appliedPipelineTag != null &&
-        _appliedPipelineTag != pipelineTag;
+    final pipelineChanged =
+        _appliedPipelineTag != null && _appliedPipelineTag != pipelineTag;
     final force = forceRetranslate || pipelineChanged;
     final toTranslate = <int>[];
     for (var index = 0; index < lines.length; index++) {
@@ -750,29 +838,32 @@ mixin TranslationMixin on ChangeNotifier {
 
     if (toTranslate.isEmpty) {
       _appliedPipelineTag = pipelineTag;
-      if (_translationDisplayMode == TranslationDisplayMode.hidden) {
-        _translationDisplayMode = TranslationDisplayMode.stackedBelow;
+      _isTranslating = false;
+      _translationStatus = translatedLineCount > 0
+          ? TranslationRunStatus.succeeded
+          : TranslationRunStatus.idle;
+      _translationProgress = 1;
+      _successfulTranslations = translatedLineCount;
+      if (previousResult?.isSuccess == true) {
+        _lastTranslationResult = previousResult;
+        _currentEngine = previousEngine;
       }
       notifyListeners();
       return;
     }
 
-    final runId = ++_translationRunId;
-    _isTranslating = true;
-    _translationProgress = 0;
-    _translationError = null;
-    // HYMT-002: hint engine sạch cho run mới (engine sẽ tự set khi chạy).
-    service.activeEngineNotifier.value = null;
-    notifyListeners();
-
     var consecutiveErrors = 0;
     var doneCount = 0;
+    var targetChanged = false;
     const notifyEvery = 5;
 
     try {
       for (var position = 0; position < toTranslate.length; position++) {
         if (!_isTranslating || runId != _translationRunId) break;
-        if (service.targetLang != targetCode) break;
+        if (service.targetLang != targetCode) {
+          targetChanged = true;
+          break;
+        }
 
         final lineIndex = toTranslate[position];
         if (lineIndex >= lines.length) continue;
@@ -787,18 +878,24 @@ mixin TranslationMixin on ChangeNotifier {
           skipCache: force,
         );
 
-        if (runId != _translationRunId || service.targetLang != targetCode) {
+        if (runId != _translationRunId) break;
+        if (service.targetLang != targetCode) {
+          targetChanged = true;
           break;
         }
+        _lastTranslationResult = result;
+        final succeeded =
+            result.isSuccess && result.translatedText.trim().isNotEmpty;
         if (lineIndex < lines.length) {
-          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+          if (succeeded) {
             lines[lineIndex] = line.copyWith(
               translation: result.translatedText,
               sourceLanguageCode:
                   result.detectedLang ?? appliedSource.translationCode,
               translationLanguageCode: targetCode,
             );
-            _currentEngine = service.lastUsedEngine;
+            _currentEngine = result.engineName;
+            _successfulTranslations++;
             consecutiveErrors = 0;
           } else {
             _translationError = _translationErrorFor(
@@ -806,9 +903,11 @@ mixin TranslationMixin on ChangeNotifier {
               lineSource: lineSource,
             );
             consecutiveErrors++;
+            _failedTranslations++;
             if (consecutiveErrors >= 5) {
-              _translationError =
-                  'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
+              // Keep the actual model/engine error, not an invented network
+              // diagnosis. Count the failed attempt even when stopping early.
+              doneCount++;
               break;
             }
           }
@@ -817,17 +916,19 @@ mixin TranslationMixin on ChangeNotifier {
         doneCount++;
         _translationProgress = doneCount / toTranslate.length;
         final isLast = position == toTranslate.length - 1;
-        if (isLast || doneCount % notifyEvery == 0) notifyListeners();
+        if (doneCount == 1 ||
+            (succeeded && _successfulTranslations == 1) ||
+            isLast ||
+            doneCount % notifyEvery == 0) {
+          notifyListeners();
+        }
 
         if (!isLast) {
           await Future<void>.delayed(const Duration(milliseconds: 200));
         }
       }
 
-      if (_translationDisplayMode == TranslationDisplayMode.hidden &&
-          translatedLineCount > 0) {
-        _translationDisplayMode = TranslationDisplayMode.stackedBelow;
-      }
+      if (runId != _translationRunId) return;
 
       // Issue2: tự động lưu translations vào cache/cloud sau khi dịch xong
       try {
@@ -840,10 +941,23 @@ mixin TranslationMixin on ChangeNotifier {
         debugPrint('⚠️ auto-save translations error: $e');
       }
     } catch (error) {
-      _translationError = error.toString();
+      if (runId == _translationRunId) {
+        _translationError = error.toString();
+        _failedTranslations++;
+      }
     } finally {
       if (runId == _translationRunId) {
         _isTranslating = false;
+        if (targetChanged) {
+          _translationError = null;
+          _translationStatus = TranslationRunStatus.cancelled;
+        } else {
+          _translationStatus = _failedTranslations == 0
+              ? TranslationRunStatus.succeeded
+              : _successfulTranslations > 0
+                  ? TranslationRunStatus.partial
+                  : TranslationRunStatus.failed;
+        }
         _translationProgress = doneCount / toTranslate.length;
         _appliedPipelineTag = pipelineTag;
         notifyListeners();
@@ -854,7 +968,8 @@ mixin TranslationMixin on ChangeNotifier {
   void cancelTranslation() {
     _translationRunId++;
     _isTranslating = false;
-    _translationService.activeEngineNotifier.value = null;
+    _translationStatus = TranslationRunStatus.cancelled;
+    _translationError = null;
     notifyListeners();
   }
 
@@ -867,9 +982,6 @@ mixin TranslationMixin on ChangeNotifier {
     }
     _translationRunId++;
     _isTranslating = false;
-    // Qua seam `_translationService` (production vẫn là singleton) để hàm
-    // này test được mà không dựng engine thật.
-    _translationService.activeEngineNotifier.value = null;
     for (var index = 0; index < lines.length; index++) {
       lines[index] = lines[index].copyWith(clearTranslation: true);
     }
@@ -877,6 +989,7 @@ mixin TranslationMixin on ChangeNotifier {
     _translationProgress = 0;
     _translationError = null;
     _currentEngine = '';
+    _resetTranslationOutcome();
     _appliedPipelineTag = null;
     notifyListeners();
   }
@@ -891,6 +1004,7 @@ mixin TranslationMixin on ChangeNotifier {
     _translationProgress = 0;
     _translationError = null;
     _currentEngine = '';
+    _resetTranslationOutcome();
     _appliedPipelineTag = null;
     _translationDisplayMode = TranslationDisplayMode.hidden;
     // Nguồn explicit gắn cho tài liệu CŨ không kéo sang tài liệu mới.
@@ -953,13 +1067,23 @@ mixin TranslationMixin on ChangeNotifier {
       }
       notifyListeners();
     }
-    debugPrint('[Translation] rehydrated $hits/${lines.length} lines from cache');
+    debugPrint(
+        '[Translation] rehydrated $hits/${lines.length} lines from cache');
     // PSRC-237: tài liệu này lần trước đọc ở dạng đổi vai ⇒ đổi vai lại
     // (chỉ khi vẫn là tài liệu đó và bản dịch đã về đủ).
     if (hits > 0 && revision == _translationDocumentRevision) {
       restoreSavedRoleSwap();
     }
     return hits;
+  }
+
+  @override
+  void dispose() {
+    // Pending engine work may outlive a Read provider. Invalidate its results
+    // without clearing another screen's service-wide active-engine status.
+    _translationRunId++;
+    _isTranslating = false;
+    super.dispose();
   }
 }
 

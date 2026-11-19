@@ -2398,4 +2398,10 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Khuyến nghị theo RAM': 'Recommended for this RAM',
   'Tự theo RAM': 'Auto (by RAM)',
   'Ưu tiên hiện tại': 'Current preference',
+  // PSRC-253 — pre-download Content-Length check
+  'Dung lượng tải vượt ngưỡng RAM đo được — đã chặn trước khi tải.': 'Download size exceeds the measured RAM limit — blocked before downloading.',
+  'Kích thước là số do máy chủ báo qua HEAD, chưa phải file trên máy. RAM đỉnh khi chạy vẫn chỉ là ước tính. Tải file lớn có thể tốn băng thông, pin và làm app chậm/nóng.': 'The size is reported by the server via HEAD, not yet the file on this device. Peak RAM remains an estimate. A large download can use bandwidth and battery and slow or heat the app.',
+  'Model lớn hơn ngưỡng gợi ý — cần xác nhận trước khi tải.': 'Model is larger than the suggested limit — confirmation is required before downloading.',
+  'Máy chủ báo dung lượng tải: {value0}': 'Server-reported download size: {value0}',
+  'Vẫn tải': 'Download anyway',
 };

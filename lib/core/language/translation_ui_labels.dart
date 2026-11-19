@@ -86,13 +86,6 @@ const Map<String, Map<String, String>> translationUiOverrides = {
     'zh_TW': '離線',
     'si': 'නොබැඳි',
   },
-  TranslationUiLabels.online: {
-    'en': 'Online',
-    'hi': 'ऑनलाइन',
-    'zh': '在线',
-    'zh_TW': '線上',
-    'si': 'මාර්ගගත',
-  },
   TranslationUiLabels.translating: {
     'en': 'Translating…',
     'hi': 'अनुवाद हो रहा है…',

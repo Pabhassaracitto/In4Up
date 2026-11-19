@@ -1,0 +1,286 @@
+name: VieNeu engine build (Android arm64)
+
+# BETA-1.29.0 / lane L6 — chứng minh engine native VieNeu-TTS **thật sự biên dịch
+# được** và `.so` có mặt trong APK.
+#
+# Vì sao cần workflow riêng:
+#   * `app_analyze.yml` chỉ chạy Dart/analyze — KHÔNG build native.
+#   * `build_final_complete.yml` chỉ chạy khi push tag release ⇒ lỗi CMake/NDK chỉ
+#     lộ ra ở bước phát hành (quá muộn, và tốn cả 4 nền tảng).
+#
+# Chạy khi: đổi `native/tts_vieneu/**`, đổi gitlink `third_party/audio.cpp` hoặc
+# `third_party/sea-g2p`, đổi CMake Android, hoặc bấm tay trên bất kỳ nhánh `arena/**`.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'native/tts_vieneu/**'
+      - 'third_party/audio.cpp'
+      - 'third_party/sea-g2p'
+      - '.gitmodules'
+      - 'android/app/src/main/cpp/**'
+      # PSRC-221 (L8): mã Kotlin / manifest / res của app chỉ được BIÊN DỊCH ở
+      # workflow này (app_analyze chỉ chạy Dart). Thiếu ba dòng dưới thì một
+      # service Kotlin mới không hề được build trước bước phát hành.
+      - 'android/app/src/main/kotlin/**'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/main/res/**'
+      # PSRC-171b: nửa Dart của cùng engine (nhận diện giọng, clone, chẩn đoán)
+      # cũng phải có APK để thử trên máy — trước đây sửa `lib/`/`packages/` thì
+      # workflow này KHÔNG chạy, nên artifact APK mới nhất vẫn là bản cũ.
+      - 'lib/features/tts/**'
+      - 'packages/in4up_stt/**'
+      - 'android/vieneu/**'
+      - 'android/settings.gradle.kts'
+      - 'android/app/build.gradle.kts'
+      - '.github/workflows/vieneu_engine_build.yml'
+      - 'scripts/ci/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm64:
+    name: Build libvieneu_tts.so + libaudiocpp.so + libsea_g2p_rs.so (arm64-v8a)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # audio.cpp / sea-g2p được PIN trong .gitmodules (gitlink), không theo main.
+      # --depth 1 thử trước (nhanh); nếu GitHub không cho fetch đúng SHA thì clone đủ.
+      - name: Init submodules (llama.cpp + audio.cpp + sea-g2p)
+        run: |
+          set -euo pipefail
+          git submodule update --init --depth 1 -- third_party/llama.cpp
+          git submodule update --init --depth 1 -- third_party/audio.cpp third_party/sea-g2p \
+            || git submodule update --init -- third_party/audio.cpp third_party/sea-g2p
+          git -C third_party/audio.cpp log -1 --format='audio.cpp %h %s'
+          git -C third_party/sea-g2p  log -1 --format='sea-g2p  %h %s'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Runner KHÔNG có sẵn NDK 27 mà plugin `whisper_flutter_new` khai riêng ⇒
+      # Gradle tự tải rồi chết vì chưa accept license:
+      #   "LicenceNotAcceptedException: ndk;27.0.11902837".
+      # build_final_complete.yml đã làm đúng bước này; ở đây chép lại.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Accept licenses + NDK 27 (plugin) & 28.2 (app) + CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install "platforms;android-36" "ndk;27.0.11902837" \
+            "ndk;28.2.13676358" "cmake;3.22.1" > /tmp/sdkmanager.log 2>&1 || {
+              tail -30 /tmp/sdkmanager.log
+              exit 1
+            }
+          ls "${ANDROID_SDK_ROOT}/ndk/"
+
+      - name: Setup Flutter 3.44.1
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+
+      - name: Setup Rust + cargo-ndk
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Resolve NDK path
+        run: |
+          set -euo pipefail
+          NDK_DIR="${ANDROID_SDK_ROOT}/ndk/28.2.13676358"
+          test -d "$NDK_DIR"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          echo "NDK: $NDK_DIR — $(grep Pkg.Revision "$NDK_DIR/source.properties")"
+
+      - name: Toolchain versions (chẩn đoán)
+        run: |
+          rustc --version; cargo --version; cargo ndk --version || true
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/" || true
+
+      # Kiểm crate có biên dịch được với C ABI trên HOST trước (nhanh, tách lỗi
+      # crate khỏi lỗi cross-compile). Không dùng để đóng gói.
+      - name: Host check SEA-G2P (capi) — tách lỗi crate khỏi lỗi NDK
+        shell: bash
+        run: |
+          set +e
+          cargo build --release --locked \
+            --manifest-path third_party/sea-g2p/Cargo.toml \
+            --no-default-features --features capi > /tmp/g2p_host.log 2>&1
+          code=$?
+          tail -30 /tmp/g2p_host.log
+          if [ "$code" != "0" ]; then
+            python3 scripts/ci/emit_failure_annotation.py \
+              /tmp/g2p_host.log "SEA-G2P host build" 2 || true
+            exit "$code"
+          fi
+
+      # SEA-G2P là thư viện Rust (C ABI) — không có bản Android dựng sẵn, phải
+      # cross-compile. Chép vào jniLibs để audio.cpp `dlopen` theo tên.
+      - name: Build SEA-G2P (C ABI) cho arm64-v8a
+        shell: bash
+        run: |
+          set +e
+          mkdir -p android/app/src/main/jniLibs
+          # cargo-ndk đọc `cargo metadata` từ THƯ MỤC HIỆN TẠI (không theo
+          # --manifest-path) ⇒ phải cd vào crate rồi mới gọi; -o dùng đường
+          # dẫn tuyệt đối để không phụ thuộc cwd.
+          (
+            cd third_party/sea-g2p
+            cargo ndk -t arm64-v8a \
+              -o "$GITHUB_WORKSPACE/android/app/src/main/jniLibs" \
+              build --release --locked \
+              --no-default-features --features capi
+          ) > /tmp/g2p_build.log 2>&1
+          code=$?
+          tail -40 /tmp/g2p_build.log
+          if [ "$code" != "0" ]; then
+            python3 scripts/ci/emit_failure_annotation.py \
+              /tmp/g2p_build.log "SEA-G2P build" 2 || true
+            exit "$code"
+          fi
+          ls -l android/app/src/main/jniLibs/arm64-v8a/
+
+      # CMake của whisper plugin trỏ tới assets/whisper_models — thiếu thư mục
+      # thì configure đỏ (build_final_complete.yml cũng tạo bước này).
+      - name: Ensure asset dirs (whisper_models)
+        run: mkdir -p assets/whisper_models && touch assets/whisper_models/.gitkeep
+
+      - name: Prepare google-services.json (secret; fallback mock để build)
+        env:
+          ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANDROID_GOOGLE_SERVICES_JSON:-}" ]; then
+            printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "dùng secret ANDROID_GOOGLE_SERVICES_JSON"
+          else
+            # Plugin google-services ĐỎ nếu không có client khớp applicationId
+            # ("No matching client found for package name 'com.in4up'") ⇒ mock
+            # tối thiểu nhưng ĐÚNG hình dạng, chỉ để build được.
+            cat > android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "123456789012",
+              "project_id": "mock-in4up",
+              "storage_bucket": "mock-in4up.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:0123456789abcdef",
+                  "android_client_info": { "package_name": "com.in4up" }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  { "current_key": "AIzaSyDUMMY0000000000000000000000000000" }
+                ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+            echo "::warning::thiếu secret ANDROID_GOOGLE_SERVICES_JSON — dùng mock đúng hình dạng (chỉ để build)"
+          fi
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      # Debug: không AOT Dart (nhanh hơn nhiều) nhưng vẫn chạy CMake/NDK đầy đủ —
+      # đúng thứ cần kiểm. Flavor `stable` bắt buộc (không flavor ⇒ build cả 3 flavor).
+      - name: Build APK debug arm64 (biên dịch audio.cpp + wrapper + ggml)
+        shell: bash
+        run: |
+          set +e
+          flutter build apk --debug --flavor stable --target-platform android-arm64 2>&1 | tee /tmp/vieneu_build.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            echo "### VieNeu engine build — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -nE "What went wrong|^e: |error:|fatal error|CMake Error|undefined reference|cannot find|No matching client|Execution failed|> Task .*FAILED|ninja: build stopped|Caused by" /tmp/vieneu_build.log | head -120 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            # Đưa dòng lỗi GỐC lên annotation (log workflow/artifact bị chặn egress
+            # từ sandbox ⇒ annotation là kênh DUY NHẤT đọc được lỗi). Script mã
+            # hoá %0A đúng thứ tự — bản sed cũ để lọt newline thật nên GitHub chỉ
+            # hiện dòng đầu ("What went wrong:").
+            # 4 phần × ~3.8 KB: một annotation bị GitHub cắt quanh 4096 ký tự.
+            python3 scripts/ci/emit_failure_annotation.py \
+              /tmp/vieneu_build.log "VieNeu engine build" 4 || true
+          fi
+          exit "$code"
+
+      - name: Verify .so trong APK
+        run: |
+          set -euo pipefail
+          APK="$(ls build/app/outputs/flutter-apk/*.apk | head -1)"
+          echo "APK: $APK"
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/(libvieneu_tts|libaudiocpp|libsea_g2p_rs)\.so' | tee /tmp/vieneu_libs.txt
+          for lib in libvieneu_tts.so libaudiocpp.so libsea_g2p_rs.so; do
+            grep -q "lib/arm64-v8a/$lib" /tmp/vieneu_libs.txt \
+              || { echo "::error::Thiếu $lib trong APK"; exit 1; }
+          done
+
+      # PSRC-171: audio.cpp v0.9.4 KHÔNG nhúng model_specs/*.json vào
+      # libaudiocpp.so (chỉ khi AUDIOCPP_DEPLOYMENT_BUILD=ON, mặc định OFF) ⇒
+      # engine chết ở "model spec not found for family 'vietneu_tts'" và UI báo
+      # "Không thể tạo giọng". Wrapper phải mang spec của family trong .rodata.
+      # Kiểm bằng chuỗi mô tả của spec (chỉ có trong json, không có ở wrapper).
+      - name: Verify model spec nhúng trong libvieneu_tts.so (PSRC-171)
+        run: |
+          set -euo pipefail
+          APK="$(ls build/app/outputs/flutter-apk/*.apk | head -1)"
+          unzip -p "$APK" lib/arm64-v8a/libvieneu_tts.so > /tmp/libvieneu_tts.so
+          ls -l /tmp/libvieneu_tts.so
+          if ! grep -aq '"display_name": "VieNeu-TTS v3 Turbo"' /tmp/libvieneu_tts.so; then
+            echo "::error::PSRC-171: libvieneu_tts.so KHÔNG nhúng model spec vieneu_v3_turbo.json — audio.cpp sẽ báo 'model spec not found' khi nạp model"
+            exit 1
+          fi
+          echo "OK: model spec vieneu_v3_turbo.json có trong libvieneu_tts.so"
+
+      # Số đo để trả lời "engine tốn bao nhiêu" (ADR-0028 để trống ước tính).
+      # Ghi bằng annotation vì log/artifact bị chặn egress từ sandbox agent.
+      - name: Report measurements (annotation)
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          apk=$(ls -S build/app/outputs/flutter-apk/*.apk 2>/dev/null | head -1)
+          if [ -z "$apk" ]; then
+            echo "::notice title=VieNeu engine measurements::chưa có APK (build đỏ trước bước này)"
+            exit 0
+          fi
+          apk_bytes=$(stat -c%s "$apk")
+          libs=$(unzip -l "$apk" | awk '/lib\/arm64-v8a\/.*\.so$/ {printf "%s=%.1fMiB ", $4, $1/1048576}')
+          echo "::notice title=VieNeu engine measurements::apk=$(basename "$apk") $((apk_bytes/1048576))MiB; $libs"
+
+      - name: Upload APK + build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vieneu-engine-arm64
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            /tmp/vieneu_build.log
+            /tmp/g2p_host.log
+            /tmp/g2p_build.log
+          retention-days: 7
+          if-no-files-found: ignore

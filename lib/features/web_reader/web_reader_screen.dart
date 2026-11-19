@@ -1,9 +1,12 @@
+import '../pdf_reader/services/reader_speed.dart';
+import 'js/reader_follow_js.dart';
 // ignore_for_file: use_build_context_synchronously
 //
 // ★ FIX WINDOWS: dùng webview_win_floating (như YouGlishWidget)
 //   thay vì placeholder text "đang được phát triển"
 // Android: giữ nguyên webview_flutter
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -21,6 +24,7 @@ import '../../models/vocab_context.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../widgets/selection_save_sheet.dart';
+import '../web_core/linux_external_browser_screen.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
 import 'widgets/web_extraction_batch_sheet.dart';
@@ -30,7 +34,7 @@ import '../../utils/system_insets.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
 
-class WebReaderScreen extends StatefulWidget {
+class WebReaderScreen extends StatelessWidget {
   final String? initialUrl;
   final String? initialFocusTerm;
   final VocabContext? initialFocusContext;
@@ -48,10 +52,40 @@ class WebReaderScreen extends StatefulWidget {
   });
 
   @override
-  State<WebReaderScreen> createState() => _WebReaderScreenState();
+  Widget build(BuildContext context) {
+    if (Platform.isLinux) {
+      return LinuxExternalBrowserScreen(
+        initialInput: initialUrl ?? '',
+        normalizeInput: WebReaderController.normalizeUrl,
+      );
+    }
+    return _EmbeddedWebReaderScreen(
+      initialUrl: initialUrl,
+      initialFocusTerm: initialFocusTerm,
+      initialFocusContext: initialFocusContext,
+      writingMode: writingMode,
+    );
+  }
 }
 
-class _WebReaderScreenState extends State<WebReaderScreen> {
+class _EmbeddedWebReaderScreen extends StatefulWidget {
+  final String? initialUrl;
+  final String? initialFocusTerm;
+  final VocabContext? initialFocusContext;
+  final bool writingMode;
+
+  const _EmbeddedWebReaderScreen({
+    this.initialUrl,
+    this.initialFocusTerm,
+    this.initialFocusContext,
+    required this.writingMode,
+  });
+
+  @override
+  State<_EmbeddedWebReaderScreen> createState() => _WebReaderScreenState();
+}
+
+class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
   late final WebReaderController _controller;
 
   WebViewController? _mobileCtrl;
@@ -78,6 +112,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
   }
 
+  int? _selectionReadingOffset;
   ColorMode _lastColorMode = ColorMode.none;
   int _lastHighlightVersion = 0;
 
@@ -92,6 +127,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     final colorModeChanged = _controller.colorMode != _lastColorMode;
     final highlightChanged =
         _controller.highlightVersion != _lastHighlightVersion;
+    unawaited(_runJS(readerFollowScript(
+      _controller.articleCues.map((cue) => cue.text).toList(),
+      _controller.articleCueIndex,
+      karaoke: _controller.followPolicy.karaoke,
+      autoScroll: _controller.followPolicy.autoScroll,
+    )));
+    setState(() {});
     final audioChanged = _controller.isSpeaking != _lastSpeaking ||
         _controller.isPaused != _lastPaused;
     if (audioChanged) {
@@ -344,6 +386,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             setState(() {
               _showSelectionBar = true;
               _selectionText = text;
+              _selectionReadingOffset = (data['readingOffset'] as num?)?.toInt();
             });
           }
           break;
@@ -432,15 +475,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       final raw = await _runJSReturning(WebReaderJS.extractMainTextScript);
       if (raw == null) return null;
       var text = raw.toString();
-      if (text.startsWith('"') && text.endsWith('"')) {
-        text = text.substring(1, text.length - 1);
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is String) text = decoded;
+      } catch (_) {
+        // Desktop adapters may already return an unquoted string.
       }
-      text = text
-          .replaceAll(r'\n', '\n')
-          .replaceAll(r'\t', ' ')
-          .replaceAll(r'\"', '"')
-          .replaceAll(r"\'", "'")
-          .trim();
+      text = text.trim();
       return text.isEmpty ? null : text;
     } catch (e) {
       debugPrint('WebReaderScreen: extract error: $e');
@@ -500,8 +541,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
-  Future<void> _listenToArticle() async {
-    if (_controller.isSpeaking || _controller.isPaused) {
+  Future<void> _listenToArticle({bool fromSelection = false}) async {
+    if (!fromSelection && (_controller.isSpeaking || _controller.isPaused)) {
       if (mounted) setState(() {});
       return;
     }
@@ -513,7 +554,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       _showSnack('❌ Không tìm thấy nội dung bài để đọc');
       return;
     }
-    await _controller.speakArticle(text);
+    await _controller.speakArticle(text, startOffset: fromSelection
+        ? (_selectionReadingOffset ?? text.indexOf(_selectionText)).clamp(0, text.length) : 0);
   }
 
   Future<void> _extractTextToStudio() async {
@@ -1366,6 +1408,16 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       color: const Color(0xFF172033),
       child: Row(
         children: [
+          IconButton(
+            tooltip: context.uiText('Đánh dấu câu đang đọc'),
+            icon: Icon(Icons.highlight, color: _controller.followPolicy.karaoke ? Colors.amber : Colors.grey),
+            onPressed: _controller.toggleKaraoke,
+          ),
+          IconButton(
+            tooltip: context.uiText('Tự cuộn theo câu đọc'),
+            icon: Icon(Icons.unfold_more, color: _controller.followPolicy.autoScroll ? Colors.amber : Colors.grey),
+            onPressed: _controller.toggleFollow,
+          ),
           const Icon(Icons.headphones, color: Color(0xFFFFB74D), size: 20),
           const SizedBox(width: 9),
           Expanded(
@@ -1375,7 +1427,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(context.uiText('${_controller.ttsSpeed.toStringAsFixed(1)}x'), style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          Text(readerSpeedLabel(_controller.ttsSpeed), style: const TextStyle(color: Colors.white60, fontSize: 11)),
           IconButton(
             tooltip: paused ? 'Tiếp tục' : 'Tạm dừng',
             icon: Icon(paused ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 21),
@@ -1386,7 +1438,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             tooltip: 'Tốc độ đọc',
             icon: const Icon(Icons.speed, color: Colors.white70, size: 19),
             onPressed: () {
-              final next = _controller.ttsSpeed >= 1.75 ? 0.75 : _controller.ttsSpeed + 0.25;
+              final next = nextReaderSpeed(_controller.ttsSpeed);
               _controller.setTtsSpeed(next);
             },
             visualDensity: VisualDensity.compact,
@@ -1436,7 +1488,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _SelectionActionButton(
             icon: Icons.volume_up,
             tooltip: context.uiText('Đọc đoạn chọn'),
-            onTap: () => _controller.speakText(_selectionText),
+            onTap: () => _listenToArticle(fromSelection: true),
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(

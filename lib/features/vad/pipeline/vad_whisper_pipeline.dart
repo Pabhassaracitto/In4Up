@@ -25,6 +25,8 @@ import 'package:in4up_stt/stt_service_facade.dart';
 import '../models/speech_segment.dart';
 import '../services/chunk_audio_extractor.dart';
 import '../services/sherpa_vad_service.dart';
+import '../services/speech_segment_merger.dart';
+import 'vad_failure_reason.dart';
 
 /// Trạng thái pipeline
 enum VadPipelineStatus {
@@ -223,13 +225,42 @@ class VadWhisperPipeline {
         ? vadResult.segments.where((s) => s.isSpeech).toList()
         : vadResult.segments;
 
-    final totalChunks = speechSegments.length;
+    // ── PSRC-205: GỘP mảnh vụn trước khi transcribe ────────────────────────
+    //
+    // VAD cắt theo khoảng lặng; nếu ngưỡng lặng quá nhỏ thì một câu bị băm
+    // thành nhiều mảnh 0,5-2 s. Mỗi mảnh lại là MỘT lượt `transcribeFile`
+    // (một lần "Đang chuẩn bị…", một lần "chunk 1/1", một dòng LRC) ⇒ file
+    // 7 phút chạy rất lâu, kết quả lắt nhắt và mỗi dòng thiếu đầu câu vì bắt
+    // đầu từ giữa câu. Gộp các mảnh liền kề (khoảng lặng ≤ 0,45 s) thành
+    // đoạn ≤ 14 s — xem `speech_segment_merger.dart`.
+    final chunksToTranscribe = mergeSpeechSegments(
+      speechSegments,
+      maxSegmentSeconds: SherpaVadService.defaultMaxSpeechDurationS,
+    );
+
+    final totalChunks = chunksToTranscribe.length;
     final skipped = vadResult.segments.length - speechSegments.length;
+
+    if (totalChunks == 0) {
+      yield VadPipelineProgress(
+        status: VadPipelineStatus.error,
+        progress: 0.2,
+        message: 'VAD không trả về đoạn nói nào dùng được (bỏ $skipped đoạn lặng).',
+      );
+      return;
+    }
+
+    debugPrint(
+      '🔗 PSRC-205 gộp đoạn: ${speechSegments.length} mảnh speech → '
+      '$totalChunks đoạn (≤ ${SherpaVadService.defaultMaxSpeechDurationS}s), '
+      'bỏ $skipped đoạn lặng',
+    );
 
     yield VadPipelineProgress(
       status: VadPipelineStatus.extracting,
       progress: 0.2,
-      message: 'Đã tìm ${speechSegments.length} đoạn speech, bỏ $skipped đoạn silence',
+      message: 'Đã gộp ${speechSegments.length} mảnh nói thành $totalChunks đoạn, '
+          'bỏ $skipped đoạn lặng',
       currentChunkIndex: 0,
       totalChunks: totalChunks,
     );
@@ -237,8 +268,12 @@ class VadWhisperPipeline {
     // ── STEP 2/3/4: Loop chunk extractor + whisper + offset corrector ──
     final allSegments = <SttSegment>[];
     final chunkTimes = <int>[];
+    // PSRC-205: đếm chỗ hỏng để kết thúc job bằng MỘT câu nêu đúng khâu,
+    // thay vì "completed" với 0 dòng (UI hiện "Lỗi không xác định").
+    var cutFailures = 0;
+    var transcribeFailures = 0;
 
-    for (var i = 0; i < speechSegments.length; i++) {
+    for (var i = 0; i < chunksToTranscribe.length; i++) {
       if (_cancelRequested || _disposed) {
         yield const VadPipelineProgress(
           status: VadPipelineStatus.cancelled,
@@ -248,7 +283,7 @@ class VadWhisperPipeline {
         break;
       }
 
-      final seg = speechSegments[i];
+      final seg = chunksToTranscribe[i];
       final chunkSw = Stopwatch()..start();
 
       // ETA tính toán
@@ -283,11 +318,13 @@ class VadWhisperPipeline {
           chunkIndex: i,
         );
       } catch (e) {
+        cutFailures++;
         debugPrint('❌ Extract chunk $i failed: $e');
         continue;
       }
 
       if (chunk == null) {
+        cutFailures++;
         debugPrint('⚠️ Chunk $i null, bỏ qua');
         continue;
       }
@@ -296,6 +333,7 @@ class VadWhisperPipeline {
       // chunk. Nếu cứ transcribe nguyên file 30 phút cho 1 segment 14s sẽ
       // nhân N_lần thời gian + duplicate toàn bộ text + OOM. Bỏ qua segment.
       if (chunk.chunkFilePath == audioPath) {
+        cutFailures++;
         debugPrint(
           '⚠️ Segment $i: không cắt được chunk (FFmpeg lỗi?) — bỏ qua '
           'THAY VÌ re-transcribe toàn bộ file gốc',
@@ -314,6 +352,9 @@ class VadWhisperPipeline {
 
       // ── 3. Whisper.cpp Loop (đã chạy trong Isolate riêng ở facade) ──
       SttResult? chunkResult;
+      // PSRC-205: gắn nhãn "Đoạn i/N · " quanh lượt transcribe này để UI
+      // không hiện lặp "Đang chuẩn bị… / chunk 1/1" vô nghĩa cho từng đoạn.
+      _sttFacade.progressContext = 'Đoạn ${i + 1}/$totalChunks · ';
       try {
         // Ép chạy trong Isolate riêng (handover yêu cầu để không lag UI)
         // SttServiceFacade đã dùng compute() cho desktop, còn mobile dùng chunked
@@ -336,10 +377,14 @@ class VadWhisperPipeline {
         if (output.success) {
           chunkResult = output.result;
         } else {
+          transcribeFailures++;
           debugPrint('⚠️ Chunk $i transcribe failed: ${output.errorMessage}');
         }
       } catch (e) {
+        transcribeFailures++;
         debugPrint('❌ Chunk $i transcribe exception: $e');
+      } finally {
+        _sttFacade.progressContext = null;
       }
 
       // ── 4. Offset Corrector: Absolute_Time = Chunk_Text_Time + Segment_Start_Time ──
@@ -406,6 +451,25 @@ class VadWhisperPipeline {
 
     // Cleanup toàn bộ temp nếu còn sót
     await _extractor.cleanupAllTempChunks();
+
+    // PSRC-205: KHÔNG được "completed" với 0 dòng. Trước đây nhánh này rơi
+    // xuống dưới ⇒ `success=false` mà `errorMessage` rỗng ⇒ màn Tạo lời hiện
+    // đúng chuỗi mặc định "Lỗi không xác định" (đúng như audit ghi cho file
+    // dài và một số .m4a).
+    if (allSegments.isEmpty) {
+      yield VadPipelineProgress(
+        status: VadPipelineStatus.error,
+        progress: 1.0,
+        message: vadNothingTranscribedMessage(
+          totalSegments: totalChunks,
+          cutFailures: cutFailures,
+          transcribeFailures: transcribeFailures,
+        ),
+        currentChunkIndex: totalChunks,
+        totalChunks: totalChunks,
+      );
+      return;
+    }
 
     yield VadPipelineProgress(
       status: VadPipelineStatus.completed,

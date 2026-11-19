@@ -3,7 +3,7 @@ description: In4Up - Read, remember, learn, and listen with the UltraTimeStretch
 
 publish_to: 'none'
 
-version: 1.28.0+28
+version: 1.29.0+29
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -35,6 +35,23 @@ dependencies:
   just_audio_platform_interface: ^4.0.0
   just_audio: ^0.10.5
   just_audio_windows: ^0.2.3 #0.2.1   # ← THÊM DÒNG NÀY!
+  # PSRC-219 (beta 1.29.0, lane L2) — Linux KHÔNG có plugin âm thanh của
+  # just_audio (`linux/flutter/generated_plugin_registrant.cc` không có trình
+  # phát nào) ⇒ cắm backend media_kit (libmpv) qua `just_audio_media_kit`.
+  # `media_kit_libs_linux` CHỈ dành cho Linux (không kéo .so của Android/iOS/
+  # Windows) và KHÔNG nhúng libmpv vào bundle — máy người dùng cần libmpv:
+  # `sudo apt install libmpv2` / `dnf install mpv-libs` / `pacman -S mpv`.
+  # Thiếu libmpv ⇒ app giữ fallback "mở bằng trình phát của hệ thống".
+  just_audio_media_kit: ^2.1.0
+  media_kit: ^1.2.6
+  media_kit_libs_linux: any
+  # PSRC-220 (beta 1.29.0, lane L2) — Linux/Windows KHÔNG có implementation
+  # của `video_player` (mọi method của `VideoPlayerPlatform` mặc định ném
+  # `UnimplementedError`). `video_player_media_kit` đăng ký media_kit làm
+  # backend cho ĐÚNG package `video_player` ⇒ màn hình phát video không phải
+  # viết lại. Cũng chỉ bật cho Linux (xem `LinuxMediaBackends.install()`),
+  # KHÔNG kéo libs video của Android/iOS/macOS/Windows.
+  video_player_media_kit: ^2.0.0
   audio_session: ^0.2.2
 
   # FFI for Native C++ Engine
@@ -125,7 +142,20 @@ dependencies:
   webview_windows: ^0.4.0   # Chỉ cho Windows
   # Youtube
   youtube_explode_dart: ^3.0.5
-  pdfrx: ^2.2.1 #Hạ từ ^2.2.20   # Hạ từ 2.2.24 xuống bản ổn định thấp hơn một chút
+  # PIN CHÍNH XÁC 2.2.24 (beta 1.29.0, sửa lỗi build 4 nền tảng 14/11):
+  #   * `pdfium_dart` bị ghim 0.1.2 + `pdfium_flutter` là path dep ⇒ cả cây
+  #     PDFium đi theo bản fork trong `third_party/pdfium_flutter`.
+  #   * `^2.2.1` cho phép pub nâng lên 2.4.8 (kéo pdfrx_engine 0.4.7), mà
+  #     bản engine đó gọi `getPdfium(modulePath: ...)` — API chỉ có ở
+  #     pdfium_dart mới hơn ⇒ lỗi biên dịch:
+  #       pdfrx_engine-0.4.7/lib/src/native/pdfium.dart:11:41: Error: No named
+  #       parameter with the name 'modulePath'.
+  #     và hỏng cả bước build native của pdfrx (Windows 2 Errors, iOS
+  #     BUILD FAILED).
+  #   * Không chỗ nào trong app dùng API pdfrx > 2.2.24 (đã grep
+  #     renderForDisplay / selectedTextIfLoaded / releaseCachedImages /
+  #     stopTextSearch / pageImageColorFilter / processWidePdfiumGate = 0).
+  pdfrx: 2.2.24
   graphview: ^1.2.0  
   animations: ^2.1.2
   flutter_animate: ^4.5.2

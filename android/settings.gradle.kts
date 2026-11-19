@@ -26,3 +26,6 @@ plugins {
 }
 
 include(":app")
+
+// Engine TTS native (audio.cpp + ggml riêng) — xem android/vieneu/build.gradle.kts.
+include(":vieneu")

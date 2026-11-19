@@ -23,10 +23,12 @@ import 'engines/offline_tts_engine.dart';
 import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'engines/vieneu_tts_engine.dart';
+import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import 'language_detector.dart';
 import 'tts_candidate_router.dart';
+import 'tts_engine_order_merge.dart';
 import 'tts_settings.dart';
 import 'tts_text_chunker.dart';
 
@@ -41,11 +43,33 @@ class VieneuImportResult {
   /// Id các giọng mới (dùng để UI hiển thị / test máy).
   final List<String> voiceIds;
 
+  /// Biến thể THẬT SỰ đã ghi (suy từ chính file người dùng chọn — PSRC-214),
+  /// không phải biến thể của dòng UI mà người dùng bấm.
+  final VieneuModelVariant variant;
+
+  /// Dung lượng file đã copy (byte).
+  final int bytes;
+
+  /// Engine có nạp được model này NGAY sau khi import không (PSRC-215).
+  ///
+  /// `readiness.blocker != null` ⇒ UI KHÔNG được báo "thành công" trơn: phải
+  /// nêu đúng mảnh còn thiếu (thường là `sea_g2p.bin`).
+  final VieneuEngineProbe readiness;
+
   const VieneuImportResult({
     required this.modelPath,
     required this.importedVoices,
     this.voiceIds = const <String>[],
+    this.variant = VieneuModelVariant.q8_0,
+    this.bytes = 0,
+    this.readiness = const VieneuEngineProbe(blocker: null),
   });
+
+  /// Engine sẵn sàng đọc ngay bằng model vừa import?
+  bool get engineReady => readiness.blocker == null;
+
+  /// Câu nguồn (key dịch) khi engine còn thiếu mảnh — rỗng nếu sẵn sàng.
+  String get blockerMessage => readiness.message;
 }
 
 class TtsService extends ChangeNotifier {
@@ -163,7 +187,14 @@ class TtsService extends ChangeNotifier {
   }
 
   void _buildDefaultEngineOrder() {
-    _engineOrder = [
+    _engineOrder = buildDefaultEngineOrder();
+  }
+
+  /// PSRC-245 — danh sách engine + mức ưu tiên MẶC ĐỊNH (0 = thử trước).
+  /// Hàm thuần, để `_loadPersistedSettings` trộn được thứ tự đã lưu với
+  /// đúng mức ưu tiên mặc định thay vì nối engine mới xuống cuối.
+  static List<TtsEngineInfo> buildDefaultEngineOrder() {
+    return [
       const TtsEngineInfo(
         id: 'vieneu_tts',
         name: 'VieNeu-TTS (native)',
@@ -189,8 +220,10 @@ class TtsService extends ChangeNotifier {
       // TTS-EDGE-001 — Microsoft Edge Read Aloud (giao thức edge-tts):
       // giọng Neural cực tự nhiên, KHÔNG cần API key, miễn phí ⇒ làm
       // engine ONLINE ĐẦU TIÊN của cài đặt mới. User cũ (đã có saved
-      // order) không bị xáo trộn: merge `_loadPersistedSettings` append
-      // engine mới xuống CUỐI (kéo lên bằng UI sẵn có). Mạng chập chờn/
+      // order) không bị xáo trộn: PSRC-245 — engine mới được chèn theo
+      // mức ưu tiên MẶC ĐỊNH (xem `mergePersistedEngineOrder`), nên Edge
+      // (3) vẫn rơi SAU các engine offline đang có, còn VieNeu (0) thì
+      // KHÔNG bị đẩy xuống cuối nữa. Mạng chập chờn/
       // timeout ⇒ chuỗi `_getCandidateEngines` + emergency Offline lo
       // fallback (không nghẽn app).
       const TtsEngineInfo(
@@ -269,22 +302,27 @@ class TtsService extends ChangeNotifier {
           }
         }
 
-        final currentMap = {for (final e in _engineOrder) e.id: e};
-        final reordered = <TtsEngineInfo>[];
-        for (final id in orderList) {
-          if (currentMap.containsKey(id)) {
-            final existing = currentMap.remove(id)!;
-            reordered.add(existing.copyWith(
-              isEnabled: map[id] ?? existing.isEnabled,
-              priority: reordered.length,
-            ));
-          }
+        // PSRC-245 — KHÔNG nối engine mới xuống cuối. Trước 1.29.0-Beta
+        // hàm này append nên `vieneu_tts` bị xếp sau cả giọng máy ⇒ VieNeu
+        // không bao giờ được gọi với người dùng nâng cấp (đọc bằng
+        // Piper/hệ thống). `mergePersistedEngineOrder` chèn theo mức ưu
+        // tiên mặc định, giữ thứ tự tương đối người dùng đã sắp.
+        final mergeVersion =
+            prefs.getInt(kEngineOrderVersionKey) ?? 1;
+        _engineOrder = mergePersistedEngineOrder(
+          defaults: buildDefaultEngineOrder(),
+          persistedIds: orderList,
+          persistedEnabled: map,
+          reinsertAsNew: mergeVersion < kEngineOrderMergeVersion
+              ? kEngineOrderReinsertOnMigration
+              : const <String>{},
+        );
+        if (mergeVersion < kEngineOrderMergeVersion) {
+          // Ghi lại NGAY thứ tự đã sửa: người dùng đã sờ vào Cài đặt trên
+          // bản lỗi có thể đã bị lưu vieneu_tts ở cuối.
+          await prefs.setInt(kEngineOrderVersionKey, kEngineOrderMergeVersion);
+          await _saveSettings();
         }
-        // Thêm các engine mới chưa có trong saved json
-        for (final remaining in currentMap.values) {
-          reordered.add(remaining.copyWith(priority: reordered.length));
-        }
-        _engineOrder = reordered;
       }
       _safeNotify();
     } catch (e) {
@@ -699,9 +737,23 @@ class TtsService extends ChangeNotifier {
       if (!await piper.isAvailable()) return false;
       if (isStaleEpoch(epoch)) return false;
 
-      // Cache theo đúng danh tính (engine + ngôn ngữ + giọng + tốc độ +
-      // cao độ) — TTS-VOICE-CACHE-001.
-      final voiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      // PSRC-230 — GIẢI giọng TRƯỚC khi tổng hợp/cache: câu tiếng Anh trong
+      // tài liệu song ngữ phải dùng giọng tiếng Anh; không có giọng phù hợp
+      // thì trả false để chuỗi engine chạy tiếp (thà fallback còn hơn đọc
+      // tiếng Anh bằng giọng Việt).
+      //
+      // Bản cũ truyền `voiceId: null` khi `matchVoiceLanguage` và cache theo
+      // `null` ⇒ mọi ngôn ngữ dùng chung một bản ghi giọng người dùng chọn.
+      final requestedVoiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      final voiceId = await piper.resolveVoiceName(
+        lang,
+        voiceId: requestedVoiceId,
+      );
+      if (voiceId == null) {
+        debugPrint('ℹ️ Piper: không có giọng phù hợp cho $lang — '
+            'chuyển engine kế tiếp');
+        return false;
+      }
       return await _speakPreparedChunks(
         text: text,
         lang: lang,
@@ -731,6 +783,9 @@ class TtsService extends ChangeNotifier {
             pitch: _pitch,
             voiceId: voiceId,
           );
+          if (result.isSuccess) {
+            debugPrint('[TTS-PIPER] $lang → giọng $voiceId');
+          }
           final audio = result.audioData;
           if (!result.isSuccess || audio == null || audio.isEmpty) {
             debugPrint('ℹ️ Sherpa Piper TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
@@ -765,13 +820,17 @@ class TtsService extends ChangeNotifier {
       final vieneu = VieneuTtsEngine.instance;
       // GIAI ĐOẠN 3 — dùng biến thể mô hình người dùng đã chọn (mặc định Q8_0).
       final selectedVariant = await getSelectedVieneuModelVariant();
-      await vieneu.init(modelVariant: selectedVariant);
+      // PSRC-218 — giọng đã chọn (kể cả giọng vừa clone) phải sống qua lần
+      // mở app sau: `_selectedVoiceId` chỉ ở RAM, nên đọc thêm prefs.
+      final persistedVoiceId = await getSelectedVieneuVoiceId();
+      final activeVoiceId = _selectedVoiceId ?? persistedVoiceId;
+      await vieneu.init(modelVariant: selectedVariant, voiceId: activeVoiceId);
       if (!await vieneu.isAvailable()) return false;
       if (isStaleEpoch(epoch)) return false;
 
       // Cache theo đúng danh tính (text + ngôn ngữ + engine + biến thể +
       // giọng + tốc độ/cao độ) — TTS-VOICE-CACHE-001.
-      final voiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      final voiceId = matchVoiceLanguage ? null : activeVoiceId;
       // PSRC-187: văn bản dài được chia đoạn (cùng một đường với Piper/online).
       return await _speakPreparedChunks(
         text: text,
@@ -836,14 +895,31 @@ class TtsService extends ChangeNotifier {
   /// giọng vẫn trống.
   Future<VieneuImportResult> importVieneuModel(File file,
       {VieneuModelVariant variant = VieneuModelVariant.q8_0}) async {
+    // PSRC-214 — MỌI lối import (nút trên từng dòng biến thể, nút "Import
+    // Q8_0 (~170 MB)", import trọn bộ) đi qua ĐÚNG hàm này. Trước 1.29 nó chỉ
+    // kiểm đuôi file rồi copy vào `vieneu_tts/<biến thể của DÒNG>.gguf`:
+    //   * tệp không phải GGUF (tải hụt, HTML, .bin) vẫn được "nhận";
+    //   * tệp đúng nhưng khác dòng người dùng bấm ⇒ lưu dưới tên biến thể
+    //     khác ⇒ dòng đó vẫn "Chưa import" và người dùng thấy như KHÔNG nhận.
+    // Giờ: kiểm thật (đuôi + dung lượng + chữ ký GGUF) và lấy biến thể từ
+    // CHÍNH tên file.
     if (!await file.exists()) {
-      throw FileSystemException('File không tồn tại', file.path);
+      throw VieneuModelImportException(
+        VieneuModelFileProblem.empty,
+        path: file.path,
+      );
     }
 
-    final ext = p.extension(file.path).toLowerCase();
-    if (ext != '.gguf') {
-      throw FileSystemException('File phải có định dạng .gguf', file.path);
+    final report = await inspectVieneuModelOnDisk(file.path);
+    if (!report.ok) {
+      throw VieneuModelImportException(report.problem!, path: file.path);
     }
+
+    final detectedName = report.variantName ?? variant.name;
+    final effectiveVariant = VieneuModelVariant.values.firstWhere(
+      (v) => v.name == detectedName,
+      orElse: () => variant,
+    );
 
     final dir = await getApplicationDocumentsDirectory();
     final vieneuDir = Directory(p.join(dir.path, 'vieneu_tts'));
@@ -857,8 +933,11 @@ class TtsService extends ChangeNotifier {
       await voicesDir.create(recursive: true);
     }
 
-    final target = File(p.join(vieneuDir.path, variant.fileName));
+    final target = File(p.join(vieneuDir.path, effectiveVariant.fileName));
     await file.copy(target.path);
+    // Ghi biến thể THẬT vào prefs ⇒ lần mở app sau engine nạp đúng file vừa
+    // import, không phải biến thể người dùng bấm nhầm (PSRC-214/183).
+    await setSelectedVieneuModelVariant(effectiveVariant);
 
     // PSRC-186: `file_picker` thường trả bản COPY trong cache của app, nên
     // dò nhiều vị trí (cạnh GGUF, thư mục cha, chính thư mục bundle) thay vì
@@ -876,11 +955,19 @@ class TtsService extends ChangeNotifier {
     // PSRC-183: worker có thể đang giữ model CŨ. Dọn để lần phát tới nạp
     // đúng file vừa import; trạng thái UI (model/engine) được làm mới.
     await VieneuTtsEngine.instance.invalidate();
+    // PSRC-215: hỏi engine NGAY sau khi copy — chỉ báo "thành công" khi đủ
+    // model + native + `sea_g2p.bin`. Trước 1.29 UI báo xanh trong khi engine
+    // còn thiếu từ điển phát âm (không đọc được câu nào).
+    final readiness =
+        await VieneuTtsEngine.instance.probe(modelVariant: effectiveVariant);
     notifyVoicesChanged();
     return VieneuImportResult(
       modelPath: target.path,
       importedVoices: voiceIds.length,
       voiceIds: List<String>.unmodifiable(voiceIds),
+      variant: effectiveVariant,
+      bytes: report.bytes,
+      readiness: readiness,
     );
   }
 
@@ -907,26 +994,12 @@ class TtsService extends ChangeNotifier {
 
   /// Một thư mục giọng phải có ít nhất một file dữ liệu có NỘI DUNG THỰC —
   /// placeholder comment `# VieNeu-TTS default` không được tính.
-  Future<bool> _folderHasValidVoiceData(Directory folder) async {
-    if (!await folder.exists()) return false;
-    for (final name in vieneuVoiceDataFileNames) {
-      final file = File(p.join(folder.path, name));
-      if (!await file.exists()) continue;
-      try {
-        if (p.extension(name) == '.bin') {
-          if (await file.length() > 32) return true;
-        } else if (hasVieneuVoiceData(await file.readAsString())) {
-          return true;
-        }
-      } catch (_) {
-        // File nhị phân: có kích thước hợp lệ vẫn chấp nhận.
-        try {
-          if (await file.length() > 32) return true;
-        } catch (_) {}
-      }
-    }
-    return false;
-  }
+  ///
+  /// PSRC-217: logic này nằm ở `vieneu_model_files.dart` để đường import
+  /// giọng (thư mục / nhiều tệp) và engine dùng CÙNG một định nghĩa "giọng
+  /// hợp lệ" — trước 1.29 mỗi nơi tự viết một bản, lệch nhau.
+  Future<bool> _folderHasValidVoiceData(Directory folder) =>
+      folderHasVieneuVoiceData(folder);
 
   /// Copy các thư mục giọng con của [sourceDir] (hoặc chính [sourceDir] nếu
   /// nó là một giọng đơn lẻ) vào [targetVoicesDir].
@@ -986,10 +1059,11 @@ class TtsService extends ChangeNotifier {
     if (!await sourceDir.exists()) {
       throw FileSystemException('Thư mục không tồn tại', sourceDirPath);
     }
-    final ggufFiles = await _findFilesUnder(sourceDir, maxDepth: 3)
+    final ggufFiles = await _findFilesUnder(sourceDir, maxDepth: 4)
         .where((f) => p.extension(f.path).toLowerCase() == '.gguf')
         .toList();
     String? modelPath;
+    VieneuImportResult? lastModelImport;
     final voiceIds = <String>[];
     for (final gguf in ggufFiles) {
       final name = detectVieneuVariantName(gguf.path) ??
@@ -998,41 +1072,98 @@ class TtsService extends ChangeNotifier {
         (v) => v.name == name,
         orElse: () => VieneuModelVariant.q8_0,
       );
+      // PSRC-214: `importVieneuModel` tự kiểm file + tự chọn biến thể theo
+      // CHÍNH tên tệp, nên mọi đường (một tệp / nhiều tệp / cả thư mục) đều
+      // cho cùng một kết quả như nhau.
       final result = await importVieneuModel(gguf, variant: variant);
       modelPath ??= result.modelPath;
+      lastModelImport ??= result;
       for (final id in result.voiceIds) {
         if (!voiceIds.contains(id)) voiceIds.add(id);
       }
     }
 
-    // Dò thêm mọi thư mục tên `voices` (kể cả lồng sâu) dù không có GGUF.
+    // PSRC-249-A — trước 1.29 bước này chỉ nhận thư mục có TÊN đúng
+    // `voices`, nên ba trường hợp rất thường gặp đều import 0 giọng:
+    //   * người dùng chọn THẲNG thư mục `voices/` (rất tự nhiên trong hộp
+    //     chọn thư mục của Android);
+    //   * gói tải về đổi tên (`giong/`, `cloned_voices/`, `samples/`…);
+    //   * giọng nằm sâu hơn `voices/<x>/<y>/`.
+    // Nay: quét cả cây (độ sâu ≤ 4), thư mục nào CÓ DỮ LIỆU GIỌNG theo NỘI
+    // DUNG (`folderHasVieneuVoiceData`: ref_codes / mẫu WAV / .pt) là một
+    // giọng; gặp thư mục giọng thì không đi xuống nữa (tránh `samples/` bị
+    // đếm thành một giọng thứ hai).
     final dir = await getApplicationDocumentsDirectory();
     final targetVoicesDir =
         Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
     if (!await targetVoicesDir.exists()) {
       await targetVoicesDir.create(recursive: true);
     }
-    await for (final entity in sourceDir.list(recursive: true)) {
-      if (entity is! Directory) continue;
-      if (p.basename(entity.path).toLowerCase() != 'voices') continue;
-      final ids = await _importVoiceFoldersFromDirectory(
-          entity, targetVoicesDir.path);
-      for (final id in ids) {
-        if (!voiceIds.contains(id)) voiceIds.add(id);
-      }
+    final voiceFolders = <Directory>[];
+    await _collectVoiceFolders(sourceDir, 4, voiceFolders);
+    for (final folder in voiceFolders) {
+      final id = p.basename(folder.path);
+      if (id.startsWith('_') || id == vieneuTempSamplesDirName) continue;
+      final ok = await _copyVoiceFolder(
+        folder,
+        Directory(p.join(targetVoicesDir.path, id)),
+      );
+      if (ok && !voiceIds.contains(id)) voiceIds.add(id);
     }
+    debugPrint(
+      '📁 VieNeu trọn bộ: ${voiceFolders.length} thư mục giọng tìm thấy, '
+      '${voiceIds.length} giọng nạp được',
+    );
     if (modelPath == null && voiceIds.isEmpty) {
       throw FileSystemException(
           'Không tìm thấy file .gguf hoặc giọng hợp lệ trong thư mục',
           sourceDirPath);
     }
     await VieneuTtsEngine.instance.invalidate();
+    // PSRC-215: trạng thái engine sau khi import trọn bộ — cùng một câu trả
+    // lời như import một tệp, không có "đường tắt báo thành công".
+    final readiness = lastModelImport?.readiness ??
+        await VieneuTtsEngine.instance.probe();
     notifyVoicesChanged();
     return VieneuImportResult(
       modelPath: modelPath ?? '',
       importedVoices: voiceIds.length,
       voiceIds: List<String>.unmodifiable(voiceIds),
+      variant: lastModelImport?.variant ?? VieneuModelVariant.q8_0,
+      bytes: lastModelImport?.bytes ?? 0,
+      readiness: readiness,
     );
+  }
+
+  /// PSRC-249-A — gom mọi thư mục là MỘT GIỌNG (theo nội dung) trong
+  /// [dir]; gặp thư mục giọng thì dừng nhánh đó. [depth] ≤ 0 thì thôi.
+  Future<void> _collectVoiceFolders(
+    Directory dir,
+    int depth,
+    List<Directory> out,
+  ) async {
+    if (depth < 0) return;
+    var isVoice = false;
+    try {
+      isVoice = await folderHasVieneuVoiceData(dir);
+    } catch (e) {
+      debugPrint('⚠️ không đọc được ${dir.path}: $e');
+      return;
+    }
+    if (isVoice) {
+      out.add(dir);
+      return;
+    }
+    try {
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        final name = p.basename(entity.path);
+        if (name.startsWith('.') || name.startsWith('_')) continue;
+        await _collectVoiceFolders(entity, depth - 1, out);
+      }
+    } catch (e) {
+      debugPrint('⚠️ không đọc được ${dir.path}: $e');
+    }
   }
 
   /// Duyệt file có giới hạn độ sâu (tránh `list(recursive: true)` đi vào
@@ -1051,27 +1182,51 @@ class TtsService extends ChangeNotifier {
 
   /// PSRC-185/186 — import giọng VieNeu từ thư mục do người dùng chọn.
   /// Hỗ trợ: thư mục chứa `voices/`, thư mục chứa nhiều giọng con, hoặc
-  /// chính là một giọng đơn lẻ. Trả về số giọng mới.
+  /// chính là một giọng đơn lẻ. Trả về số giọng MỚI.
+  ///
+  /// PSRC-217 — vì sao báo "lỗi import giọng" trước 1.29 và cách sửa:
+  ///   * `Directory.list()` trên Android/SAF ném `FileSystemException` khi
+  ///     người dùng chọn một thư mục ngoài vùng app được đọc ⇒ trước đây lỗi
+  ///     này nổi lên UI thành câu chung "Lỗi import giọng". Nay
+  ///     [findVieneuVoiceFolders] gói lại thành
+  ///     [VieneuVoiceImportProblem.unreadable] để UI nói đúng việc cần làm
+  ///     (cấp quyền / chọn tệp trực tiếp).
+  ///   * Thư mục chỉ có giọng ĐÃ import ⇒ trước đây `ids.isEmpty` bị coi là
+  ///     lỗi ("Không tìm thấy giọng hợp lệ") dù không có gì sai. Nay trả 0
+  ///     (UI báo "đã có, không có giọng mới") và chỉ ném khi thư mục THẬT SỰ
+  ///     không có dữ liệu giọng.
   Future<int> importVieneuVoicesFromDirectory(String sourceVoicesDirPath) async {
     final sourceDir = Directory(sourceVoicesDirPath);
-    if (!await sourceDir.exists()) {
-      throw FileSystemException('Thư mục không tồn tại', sourceVoicesDirPath);
+    final nested = Directory(p.join(sourceDir.path, 'voices'));
+    final chosen = await nested.exists() ? nested : sourceDir;
+
+    final folders = await findVieneuVoiceFolders(chosen);
+    if (folders.isEmpty) {
+      throw const VieneuVoiceImportException(
+        VieneuVoiceImportProblem.noVoiceData,
+      );
     }
+
     final dir = await getApplicationDocumentsDirectory();
     final targetVoicesDir = Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
     if (!await targetVoicesDir.exists()) {
       await targetVoicesDir.create(recursive: true);
     }
-    final nested = Directory(p.join(sourceDir.path, 'voices'));
-    final chosen = await nested.exists() ? nested : sourceDir;
-    final ids = await _importVoiceFoldersFromDirectory(
-        chosen, targetVoicesDir.path);
-    if (ids.isEmpty) {
-      throw FileSystemException('Không tìm thấy giọng hợp lệ trong thư mục');
+
+    var imported = 0;
+    for (final folder in folders) {
+      final id = sanitizeVieneuVoiceId(p.basename(folder.path));
+      if (id.isEmpty) continue;
+      final ok = await _copyVoiceFolder(
+        folder,
+        Directory(p.join(targetVoicesDir.path, id)),
+      );
+      if (ok) imported++;
     }
+
     await VieneuTtsEngine.instance.invalidate();
     notifyVoicesChanged();
-    return ids.length;
+    return imported;
   }
 
   /// PSRC-186 — fallback khi platform không hỗ trợ chọn thư mục
@@ -1093,7 +1248,11 @@ class TtsService extends ChangeNotifier {
       groups.putIfAbsent(key, () => <String>[]).add(path);
     }
     if (groups.isEmpty) {
-      throw FileSystemException('Không tìm thấy file giọng hợp lệ');
+      // PSRC-217: lý do có kiểu để UI dịch được (xem
+      // `vieneuVoiceImportProblemMessage`), thay vì FileSystemException chung.
+      throw const VieneuVoiceImportException(
+        VieneuVoiceImportProblem.noVoiceData,
+      );
     }
     final dir = await getApplicationDocumentsDirectory();
     final targetRoot = Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
@@ -1209,11 +1368,34 @@ class TtsService extends ChangeNotifier {
   /// PSRC-184 — bảo đảm worker đã nạp model TRƯỚC khi gọi clone giọng.
   /// Đi qua engine (có lock + áp đúng biến thể) thay vì gọi `core.init`
   /// trực tiếp từ UI rồi kiểm tra `isInitialized` trong lúc init còn đang bay.
+  ///
+  /// PSRC-218 — trước 1.29 hàm này ném `StateError('VieNeu worker chưa khởi
+  /// tạo')` cho MỌI trường hợp thiếu (chưa import model / thiếu native / thiếu
+  /// `sea_g2p.bin` / file hỏng) ⇒ màn "tạo giọng từ mẫu" chỉ nói câu chung.
+  /// Nay [VieneuTtsEngine.probe] cho biết mảnh nào thiếu và ném
+  /// [VieneuEngineNotReadyException] mang theo đúng lý do đó.
   Future<void> ensureVieneuWorkerReady() async {
+    final engine = VieneuTtsEngine.instance;
     final variant = await getSelectedVieneuModelVariant();
-    await VieneuTtsEngine.instance.init(modelVariant: variant);
-    if (!VieneuTtsEngine.instance.isInitialized) {
-      throw StateError('VieNeu worker chưa khởi tạo');
+    final probe = await engine.probe(modelVariant: variant);
+    if (probe.blocker != null) {
+      throw VieneuEngineNotReadyException(
+        message: probe.message,
+        blocker: probe.blocker,
+      );
+    }
+    await engine.init(modelVariant: variant, voiceId: _selectedVoiceId);
+    if (!engine.isInitialized) {
+      final reasonKey = probe.message.isNotEmpty
+          ? probe.message
+          : (engine.blockingReason ??
+              vieneuEngineBlockerMessage(
+                  VieneuEngineBlocker.engineLoadFailed));
+      throw VieneuEngineNotReadyException(
+        message: reasonKey,
+        blocker: probe.blocker,
+        detail: engine.lastInitError,
+      );
     }
   }
 
@@ -1248,6 +1430,30 @@ class TtsService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_vieneuVariantPrefsKey, v.name);
     _safeNotify();
+  }
+
+  static const String _vieneuVoicePrefsKey = 'vieneu_tts_voice_id';
+
+  /// Giọng VieNeu người dùng đã chọn (kể cả giọng clone) — LƯU BỀN.
+  ///
+  /// PSRC-218: giọng clone nằm trên đĩa (`cloned_voices/<id>/`) nên nó sống
+  /// qua lần mở app sau; nhưng *lựa chọn* giọng trước đây chỉ ở RAM nên app
+  /// mở lại là quay về giọng mặc định của model — người dùng thấy như "mất
+  /// giọng vừa tạo". Đọc prefs, trả null khi chưa từng chọn.
+  Future<String?> getSelectedVieneuVoiceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_vieneuVoicePrefsKey);
+    if (value == null || value.trim().isEmpty) return null;
+    return value;
+  }
+
+  /// Ghi nhớ giọng VieNeu đang dùng (gọi khi người dùng chọn trong picker hoặc
+  /// ngay sau khi tạo giọng thành công).
+  Future<void> setSelectedVieneuVoiceId(String voiceId) async {
+    final trimmed = voiceId.trim();
+    if (trimmed.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_vieneuVoicePrefsKey, trimmed);
   }
 
   /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)
@@ -1798,6 +2004,44 @@ class TtsService extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
     final lang = _resolveLanguage(trimmed);
+
+    // 0. PSRC-245 — VieNeu-TTS native. Trước đây hàm này chỉ đi Piper → Edge,
+    // nên "lưu âm thanh" LUÔN ra giọng khác giọng người dùng đã chọn trong
+    // Cài đặt (đúng triệu chứng "nghe lại thấy không phải VieNeu"). Chỉ thử
+    // khi engine còn bật và văn bản là tiếng Việt.
+    final vieneuEnabled = _engineOrder.any(
+      (engine) => engine.id == 'vieneu_tts' && engine.isEnabled,
+    );
+    if (vieneuEnabled && lang.startsWith('vi')) {
+      try {
+        final vieneu = VieneuTtsEngine.instance;
+        final variant = await getSelectedVieneuModelVariant();
+        await vieneu.init(
+          modelVariant: variant,
+          voiceId: _selectedVoiceId ?? await getSelectedVieneuVoiceId(),
+        );
+        if (await vieneu.isAvailable()) {
+          final result = await vieneu.synthesize(
+            text: trimmed,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: _selectedVoiceId,
+          );
+          final audio = result.audioData;
+          if (result.isSuccess && audio != null && audio.isNotEmpty) {
+            final path = '$pathWithoutExtension.wav';
+            await File(path).writeAsBytes(audio, flush: true);
+            _lastUsedEngine = '🇻🇳 VieNeu-TTS (lưu file)';
+            debugPrint('✅ TTS lưu file: $path');
+            return path;
+          }
+          debugPrint('ℹ️ synthesizeToFile: VieNeu fail (${result.error})');
+        }
+      } catch (e) {
+        debugPrint('⚠️ synthesizeToFile vieneu error: $e');
+      }
+    }
 
     // 1. Piper offline — on-device, riêng tư
     try {

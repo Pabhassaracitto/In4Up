@@ -10,10 +10,15 @@ import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import '../../features/understand_ai/understand_ai_context.dart';
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
+import '../../features/shadowing/services/lrc_ab_suggestions.dart';
+import '../../features/shadowing/widgets/shadowing_sentence_picker.dart';
+import '../../features/shadowing/widgets/shadowing_analysis_notice.dart';
+import 'package:in4up_stt/stt_lrc_converter.dart' show LrcLine;
 import '../../features/shadowing/widgets/pronunciation_result.dart';
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
+import '../../services/text_source_loader.dart';
 import '../../providers/waveform_provider.dart';
 import '../../providers/karaoke_settings_provider.dart';
 import '../../widgets/karaoke_transcript_view.dart';
@@ -169,7 +174,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _buildSyncTab(player, textProvider), // ← ĐÚNG
-                  _buildShadowingTab(player, textProvider, shadowing),
+                  _buildShadowingTab(player, textProvider, shadowing, understand),
                 ],
               ),
             ),
@@ -214,28 +219,50 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     });
   }
 
-  /// LISTEN-LRC-001: shadowing setters notify listeners — defer them
-  /// post-frame. All three setters early-return when unchanged, so the
-  /// deferred sync cannot loop.
+  /// PSRC-228: reuse the same timed sentence catalog as Speaking Studio.
+  /// Never join every line intersecting A-B into one practice sentence.
+  List<AbSuggestion> _shadowingSuggestions(
+    PlayerProvider player,
+    TextProvider textProvider,
+    UnderstandProvider understand,
+  ) {
+    final lines = understand.lrcLines.isNotEmpty
+        ? understand.lrcLines
+        : [
+            for (final line in textProvider.lines)
+              if (line.startTime != null && line.content.trim().isNotEmpty)
+                LrcLine(timestamp: line.startTime!, text: line.content),
+          ];
+    return LrcAbSuggestions.buildSentenceSuggestions(
+      lines: lines,
+      trackDuration: player.state.duration > Duration.zero
+          ? player.state.duration
+          : null,
+    );
+  }
+
   void _scheduleShadowingSync(
     ShadowingProvider shadowing,
-    String loopText,
-    String? audioPath,
-    Duration loopStart,
-    Duration loopEnd,
+    PlayerProvider player,
+    List<AbSuggestion> suggestions,
   ) {
     if (_shadowingSyncScheduled) return;
     _shadowingSyncScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _shadowingSyncScheduled = false;
       if (!mounted) return;
-      if (loopText.isNotEmpty) {
-        shadowing.setPracticeText(loopText);
+      shadowing.setSentenceSuggestions(
+        audioPath: player.currentSongPath,
+        suggestions: suggestions,
+      );
+      final start = player.loopStart;
+      final end = player.loopEnd;
+      final index = suggestions.indexWhere((s) => s.start == start && s.end == end);
+      if (index >= 0 && index != shadowing.selectedSentenceIndex) {
+        shadowing.selectSentence(index);
+      } else if (index < 0 && shadowing.selectedSentenceIndex >= 0) {
+        shadowing.setLoopRegion(start ?? Duration.zero, end ?? Duration.zero);
       }
-      if (audioPath != null) {
-        shadowing.setOriginalAudioPath(audioPath);
-      }
-      shadowing.setLoopRegion(loopStart, loopEnd);
     });
   }
 
@@ -265,14 +292,17 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       );
       if (result != null && result.files.single.path != null) {
         if (context.mounted) {
-          final loaded = await context
-              .read<TextProvider>()
-              .loadTextFile(result.files.single.path!);
+          final pickedFile = result.files.single;
+          final tp = context.read<TextProvider>();
+          final loaded = await tp.loadTextFile(
+            pickedFile.path!,
+            title: pickedFile.name.isNotEmpty ? pickedFile.name : null,
+          );
           if (!loaded && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
-                  'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+                  tp.lastLoadError ?? TextSourceLoader.openFailedHint,
                 ),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -639,74 +669,57 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     PlayerProvider player,
     TextProvider textProvider,
     ShadowingProvider shadowing,
+    UnderstandProvider understand,
   ) {
-    if (player.loopStart == null || player.loopEnd == null) {
-      return _buildShadowingGuide(player);
-    }
-
-    String loopText = '';
-    final loopStart = player.loopStart!;
-    final loopEnd = player.loopEnd!;
-
-    final linesInLoop = <String>[];
-    for (final line in textProvider.lines) {
-      if (line.startTime == null) continue;
-
-      final lineStart = line.startTime!;
-      final lineEnd = line.endTime ?? (lineStart + const Duration(seconds: 5));
-
-      if (lineStart <= loopEnd + const Duration(milliseconds: 500) &&
-          lineEnd >= loopStart - const Duration(milliseconds: 500)) {
-        linesInLoop.add(line.content);
-      }
-    }
-
-    if (linesInLoop.isNotEmpty) {
-      loopText = linesInLoop.join(' ');
-    }
-
-    if (loopText.isEmpty && textProvider.currentLineIndex >= 0) {
-      final currentLine = textProvider.lines[textProvider.currentLineIndex];
-      loopText = currentLine.content;
-    }
-
-    if (loopText.isEmpty) {
-      Duration? closestDistance;
-      String? closestText;
-
-      for (final line in textProvider.lines) {
-        if (line.startTime == null || line.content.trim().isEmpty) continue;
-
-        final distance = (line.startTime! - loopStart).abs();
-        if (closestDistance == null || distance < closestDistance) {
-          closestDistance = distance;
-          closestText = line.content;
-        }
-      }
-
-      if (closestText != null) {
-        loopText = closestText;
-      }
-    }
-
-    debugPrint('📝 Loop text found: "$loopText"');
-
-    // LISTEN-LRC-001: deferred — these setters notify during build otherwise.
-    _scheduleShadowingSync(
-      shadowing,
-      loopText,
-      player.currentSongPath,
-      loopStart,
-      loopEnd,
-    );
+    final suggestions = _shadowingSuggestions(player, textProvider, understand);
+    _scheduleShadowingSync(shadowing, player, suggestions);
+    final selected = shadowing.selectedSentence;
+    final loopText = selected?.text ?? '';
+    final hasLoop = player.loopStart != null && player.loopEnd != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          if (suggestions.isNotEmpty) ...[
+            ShadowingSentencePicker(
+              suggestions: suggestions,
+              selectedIndex: shadowing.selectedSentenceIndex,
+              onSelected: (s) {
+                player.setLoop(
+                  s.start,
+                  s.end,
+                  repeatCount: player.maxLoopCount,
+                  gapSeconds: player.gapDuration,
+                  startImmediately: false,
+                );
+                shadowing.selectSentence(s.index);
+              },
+              onUseCurrent: () {
+                final hit = suggestions.where(
+                  (s) => s.start <= player.state.position && s.end > player.state.position,
+                ).firstOrNull;
+                if (hit != null) {
+                  player.setLoop(hit.start, hit.end,
+                      repeatCount: player.maxLoopCount,
+                      gapSeconds: player.gapDuration,
+                      startImmediately: false);
+                  shadowing.selectSentence(hit.index);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (!hasLoop)
+            _buildShadowingGuide(player)
+          else ...[
           _buildLoopInfoCard(player, shadowing, loopText),
           const SizedBox(height: 24),
           _buildControlButtons(player, shadowing, loopText),
+          if (shadowing.analysisError != null) ...[
+            const SizedBox(height: 12),
+            ShadowingAnalysisNotice(code: shadowing.analysisError!),
+          ],
           if (shadowing.userRecordingPath != null &&
               (shadowing.state == ShadowingState.idle ||
                   shadowing.state == ShadowingState.showingResults)) ...[
@@ -774,6 +787,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 ],
               ),
             ),
+          ],
           ],
           const SizedBox(height: 24),
           _buildShadowingSettings(shadowing),
@@ -906,7 +920,12 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               if (shadowing.isPlaying) {
                 shadowing.stopPlayback();
               } else {
-                shadowing.playOriginal();
+                final index = shadowing.selectedSentenceIndex;
+                if (index >= 0) {
+                  shadowing.speakSentence(index);
+                } else {
+                  shadowing.playOriginal();
+                }
               }
             },
           ),

@@ -16,6 +16,7 @@ import 'engines/mlkit_engine.dart';
 import 'glossary/glossary_sheet.dart';
 import 'mlkit_pack_catalog.dart';
 import 'mlkit_pack_downloads.dart';
+import 'role_swap_controls.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
@@ -50,7 +51,8 @@ class TranslationToolbar extends StatelessWidget {
         final hasTranslations = textProvider.translatedLineCount > 0;
         final displayMode = textProvider.translationDisplayMode;
         final progress = textProvider.translationProgress;
-        final sourceLanguage = textProvider.detectedSourceLanguage;
+        // PSRC-238: nguồn HIỆU DỤNG (người dùng chọn, hoặc tự nhận diện).
+        final sourceLanguage = textProvider.translationSourceLanguage;
         final targetLanguage = textProvider.translationTargetLanguage;
         final sameLanguage = textProvider.translationPairUsesSameLanguage;
 
@@ -82,8 +84,17 @@ class TranslationToolbar extends StatelessWidget {
                     onTap: () async {
                       if (isTranslating) {
                         textProvider.cancelTranslation();
+                      } else if (_blockedWhileSwapped(context, textProvider)) {
+                        // PSRC-237: đã báo lý do — không dịch đè văn bản gốc.
                       } else if (sameLanguage) {
-                        await _selectTargetLanguage(context, textProvider);
+                        // PSRC-238: bảng mở sẵn ở phía đích kèm một đích
+                        // được đề nghị; chọn xong thì dịch luôn (người dùng
+                        // vừa bấm «Dịch»).
+                        await _openLanguagePair(
+                          context,
+                          textProvider,
+                          translateAfter: true,
+                        );
                       } else {
                         await textProvider.translateAll(
                           forceRetranslate:
@@ -97,9 +108,9 @@ class TranslationToolbar extends StatelessWidget {
                   final languageButton = TranslationLanguagePickerButton(
                     sourceLanguage: sourceLanguage,
                     targetLanguage: targetLanguage,
+                    sourceIsAuto: !textProvider.translationSourceIsPinned,
                     accentColor: primaryColor,
-                    onSelected: (language) =>
-                        _applyTargetLanguage(context, textProvider, language),
+                    onPressed: () => _openLanguagePair(context, textProvider),
                   );
                   final settingsButton = Listener(
                     // SHELL-GEAR-001: raw pointer log — không đổi gesture.
@@ -130,6 +141,10 @@ class TranslationToolbar extends StatelessWidget {
                     color: textProvider.blurTranslations ? primaryColor : Colors.grey,
                     visualDensity: VisualDensity.compact,
                   );
+                  // PSRC-237 / ADR-0031: đưa bản dịch lên làm văn bản chính
+                  // để IPA / tô màu / tra từ chạy được trên nó.
+                  final roleSwapButton =
+                      RoleSwapButton(primaryColor: primaryColor);
                   final layoutSelector = _LayoutSelector(
                     displayMode: displayMode,
                     primaryColor: primaryColor,
@@ -154,7 +169,11 @@ class TranslationToolbar extends StatelessWidget {
                             alignment: Alignment.centerRight,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: [layoutSelector, blurButton],
+                              children: [
+                                layoutSelector,
+                                blurButton,
+                                roleSwapButton,
+                              ],
                             ),
                           ),
                         ],
@@ -171,6 +190,7 @@ class TranslationToolbar extends StatelessWidget {
                         const Spacer(),
                         layoutSelector,
                         blurButton,
+                        roleSwapButton,
                       ] else
                         const Spacer(),
                       const SizedBox(width: 4),
@@ -212,7 +232,23 @@ class TranslationToolbar extends StatelessWidget {
                   },
                 ),
               ],
-              if (textProvider.translationError != null) ...[
+              if (textProvider.translationBlockedBySamePair)
+                // PSRC-238: nguồn trùng đích ⇒ đề nghị một đích khác ngay
+                // tại chỗ thay cho dòng lỗi đỏ.
+                _SamePairSuggestion(
+                  suggestion: textProvider.suggestedTranslationTarget(
+                    uiLanguageCode:
+                        Localizations.localeOf(context).toLanguageTag(),
+                  ),
+                  primaryColor: primaryColor,
+                  onAccept: (language) => _applyLanguagePair(
+                    context,
+                    textProvider,
+                    TranslationPairChoice(target: language),
+                    translateAfter: true,
+                  ),
+                )
+              else if (textProvider.translationError != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   context.uiText('Lỗi: ${textProvider.translationError}'),
@@ -228,45 +264,79 @@ class TranslationToolbar extends StatelessWidget {
     );
   }
 
-  Future<void> _selectTargetLanguage(
+  /// PSRC-238: mở bảng chọn cả ngôn ngữ nguồn lẫn ngôn ngữ đích.
+  Future<void> _openLanguagePair(
     BuildContext context,
-    TextProvider textProvider,
-  ) async {
-    final selected = await showTranslationLanguagePicker(
+    TextProvider textProvider, {
+    bool translateAfter = false,
+  }) async {
+    // Đang đổi vai ⇒ không đổi được cặp; nói lý do TRƯỚC khi mở bảng.
+    if (_blockedWhileSwapped(context, textProvider)) return;
+    final choice = await showTranslationPairPicker(
       context,
-      sourceLanguage: textProvider.detectedSourceLanguage,
+      detectedSource: textProvider.detectedSourceLanguage,
+      pinnedSourceCode: textProvider.translationSourceIsPinned
+          ? textProvider.translationSourceLanguage.translationCode
+          : null,
       currentTarget: textProvider.translationTargetLanguage,
       accentColor: primaryColor,
     );
-    if (selected != null && context.mounted) {
-      await _applyTargetLanguage(context, textProvider, selected);
-    }
+    if (choice == null || !context.mounted) return;
+    await _applyLanguagePair(
+      context,
+      textProvider,
+      choice,
+      translateAfter: translateAfter,
+    );
   }
 
-  Future<void> _applyTargetLanguage(
+  Future<void> _applyLanguagePair(
     BuildContext context,
     TextProvider textProvider,
-    AppLanguage language,
-  ) async {
+    TranslationPairChoice choice, {
+    bool translateAfter = false,
+  }) async {
+    if (_blockedWhileSwapped(context, textProvider)) return;
     final playback = context.read<PlaybackController>();
     if (playback.isRunning) {
       playback.stop(fileId: textProvider.currentDocument?.id ?? 'unknown');
     }
     await textProvider.stopSpeaking();
-    final changed = await textProvider.setTranslationTargetLanguage(
-      language.translationCode,
+    final targetBefore = textProvider.translationTargetLanguage.translationCode;
+    final changed = await textProvider.setTranslationLanguagePair(
+      sourceCode: choice.sourceCode,
+      targetCode: choice.target?.translationCode,
       retranslateExisting: true,
     );
-    if (changed && context.mounted) {
+    if (!context.mounted) return;
+    if (changed) {
+      final target = textProvider.translationTargetLanguage;
+      final source = textProvider.translationSourceLanguage;
+      final sourceLabel = '${source.flag} ${source.nativeName}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            context.uiText('${language.flag} Đã đổi bản dịch và giọng đọc sang ${language.nativeName}'),
+            target.translationCode != targetBefore
+                ? context.uiText('${target.flag} Đã đổi bản dịch và giọng đọc sang ${target.nativeName}')
+                : context.uiText('Ngôn ngữ nguồn: $sourceLabel'),
           ),
           duration: const Duration(seconds: 2),
         ),
       );
     }
+    if (translateAfter && !textProvider.translationPairUsesSameLanguage) {
+      await textProvider.translateAll(
+        forceRetranslate: textProvider.translationPipelineStale,
+      );
+    }
+  }
+
+  /// PSRC-237 / ADR-0031 D2: đang đổi vai ⇒ dòng dịch đang giữ văn bản GỐC.
+  /// Dịch / đổi ngôn ngữ sẽ ghi đè lên nó ⇒ chặn và nói rõ cách làm.
+  bool _blockedWhileSwapped(BuildContext context, TextProvider textProvider) {
+    if (!textProvider.rolesSwapped) return false;
+    ScaffoldMessenger.of(context).showSnackBar(roleSwapGuardSnackBar(context));
+    return true;
   }
 
   void _showTranslationOptions(
@@ -282,12 +352,28 @@ class TranslationToolbar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (textProvider.canSwapRoles)
+              ListTile(
+                key: const Key('translation-options-role-swap'),
+                leading: Icon(Icons.swap_vert, color: primaryColor),
+                title: Text(
+                  textProvider.rolesSwapped
+                      ? 'Đổi lại'
+                      : 'Đổi vai văn bản ⇄ bản dịch',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  toggleReadRoleSwap(context);
+                },
+              ),
             ListTile(
               leading: Icon(Icons.translate, color: primaryColor),
               title: const Text('Dịch tất cả (bỏ qua đã có)',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
+                if (_blockedWhileSwapped(context, textProvider)) return;
                 textProvider.translateAll();
               },
             ),
@@ -297,6 +383,7 @@ class TranslationToolbar extends StatelessWidget {
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
+                if (_blockedWhileSwapped(context, textProvider)) return;
                 textProvider.translateAll(forceRetranslate: true);
               },
             ),
@@ -1765,6 +1852,69 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(color: color, fontSize: 10.5),
+      ),
+    );
+  }
+}
+
+/// PSRC-238 / ADR-0031 (3b): nguồn trùng đích ⇒ một dòng đề nghị kèm nút,
+/// thay cho dòng lỗi đỏ mà người dùng không biết làm gì tiếp.
+class _SamePairSuggestion extends StatelessWidget {
+  final AppLanguage suggestion;
+  final Color primaryColor;
+  final ValueChanged<AppLanguage> onAccept;
+
+  const _SamePairSuggestion({
+    required this.suggestion,
+    required this.primaryColor,
+    required this.onAccept,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('translation-same-pair-suggestion'),
+      padding: const EdgeInsets.only(top: 4),
+      // Wrap: màn hẹp (320 dp) hoặc tên ngôn ngữ dài thì nút tự xuống dòng,
+      // không cắt cụt câu giải thích.
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.info_outline, size: 14, color: Colors.amber),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  context.uiText(
+                    'Ngôn ngữ nguồn và ngôn ngữ đích đang giống nhau.',
+                  ),
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+          TextButton(
+            onPressed: () => onAccept(suggestion),
+            style: TextButton.styleFrom(
+              foregroundColor: primaryColor,
+              // Vùng chạm 48 dp dù chữ nhỏ.
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            // Cờ đứng ngoài chuỗi dịch: khoá i18n là «Dịch sang {value0}».
+            child: Text(
+              '${suggestion.flag} '
+              '${context.uiText('Dịch sang ${suggestion.nativeName}')}',
+            ),
+          ),
+        ],
       ),
     );
   }

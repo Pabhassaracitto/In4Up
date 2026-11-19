@@ -24,7 +24,6 @@ import 'package:in4up_stt/tts/piper_voice_catalog.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
 import '../../features/tts/piper_voice_prefs.dart';
-import '../../features/tts/tts_service.dart';
 import '../../features/screen_translate/screen_translate_card.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../features/translation/translation_service.dart';
@@ -1215,11 +1214,16 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                         voice: v,
                         onDelete: () => _manager.deletePiperVoice(v.name),
                         onSelect: () async {
-                          final lang = SherpaPiperTtsCore.langFromVoiceName(
-                              v.name);
+                          // PSRC-230 — ngôn ngữ lấy từ config giọng nếu có
+                          // (`<name>.onnx.json`), và KHÔNG ghi vào
+                          // `TtsService._selectedVoiceId` dùng chung: giọng
+                          // Piper thuộc kho riêng theo ngôn ngữ, ghi chung thì
+                          // câu ngôn ngữ khác cũng bị đọc bằng giọng này.
+                          final lang = v.languageCode.isNotEmpty
+                              ? v.languageCode
+                              : SherpaPiperTtsCore.langFromVoiceName(v.name);
                           await PiperVoicePrefs.instance
                               .setVoiceForLang(lang, v.name);
-                          TtsService().configure(voiceId: v.name);
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

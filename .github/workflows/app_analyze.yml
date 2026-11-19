@@ -106,10 +106,13 @@ jobs:
             echo "Không có test Linux shell trên nhánh này — bỏ qua."
             exit 0
           fi
-          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart \
+          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart test/web_reader/linux_external_browser_test.dart test/web_reader/linux_youtube_external_test.dart \
             -r expanded > linux_shell_regression_test.log 2>&1
           code=$?
           cat linux_shell_regression_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py linux_shell_regression_test.log "Linux shell tests" 8
+          fi
           exit $code
 
       - name: Wordlist playback and lazy tab regression tests
@@ -239,6 +242,39 @@ jobs:
         with:
           name: app-media-tools-test-log
           path: media_tools_test.log
+          if-no-files-found: ignore
+
+      # PSRC-205 vòng 2 (audit 1.29.0-Beta) — file .m4a 7 phút / .mp3 17 phút:
+      # VAD băm câu thành mảnh, mỗi mảnh một lượt transcribe ⇒ chậm, lắt nhắt,
+      # thiếu đầu câu; bấm Hủy không dừng. Máy bắt gồm hàm THUẦN
+      # `mergeSpeechSegments` + hằng số mặc định của bộ cắt VAD + quét nguồn
+      # (pipeline phải gộp đoạn, mixin phải hủy cả pipeline).
+      - name: "PSRC-205 tests — gộp đoạn VAD cho file dài (không băm nát câu)"
+        id: psrc205-tests
+        run: |-
+          set +e
+          if [ ! -d test/vad ]; then
+            echo "Không có test/vad trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/vad/ -r expanded > psrc205_test.log 2>&1
+          code=$?
+          cat psrc205_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py psrc205_test.log "PSRC-205 tests" 4 || true
+            echo "### flutter test test/vad — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -60 psrc205_test.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $code
+
+      - name: Upload PSRC-205 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-psrc205-test-log
+          path: psrc205_test.log
           if-no-files-found: ignore
 
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
@@ -746,6 +782,9 @@ jobs:
       - name: "Agent F tests — line mode / OCR guard / PDF TTS + batch OCR + page translate"
         id: agent-f-tests
         run: |
+          npm install --prefix "$RUNNER_TEMP/l10-dom" --no-audit --no-fund jsdom@26
+          NODE_PATH="$RUNNER_TEMP/l10-dom/node_modules" node test/web_reader/reader_selection_dom_test.cjs
+          NODE_PATH="$RUNNER_TEMP/l10-dom/node_modules" node test/web_reader/reader_follow_dom_test.cjs
           set +e
           files=""
           for f in test/read_mode/docx_line_mode_test.dart \
@@ -753,6 +792,10 @@ jobs:
                    test/ocr/ocr_cancel_token_test.dart \
                    test/pdf_reader/pdf_text_layer_probe_test.dart \
                    test/pdf_reader/pdf_tts_machine_test.dart \
+                   test/pdf_reader/pdf_reading_pages_test.dart \
+                   test/web_reader/reader_cues_test.dart \
+                   test/pdf_reader/reader_follow_policy_test.dart \
+                   test/pdf_reader/reader_speed_test.dart \
                    test/pdf_reader/pdf_batch_ocr_test.dart \
                    test/pdf_reader/pdf_page_translate_test.dart; do
             [ -f "$f" ] && files="$files $f"
@@ -834,15 +877,21 @@ jobs:
           files=""
           # PSRC-187: + kênh hỏi/đáp worker isolate, khám giọng Piper, chia
           # đoạn TTS (đều thuần Dart / isolate thật trên host VM).
+          # PSRC-221 (L8): + worker "in4up làm giọng đọc hệ thống Android"
+          # (WAV→PCM, danh mục giọng, chia đoạn, huỷ) và hợp đồng với phần
+          # native (manifest + chuỗi giao thức Kotlin, đọc từ file nguồn).
           for f in test/edge_tts_engine_test.dart \
                    test/edge_voice_prefs_test.dart \
                    test/tts_candidate_router_test.dart \
                    test/tts_cache_key_test.dart \
+                   test/tts/language_voice_routing_test.dart \
                    test/tts_api_wp4_test.dart \
                    test/tts_settings_edge_and_api_test.dart \
                    test/psrc187_isolate_rpc_test.dart \
                    test/psrc187_piper_voice_doctor_test.dart \
-                   test/psrc187_tts_chunking_test.dart; do
+                   test/psrc187_tts_chunking_test.dart \
+                   test/system_tts/system_tts_worker_test.dart \
+                   test/system_tts/system_tts_contract_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
@@ -931,6 +980,15 @@ jobs:
                    test/read_mode/word_pop_layout_test.dart \
                    test/read_mode/read_word_style_align_test.dart \
                    test/read_mode/read_listen_understand_owner_requests_test.dart \
+                   test/read_mode/line_sync_test.dart \
+                   test/read_mode/psrc_234_plain_line_tap_test.dart \
+                   test/read_mode/psrc_235_read_settings_dedup_test.dart \
+                   test/read_mode/psrc_236_read_settings_groups_test.dart \
+                   test/read_mode/psrc_237_role_swap_test.dart \
+                   test/read_mode/psrc_238_source_language_test.dart \
+                   test/read_mode/psrc_239_display_controls_convention_test.dart \
+                   test/translation_source_language_test.dart \
+                   test/read_chrome_layout_test.dart \
                    test/safe_haptics_test.dart \
                    test/read_ui_121_contract_test.dart \
                    test/translation/mixed_language_test.dart; do
@@ -949,6 +1007,16 @@ jobs:
               | head -100 | while IFS= read -r line; do
               echo "::error title=Read action test fail::$line"
             done
+            # Test hỏng vì NÉM lỗi (exception, không nạp được file, quá giờ)
+            # không có dòng 'Expected:' ⇒ ở trên không ghi gì. Gom tên test
+            # hỏng + vài dòng lỗi đầu vào MỘT annotation (mỗi step chỉ hiện
+            # được 10 annotation lỗi).
+            summary=$(grep -nE -A14 '\[E\]$|Failed to load|Some tests failed' \
+              read_act_test.log | head -150 \
+              | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            if [ -n "$summary" ]; then
+              echo "::error title=Read action test fail (tóm tắt)::$summary"
+            fi
           fi
           exit $code
 
@@ -1074,9 +1142,12 @@ jobs:
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |
           set +e
-          flutter test test/cabin/ > cabin_test.log 2>&1
+          flutter test test/cabin/ -r expanded > cabin_test.log 2>&1
           code=$?
           cat cabin_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py cabin_test.log "Cabin tests" 8
+          fi
           exit $code
 
       - name: Upload cabin test log
@@ -1371,6 +1442,118 @@ jobs:
           path: safe_inset_test.log
           if-no-files-found: ignore
 
+      - name: "BETA-1.29.0 / L9 — shadowing samples, hints and scoring"
+        id: shadowing-tests
+        timeout-minutes: 5
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          if [ ! -d test/shadowing ]; then
+            echo "No L9 shadowing tests on this branch — skipping."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/shadowing/ test/lrc_ab_suggestions_test.dart \
+            --timeout 45s -r expanded > shadowing_test.log 2>&1
+          code=$?
+          cat shadowing_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B2 -A8 'Expected:|Actual:|Which:|\[E\]' shadowing_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=L9 shadowing detail::$line"
+            done || true
+            python3 scripts/ci/emit_failure_annotation.py shadowing_test.log "L9 shadowing"
+          fi
+          exit $code
+
+      - name: Upload L9 shadowing test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shadowing-test-log
+          path: shadowing_test.log
+          if-no-files-found: ignore
+
+      # BETA-1.29.0 · lane L6: engine VieNeu chỉ chạy được khi đủ 3 mảnh
+      # (libvieneu_tts.so + libsea_g2p_rs.so + sea_g2p.bin). Test này khoá hợp
+      # đồng trộn stereo→mono, cách truyền SEA-G2P, .gitmodules và workflow
+      # build engine. Build native thật do `vieneu_engine_build.yml` làm.
+      - name: "BETA-1.29.0 / L6 — VieNeu native engine contract"
+        id: vieneu-native-contract
+        timeout-minutes: 5
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files="test/tts/vieneu_native_engine_contract_test.dart"
+          if [ -f test/tts/vieneu_g2p_dictionary_test.dart ]; then
+            files="$files test/tts/vieneu_g2p_dictionary_test.dart"
+          fi
+          flutter test $files -r expanded \
+            > vieneu_contract_test.log 2>&1
+          code=$?
+          cat vieneu_contract_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              vieneu_contract_test.log > vieneu_contract_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              vieneu_contract_clean.log | head -120 | while IFS= read -r line; do
+              echo "::error title=VieNeu engine contract fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload VieNeu engine contract test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-vieneu-contract-test-log
+          path: vieneu_contract_test.log
+          if-no-files-found: ignore
+
+      # BETA-1.29.0 · lane L7 (PSRC-204, PSRC-222): khoá nơi lưu mặc định In4Up,
+      # nút "Đổi…" từng lần xuất, phục hồi khi mất quyền SAF, ghi nguyên tử .part
+      # và luồng "Mở bằng in4up" (copy URI vào bộ nhớ app + định tuyến theo loại tệp).
+      - name: "BETA-1.29.0 / L7 — file export destination & open-with contract"
+        id: l7-files-contract
+        timeout-minutes: 4
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          flutter test test/files -r expanded > l7_files_test.log 2>&1
+          code=$?
+          cat l7_files_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              l7_files_test.log > l7_files_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              l7_files_clean.log | head -120 | while IFS= read -r line; do
+              echo "::error title=L7 files contract fail::$line"
+            done || true
+            exit $code
+          fi
+          if command -v kotlinc >/dev/null 2>&1 && [ -f "${ANDROID_HOME:-}/platforms/android-36/android.jar" ]; then
+            kt_files="android/app/src/main/kotlin/com/in4up/ExportStorageHelper.kt"
+            if [ -f android/app/src/main/kotlin/com/in4up/IncomingFileResolver.kt ]; then
+              kt_files="$kt_files android/app/src/main/kotlin/com/in4up/IncomingFileResolver.kt"
+            fi
+            kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
+              $kt_files -d "$RUNNER_TEMP/in4up-l7-kotlin.jar" > l7_kotlin_compile.log 2>&1
+            kcode=$?
+            cat l7_kotlin_compile.log
+            if [ "$kcode" -ne 0 ]; then
+              msg=$(head -c 4000 l7_kotlin_compile.log | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=L7 Kotlin helpers compile fail::$msg"
+              exit $kcode
+            fi
+          fi
+
+      - name: Upload L7 files contract test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-l7-files-test-log
+          path: l7_files_test.log
+          if-no-files-found: ignore
+
       # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
       # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
       # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân
@@ -1460,13 +1643,26 @@ jobs:
       # PSRC-183..186 (2026-11-11): worker protocol (response phải đi qua
       # replyPort), một nguồn sự thật model/engine, import voices + WAV, và
       # Rule #5 cho chrome mới. Test thuần + source-scan, không cần native lib.
-      - name: "PSRC-183..186 — VieNeu TTS state/import contract"
+      - name: "PSRC-183..186 + PSRC-171 — VieNeu TTS state/import/clone contract"
         id: psrc-183-186-tests
         run: |
           set +e
-          flutter test test/tts/vieneu_tts_paths_test.dart \
+          files="test/tts/vieneu_tts_paths_test.dart \
             test/tts/vieneu_worker_protocol_test.dart \
-            test/tts/vieneu_state_contract_test.dart \
+            test/tts/vieneu_state_contract_test.dart"
+          # PSRC-171: thiếu model spec ⇒ engine không nạp được model nào;
+          # "tạo giọng" cũ chỉ ghi embedding placeholder. Test này khoá cả
+          # chuỗi (nhúng spec / encode_reference_only / phân loại lỗi).
+          if [ -f test/tts/psrc171_voice_creation_test.dart ]; then
+            files="$files test/tts/psrc171_voice_creation_test.dart"
+          fi
+          # PSRC-171 (bổ sung): "import giọng báo thành công mà giọng không
+          # hiện" — nhận diện file giọng theo NỘI DUNG (mirror cộng đồng đặt
+          # tên khác) + bảng chẩn đoán lý do từng thư mục bị bỏ qua.
+          if [ -f test/tts/psrc171b_voice_disk_discovery_test.dart ]; then
+            files="$files test/tts/psrc171b_voice_disk_discovery_test.dart"
+          fi
+          flutter test $files \
             > vieneu_psrc_test.log 2>&1
           code=$?
           cat vieneu_psrc_test.log

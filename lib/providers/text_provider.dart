@@ -41,8 +41,6 @@ import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
-enum ReadSubMode { reading, listening, translation, driving }
-
 enum TtsPlaybackOwner {
   none,
   allLines, // Play toàn bộ / song ngữ tuần tự
@@ -157,6 +155,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   int _focusCueVersion = 0;
   String? _selectedText;
   String _fullText = '';
+
+  /// PSRC-237: toàn văn GỐC, giữ lại trong lúc đang đổi vai.
+  String? _fullTextBeforeRoleSwap;
   String? _currentTextPath;
   TextSourceType _currentSourceType = TextSourceType.manual;
   String? _currentCloudId;
@@ -213,13 +214,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool _showWordTypes = false;
   bool _showLineNumbers = true;
   bool _useAutoSplit = true; // Mặc định bật tách dòng thông minh
-  ReadSubMode _subMode = ReadSubMode.reading;
   // READ-ALIGN-001 (owner 2026-10-25): mặc định CĂN GIỮA. Trước đây mặc định
   // trái và lựa chọn còn KHÔNG được lưu (xem `_restoreFromStorage`), nên mở
   // app lại là mất. Nay: mặc định giữa + lưu bền theo phiên bản đọc.
   TextAlign _textAlign = TextAlign.center;
+  String? _lastLoadError;
 
   // ==================== GETTERS ====================
+  String? get lastLoadError => _lastLoadError;
   TextDocument? get currentDocument => _currentDocument;
   @override
   List<TextItem> get lines => _lines;
@@ -333,7 +335,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     notifyListeners();
   }
   bool get useAutoSplit => _useAutoSplit;
-  ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;
 
   // ==================== CONSTRUCTOR ====================
@@ -590,43 +591,95 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   /// Nạp file text (.txt, .md, .json, .docx, .lrc, .srt) vào pipeline Đọc.
   /// Trả về true nếu nạp được; false nếu file không tồn tại / không đọc
-  /// được / .doc binary cũ (caller tự hiện thông báo cho user).
+  /// được / .doc binary cũ (caller tự hiện thông báo từ [lastLoadError]).
   Future<bool> loadTextFile(String path, {String? title}) async {
+    _lastLoadError = null;
     try {
       _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
+        _lastLoadError = TextSourceLoader.openFailedHint;
         debugPrint('TextProvider.loadTextFile: File not found: $path');
         return false;
       }
 
-      final lower = path.toLowerCase();
-      final docTitle = title ?? _extractFileName(path);
-
-      // .doc binary cũ (không phải .docx) — không đọc được trực tiếp
-      if (lower.endsWith('.doc') && !lower.endsWith('.docx')) {
-        debugPrint('TextProvider.loadTextFile: .doc legacy không hỗ trợ: $path');
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        _lastLoadError = TextSourceLoader.openFailedHint;
+        debugPrint('TextProvider.loadTextFile: File empty: $path');
         return false;
       }
 
-      if (lower.endsWith('.lrc')) {
-        _parseLrc(await file.readAsString(), title: docTitle);
-      } else if (lower.endsWith('.srt')) {
-        _parseSrt(await file.readAsString(), title: docTitle);
+      final lower = path.toLowerCase();
+      final lowerTitle = (title ?? '').toLowerCase();
+      final docTitle = (title != null && title.trim().isNotEmpty)
+          ? title.trim()
+          : _extractFileName(path);
+
+      // PSRC-207: kiểm tra chữ ký nhị phân OLE (.doc cũ / .docx đặt mật khẩu)
+      // và ZIP (.docx) TRƯỚC khi dựa vào đuôi file — trên Android, FilePicker /
+      // SAF hay trả đường dẫn tạm mất đuôi (.bin / msf_10023).
+      if (TextSourceLoader.looksLikeOleDoc(bytes) ||
+          (lower.endsWith('.doc') && !lower.endsWith('.docx'))) {
+        _lastLoadError =
+            TextSourceLoader.diagnoseOpenFailureBytes(bytes, path: path);
+        debugPrint('TextProvider.loadTextFile: OLE/legacy doc: $path');
+        return false;
+      }
+
+      final isDocx = lower.endsWith('.docx') ||
+          lowerTitle.endsWith('.docx') ||
+          TextSourceLoader.looksLikeZip(bytes);
+
+      if (isDocx) {
+        final extracted = TextSourceLoader.docxToPlainText(bytes);
+        if (extracted == null || extracted.trim().isEmpty) {
+          _lastLoadError =
+              TextSourceLoader.diagnoseOpenFailureBytes(bytes, path: path);
+          debugPrint(
+            'TextProvider.loadTextFile: không trích được văn bản từ .docx: $path',
+          );
+          return false;
+        }
+        _parsePlainText(extracted, title: docTitle);
+      } else if (lower.endsWith('.lrc') || lowerTitle.endsWith('.lrc')) {
+        _parseLrc(
+          TextSourceLoader.decodePlainTextBytes(bytes),
+          title: docTitle,
+        );
+      } else if (lower.endsWith('.srt') || lowerTitle.endsWith('.srt')) {
+        _parseSrt(
+          TextSourceLoader.decodePlainTextBytes(bytes),
+          title: docTitle,
+        );
       } else if (lower.endsWith('.md') ||
           lower.endsWith('.markdown') ||
-          lower.endsWith('.json') ||
-          lower.endsWith('.docx')) {
-        // md/json/docx → trích text thuần (giữ chữ thật cho pipeline Đọc)
-        final extracted = await TextSourceLoader.extractReadableText(path);
-        if (extracted != null && extracted.trim().isNotEmpty) {
-          _parsePlainText(extracted, title: docTitle);
-        } else {
-          // Fallback: đọc thô (json hỏng sẽ hiện text gốc)
-          _parsePlainText(await file.readAsString(), title: docTitle);
+          lowerTitle.endsWith('.md') ||
+          lowerTitle.endsWith('.markdown')) {
+        final plain = TextSourceLoader.markdownToPlainText(
+          TextSourceLoader.decodePlainTextBytes(bytes),
+        );
+        if (plain.trim().isEmpty) {
+          _lastLoadError = TextSourceLoader.openFailedHint;
+          return false;
         }
+        _parsePlainText(plain, title: docTitle);
+      } else if (lower.endsWith('.json') || lowerTitle.endsWith('.json')) {
+        final rawText = TextSourceLoader.decodePlainTextBytes(bytes);
+        final extracted = TextSourceLoader.jsonToPlainText(rawText);
+        final chosen = extracted.trim().isNotEmpty ? extracted : rawText;
+        if (chosen.trim().isEmpty) {
+          _lastLoadError = TextSourceLoader.openFailedHint;
+          return false;
+        }
+        _parsePlainText(chosen, title: docTitle);
       } else {
-        _parsePlainText(await file.readAsString(), title: docTitle);
+        final plain = TextSourceLoader.decodePlainTextBytes(bytes);
+        if (plain.trim().isEmpty) {
+          _lastLoadError = TextSourceLoader.openFailedHint;
+          return false;
+        }
+        _parsePlainText(plain, title: docTitle);
       }
 
       _setSourceMeta(
@@ -641,18 +694,23 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       //   (MD5 ổn định) — không dịch lại từ mạng như bài mới.
       unawaited(rehydrateTranslationsFromCache());
       if (_lines.isEmpty) {
+        _lastLoadError = TextSourceLoader.openFailedHint;
         debugPrint('TextProvider.loadTextFile: không trích được dòng chữ: $path');
         return false;
       }
       return true;
     } catch (e) {
+      _lastLoadError = TextSourceLoader.openFailedHint;
       debugPrint('TextProvider.loadTextFile error: $e');
       return false;
     }
   }
 
   void updateFullText(String newText) {
-    _parsePlainText(newText, title: _currentDocument?.title);
+    // PSRC-238: vẫn là tài liệu đó ⇒ giữ ngôn ngữ nguồn người dùng đã chọn.
+    reparseKeepingTranslationSource(
+      () => _parsePlainText(newText, title: _currentDocument?.title),
+    );
   }
 
   void _setSourceMeta({
@@ -665,9 +723,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentTextPath = localPath;
     _currentCloudId = cloudId;
     _currentTextCategory = category;
+    // PSRC-238: mọi đường nạp tài liệu MỚI đều qua đây và giờ mới biết danh
+    // tính của nó ⇒ dùng nguồn đã lưu cho tài liệu này (chưa lưu thì về «Tự
+    // nhận diện»), TRƯỚC khi tô bản dịch từ cache / khôi phục «Đổi vai».
+    if (restoreSavedTranslationSource()) notifyListeners();
   }
 
   void clearText() {
+    _dropRoleSwapForNewLines();
     _lines = [];
     _analyzedLines = [];
     _currentDocument = null;
@@ -682,6 +745,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentTextCategory = null;
     _currentSourceType = TextSourceType.manual;
     _writingSourceRequest = null;
+    // PSRC-238: không còn tài liệu ⇒ bỏ nguồn đã chọn của tài liệu vừa đóng.
+    restoreSavedTranslationSource();
     notifyListeners();
   }
 
@@ -730,6 +795,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       try {
         resetTranslationForNewDocument();
       } catch (_) {}
+      _fullTextBeforeRoleSwap = null;
       
       _fullText = content;
 
@@ -805,10 +871,64 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     }
   }
 
+  // ==================== PSRC-237 / ADR-0031 — ĐỔI VAI ====================
+
+  /// Danh tính bền của tài liệu để lưu dấu đổi vai và (PSRC-238) ngôn ngữ
+  /// nguồn người dùng đã chọn. Văn bản dán tay / sinh bởi AI không có danh
+  /// tính ⇒ cả hai chỉ sống trong phiên.
+  @override
+  String? get roleSwapDocumentKey {
+    final cloudId = _currentCloudId;
+    if (isCurrentTextFromCloud && cloudId != null) return 'cloud:$cloudId';
+    final path = _currentTextPath;
+    if (_currentSourceType == TextSourceType.localFile &&
+        path != null &&
+        path.isNotEmpty) {
+      return 'file:$path';
+    }
+    return null;
+  }
+
+  /// Các dòng sắp bị thay bằng nội dung khác ⇒ bỏ trạng thái đổi vai trong
+  /// bộ nhớ (dấu đã lưu của tài liệu cũ được giữ).
+  void _dropRoleSwapForNewLines() {
+    dropRoleSwapState();
+    _fullTextBeforeRoleSwap = null;
+  }
+
+  /// `content` của các dòng vừa đổi (bản dịch ⇄ bản gốc) ⇒ mọi thứ suy ra
+  /// từ `content` phải dựng lại: toàn văn, phân tích từ loại, cache IPA.
+  @override
+  void onLineRolesSwapped() {
+    final joined = _lines.map((line) => line.content).join('\n');
+    if (rolesSwapped) {
+      // Giữ nguyên toàn văn gốc (LRC/SRT còn cả mốc thời gian) để đổi lại
+      // là trả đúng từng ký tự.
+      _fullTextBeforeRoleSwap = _fullText;
+      _fullText = joined;
+    } else {
+      _fullText = _fullTextBeforeRoleSwap ?? joined;
+      _fullTextBeforeRoleSwap = null;
+    }
+    try {
+      _analyzedLines = SyntaxHighlighterService.analyzeLines(
+        _lines.map((line) => line.content).toList(),
+      );
+    } catch (e) {
+      debugPrint('⚠️ onLineRolesSwapped analyzeLines error: $e');
+      _analyzedLines = List.generate(_lines.length, (_) => []);
+    }
+    _selectedTextInfo = null;
+    _selectedText = null;
+    clearIpaMarkCaches();
+  }
+
   /// Issue2: áp dụng translations đã lưu từ Cloud entry vào lines hiện tại
   void applySavedTranslations(List<String>? savedTranslations, String langCode) {
     if (savedTranslations == null || savedTranslations.isEmpty) return;
     if (_lines.isEmpty) return;
+    // PSRC-237: đang đổi vai ⇒ dòng dịch đang giữ văn bản GỐC, không ghi đè.
+    if (rolesSwapped) return;
     
     try {
       for (var i = 0; i < _lines.length && i < savedTranslations.length; i++) {
@@ -827,6 +947,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       if (translatedLineCount > 0 && translationDisplayMode == TranslationDisplayMode.hidden) {
         setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
       }
+
+      // PSRC-237: tài liệu này lần trước đọc ở dạng đổi vai ⇒ đổi vai lại.
+      restoreSavedRoleSwap();
     } catch (e) {
       debugPrint('⚠️ applySavedTranslations error: $e');
     }
@@ -836,6 +959,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   Future<void> saveCurrentTranslationsToCloud() async {
     if (!isCurrentTextFromCloud || _currentCloudId == null) return;
     if (_lines.isEmpty) return;
+    // PSRC-237: đang đổi vai ⇒ dòng «dịch» là văn bản GỐC; không lưu nó
+    // thành bản dịch của tài liệu.
+    if (rolesSwapped) return;
     
     try {
       final targetLang = translationTargetLanguage.translationCode;
@@ -857,6 +983,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ★ THÊM: Phương thức để load kết quả từ STT
   void loadFromSttResult(SttResult result) {
+    _dropRoleSwapForNewLines();
     _writingSourceRequest = null;
     _fullText = result.fullText;
     _lines = result.segments.map((seg) {
@@ -890,6 +1017,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parseLrc(String content, {String? title}) {
+    _dropRoleSwapForNewLines();
     _fullText = content;
     _lines = [];
     // YT-LRC-LONG-001 (2026-10-28): việc đọc mốc thời gian đã tách sang hàm
@@ -906,9 +1034,17 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       ));
     }
 
+    // PSRC-233: LRC SONG NGỮ có 2 dòng CÙNG một mốc thời gian (câu gốc +
+    // bản dịch). Bản cũ gán `endTime = startTime` của dòng KẾ cho mọi dòng ⇒
+    // dòng đầu của cặp có cửa sổ 0 giây (`start == end`) nên «đồng bộ tự
+    // động» gần như không bao giờ khớp nó, còn dòng thứ hai (bản dịch) chiếm
+    // trọn khoảng ⇒ highlight rơi vào câu không phát.
+    // Nay: chỉ đặt `endTime` khi mốc kế THẬT SỰ lớn hơn; bằng nhau ⇒ để null
+    // (cửa sổ mở, mọi consumer coi dòng là đang phát tới mốc kế).
     for (int i = 0; i < _lines.length - 1; i++) {
+      final start = _lines[i].startTime;
       final nextStart = _lines[i + 1].startTime;
-      if (nextStart != null) {
+      if (start != null && nextStart != null && nextStart > start) {
         _lines[i] = _lines[i].copyWith(endTime: nextStart);
       }
     }
@@ -934,6 +1070,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parseSrt(String content, {String? title}) {
+    _dropRoleSwapForNewLines();
     _fullText = content;
     _lines = [];
     final blocks = content.split(RegExp(r'\r?\n\r?\n+'));
@@ -1784,11 +1921,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     notifyListeners();
   }
 
-  void setSubMode(ReadSubMode mode) {
-    _subMode = mode;
-    notifyListeners();
-  }
-
   void setTextAlign(TextAlign align) {
     _textAlign = align;
     // READ-ALIGN-001: lưu lựa chọn (trước đây bị "tạm thời bỏ qua" ⇒ mở lại
@@ -1809,7 +1941,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void toggleAutoSplit(bool value) {
     _useAutoSplit = value;
-    _parsePlainText(_fullText, title: _currentDocument?.title);
+    // PSRC-238: tách dòng lại không đổi tài liệu ⇒ giữ nguồn đã chọn.
+    reparseKeepingTranslationSource(
+      () => _parsePlainText(_fullText, title: _currentDocument?.title),
+    );
   }
 
   void toggleWordTypes() {
@@ -1990,6 +2125,12 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _applyLines(List<String> lineStrings, {String? title}) {
+    // PSRC-237: dòng mới không còn mang văn bản gốc ⇒ thôi coi là đổi vai.
+    reparseKeepingTranslationSource(() {
+      _dropRoleSwapForNewLines();
+    });
+    // PSRC-238: vẫn là tài liệu đó ⇒ lớp bọc trên giữ ngôn ngữ nguồn người
+    // dùng đã chọn (đổi vai chỉ mượn chỗ gắn nguồn).
     _lines = lineStrings.asMap().entries.map((entry) {
       return TextItem(
         id: 'line_${entry.key}',

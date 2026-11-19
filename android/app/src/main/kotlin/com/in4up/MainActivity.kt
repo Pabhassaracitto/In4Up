@@ -75,10 +75,20 @@ import java.util.Locale
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
     private val audioCacheExecutor = Executors.newSingleThreadExecutor()
+    private val textScanExecutor = Executors.newFixedThreadPool(2)
+    private val cancelledScanIds = ConcurrentHashMap.newKeySet<String>()
     private val audioCacheResolver by lazy { AudioContentCacheResolver(applicationContext) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val textChannelName = "in4up/textlib"
+    private var textChannel: MethodChannel? = null
     private val dictionaryChannelName = "in4up/dictionary"
+    private val filesChannelName = "in4up/files"
+    private var filesChannel: MethodChannel? = null
+    private val incomingFileExecutor = Executors.newSingleThreadExecutor()
+    private var pendingIncomingFile: Map<String, Any?>? = null
+    private var incomingFileListenerReady = false
+    private var initialIncomingInFlight = false
+    private val waitingInitialIncomingResults = ArrayList<MethodChannel.Result>()
 
     // ADR-0018 P1 — deep link từ điển (`in4up://dict?w=…`, `in4up://open?path=…`).
     // Native CHỈ chuyển tiếp URL thô; toàn bộ kiểm tra an toàn (độ dài từ, đuôi
@@ -112,12 +122,14 @@ class MainActivity : FlutterActivity() {
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
     private val reqOpenDictionaryDocuments = 0x2A12
+    private val reqOpenExportTree = 0x2A13
     private val maxDictionaryReadBytes = 64 * 1024
 
     // Result của MethodChannel đang chờ picker SAF (chỉ một picker modal tại
     // một thời điểm).
     private var pendingFolderPicker: MethodChannel.Result? = null
     private var pendingDictionaryDocumentsPicker: MethodChannel.Result? = null
+    private var pendingExportFolderPicker: MethodChannel.Result? = null
 
     private data class OpenDictionaryDocument(
         val descriptor: AssetFileDescriptor,
@@ -165,16 +177,22 @@ class MainActivity : FlutterActivity() {
             interruptedScanPending = true
         }
         installOcrCrashShield()
+        if (savedInstanceState == null && IncomingFileResolver.isIncomingFileIntent(intent)) {
+            captureIncomingFileIntent(intent, isInitialLaunch = true)
+        }
     }
 
     /**
-     * ADR-0018 P1 — app ĐANG CHẠY và người dùng bấm một link `in4up://…`
-     * (Activity là `singleTop` nên Android gọi `onNewIntent`, không tạo
-     * instance mới). Chuyển thẳng sang Dart qua `onLink`.
+     * ADR-0018 P1 & PSRC-222 — app ĐANG CHẠY (`singleTop`) và người dùng chọn
+     * "Mở bằng In4Up" / "Chia sẻ tới In4Up" hoặc bấm một link `in4up://…`.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (IncomingFileResolver.isIncomingFileIntent(intent)) {
+            captureIncomingFileIntent(intent, isInitialLaunch = false)
+            return
+        }
         val link = intent.dataString
         if (link.isNullOrEmpty()) return
         val channel = deepLinkChannel
@@ -184,6 +202,48 @@ class MainActivity : FlutterActivity() {
             return
         }
         channel.invokeMethod("onLink", link)
+    }
+
+    private fun captureIncomingFileIntent(
+        incoming: Intent,
+        isInitialLaunch: Boolean,
+    ) {
+        val snapshot = Intent(incoming)
+        // Xoa intent da nhan de xoay man hinh khong mo lai tep cu.
+        setIntent(Intent(Intent.ACTION_MAIN))
+        if (isInitialLaunch) {
+            initialIncomingInFlight = true
+        }
+        val ctx = applicationContext
+        incomingFileExecutor.execute {
+            val payload = try {
+                IncomingFileResolver.materializeIncomingIntent(ctx, snapshot)
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                null
+            }
+            mainHandler.post {
+                if (isInitialLaunch) {
+                    initialIncomingInFlight = false
+                    if (waitingInitialIncomingResults.isNotEmpty()) {
+                        val waiters = ArrayList(waitingInitialIncomingResults)
+                        waitingInitialIncomingResults.clear()
+                        waiters.first().success(payload)
+                        for (i in 1 until waiters.size) {
+                            waiters[i].success(null)
+                        }
+                        return@post
+                    }
+                }
+                if (payload == null) return@post
+                val ch = filesChannel
+                if (ch != null && incomingFileListenerReady) {
+                    ch.invokeMethod("onIncomingFile", payload)
+                } else {
+                    pendingIncomingFile = payload
+                }
+            }
+        }
     }
 
     /**
@@ -343,8 +403,8 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, textChannelName)
-            .setMethodCallHandler { call, result ->
+        textChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, textChannelName)
+        textChannel!!.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "pickFolder" -> launchFolderPicker(result)
                     "videoSdkVersion" -> result.success(Build.VERSION.SDK_INT)
@@ -364,6 +424,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "scanTree" -> {
                         val treeUri = call.argument<String>("treeUri")
+                        val scanId = call.argument<String>("scanId")
                         // Danh sách extension muốn quét (chữ thường, không kèm
                         // dấu chấm). null/rỗng → dùng bộ mặc định textExtensions
                         // (giữ tương thích với Thư viện đọc). Thư viện video
@@ -375,23 +436,59 @@ class MainActivity : FlutterActivity() {
                         if (treeUri.isNullOrBlank()) {
                             result.success(emptyList<Map<String, Any?>>())
                         } else {
-                            try {
-                                result.success(scanTextTree(treeUri, exts))
-                            } catch (se: SecurityException) {
-                                // Mất persistable permission (gỡ/cập nhật app,
-                                // user thu hồi quyền) → phía Dart hiện lỗi +
-                                // hướng user CHỌN LẠI thư mục.
-                                result.error(
-                                    "PERMISSION_LOST",
-                                    "Mất quyền đọc thư mục: ${se.message}",
-                                    null,
-                                )
-                            } catch (iae: IllegalArgumentException) {
-                                result.error("BAD_URI", iae.message, null)
-                            } catch (e: Exception) {
-                                result.error("SCAN_FAILED", e.message, null)
+                            if (!scanId.isNullOrBlank()) {
+                                cancelledScanIds.remove(scanId)
+                            }
+                            // PSRC-206: chạy SAF traversal ngoài UI thread để không
+                            // khóa khung hình / gây ANR trên thư mục lớn.
+                            textScanExecutor.execute {
+                                try {
+                                    val scanned = scanTextTree(
+                                        treeUri = treeUri,
+                                        extensions = exts,
+                                        scanId = scanId,
+                                    )
+                                    val cancelled = !scanId.isNullOrBlank() &&
+                                        cancelledScanIds.remove(scanId)
+                                    mainHandler.post {
+                                        if (cancelled) {
+                                            result.error("SCAN_CANCELLED", "Đã dừng quét thư mục.", null)
+                                        } else {
+                                            result.success(scanned)
+                                        }
+                                    }
+                                } catch (se: SecurityException) {
+                                    if (!scanId.isNullOrBlank()) cancelledScanIds.remove(scanId)
+                                    // Mất persistable permission (gỡ/cập nhật app,
+                                    // user thu hồi quyền) → phía Dart hiện lỗi +
+                                    // hướng user CHỌN LẠI thư mục.
+                                    mainHandler.post {
+                                        result.error(
+                                            "PERMISSION_LOST",
+                                            "Mất quyền đọc thư mục: ${se.message}",
+                                            null,
+                                        )
+                                    }
+                                } catch (iae: IllegalArgumentException) {
+                                    if (!scanId.isNullOrBlank()) cancelledScanIds.remove(scanId)
+                                    mainHandler.post {
+                                        result.error("BAD_URI", iae.message, null)
+                                    }
+                                } catch (e: Exception) {
+                                    if (!scanId.isNullOrBlank()) cancelledScanIds.remove(scanId)
+                                    mainHandler.post {
+                                        result.error("SCAN_FAILED", e.message, null)
+                                    }
+                                }
                             }
                         }
+                    }
+                    "cancelScanTree" -> {
+                        val scanId = call.argument<String>("scanId")
+                        if (!scanId.isNullOrBlank()) {
+                            cancelledScanIds.add(scanId)
+                        }
+                        result.success(true)
                     }
                     "keepTreePermission" -> {
                         val treeUri = call.argument<String>("treeUri")
@@ -414,7 +511,16 @@ class MainActivity : FlutterActivity() {
                     }
                     "copyContentToCache" -> {
                         val uri = call.argument<String>("uri")
-                        result.success(uri?.let { copyContentToCache(it) })
+                        if (uri.isNullOrBlank()) {
+                            result.success(null)
+                        } else {
+                            // PSRC-206: mở tài liệu lớn (.pdf/.docx) từ SAF không
+                            // copy đồng bộ trên main thread.
+                            audioCacheExecutor.execute {
+                                val cachedPath = copyContentToCache(uri)
+                                mainHandler.post { result.success(cachedPath) }
+                            }
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -432,14 +538,23 @@ class MainActivity : FlutterActivity() {
                         if (treeUri.isNullOrBlank()) {
                             result.success(emptyList<Map<String, Any?>>())
                         } else {
-                            try {
-                                result.success(scanTextTree(treeUri, exts))
-                            } catch (se: SecurityException) {
-                                result.error("PERMISSION_LOST", se.message, null)
-                            } catch (iae: IllegalArgumentException) {
-                                result.error("BAD_URI", iae.message, null)
-                            } catch (e: Exception) {
-                                result.error("SCAN_FAILED", e.message, null)
+                            textScanExecutor.execute {
+                                try {
+                                    val scanned = scanTextTree(treeUri, exts)
+                                    mainHandler.post { result.success(scanned) }
+                                } catch (se: SecurityException) {
+                                    mainHandler.post {
+                                        result.error("PERMISSION_LOST", se.message, null)
+                                    }
+                                } catch (iae: IllegalArgumentException) {
+                                    mainHandler.post {
+                                        result.error("BAD_URI", iae.message, null)
+                                    }
+                                } catch (e: Exception) {
+                                    mainHandler.post {
+                                        result.error("SCAN_FAILED", e.message, null)
+                                    }
+                                }
                             }
                         }
                     }
@@ -536,6 +651,121 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        val exportChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            filesChannelName,
+        )
+        exportChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInitialIncomingFile" -> {
+                    incomingFileListenerReady = true
+                    if (initialIncomingInFlight && pendingIncomingFile == null) {
+                        waitingInitialIncomingResults.add(result)
+                    } else {
+                        val payload = pendingIncomingFile
+                        pendingIncomingFile = null
+                        result.success(payload)
+                    }
+                }
+                "getAndroidSdkInt" -> result.success(Build.VERSION.SDK_INT)
+                "getLegacyDownloadsRoot" -> {
+                    result.success(ExportStorageHelper.legacyDownloadsRoot())
+                }
+                "pickExportTree" -> launchExportFolderPicker(result)
+                "isExportTreeWritable" -> {
+                    val treeUri = call.argument<String>("treeUri")
+                    if (treeUri.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        Thread {
+                            val ok = ExportStorageHelper.isTreeWritable(
+                                applicationContext,
+                                treeUri,
+                            )
+                            runOnUiThread { result.success(ok) }
+                        }.start()
+                    }
+                }
+                "saveFileToDownloads" -> {
+                    val sourcePath = call.argument<String>("sourcePath")
+                    val fileName = call.argument<String>("fileName")
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    val subFolder = call.argument<String>("subFolder") ?: "In4Up"
+                    if (sourcePath.isNullOrBlank() || fileName.isNullOrBlank()) {
+                        result.error("BAD_ARGS", "Thiếu sourcePath hoặc fileName.", null)
+                    } else {
+                        Thread {
+                            try {
+                                val saved = ExportStorageHelper.saveToDownloads(
+                                    context = applicationContext,
+                                    sourceFile = File(sourcePath),
+                                    desiredFileName = fileName,
+                                    mimeType = mimeType,
+                                    subFolder = subFolder,
+                                )
+                                runOnUiThread { result.success(saved) }
+                            } catch (e: SecurityException) {
+                                runOnUiThread {
+                                    result.error("PERMISSION_DENIED", e.message, null)
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("EXPORT_FAILED", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "saveFileToSafTree" -> {
+                    val sourcePath = call.argument<String>("sourcePath")
+                    val treeUri = call.argument<String>("treeUri")
+                    val fileName = call.argument<String>("fileName")
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    if (sourcePath.isNullOrBlank() ||
+                        treeUri.isNullOrBlank() ||
+                        fileName.isNullOrBlank()
+                    ) {
+                        result.error("BAD_ARGS", "Thiếu sourcePath, treeUri hoặc fileName.", null)
+                    } else {
+                        Thread {
+                            try {
+                                val saved = ExportStorageHelper.saveToSafTree(
+                                    context = applicationContext,
+                                    sourceFile = File(sourcePath),
+                                    treeUriString = treeUri,
+                                    desiredFileName = fileName,
+                                    mimeType = mimeType,
+                                )
+                                runOnUiThread { result.success(saved) }
+                            } catch (e: SecurityException) {
+                                runOnUiThread {
+                                    result.error("PERMISSION_LOST", e.message, null)
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("EXPORT_FAILED", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "openExportLocation" -> {
+                    val kind = call.argument<String>("kind") ?: ""
+                    val location = call.argument<String>("location") ?: ""
+                    val fileUri = call.argument<String>("fileUri")
+                    result.success(
+                        ExportStorageHelper.openExportFolder(
+                            activity = this,
+                            kind = kind,
+                            location = location,
+                            fileUri = fileUri,
+                        ),
+                    )
+                }
+                else -> result.notImplemented()
+            }
+        }
+        filesChannel = exportChannel
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -543,7 +773,10 @@ class MainActivity : FlutterActivity() {
     // ═══════════════════════════════════════════════════════════
 
     private fun launchFolderPicker(result: MethodChannel.Result) {
-        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+        if (pendingFolderPicker != null ||
+            pendingDictionaryDocumentsPicker != null ||
+            pendingExportFolderPicker != null
+        ) {
             result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
@@ -563,8 +796,35 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun launchExportFolderPicker(result: MethodChannel.Result) {
+        if (pendingFolderPicker != null ||
+            pendingDictionaryDocumentsPicker != null ||
+            pendingExportFolderPicker != null
+        ) {
+            result.error("PICKER_BUSY", "SAF picker đang mở.", null)
+            return
+        }
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+        }
+        pendingExportFolderPicker = result
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, reqOpenExportTree)
+        } catch (e: Exception) {
+            pendingExportFolderPicker = null
+            result.error("PICKER_UNAVAILABLE", e.message, null)
+        }
+    }
+
     private fun launchDictionaryDocumentsPicker(result: MethodChannel.Result) {
-        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+        if (pendingFolderPicker != null ||
+            pendingDictionaryDocumentsPicker != null ||
+            pendingExportFolderPicker != null
+        ) {
             result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
@@ -591,7 +851,43 @@ class MainActivity : FlutterActivity() {
         when (requestCode) {
             reqOpenTextTree -> handleFolderPickerResult(resultCode, data)
             reqOpenDictionaryDocuments -> handleDictionaryDocumentsResult(resultCode, data)
+            reqOpenExportTree -> handleExportFolderPickerResult(resultCode, data)
         }
+    }
+
+    private fun handleExportFolderPickerResult(resultCode: Int, data: Intent?) {
+        val pending = pendingExportFolderPicker
+        pendingExportFolderPicker = null
+        if (pending == null) return
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(null)
+            return
+        }
+        val uri = data.data
+        if (uri == null) {
+            pending.success(null)
+            return
+        }
+        val writeFlag = data.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        if (writeFlag == 0) {
+            pending.error("PERMISSION_DENIED", "Thư mục chọn không cấp quyền ghi.", null)
+            return
+        }
+        try {
+            val takeFlags = data.flags and (
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            contentResolver.takePersistableUriPermission(uri, takeFlags)
+        } catch (_: SecurityException) {
+            // Neu provider chi cho quyen tam thoi trong phien hien tai thi van dung duoc cho 1 lan xuat.
+        }
+        pending.success(
+            mapOf(
+                "uri" to uri.toString(),
+                "displayName" to ExportStorageHelper.queryTreeDisplayName(applicationContext, uri),
+            ),
+        )
     }
 
     private fun handleFolderPickerResult(resultCode: Int, data: Intent?) {
@@ -770,9 +1066,25 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private val ignoredScanDirectories = setOf(
+        ".git",
+        ".svn",
+        ".hg",
+        ".trash",
+        ".thumbnails",
+        "node_modules",
+        "__pycache__",
+    )
+
+    private fun isScanCancelled(scanId: String?): Boolean {
+        if (Thread.currentThread().isInterrupted) return true
+        return !scanId.isNullOrBlank() && cancelledScanIds.contains(scanId)
+    }
+
     private fun scanTextTree(
         treeUri: String,
         extensions: Set<String>? = null,
+        scanId: String? = null,
     ): List<Map<String, Any?>> {
         val out = mutableListOf<Map<String, Any?>>()
         // Bộ extension hiệu lực: caller truyền → dùng; không → textExtensions.
@@ -794,8 +1106,35 @@ class MainActivity : FlutterActivity() {
             if (idx >= 0) safeDecodePercent(normalized.substring(idx + "/tree/".length)) else ""
         }
         if (rootDocId.isBlank()) return out
+        var lastProgressEmitMs = 0L
+        fun maybeEmitProgress(folder: String) {
+            if (scanId.isNullOrBlank()) return
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now - lastProgressEmitMs < 150L) return
+            lastProgressEmitMs = now
+            val count = out.size
+            mainHandler.post {
+                textChannel?.invokeMethod(
+                    "onScanProgress",
+                    mapOf(
+                        "scanId" to scanId,
+                        "count" to count,
+                        "folder" to folder,
+                    ),
+                )
+            }
+        }
         try {
-            scanTextFolder(rootUri, rootDocId, out, 0, exts, "")
+            scanTextFolder(
+                treeUri = rootUri,
+                docId = rootDocId,
+                out = out,
+                depth = 0,
+                extensions = exts,
+                relativeDir = "",
+                scanId = scanId,
+                onProgress = ::maybeEmitProgress,
+            )
         } catch (e: SecurityException) {
             // Mất quyền từ gốc (chưa quét được file nào) → ném lên để báo
             // PERMISSION_LOST. Mất quyền giữa chừng (thư mục con) → trả
@@ -834,10 +1173,13 @@ class MainActivity : FlutterActivity() {
         depth: Int,
         extensions: Set<String> = textExtensions,
         relativeDir: String = "",
+        scanId: String? = null,
+        onProgress: ((String) -> Unit)? = null,
     ) {
         // Giới hạn: depth 12, 5000 file — đủ cho thư viện sách, tránh quét
         // hang trên tree khổng lồ.
-        if (depth > 12 || out.size >= 5000) return
+        if (depth > 12 || out.size >= 5000 || isScanCancelled(scanId)) return
+        onProgress?.invoke(relativeDir)
         val childUri = try {
             DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
         } catch (e: Exception) {
@@ -858,6 +1200,9 @@ class MainActivity : FlutterActivity() {
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
             DocumentsContract.Document.COLUMN_MIME_TYPE,
         )
+        // PSRC-206: thu thập thư mục con rồi ĐÓNG Cursor ngay trước khi đệ quy,
+        // tránh giữ 10+ Binder CursorWindow mở lồng nhau khi duyệt cây lớn.
+        val childDirectories = ArrayList<Pair<String, String>>()
         try {
             contentResolver.query(childUri, projection, null, null, null)?.use { c ->
                 val idCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
@@ -866,20 +1211,16 @@ class MainActivity : FlutterActivity() {
                 val modCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
                 val mimeCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
 
-                while (c.moveToNext() && out.size < 5000) {
-                    val id = c.getString(idCol)
+                while (c.moveToNext() && out.size < 5000 && !isScanCancelled(scanId)) {
+                    val id = c.getString(idCol) ?: continue
                     val name = c.getString(nameCol) ?: ""
                     val mime = c.getString(mimeCol) ?: ""
 
                     if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                        scanTextFolder(
-                            treeUri,
-                            id,
-                            out,
-                            depth + 1,
-                            extensions,
-                            "$relativeDir$name/",
-                        )
+                        val lowerName = name.lowercase(Locale.ROOT)
+                        if (ignoredScanDirectories.contains(lowerName)) continue
+                        if (depth == 0 && lowerName == "android") continue
+                        childDirectories.add(id to "$relativeDir$name/")
                         continue
                     }
 
@@ -906,6 +1247,9 @@ class MainActivity : FlutterActivity() {
                             "ext" to ext,
                         ),
                     )
+                    if (out.size % 50 == 0) {
+                        onProgress?.invoke(relativeDir)
+                    }
                 }
             }
         } catch (e: SecurityException) {
@@ -915,6 +1259,20 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             // Thư mục con không truy cập được (lỗi khác) — bỏ qua, tiếp tục.
             e.printStackTrace()
+        }
+
+        for ((subId, subRelDir) in childDirectories) {
+            if (out.size >= 5000 || isScanCancelled(scanId)) break
+            scanTextFolder(
+                treeUri = treeUri,
+                docId = subId,
+                out = out,
+                depth = depth + 1,
+                extensions = extensions,
+                relativeDir = subRelDir,
+                scanId = scanId,
+                onProgress = onProgress,
+            )
         }
     }
 
@@ -1039,9 +1397,14 @@ class MainActivity : FlutterActivity() {
             val uri = Uri.parse(contentUri)
             val input = resolver.openInputStream(uri) ?: return null
 
-            // Tên file tạm: giữ extension nếu lấy được từ OpenableColumns.
-            val name = queryDisplayName(resolver, uri) ?: "audio_${System.currentTimeMillis()}.bin"
-            val outFile = File(cacheDir, "in4up_$name")
+            // Tên file tạm: giữ extension nếu lấy được từ OpenableColumns,
+            // lọc ký tự đường dẫn lạ (/, \, :) để FileOutputStream không lỗi.
+            val rawName = queryDisplayName(resolver, uri) ?: "doc_${System.currentTimeMillis()}.bin"
+            val safeName = rawName
+                .replace(Regex("[/\\\\:*?\"<>|\\u0000]"), "_")
+                .trim()
+                .ifEmpty { "doc_${System.currentTimeMillis()}.bin" }
+            val outFile = File(cacheDir, "in4up_$safeName")
             FileOutputStream(outFile).use { output ->
                 input.use { inputStream ->
                     inputStream.copyTo(output)
@@ -1131,7 +1494,9 @@ class MainActivity : FlutterActivity() {
         screenTranslatePlugin = null
         openDictionaryDocuments.keys.toList().forEach(::closeDictionaryDocument)
         ocrChannel = null
+        textChannel = null
         audioCacheExecutor.shutdown()
+        textScanExecutor.shutdownNow()
         super.onDestroy()
     }
 

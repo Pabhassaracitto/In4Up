@@ -1498,3 +1498,20 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-09 | 12:44 UTC | created→doing | agent `arena/879a40d0-in4up` | triển khai A/B, lặp cue, export A/B action + tests; sandbox chưa có Flutter SDK.
   - 2026-11-09 | 20:26 UTC | doing→doing | agent session `arena/afaff427-in4up` | nối follow-up export sang `PlayerProvider.loadSong` và Tab Nghe; title giữ video + timestamp clip; thêm wiring test, Flutter CI pending.
   - 2026-11-09 | 20:36 UTC | doing→doing | agent session `arena/afaff427-in4up` | Flutter analyze/locale + video/A-B/media tests xanh tại run `42693444830`; QA Android/iOS vẫn pending.
+
+### PLAN-049 — Beta 1.29.0: hub tổng hợp & kiểm thử 9 lane audit v1.28.0
+- Nguồn: người sở hữu (2026-11-12, qua agent `arena/60e35d65-in4up`).
+- Trạng thái: doing — hub mở, chờ 9 nhánh agent land.
+- Milestone đề xuất: M2 — ổn định bản phát hành 1.29.0.
+- Chi tiết: [`BETA-1.29.0.md`](BETA-1.29.0.md) + card `BETA-1.29.0` trong `KANBAN.md`.
+  - 9 lane / 30 issue Linear `PSRC-199…228` (audit v1.28.0): cabin · âm thanh–video ·
+    Đọc+PDF/OCR · bong bóng dịch · Web/YouTube Linux · VieNeu · tệp & "Mở bằng" ·
+    TTS hệ thống Android · Shadowing + UI Nói/Hiểu.
+  - Luồng: nhánh agent → **land vào `arena/60e35d65-in4up`** → CI + nghiệm thu máy →
+    chỉ khi xanh mới sang nhánh cha `arena/01a0251e-in4up` (251e) để phát hành 1.29.0.
+  - Cổng G0–G5 trong `BETA-1.29.0.md` §5; version giữ `1.28.0+28` tới G4 rồi bump một lần
+    `1.29.0+29`; tag beta `1.29.0-beta.N` là **prerelease**.
+- Lịch sử:
+  - 2026-11-12 | created→doing | agent `arena/60e35d65-in4up` | dựng hợp đồng land cho
+    9 agent, sửa `deploy-web.yml` (không auto-publish beta) + `build_final_complete.yml`
+    (tag beta ⇒ prerelease), thêm `scripts/beta/beta_board.sh`.

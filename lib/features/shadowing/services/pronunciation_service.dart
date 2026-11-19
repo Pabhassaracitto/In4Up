@@ -7,9 +7,10 @@ import '../models/phoneme_models.dart';
 import '../models/shadowing_result.dart';
 import 'cmu_dictionary_service.dart';
 import 'phoneme_analyzer.dart';
+import 'shadowing_text_scorer.dart';
 
 class PronunciationService {
-  /// So sánh text và tính điểm
+  /// So sánh toàn bộ câu mẫu bằng alignment thuần, không dùng điểm ngẫu nhiên.
   static ShadowingResult analyze({
     required String originalText,
     required String recognizedText,
@@ -18,31 +19,27 @@ class PronunciationService {
     Duration originalDuration = Duration.zero,
     Duration userDuration = Duration.zero,
   }) {
-    final originalWords = _normalize(originalText).split(' ');
-    final recognizedWords = _normalize(recognizedText).split(' ');
-
+    final textScore = ShadowingTextScorer.score(originalText, recognizedText);
     final wordResults = <WordResult>[];
-
-    for (int i = 0; i < originalWords.length; i++) {
-      final expected = originalWords[i];
-      final recognized = i < recognizedWords.length ? recognizedWords[i] : null;
-
+    for (final alignment in textScore.alignments) {
+      final expected = alignment.expected;
+      final recognized = alignment.recognized;
       final phonemeResult = PhonemeAnalyzer.getPhonemes(expected);
-      final phonemeScores = _estimatePhonemeScores(
-        expected,
-        recognized,
-        phonemeResult.phonemes,
-      );
-
-      final wordScore = _calculateWordScore(expected, recognized);
-      final status = _getWordStatus(expected, recognized);
-
+      final status = alignment.isCorrect
+          ? WordStatus.correct
+          : recognized == null
+              ? WordStatus.missed
+              : WordStatus.substituted;
       wordResults.add(WordResult(
         expectedWord: expected,
         recognizedWord: recognized,
         status: status,
-        score: wordScore,
-        phonemeScores: phonemeScores,
+        score: alignment.credit,
+        phonemeScores: _estimatePhonemeScores(
+          recognized,
+          phonemeResult.phonemes,
+          alignment.credit,
+        ),
         phonemeResult: phonemeResult,
       ));
     }
@@ -56,6 +53,7 @@ class PronunciationService {
       originalText: originalText,
       recognizedText: recognizedText,
       wordResults: wordResults,
+      extraWordCount: textScore.extraWordCount,
       acousticAnalysis: acousticAnalysis,
       originalWaveform: originalWaveform,
       userWaveform: userWaveform,
@@ -64,169 +62,32 @@ class PronunciationService {
     );
   }
 
-  static String _normalize(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
-
-  static double _calculateWordScore(String expected, String? recognized) {
-    if (recognized == null) return 0.0;
-    if (expected.toLowerCase() == recognized.toLowerCase()) return 1.0;
-
-    // Jaro-Winkler similarity
-    return _jaroWinkler(expected.toLowerCase(), recognized.toLowerCase());
-  }
-
-  static WordStatus _getWordStatus(String expected, String? recognized) {
-    if (recognized == null) return WordStatus.missed;
-    if (expected.toLowerCase() == recognized.toLowerCase()) {
-      return WordStatus.correct;
-    }
-    return WordStatus.substituted;
-  }
-
+  /// Đây là ước lượng từ độ khớp chữ, không phải đo acoustic từng âm vị.
+  /// Giữ tính xác định để cùng một bản ghi không ra điểm khác nhau mỗi lần mở lại.
   static List<PhonemeScore> _estimatePhonemeScores(
-    String expectedWord,
     String? recognizedWord,
     List<String> expectedPhonemes,
+    double wordCredit,
   ) {
-    if (recognizedWord == null) {
-      return expectedPhonemes
-          .map((p) => PhonemeScore(
-                phoneme: p,
-                type: CMUDictionaryService.getPhonemeType(p),
-                score: 0.0,
-                status: PhonemeStatus.missed,
-              ))
-          .toList();
-    }
-
-    if (expectedWord.toLowerCase() == recognizedWord.toLowerCase()) {
-      // Từ đúng - cho điểm cao
-      final random = math.Random();
-      return expectedPhonemes
-          .map((p) => PhonemeScore(
-                phoneme: p,
-                type: CMUDictionaryService.getPhonemeType(p),
-                score: 0.85 + random.nextDouble() * 0.15,
-                status: PhonemeStatus.correct,
-              ))
-          .toList();
-    }
-
-    // Từ gần đúng - phân tích chi tiết
-    final diffPositions =
-        _findDifferencePositions(expectedWord, recognizedWord);
-
-    return expectedPhonemes.asMap().entries.map((entry) {
-      final idx = entry.key;
-      final phoneme = entry.value;
-      final phonemePosition = idx / expectedPhonemes.length;
-
-      bool isInErrorZone = diffPositions.any((pos) {
-        final normalizedPos = pos / expectedWord.length;
-        return (normalizedPos - phonemePosition).abs() < 0.2;
-      });
-
-      double score;
-      PhonemeStatus status;
-
-      if (isInErrorZone) {
-        score = 0.3 + math.Random().nextDouble() * 0.4;
-        status = PhonemeStatus.needsWork;
+    return expectedPhonemes.map((p) {
+      final score = recognizedWord == null ? 0.0 : wordCredit;
+      final PhonemeStatus status;
+      if (recognizedWord == null || score < 0.5) {
+        status = PhonemeStatus.missed;
+      } else if (score >= 1.0) {
+        status = PhonemeStatus.correct;
+      } else if (score >= 0.7) {
+        status = PhonemeStatus.acceptable;
       } else {
-        score = 0.75 + math.Random().nextDouble() * 0.25;
-        status =
-            score >= 0.8 ? PhonemeStatus.correct : PhonemeStatus.acceptable;
+        status = PhonemeStatus.needsWork;
       }
-
       return PhonemeScore(
-        phoneme: phoneme,
-        type: CMUDictionaryService.getPhonemeType(phoneme),
+        phoneme: p,
+        type: CMUDictionaryService.getPhonemeType(p),
         score: score,
         status: status,
       );
     }).toList();
-  }
-
-  static List<int> _findDifferencePositions(String a, String b) {
-    final positions = <int>[];
-    final minLen = math.min(a.length, b.length);
-
-    for (int i = 0; i < minLen; i++) {
-      if (a[i].toLowerCase() != b[i].toLowerCase()) {
-        positions.add(i);
-      }
-    }
-
-    if (a.length != b.length) {
-      positions.add(minLen);
-    }
-
-    return positions;
-  }
-
-  static double _jaroWinkler(String s1, String s2) {
-    if (s1 == s2) return 1.0;
-    if (s1.isEmpty || s2.isEmpty) return 0.0;
-
-    final jaro = _jaro(s1, s2);
-
-    int prefix = 0;
-    for (int i = 0; i < math.min(4, math.min(s1.length, s2.length)); i++) {
-      if (s1[i] == s2[i]) {
-        prefix++;
-      } else {
-        break;
-      }
-    }
-
-    return jaro + (prefix * 0.1 * (1 - jaro));
-  }
-
-  static double _jaro(String s1, String s2) {
-    final len1 = s1.length;
-    final len2 = s2.length;
-
-    final matchWindow = (math.max(len1, len2) / 2 - 1).floor();
-
-    final s1Matches = List<bool>.filled(len1, false);
-    final s2Matches = List<bool>.filled(len2, false);
-
-    int matches = 0;
-    int transpositions = 0;
-
-    for (int i = 0; i < len1; i++) {
-      final start = math.max(0, i - matchWindow);
-      final end = math.min(i + matchWindow + 1, len2);
-
-      for (int j = start; j < end; j++) {
-        if (s2Matches[j] || s1[i] != s2[j]) continue;
-        s1Matches[i] = s2Matches[j] = true;
-        matches++;
-        break;
-      }
-    }
-
-    if (matches == 0) return 0.0;
-
-    int k = 0;
-    for (int i = 0; i < len1; i++) {
-      if (!s1Matches[i]) continue;
-      while (!s2Matches[k]) {
-        k++;
-      }
-      if (s1[i] != s2[k]) transpositions++;
-      k++;
-    }
-
-    return (matches / len1 +
-            matches / len2 +
-            (matches - transpositions / 2) / matches) /
-        3;
   }
 
   static AcousticAnalysis _analyzeAcoustics(

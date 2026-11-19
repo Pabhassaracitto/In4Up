@@ -23,8 +23,70 @@ class TextDeviceScanException implements Exception {
   String toString() => message;
 }
 
+/// Dừng quét chủ động (user bấm Dừng hoặc chọn thư mục khác khi đang quét).
+class TextDeviceScanCancelledException implements Exception {
+  const TextDeviceScanCancelledException();
+}
+
+typedef TextDeviceScanProgressCallback = void Function(
+  int count,
+  String currentFolder,
+);
+
+typedef TextDeviceMethodInvoker = Future<Object?> Function(
+  String method, [
+  Map<String, Object?>? arguments,
+]);
+
 class TextDeviceChannel {
   static const MethodChannel _channel = MethodChannel('in4up/textlib');
+
+  static bool _handlerRegistered = false;
+  static final Map<String, TextDeviceScanProgressCallback> _progressListeners =
+      {};
+
+  /// Seam cho unit test trên host VM (không cần Android thật).
+  @visibleForTesting
+  static TextDeviceMethodInvoker? invokeOverride;
+
+  static Future<T?> _invoke<T>(
+    String method, [
+    Map<String, Object?>? arguments,
+  ]) async {
+    final override = invokeOverride;
+    if (override != null) {
+      final res = await override(method, arguments);
+      return res as T?;
+    }
+    return _channel.invokeMethod<T>(method, arguments);
+  }
+
+  static void _ensureHandlerRegistered() {
+    if (_handlerRegistered || invokeOverride != null) return;
+    _handlerRegistered = true;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onScanProgress') {
+        final args = call.arguments;
+        if (args is Map) {
+          final scanId = (args['scanId'] ?? '').toString();
+          final count = (args['count'] as num?)?.toInt() ?? 0;
+          final folder = (args['folder'] ?? '').toString();
+          _progressListeners[scanId]?.call(count, folder);
+        }
+      }
+      return null;
+    });
+  }
+
+  /// Cho phép test mô phỏng sự kiện tiến độ quét từ native.
+  @visibleForTesting
+  static void dispatchProgressForTesting({
+    required String scanId,
+    required int count,
+    String folder = '',
+  }) {
+    _progressListeners[scanId]?.call(count, folder);
+  }
 
   /// Mở trình chọn thư mục hệ thống (ACTION_OPEN_DOCUMENT_TREE) trực tiếp
   /// từ native → trả CONTENT:// tree URI THẬT, đã takePersistableUriPermission
@@ -34,7 +96,7 @@ class TextDeviceChannel {
   /// (app build bởi bản code cũ) → caller fallback FilePicker.
   static Future<String?> pickFolder() async {
     try {
-      return await _channel.invokeMethod<String>('pickFolder');
+      return await _invoke<String>('pickFolder');
     } on MissingPluginException {
       rethrow; // để provider biết mà fallback file_picker
     } catch (e) {
@@ -51,7 +113,7 @@ class TextDeviceChannel {
   /// content:// sẵn → giữ nguyên. Không đổi được → null.
   static Future<String?> normalizeTreeUri(String treeUri) async {
     try {
-      return await _channel.invokeMethod<String>(
+      return await _invoke<String>(
         'normalizeTreeUri',
         {'treeUri': treeUri},
       );
@@ -75,14 +137,21 @@ class TextDeviceChannel {
   static Future<List<Map<String, dynamic>>> scanTree(
     String treeUri, {
     List<String>? extensions,
+    String? scanId,
+    TextDeviceScanProgressCallback? onProgress,
   }) async {
+    if (scanId != null && scanId.isNotEmpty && onProgress != null) {
+      _ensureHandlerRegistered();
+      _progressListeners[scanId] = onProgress;
+    }
     try {
-      final raw = await _channel.invokeMethod<List<dynamic>>(
+      final raw = await _invoke<List<dynamic>>(
         'scanTree',
         {
           'treeUri': treeUri,
           if (extensions != null && extensions.isNotEmpty)
             'extensions': extensions,
+          if (scanId != null && scanId.isNotEmpty) 'scanId': scanId,
         },
       );
       if (raw == null) return const [];
@@ -94,6 +163,9 @@ class TextDeviceChannel {
       debugPrint('[TextDevice] scanTree: native không có (phi Android)');
       return const [];
     } on PlatformException catch (e) {
+      if (e.code == 'SCAN_CANCELLED') {
+        throw const TextDeviceScanCancelledException();
+      }
       if (e.code == 'PERMISSION_LOST') {
         throw const TextDeviceScanException(
           'Quyền đọc thư mục đã mất (do gỡ hoặc cập nhật app). '
@@ -109,8 +181,29 @@ class TextDeviceChannel {
       debugPrint('[TextDevice] scanTree error: ${e.code} ${e.message}');
       return const [];
     } catch (e) {
+      if (e is TextDeviceScanCancelledException ||
+          e is TextDeviceScanException) {
+        rethrow;
+      }
       debugPrint('[TextDevice] scanTree error: $e');
       return const [];
+    } finally {
+      if (scanId != null && scanId.isNotEmpty) {
+        _progressListeners.remove(scanId);
+      }
+    }
+  }
+
+  /// Yêu cầu native dừng lượt quét [scanId] đang chạy trên executor nền.
+  static Future<void> cancelScanTree(String scanId) async {
+    if (scanId.isEmpty) return;
+    _progressListeners.remove(scanId);
+    try {
+      await _invoke<bool>('cancelScanTree', {'scanId': scanId});
+    } on MissingPluginException {
+      // Native bản cũ không hỗ trợ cancel — Dart vẫn bỏ qua kết quả bằng token.
+    } catch (e) {
+      debugPrint('[TextDevice] cancelScanTree error: $e');
     }
   }
 
@@ -119,7 +212,7 @@ class TextDeviceChannel {
   /// Native tự normalize raw path legacy → SAF URI trước khi persist.
   static Future<bool> keepTreePermission(String treeUri) async {
     try {
-      final ok = await _channel.invokeMethod<bool>(
+      final ok = await _invoke<bool>(
         'keepTreePermission',
         {'treeUri': treeUri},
       );
@@ -138,7 +231,7 @@ class TextDeviceChannel {
   static Future<String?> copyContentToCache(String uri) async {
     if (!uri.startsWith('content://')) return uri;
     try {
-      final path = await _channel.invokeMethod<String>(
+      final path = await _invoke<String>(
         'copyContentToCache',
         {'uri': uri},
       );
@@ -163,7 +256,7 @@ class TextDeviceChannel {
     String destination,
   ) async {
     try {
-      final ok = await _channel.invokeMethod<bool>(
+      final ok = await _invoke<bool>(
         'copyDocumentToPath',
         {'uri': uri, 'destination': destination},
       );

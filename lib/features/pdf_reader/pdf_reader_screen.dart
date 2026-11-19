@@ -142,6 +142,20 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   void _revealRect(int pageIndex, Rect rect) {
     if (!_pdfViewerController.isReady || !isPaintablePdfRect(rect)) return;
     final total = _pdfViewerController.pageCount;
+    if (_controller.isReadingActive && pageIndex < _controller.totalPages) {
+      final page = _controller.document!.pages[pageIndex];
+      final layout = _pdfViewerController.layout.pageLayouts[pageIndex];
+      final sx = layout.width / page.width;
+      final sy = layout.height / page.height;
+      final target = Rect.fromLTRB(
+        layout.left + rect.left * sx,
+        layout.top + (page.height - (rect.top > rect.bottom ? rect.top : rect.bottom)) * sy,
+        layout.left + rect.right * sx,
+        layout.top + (page.height - (rect.top < rect.bottom ? rect.top : rect.bottom)) * sy,
+      );
+      final viewport = _pdfViewerController.visibleRect;
+      if (viewport.contains(target.topLeft) && viewport.contains(target.bottomRight)) return;
+    }
     // `PdfRect` của engine assert left <= right && top >= bottom (quy ước PDF
     // y-up). Dữ liệu lưu cũ có thể bị đảo chiều y → đưa về đúng thứ tự trước
     // khi gọi, nếu không là một vụ ném exception khi mở lại ghi chú.
@@ -561,11 +575,27 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         onKeyEvent: _handleShortcutKey,
         child:   Stack(
           children: [
+            // PSRC-208: giữ PdfViewer sống dưới Offstage khi bật chế độ TT
+            // để PdfDocument không bị dispose giữa chừng (tránh chỉ lấy được
+            // 1 trang đã cache hoặc hỏng render khi quét OCR từ chế độ TT).
             Positioned.fill(
-              child: _controller.viewMode == PdfViewMode.textMode
-                  ? _buildTextMode()
-                  : _buildSplitOrPdf(),
+              child: Listener(
+                onPointerMove: (_) => _controller.followPolicy.manualScroll(DateTime.now()),
+                onPointerSignal: (_) => _controller.followPolicy.manualScroll(DateTime.now()),
+                child: Offstage(
+                  offstage: _controller.viewMode == PdfViewMode.textMode,
+                  child: _buildSplitOrPdf(),
+                ),
+              ),
             ),
+            if (_controller.viewMode == PdfViewMode.textMode)
+              Positioned.fill(
+                child: Listener(
+                  onPointerMove: (_) => _controller.followPolicy.manualScroll(DateTime.now()),
+                  onPointerSignal: (_) => _controller.followPolicy.manualScroll(DateTime.now()),
+                  child: _buildTextMode(),
+                ),
+              ),
             Positioned(
               top: 0,
               left: 0,
@@ -591,7 +621,12 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                           writingMode: widget.writingMode,
                           onSendToWriting: _sendPdfToWriting,
                           onBatchSavePage: _openBatchSaveFromPage,
-                          onOpenOcrSheet: () => _openOcrSheet(),
+                          onOpenOcrSheet: () => _openOcrSheet(
+                            initialScope:
+                                _controller.viewMode == PdfViewMode.textMode
+                                    ? PdfOcrScope.all
+                                    : PdfOcrScope.currentPage,
+                          ),
                           onSearch: _toggleSearch,
                           onShowToc: _openTocNavigator,
                           onJumpToPage: _showJumpToPageDialog,
@@ -995,6 +1030,16 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     ),
                   ),
                 ),
+                if (OcrService.instance.isAvailable)
+                  TextButton.icon(
+                    onPressed: () =>
+                        _openOcrSheet(initialScope: PdfOcrScope.all),
+                    icon: const Icon(Icons.document_scanner_outlined, size: 14),
+                    label: Text(
+                      context.uiText('Quét OCR'),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
                 TextButton(
                   onPressed: widget.writingMode
                       ? _sendExtractedPdfToWriting

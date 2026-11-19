@@ -1,11 +1,11 @@
-# ADR-0033 — Ảnh MDD thử nghiệm trong nội dung theo bộ
+# ADR-0034 — Ảnh MDD thử nghiệm trong nội dung theo bộ
 
-- Bối cảnh: ADR-0028–0032, owner muốn hiển thị gần nguồn hơn nhưng MDD có thể
+- Bối cảnh: ADR-0028–0031 và ADR-0033, owner muốn hiển thị gần nguồn hơn nhưng MDD có thể
   1,22 GB và HTML/tài nguyên đều không đáng tin; giữ SQLite và renderer text.
 - Quyết định: dưới mỗi bộ, chỉ khi người dùng bấm nút mới tra tối đa bốn ảnh
   `img src` tương đối .png/.jpg/.jpeg trong MDD của đúng bộ. Ảnh hiện sau văn
   bản, không inline; không tải network, không mở file theo HTML, không JS/SVG,
-  GIF hay APNG. Tác vụ tra theo lô dùng worker ADR-0032, tối đa 2 MiB/ảnh và
+  GIF hay APNG. Tác vụ tra theo lô dùng worker ADR-0033, tối đa 2 MiB/ảnh và
   8 MiB/lô. Kiểm tra header PNG/JPEG, ảnh tĩnh, cạnh ≤2048 và ≤2.097.152 pixel
   trước khi gọi codec; giải mã thu nhỏ chiều ngang tối đa 720, không upscale.
   Codec có thể từ chối dữ liệu hỏng, và kiểm tra header không phải sandbox codec.

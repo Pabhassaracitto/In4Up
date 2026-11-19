@@ -25,6 +25,10 @@ on:
       # Private integration/validation: do not publish or cancel another
       # Pages deployment while testing the six-axis vocabulary changes.
       - '!arena/075510c6-in4up'
+      # BETA-1.29.0 (docs/project/BETA-1.29.0.md): nhánh tổng hợp 9 lane audit
+      # 1.28.0 — KHÔNG tự publish bản chưa kiểm lên Pages. Cần xem web của beta:
+      # chạy workflow_dispatch trên nhánh này (dispatch không bị luật này chặn).
+      - '!arena/60e35d65-in4up'
   workflow_dispatch:
 
 permissions:
@@ -33,7 +37,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: github-pages
+  # Mỗi nhánh một group: push của nhánh arena/** KHÔNG còn huỷ lẫn nhau
+  # (trước đây dùng chung `github-pages` nên lane nọ giết run của lane kia).
+  # `main` vẫn chỉ có một deploy tại một thời điểm vì ref của nó là duy nhất.
+  group: github-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -163,6 +170,11 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish to gh-pages (giữ nguyên file khác, vd wrapper YouTube)
+        # BETA-1.29.0 / L11 phát hiện thêm mục 9: nhánh `arena/**` chỉ BUILD để
+        # kiểm (xem step "Build web"), KHÔNG được publish. Trước đây mọi nhánh
+        # arena/** đều push lên gh-pages ⇒ bản beta/lane chưa nghiệm thu thay
+        # thế site thật. Nay chỉ `main` được publish.
+        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

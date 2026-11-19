@@ -1,17 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
+import '../core/files/incoming_file_classifier.dart';
+import '../core/files/incoming_file_router.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/dictionary/widgets/dictionary_screen.dart';
 import '../features/dictionary/widgets/dict_pack_screen.dart';
+import '../features/video/models/video_info.dart';
+import '../features/video/services/video_library_logic.dart';
+import '../features/video/services/video_library_service.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../features/media_tools/screens/media_tools_screen.dart';
@@ -40,14 +49,16 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/models/recent_file.dart';
+import 'read_mode/services/recent_files_service.dart';
 import 'read_mode/sheets/read_settings_sheet.dart';
 import 'read_mode/services/read_text_action_runner.dart';
 import 'read_mode/widgets/read_top_bar.dart';
 import 'read_mode/widgets/read_source_picker.dart';
 import 'read_mode/widgets/read_text_action_hooks.dart';
+import 'read_mode/widgets/library_screen.dart';
 import 'read_mode/write_studio_screen.dart';
 import 'settings/shell_ui_settings_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
@@ -109,6 +120,8 @@ class _MainShellState extends State<MainShell> {
   bool _modeSwitchExpanded = false;
   Timer? _modeSwitchHideTimer;
   Timer? _shellHintTimer;
+  late final _MainShellIncomingFileHost _incomingFileHost =
+      _MainShellIncomingFileHost(this);
 
   @override
   void initState() {
@@ -121,8 +134,10 @@ class _MainShellState extends State<MainShell> {
     ReadChromeLayoutStore.instance.layout.addListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
+      unawaited(IncomingFileRouter.instance.attachHost(_incomingFileHost));
       _scheduleShellHintIfNeeded();
       // BATTERY-OPT-001: xin miễn tối ưu pin (models STT/AI chạy ngầm).
       unawaited(BatteryOptimizationService.maybeRequestOnStartup(context));
@@ -135,6 +150,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    IncomingFileRouter.instance.detachHost(_incomingFileHost);
     ReadChromeLayoutStore.instance.layout
         .removeListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
@@ -400,14 +416,15 @@ class _MainShellState extends State<MainShell> {
     return true;
   }
 
+  // PSRC-247 — ô góc trái trên KHÔNG đổi nghĩa theo tab nữa: luôn là thư viện
+  // (văn bản/âm thanh) như các tab Đọc/Nghe/Xem. Robot «Quản lý Model AI»
+  // chuyển về header của Home (cạnh nút Đăng nhập) để mỗi nơi một công dụng.
   IconData get _leadingIcon {
-    if (_currentTab == _PrimaryTab.home) return Icons.smart_toy_outlined;
     if (_currentTab == _PrimaryTab.remember) return Icons.format_list_bulleted;
     return _leftLibraryIcon;
   }
 
   Color get _leadingColor {
-    if (_currentTab == _PrimaryTab.home) return const Color(0xFFFF9800);
     if (_currentTab == _PrimaryTab.remember) return const Color(0xFF66BB6A);
     return _leftLibraryIsAudio
         ? const Color(0xFF6C63FF)
@@ -415,7 +432,6 @@ class _MainShellState extends State<MainShell> {
   }
 
   String get _leadingTooltip {
-    if (_currentTab == _PrimaryTab.home) return 'Quản lý Model AI';
     if (_currentTab == _PrimaryTab.remember) return 'Danh sách từ';
     return _leftLibraryTooltip;
   }
@@ -462,6 +478,127 @@ class _MainShellState extends State<MainShell> {
     if (!mounted || !loaded) return false;
     _setListenMode(0);
     return true;
+  }
+
+  void _popOverlaysToShellRoot() {
+    final nav = Navigator.maybeOf(context);
+    if (nav != null && nav.canPop()) {
+      nav.popUntil((route) => route.isFirst);
+    }
+  }
+
+  Future<void> _openIncomingPdf(String localPath) async {
+    if (!mounted) return;
+    await RecentFilesService().addOrUpdate(RecentFile.fromLocalPdf(localPath));
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    setState(() {
+      _currentTab = _PrimaryTab.read;
+      _readModeIndex = 0;
+      _readSource = ReadContentSource.document;
+      _syncModeSwitchVisibility();
+    });
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PdfReaderScreen(pdfPath: localPath),
+      ),
+    );
+  }
+
+  Future<void> _openIncomingTextDocument(
+    String localPath,
+    String displayName,
+  ) async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    setState(() {
+      _currentTab = _PrimaryTab.read;
+      _readModeIndex = 0;
+      _readSource = ReadContentSource.document;
+      _syncModeSwitchVisibility();
+    });
+    final textProvider = context.read<TextProvider>();
+    final loaded = await textProvider.loadTextFile(localPath);
+    if (!mounted) return;
+    if (!loaded) {
+      _showIncomingSnack('Không mở được tệp: $displayName');
+      return;
+    }
+    await RecentFilesService().addOrUpdate(
+      RecentFile.fromLocalText(localPath).copyWith(
+        totalLines: textProvider.lines.length,
+      ),
+    );
+  }
+
+  Future<void> _openIncomingAudio(String localPath, String displayName) async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    _setListenMode(0);
+    final title = p.basenameWithoutExtension(displayName).trim();
+    final loaded = await context.read<PlayerProvider>().loadSong(
+          path: localPath,
+          title: title.isEmpty ? displayName : title,
+          autoPlay: true,
+        );
+    if (!mounted) return;
+    if (!loaded) {
+      _showIncomingSnack('Không mở được tệp: $displayName');
+    }
+  }
+
+  Future<void> _openIncomingVideo(String localPath, String displayName) async {
+    if (!mounted) return;
+    final stat = await File(localPath).stat();
+    final rawTitle = p.basenameWithoutExtension(displayName).trim();
+    final title = rawTitle.isEmpty ? displayName : rawTitle;
+    final id = md5
+        .convert(
+          utf8.encode('$localPath:${stat.modified.millisecondsSinceEpoch}'),
+        )
+        .toString();
+    final video = VideoInfo(
+      id: id,
+      title: title,
+      filePath: VideoLibraryLogic.normalizeUri(localPath),
+      duration: Duration.zero,
+      addedAt: DateTime.now(),
+      sizeBytes: stat.size,
+      folder: VideoLibraryLogic.folderLabel(localPath),
+      source: VideoSource.picked,
+    );
+    await VideoLibraryService.instance.addVideo(video);
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    _setListenMode(2);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VideoPlayerScreen(
+          video: video,
+          onOpenAudioInListen: _openVideoExportInListen,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openIncomingDictionary() async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DictManagerScreen(),
+      ),
+    );
+  }
+
+  void _showIncomingSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(message)),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _setListenMode(int index) {
@@ -1266,6 +1403,7 @@ class _MainShellState extends State<MainShell> {
                 onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
               ),
               textActionCallbacks: _readTextActionCallbacks,
+              onOpenReadLibrary: _openReadLibrary,
               // READ-UI-120: picker chỉ dựng khi nhóm Nguồn được bung trong
               // «Giao diện shell». Mặc định gộp ⇒ vẫn chỉ 2 icon ở app bar.
               showSourcePicker: true,
@@ -1439,6 +1577,16 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  /// PSRC-246 — mở Thư viện đọc THẬT (3 tab Gần đây / Cloud / Thiết bị) như
+  /// một route có nút quay lại, thay vì lặp lại drawer «Mở nguồn».
+  void _openReadLibrary() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ReadLibraryScreen(showBackButton: true),
+      ),
+    );
+  }
+
   void _openTextLibrary() {
     if (_listenFirst) {
       _openRightLibrary();
@@ -1511,12 +1659,9 @@ class _MainShellState extends State<MainShell> {
               } else if (showCabin) {
                 _openTextLibrary();
               } else if (_currentTab == _PrimaryTab.home) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SttModelSettingsScreen(),
-                  ),
-                );
+                // PSRC-247 — Home dùng CHUNG nghĩa với các tab khác: thư viện
+                // văn bản (robot Model AI đã về header Home).
+                _openTextLibrary();
               } else if (_currentTab == _PrimaryTab.remember) {
                 _handleTool('word_list');
               } else {
@@ -1572,9 +1717,13 @@ class _MainShellState extends State<MainShell> {
             tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
-          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Hiển thị» +
+          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Tùy biến» +
           // «Cài đặt». Không thêm 2 icon rời rạc (app bar reader đã có 4
           // icon + tiêu đề ⇒ 320px không đủ chỗ).
+          // PSRC-235: mục đầu từng tên «Hiển thị» — trùng với tab dock, chip
+          // trong tab và tiêu đề sheet (4 tầng cùng tên). Nay một đích đến =
+          // một tên: «Tùy biến» (panel dock) · «Bố cục đọc» (sheet) ·
+          // «Cài đặt» (Cài đặt Text Studio).
           if (isReader &&
               _readChromeLayout.useBottomDock &&
               !_readChromeLayout.displayHidden)
@@ -1582,11 +1731,11 @@ class _MainShellState extends State<MainShell> {
               padding: EdgeInsets.zero,
               icon: const Icon(Icons.tune_rounded,
                   color: Color(0xFF26C6DA), size: 20),
-              tooltip: context.uiText('Hiển thị'),
+              tooltip: context.uiText('Tùy biến'),
               onSelected: (value) {
                 if (value == 'display') {
                   if (_readChromeLayout.useBottomDock) {
-                    // READ-UI-121: 1 chạm mở đúng panel «Hiển thị» của dock
+                    // READ-UI-121: 1 chạm mở đúng panel «Tùy biến» của dock
                     // (có ReadModeController ⇒ đủ auto-sync + Focus). Vẫn là
                     // MỘT nguồn sự thật `ReadChromeLayoutStore`.
                     final store = ReadChromeLayoutStore.instance;
@@ -1604,7 +1753,7 @@ class _MainShellState extends State<MainShell> {
               itemBuilder: (menuContext) => [
                 PopupMenuItem<String>(
                   value: 'display',
-                  child: Text(menuContext.uiText('Hiển thị')),
+                  child: Text(menuContext.uiText('Tùy biến')),
                 ),
                 PopupMenuItem<String>(
                   value: 'settings',
@@ -2673,4 +2822,71 @@ Widget build(BuildContext context) {
     ), // <-- Đóng ConstrainedBox
   ); // <-- Đóng Semantics và kết thúc hàm build
 }
+}
+
+/// PSRC-222: triển khai `IncomingFileOpenHost` gắn vào `_MainShellState` để
+/// định tuyến tệp mở từ ngoài ứng dụng (cả khởi động lạnh lẫn `onNewIntent`).
+class _MainShellIncomingFileHost implements IncomingFileOpenHost {
+  const _MainShellIncomingFileHost(this._shell);
+
+  final _MainShellState _shell;
+
+  @override
+  bool get isReady => _shell.mounted;
+
+  @override
+  Future<void> openPdf({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingPdf(localPath);
+
+  @override
+  Future<void> openTextDocument({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingTextDocument(localPath, displayName);
+
+  @override
+  Future<void> openAudio({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingAudio(localPath, displayName);
+
+  @override
+  Future<void> openVideo({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingVideo(localPath, displayName);
+
+  @override
+  Future<void> openDictionary({
+    required String localPath,
+    required String displayName,
+  }) =>
+      _shell._openIncomingDictionary();
+
+  @override
+  void showUnsupportedMessage({
+    required IncomingUnsupportedReason reason,
+    required String displayName,
+  }) {
+    if (reason == IncomingUnsupportedReason.legacyDoc) {
+      _shell._showIncomingSnack(
+        'Định dạng .doc (Word 97–2003) chưa hỗ trợ — hãy lưu lại thành .docx hoặc .txt.',
+      );
+      return;
+    }
+    _shell._showIncomingSnack(
+      'Định dạng tệp này chưa được In4Up hỗ trợ ($displayName).',
+    );
+  }
+
+  @override
+  void showOpenError({required String displayName}) {
+    _shell._showIncomingSnack('Không mở được tệp: $displayName');
+  }
 }

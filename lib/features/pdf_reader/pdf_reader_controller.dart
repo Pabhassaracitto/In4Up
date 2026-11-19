@@ -33,6 +33,9 @@ import 'services/pdf_page_translate.dart';
 import 'services/pdf_text_extractor.dart';
 import 'services/pdf_text_layer_probe.dart';
 import 'services/pdf_tts_machine.dart';
+import 'services/pdf_reading_pages.dart';
+import 'services/reader_follow_policy.dart';
+import 'services/reader_speed.dart';
 
 // `PdfTtsState` nay sống trong `services/pdf_tts_machine.dart` cùng máy trạng
 // thái đọc to (I4U18-PDF-OCR-TTS-001 F3). Re-export để mọi widget đang
@@ -156,6 +159,8 @@ class PdfReaderController extends ChangeNotifier {
   bool get showRecallMarkers => _showRecallMarkers;
 
   PdfReaderController({required this.pdfPath}) {
+    _ttsSpeed = readerSpeed(_tts.speed);
+    _tts.addListener(_onTtsSettingsChanged);
     _init();
     ReaderDisplaySettings().addListener(_onDisplaySettingsChanged);
   }
@@ -177,6 +182,16 @@ class PdfReaderController extends ChangeNotifier {
   // ─── TTS ────────────────────────────────────────────────
   /// Trọng tài Play/Pause/Stop/Next: số phiên + guard double-tap
   /// (xem `services/pdf_tts_machine.dart` — F3).
+  final ReaderFollowPolicy followPolicy = ReaderFollowPolicy();
+  void toggleKaraoke() {
+    followPolicy.karaoke = !followPolicy.karaoke;
+    notifyListeners();
+  }
+  void toggleFollow() {
+    followPolicy.autoScroll = !followPolicy.autoScroll;
+    notifyListeners();
+  }
+
   final PdfTtsMachine _ttsMachine = PdfTtsMachine();
   PdfTtsState get ttsState => _ttsMachine.state;
   String? _currentSpeakingWord;
@@ -218,13 +233,14 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   /// Rect đang được đọc cho overlay (null khi không đọc).
-  List<Rect> get ttsCueRects => currentCue?.lineRects ?? const [];
+  List<Rect> get ttsCueRects => followPolicy.karaoke && isReadingActive
+      ? currentCue?.lineRects ?? const [] : const [];
   int? get ttsCuePageIndex => _ttsMachine.isActive ? _readingPageIndex : null;
 
   /// "câu 3/12 · trang 5" cho thanh TTS.
   /// '0.9x · EN' cho nhãn phụ ở thanh TTS.
   String get ttsSpeedLabel =>
-      '${_ttsSpeed.toStringAsFixed(1)}x · ${_ttsLanguage == 'vi-VN' ? 'VI' : 'EN'}';
+      '${readerSpeedLabel(_ttsSpeed)} · ${_ttsLanguage == 'vi-VN' ? 'VI' : 'EN'}';
 
   String get readingProgressLabel {
     if (_readingCues.isEmpty) return '';
@@ -709,22 +725,81 @@ class PdfReaderController extends ChangeNotifier {
     }
     notifyListeners();
 
-    if (_extractedFullText.isEmpty && !_isExtractingText) {
+    if (!_isExtractingText) {
       _isExtractingText = true;
       _extractProgress = 0;
       _extractProgressLabel = '';
+      _extractor.clearEmptyTextCache();
       notifyListeners();
-      _extractedFullText = await _extractor.extractFullText(
-        _document!,
-        onProgress: (i, total) {
-          _extractProgress = total == 0 ? 1 : (i + 1) / total;
-          _extractProgressLabel = '${i + 1}';
-          notifyListeners();
-        },
-      );
-      _isExtractingText = false;
-      notifyListeners();
+      try {
+        var extracted = await _extractor.extractFullText(
+          _document!,
+          onProgress: (i, total) {
+            _extractProgress = total == 0 ? 1 : (i + 1) / total;
+            _extractProgressLabel = '${i + 1}';
+            notifyListeners();
+          },
+        );
+        // PSRC-208: nếu tài liệu gắn với viewer bị giải phóng tạm thời khiến
+        // trích xuất rỗng hoặc hụt trang, mở trực tiếp từ pdfPath để lấy đủ mọi trang.
+        if (extracted.trim().isEmpty && pdfPath.isNotEmpty) {
+          PdfDocument? fallbackDoc;
+          try {
+            fallbackDoc = await PdfDocument.openFile(pdfPath);
+            extracted = await _extractor.extractFullText(
+              fallbackDoc,
+              onProgress: (i, total) {
+                _extractProgress = total == 0 ? 1 : (i + 1) / total;
+                _extractProgressLabel = '${i + 1}';
+                notifyListeners();
+              },
+            );
+          } catch (e) {
+            debugPrint('PdfReaderController.switchToTextMode fallback open error: $e');
+          } finally {
+            await fallbackDoc?.dispose();
+          }
+        }
+        _extractedFullText = extracted;
+      } finally {
+        _isExtractingText = false;
+        notifyListeners();
+      }
     }
+  }
+
+  /// Đọc lớp chữ có sẵn của 1 trang (kèm fallback mở file nếu handle viewer cũ).
+  Future<String> extractPageTextByIndex(
+    int pageIndex, {
+    PdfDocument? fallbackDocument,
+  }) async {
+    final activeDoc = _document;
+    if (activeDoc != null &&
+        pageIndex >= 0 &&
+        pageIndex < activeDoc.pages.length) {
+      final text = await _extractor.extractPageText(
+        activeDoc.pages[pageIndex],
+        pageIndex,
+      );
+      if (text.trim().isNotEmpty) return text;
+    }
+    if (fallbackDocument != null &&
+        pageIndex >= 0 &&
+        pageIndex < fallbackDocument.pages.length) {
+      return _extractor.extractPageText(
+        fallbackDocument.pages[pageIndex],
+        pageIndex,
+      );
+    }
+    return '';
+  }
+
+  /// Cập nhật nội dung Chế độ văn bản (TT) ngay sau khi quét OCR nhiều trang.
+  void applyMergedOcrText(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    _extractedFullText = trimmed;
+    notifyListeners();
   }
 
   void switchToPdfMode() {
@@ -791,21 +866,20 @@ class PdfReaderController extends ChangeNotifier {
 
       while (_ttsMachine.isCurrent(session) && pageIndex < doc.pages.length) {
         _pageHasNoTextLayer = false;
-        final cues =
-            await _extractor.extractSentences(doc.pages[pageIndex], pageIndex);
-        if (!_ttsMachine.isCurrent(session)) return;
+        final next = await nextPdfReadingPage<PdfSentenceCue>(
+          from: pageIndex,
+          pageCount: doc.pages.length,
+          load: (page) => _extractor.extractSentences(doc.pages[page], page),
+          isCurrent: () => _ttsMachine.isCurrent(session),
+          skipEmpty: _ttsAutoAdvance,
+          onEmpty: () => _pageHasNoTextLayer = true,
+        );
+        if (next == null || !_ttsMachine.isCurrent(session)) break;
+        if (next.page != pageIndex) cueIndex = 0;
+        pageIndex = next.page;
+        final cues = next.cues;
         _readingCues = cues;
         _readingPageIndex = pageIndex;
-
-        if (cues.isEmpty) {
-          // Trang không có lớp chữ (scan) → dừng ở đây thay vì im lặng đọc
-          // xuyên sang trang khác; UI sẽ hiện gợi ý OCR/Text Mode.
-          _pageHasNoTextLayer = true;
-          _ttsMachine.markFinished(session);
-          _currentSpeakingWord = null;
-          notifyListeners();
-          return;
-        }
 
         if (cueIndex >= cues.length) {
           cueIndex = 0;
@@ -836,11 +910,10 @@ class PdfReaderController extends ChangeNotifier {
             if (!_ttsMachine.isCurrent(session)) return;
             final index = cueOffset + i;
             if (index < 0 || index >= cues.length) return;
+            debugPrint('PdfReader: page ${pageIndex + 1}/${doc.pages.length}, cue ${index + 1}/${cues.length}');
             _readingCueIndex = index;
             _currentSpeakingWord = _firstWordOf(cues[index].speakText);
-            if (i > 0 && cues[index].pageIndex != cues[index - 1].pageIndex) {
-              _maybeJumpToCue(cues[index]);
-            }
+            _maybeJumpToCue(cues[index]);
             notifyListeners();
           },
         );
@@ -852,7 +925,6 @@ class PdfReaderController extends ChangeNotifier {
         if (_ttsAutoAdvance && pageIndex + 1 < doc.pages.length) {
           pageIndex += 1;
           cueIndex = 0;
-          goToPage(pageIndex);
           continue;
         }
         break;
@@ -886,6 +958,11 @@ class PdfReaderController extends ChangeNotifier {
 
   Future<void> resumeReading() async {
     if (!_ttsMachine.isPaused) return;
+    if (_rateChangedWhilePaused) {
+      _rateChangedWhilePaused = false;
+      await _restartAtCurrentRate();
+      return;
+    }
     if (!_ttsMachine.beginTransition()) return;
     final session = _ttsMachine.session;
     try {
@@ -939,8 +1016,8 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   void _maybeJumpToCue(PdfSentenceCue cue) {
-    if (cue.pageIndex == _currentPage) return;
-    goToPage(cue.pageIndex);
+    if (!followPolicy.shouldReveal(now: DateTime.now(), visible: false)) return;
+    viewerCommands.revealRect?.call(cue.pageIndex, cue.bounds);
   }
 
   static String? _firstWordOf(String text) {
@@ -951,7 +1028,32 @@ class PdfReaderController extends ChangeNotifier {
   Future<void> speakSelectedText() async {
     final text = _selectedText?.trim() ?? '';
     if (text.isEmpty) return;
-    await speakText(text);
+    final fragment = _selectionFragments.isNotEmpty ? _selectionFragments.first : null;
+    final doc = _document;
+    if (doc == null) return;
+    int page;
+    int offset;
+    if (_selectionSource == PdfSelectionSource.textMode && fragment != null) {
+      final position = await pdfTextModePosition(
+        offset: fragment.startOffset,
+        pageCount: doc.pages.length,
+        load: (page) => _extractor.extractPageText(doc.pages[page], page),
+      );
+      if (position == null) return;
+      page = position.page;
+      offset = position.offset;
+    } else if (fragment != null) {
+      page = fragment.pageIndex;
+      offset = fragment.startOffset;
+    } else {
+      final resolved = await resolveTextModeSelectionToPage(text);
+      page = resolved.pageIndex;
+      offset = resolved.startOffset ?? 0;
+    }
+    final cues = await _extractor.extractSentences(doc.pages[page], page);
+    final index = cues.indexWhere((cue) => cue.endOffset > offset);
+    await stopReading();
+    await startReading(fromPage: page, fromCue: index < 0 ? 0 : index);
   }
 
   /// Đọc một đoạn rời (chạm từ, đọc vùng chọn).
@@ -976,10 +1078,33 @@ class PdfReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTtsSpeed(double speed) {
-    _ttsSpeed = speed.clamp(0.25, 2.0);
-    _tts.configure(speed: _ttsSpeed);
+  Timer? _speedRestart;
+  bool _rateChangedWhilePaused = false;
+
+  void _onTtsSettingsChanged() {
+    final next = readerSpeed(_tts.speed);
+    if (next == _ttsSpeed) return;
+    _ttsSpeed = next;
+    _rateChangedWhilePaused = _ttsMachine.isPaused;
+    if (_ttsMachine.isPlaying) {
+      _speedRestart?.cancel();
+      _speedRestart = Timer(const Duration(milliseconds: 100), () {
+        if (_ttsMachine.isPlaying) unawaited(_restartAtCurrentRate());
+      });
+    }
     notifyListeners();
+  }
+
+  Future<void> _restartAtCurrentRate() async {
+    final page = _readingPageIndex;
+    final cue = _readingCueIndex < 0 ? 0 : _readingCueIndex;
+    await stopReading();
+    await startReading(fromPage: page, fromCue: cue);
+  }
+
+  void setTtsSpeed(double speed) {
+    // The service notifies this controller and any open settings panel.
+    _tts.configure(speed: readerSpeed(speed));
   }
 
   /// Trích text trang hiện tại (dùng cho TTS + lưu hàng loạt).
@@ -1620,6 +1745,8 @@ class PdfReaderController extends ChangeNotifier {
   void dispose() {
     // Đổi phiên trước khi tháo: callback TTS đến muộn không được đụng vào
     // controller đã dispose (notifyListeners sau dispose = crash).
+    _speedRestart?.cancel();
+    _tts.removeListener(_onTtsSettingsChanged);
     _ttsMachine.markStopped();
     ReaderDisplaySettings().removeListener(_onDisplaySettingsChanged);
     _tts.stop();

@@ -20,6 +20,7 @@ import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/files/incoming_file_router.dart';
 import 'core/responsive/app_responsive.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
@@ -43,6 +44,7 @@ import 'screens/read_mode/services/tts_service.dart';
 import 'services/ai_settings_cloud_sync.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_rest_auth.dart';
+import 'services/linux_media_backends.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
@@ -56,6 +58,12 @@ import 'services/whisper_service.dart';
 // (Flutter multiple-flutters: engine phụ resolve entrypoint từ CÙNG snapshot.)
 // ignore: unused_import
 import 'features/screen_translate/screen_translate_entrypoint.dart';
+
+// PSRC-221: entrypoint của engine nền cho "in4up làm giọng đọc hệ thống"
+// (In4UpTtsService tra `in4upSystemTtsMain` bằng chuỗi) — cùng lý do bắt buộc
+// import như dòng trên.
+// ignore: unused_import
+import 'core/platform/system_tts/system_tts_entrypoint.dart';
 
 // ADR-0018 (P1) — link/tệp từ ngoài app (in4up://dict?w=…, "Mở bằng In4Up").
 import 'features/dictionary/services/dict_deep_link_router.dart';
@@ -119,6 +127,12 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // PSRC-219/220 (beta 1.29.0, L2) — Linux không có plugin âm thanh/video của
+  // Flutter. Cắm backend media_kit (libmpv) TRƯỚC khi tạo AudioPlayer/
+  // VideoPlayerController đầu tiên. Không có libmpv ⇒ hàm trả false và app
+  // giữ nguyên hành vi cũ (báo đúng nguyên nhân + mở bằng trình phát hệ thống).
+  LinuxMediaBackends.install();
+
   // ★ Chỉ Firebase là bắt buộc trước runApp
   await _initializeFirebaseSafely();
 
@@ -150,6 +164,12 @@ Future<void> main(List<String> args) async {
   // tới khi `navigatorKey` có Navigator. `args` là `argv` trên Windows/Linux
   // (`in4up.exe "C:\a.mdx"`); Android/iOS để trống.
   unawaited(DictDeepLinkRouter.instance.start(args));
+  if (!kIsWeb) {
+    DictDeepLinkRouter.instance.attachFileOpenHandler(
+      IncomingFileRouter.instance.handleOpenPathLink,
+    );
+    unawaited(IncomingFileRouter.instance.start(args));
+  }
 
   // IN4-15 (LOGIN-CRASH-002): chẩn đoán lúc khởi động — logcat trả lời
   // ngay: bản nào đang chạy (flavor), phiên đã khôi phục được chưa, và

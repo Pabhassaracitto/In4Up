@@ -8,8 +8,15 @@
 // Quy ước dữ liệu (khớp `native/tts_vieneu/vieneu_tts.cpp`):
 //   documents/vieneu_tts/
 //     ├── vieneu-v3-turbo-q8_0.gguf
+//     ├── model_specs/vieneu_v3_turbo.json   ← PSRC-171: wrapper tự ghi khi
+//     │                                        audio.cpp báo thiếu model spec
 //     ├── voices/<voiceId>/ref_codes.txt | speaker.emb.txt | ref_codes.bin
-//     └── cloned_voices/<voiceId>/{samples/*.wav, speaker.emb.txt}
+//     └── cloned_voices/<voiceId>/{samples/*.wav, ref_codes.txt}
+//
+// PSRC-171: giọng clone do app tạo ra là **ref codes** (`ref_codes.txt`) do
+// chính model mã hoá từ bản ghi âm. Bản cũ ghi `speaker.emb.txt` gồm 256 số 0
+// (placeholder) ⇒ audio.cpp từ chối ("must contain exactly 192 float
+// values") và giọng tạo ra không bao giờ đọc được.
 
 import 'dart:convert';
 
@@ -39,6 +46,67 @@ bool isVieneuVoiceSampleFile(String path) =>
 bool isVieneuVoiceDataFile(String path) =>
     vieneuVoiceDataFileNames.contains(p.basename(path).toLowerCase());
 
+/// Số chiều embedding mà audio.cpp chấp nhận
+/// (`parse_speaker_embedding_file`: ĐÚNG 192 float trên dòng đầu).
+const int vieneuSpeakerEmbeddingDims = 192;
+
+/// File `speaker.emb.txt` có dùng được với audio.cpp không?
+///
+/// PSRC-171: audio.cpp chỉ đọc **dòng đầu tiên**, tách theo dấu phẩy, và đòi
+/// đúng 192 giá trị; sai ⇒ ném "must contain exactly 192 float values". Bản
+/// 1.28 ghi embedding placeholder 256 số 0 vào `cloned_voices/<id>/` ⇒ mọi
+/// lần đọc bằng giọng đó đều lỗi, dù ref codes (nếu có) hoàn toàn đúng.
+/// Engine dùng hàm này để KHÔNG truyền file hỏng xuống native.
+bool isUsableVieneuSpeakerEmbedding(String content) {
+  var firstLine = '';
+  for (final line in content.split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) continue;
+    firstLine = trimmed;
+    break;
+  }
+  if (firstLine.isEmpty) return false;
+  var count = 0;
+  for (final token in firstLine.split(',')) {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) continue;
+    if (double.tryParse(trimmed) == null) return false;
+    count++;
+  }
+  return count == vieneuSpeakerEmbeddingDims;
+}
+
+/// Nội dung `ref_codes.txt` có phải mã âm thanh THẬT không (không phải
+/// `# comment`)?
+///
+/// Mỗi dòng là một frame, mỗi frame là `code_groups` số nguyên. Hàm chỉ cần
+/// chắc chắn có ít nhất một dòng toàn số — đủ để không đưa file rác cho
+/// audio.cpp (`parse_reference_codes_file` ném lỗi với file rỗng).
+bool hasVieneuRefCodes(String content) {
+  for (final line in content.split('\n')) {
+    final tokens = line
+        .trim()
+        .split(RegExp(r'[\s,]+'))
+        .where((token) => token.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) continue;
+    if (tokens.first.startsWith('#')) continue;
+    if (tokens.every((token) => int.tryParse(token) != null)) return true;
+  }
+  return false;
+}
+
+/// Số frame (dòng mã) trong `ref_codes.txt` — dùng cho thông báo/kiểm thử.
+int vieneuRefCodeFrames(String content) {
+  var frames = 0;
+  for (final line in content.split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+    frames++;
+  }
+  return frames;
+}
+
 /// File giọng có nội dung THỰC, không phải placeholder `# VieNeu-TTS default`.
 ///
 /// Native `is_valid_voice_file()` có cùng logic; giữ một bản Dart để engine
@@ -50,6 +118,38 @@ bool hasVieneuVoiceData(String content) {
     if (trimmed.length > 4) return true;
   }
   return false;
+}
+
+/// Loại dữ liệu giọng, nhận diện bằng **NỘI DUNG** chứ không bằng tên file.
+///
+/// Vì sao: các bản sao lưu cộng đồng của gói VieNeu-TTS (vd. một mirror trên
+/// Hugging Face) đặt tên file khác gói gốc — `voices/<tên người đọc>/` có thể
+/// là `codes.txt` + `embedding.txt`, `ref_codes.csv`… Trước đây engine chỉ dò
+/// đúng 3 tên `ref_codes.txt` / `ref_codes.bin` / `speaker.emb.txt` nên các
+/// giọng đó **không hiện** dù import báo thành công. audio.cpp nhận ĐƯỜNG DẪN
+/// bất kỳ cho `reference_codes_file` / `speaker_embedding_file`, nên chỉ cần
+/// Dart nhận đúng loại là dùng được.
+enum VieneuVoiceDataKind {
+  /// Mã âm thanh đã mã hoá sẵn (mỗi dòng/frame là các số nguyên).
+  refCodes,
+
+  /// Embedding giọng 192 chiều (đúng định dạng audio.cpp đọc).
+  speakerEmbedding,
+
+  /// Có nội dung nhưng không nhận ra (sai định dạng / sai số chiều).
+  unknown,
+}
+
+/// Phân loại nội dung một file dữ liệu giọng (thuần logic, test được).
+///
+/// Thứ tự kiểm tra: embedding 192 chiều **trước** (dòng có dấu `.`), rồi tới
+/// ref codes (toàn số nguyên, có dấu phẩy hoặc khoảng trắng).
+VieneuVoiceDataKind classifyVieneuVoiceDataText(String text) {
+  if (isUsableVieneuSpeakerEmbedding(text)) {
+    return VieneuVoiceDataKind.speakerEmbedding;
+  }
+  if (hasVieneuRefCodes(text)) return VieneuVoiceDataKind.refCodes;
+  return VieneuVoiceDataKind.unknown;
 }
 
 /// Chuẩn hoá tên giọng do người dùng nhập thành một tên thư mục an toàn.
@@ -167,4 +267,309 @@ String? detectVieneuVariantName(String fileName) {
   if (lower.contains('bf16') || lower.contains('f16')) return 'bf16';
   if (lower.contains('q8')) return 'q8_0';
   return 'q8_0';
+}
+
+// ─── Từ điển phát âm SEA-G2P (ADR-0028, lane L6 — 1.29.0) ──────────────────
+//
+// VieNeu-TTS **không nhận chữ thô**: model ăn *phoneme* do SEA-G2P sinh ra.
+// `sea_g2p.bin` (≈60 MiB) là dữ liệu của SEA-G2P; nó phải nằm CẠNH file GGUF
+// (`documents/vieneu_tts/sea_g2p.bin`). Trước 1.29 app không có đường nào đưa
+// file này vào ⇒ engine thật sự chạy được nhưng mọi lần đọc đều lỗi
+// "missing sea_g2p.bin". Các hằng số dưới đây là một nguồn sự thật duy nhất
+// cho cả service tải/xuất-nhập lẫn UI.
+//
+// Bản ghim khớp tag submodule `third_party/sea-g2p` = v0.10.0 (ADR-0028);
+// digest lấy từ GitHub release API của chính tag đó (asset `sea_g2p.bin`).
+
+/// Tên file mà audio.cpp tìm cạnh model (không đổi được — nằm trong native).
+const String vieneuG2pDictFileName = 'sea_g2p.bin';
+
+/// Tag SEA-G2P đang ghim (native lib + từ điển phải cùng phiên bản).
+const String vieneuG2pReleaseTag = 'v0.10.0';
+
+/// URL tải chính thức (GitHub release của pnnbao97/sea-g2p).
+const String vieneuG2pDictDownloadUrl =
+    'https://github.com/pnnbao97/sea-g2p/releases/download/v0.10.0/sea_g2p.bin';
+
+/// Kích thước thật của asset v0.10.0 (62.829.820 byte) — dùng để hiện dung
+/// lượng và để phát hiện tải hụt.
+const int vieneuG2pDictBytes = 62829820;
+
+/// sha256 của asset v0.10.0 — bắt buộc khớp sau khi tải.
+const String vieneuG2pDictSha256 =
+    '4346e690d0711ebc5231e7a42c5c88aaf6e40377e894b4617c018fd81c6f4096';
+
+/// Ngưỡng "trông giống từ điển thật" cho file do người dùng tự chọn (không có
+/// digest để đối chiếu). Nhỏ hơn nhiều so với 60 MiB ⇒ chặn file rỗng, file
+/// `.bin` của model khác, và tệp `.txt` đổi tên.
+const int vieneuG2pDictMinBytes = 40 * 1024 * 1024;
+
+/// Tên file có phải `sea_g2p.bin` không (không phân biệt hoa/thường).
+bool isVieneuG2pDictionaryFile(String path) =>
+    p.basename(path).toLowerCase() == vieneuG2pDictFileName;
+
+/// Đường dẫn đích của từ điển trong một thư mục model.
+String vieneuG2pDictionaryPath(String modelDir) =>
+    p.join(modelDir, vieneuG2pDictFileName);
+
+/// Kích thước có đủ lớn để coi là từ điển SEA-G2P thật không?
+bool isPlausibleVieneuG2pDictionarySize(int bytes) =>
+    bytes >= vieneuG2pDictMinBytes;
+
+/// Dung lượng hiển thị cho UI, vd `60,0 MB` (dùng dấu phẩy như phần còn lại
+/// của app, làm tròn 1 chữ số).
+String formatVieneuDictionarySize(int bytes) {
+  final mb = bytes / (1024 * 1024);
+  return '${mb.toStringAsFixed(1).replaceAll('.', ',')} MB';
+}
+
+// ─── Nạp model: kiểm file + biến thể thật (PSRC-214/215, 1.29.0) ────────────
+//
+// Trước 1.29, mọi lối import model đều copy file người dùng chọn vào
+// `vieneu_tts/<tên biến thể UI đang chọn>.gguf` rồi báo THÀNH CÔNG ngay —
+// không kiểm đó có phải GGUF, không kiểm dung lượng, và không kiểm engine có
+// nạp được. Hệ quả đúng như audit v1.28.0:
+//
+//   * PSRC-214 — "mục import phía trên không nhận model": nút Import trên
+//     từng dòng biến thể ghi file theo biến thể của DÒNG đó, không theo file
+//     thật ⇒ (a) tệp chọn nhầm vẫn được nhận, (b) tệp đúng bị lưu dưới tên
+//     biến thể khác nên dòng tương ứng vẫn báo "Chưa import".
+//   * PSRC-215 — "import thành công nhưng thiếu engine": chỉ copy file là
+//     xong, dù engine còn thiếu `sea_g2p.bin` / thư viện native.
+//
+// Vì vậy quyết định biến thể + kiểm file nằm ở ĐÂY (thuần logic, test được),
+// dùng chung cho service (copy), engine (probe) và UI (thông điệp).
+
+/// 4 byte đầu của mọi file GGUF: ASCII `GGUF`.
+const List<int> vieneuGgufMagic = <int>[0x47, 0x47, 0x55, 0x46];
+
+/// Dung lượng tối thiểu của một model VieNeu thật: Q8_0 ≈ 188 MB,
+/// bf16 ≈ 292 MB ⇒ 32 MiB chỉ chặn file tải hụt / file rác, không chặn biến
+/// thể nào đang hỗ trợ.
+const int vieneuModelMinBytes = 32 * 1024 * 1024;
+
+/// Vì sao một tệp không dùng làm model được (`null` = dùng được).
+enum VieneuModelFileProblem {
+  /// Không phải đuôi `.gguf`.
+  missingExtension,
+
+  /// Tệp rỗng (0 byte) hoặc không đọc được.
+  empty,
+
+  /// Nhỏ hơn [vieneuModelMinBytes] — gần như chắc chắn là file tải hụt.
+  tooSmall,
+
+  /// Thiếu chữ ký `GGUF` ở 4 byte đầu — không phải model GGUF.
+  notGguf,
+}
+
+/// 4 byte đầu có đúng chữ ký `GGUF` không?
+bool hasVieneuGgufMagic(List<int> head) {
+  if (head.length < vieneuGgufMagic.length) return false;
+  for (var i = 0; i < vieneuGgufMagic.length; i++) {
+    if (head[i] != vieneuGgufMagic[i]) return false;
+  }
+  return true;
+}
+
+/// Soi một model từ dữ liệu ĐÃ đọc (đuôi, dung lượng, 4 byte đầu).
+///
+/// [head] rỗng ⇒ bỏ qua phép kiểm chữ ký (dùng khi nền tảng không đọc được
+/// byte đầu, ví dụ SAF chỉ trả luồng đã đóng). Trả `null` khi tệp dùng được.
+VieneuModelFileProblem? inspectVieneuModelHead({
+  required String path,
+  required int bytes,
+  List<int> head = const <int>[],
+}) {
+  if (p.extension(path).toLowerCase() != '.gguf') {
+    return VieneuModelFileProblem.missingExtension;
+  }
+  if (bytes <= 0) return VieneuModelFileProblem.empty;
+  if (bytes < vieneuModelMinBytes) return VieneuModelFileProblem.tooSmall;
+  if (head.isNotEmpty && !hasVieneuGgufMagic(head)) {
+    return VieneuModelFileProblem.notGguf;
+  }
+  return null;
+}
+
+/// Câu nguồn (tiếng Việt) cho từng lỗi tệp model — UI dịch qua `context.uiText`
+/// nên mọi key ở đây phải có trong `tool/priority_native_pack.json` (8 locale).
+String vieneuModelFileProblemMessage(VieneuModelFileProblem problem) {
+  switch (problem) {
+    case VieneuModelFileProblem.missingExtension:
+      return 'Tệp đã chọn không phải .gguf';
+    case VieneuModelFileProblem.empty:
+      return 'Tệp đã chọn rỗng — có thể quá trình tải/chép bị lỗi';
+    case VieneuModelFileProblem.tooSmall:
+      return 'Tệp .gguf quá nhỏ (dưới 32 MB) — có thể tải hụt, tải lại rồi import';
+    case VieneuModelFileProblem.notGguf:
+      return 'Tệp không phải model GGUF hợp lệ (thiếu chữ ký GGUF) — kiểm tra lại nguồn tải';
+  }
+}
+
+// ─── Engine chưa chạy được: vì sao (PSRC-216, 1.29.0) ──────────────────────
+//
+// Trước 1.29 engine `return` im lặng ở mọi nhánh thiếu (model / native /
+// `sea_g2p.bin`) và UI chỉ nói câu chung "kiểm tra file gguf và thư viện
+// native". Ba câu trả lời khác nhau hoàn toàn nhưng cùng một thông báo ⇒
+// người dùng không biết phải làm gì. Enum + câu nguồn dưới đây là MỘT nguồn
+// sự thật cho engine, service và UI.
+
+/// Mảnh còn thiếu để engine VieNeu đọc được — theo ĐÚNG thứ tự engine kiểm.
+enum VieneuEngineBlocker {
+  /// Chưa import model `.gguf` nào.
+  noModel,
+
+  /// Có file nhưng không dùng được (hỏng / không phải GGUF / quá nhỏ).
+  modelUnreadable,
+
+  /// Bản cài không đóng gói `libvieneu_tts.so` (ví dụ bản desktop).
+  noNativeLibrary,
+
+  /// Model chỉ nhận phoneme: thiếu `sea_g2p.bin` thì không đọc được câu nào.
+  noPhonemeDictionary,
+
+  /// PSRC-171: audio.cpp báo `model spec not found for family '…'` — engine
+  /// không có bảng mô tả model cho family này. Nguyên nhân đã biết: bản
+  /// audio.cpp ghim (v0.9.4) chỉ nhúng `model_specs/*.json` khi build với
+  /// `AUDIOCPP_DEPLOYMENT_BUILD=ON` (mặc định OFF) ⇒ libaudiocpp.so ra đời
+  /// KHÔNG có spec nào. Wrapper (từ 1.29.0) mang theo spec của family và ghi
+  /// ra cạnh model; nếu vẫn thấy chặn này thì bản cài đang dùng engine cũ.
+  modelSpecMissing,
+
+  /// Nạp model thất bại vì lý do khác (hết RAM, GGUF không khớp spec, …).
+  /// Khác [modelUnreadable] (file hỏng/không phải GGUF — phát hiện trước khi
+  /// nạp): đây là lỗi của CHÍNH engine khi đọc file hợp lệ.
+  engineLoadFailed,
+
+  /// Dữ liệu giọng không dùng được (embedding sai số chiều, ref codes rỗng):
+  /// audio.cpp ném lỗi ngay khi đọc giọng. Trước 1.29 lỗi này bị báo thành
+  /// "kiểm tra mô hình TTS và mẫu thu âm" (PSRC-171).
+  voiceDataUnusable,
+}
+
+/// Suy ra chặn ĐẦU TIÊN theo đúng thứ tự engine kiểm (rẻ → đắt).
+VieneuEngineBlocker? firstVieneuEngineBlocker({
+  required bool hasModel,
+  required bool nativeLibrary,
+  required bool phonemeDictionary,
+  VieneuModelFileProblem? modelProblem,
+}) {
+  if (!hasModel) return VieneuEngineBlocker.noModel;
+  if (modelProblem != null) return VieneuEngineBlocker.modelUnreadable;
+  if (!nativeLibrary) return VieneuEngineBlocker.noNativeLibrary;
+  if (!phonemeDictionary) return VieneuEngineBlocker.noPhonemeDictionary;
+  return null;
+}
+
+/// Câu nguồn cho từng chặn (key dịch 8 locale; không nội suy giá trị).
+String vieneuEngineBlockerMessage(VieneuEngineBlocker blocker) {
+  switch (blocker) {
+    case VieneuEngineBlocker.noModel:
+      return 'Chưa import model VieNeu-TTS (.gguf)';
+    case VieneuEngineBlocker.modelUnreadable:
+      return 'File model .gguf không dùng được (hỏng hoặc không phải GGUF) — import lại';
+    case VieneuEngineBlocker.noNativeLibrary:
+      return 'Bản cài này chưa kèm engine VieNeu-TTS (libvieneu_tts) nên model đã import chưa đọc được';
+    case VieneuEngineBlocker.noPhonemeDictionary:
+      return 'Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc';
+    case VieneuEngineBlocker.modelSpecMissing:
+      return 'Model .gguf thiếu bảng mô tả model spec của engine — cập nhật ứng dụng rồi thử lại';
+    case VieneuEngineBlocker.engineLoadFailed:
+      return 'Không nạp được model .gguf vào engine — xem chi tiết lỗi';
+    case VieneuEngineBlocker.voiceDataUnusable:
+      return 'Dữ liệu giọng (ref_codes.txt / speaker.emb.txt) không dùng được — tạo lại giọng';
+  }
+}
+
+/// Phân loại lỗi native của lần nạp model thành [VieneuEngineBlocker] để UI
+/// nói ĐÚNG việc cần làm (PSRC-171).
+///
+/// Vì sao phải phân loại: `audiocpp_model_load` trả một câu tiếng Anh duy nhất
+/// qua `audiocpp_last_error()`; trước 1.29 engine chỉ biết "không nạp được" và
+/// UI hiện câu chung "kiểm tra mô hình TTS và mẫu thu âm" — sai cả hai vế khi
+/// nguyên nhân thật là model spec.
+VieneuEngineBlocker classifyVieneuNativeLoadError(String raw) {
+  final text = raw.toLowerCase();
+  if (text.contains('model spec')) return VieneuEngineBlocker.modelSpecMissing;
+  if (text.contains('sea_g2p') || text.contains('g2p_dict')) {
+    return VieneuEngineBlocker.noPhonemeDictionary;
+  }
+  if (text.contains('speaker embedding') ||
+      text.contains('speaker_embedding') ||
+      text.contains('reference_codes') ||
+      text.contains('reference codes')) {
+    return VieneuEngineBlocker.voiceDataUnusable;
+  }
+  return VieneuEngineBlocker.engineLoadFailed;
+}
+
+// ─── Import giọng (PSRC-217, 1.29.0) ───────────────────────────────────────
+
+/// Vì sao một lần import giọng thất bại (UI dịch thành câu cụ thể).
+enum VieneuVoiceImportProblem {
+  /// Thư mục không có giọng hợp lệ (thiếu `ref_codes.txt` / `speaker.emb.txt`).
+  noVoiceData,
+
+  /// Không đọc được thư mục (SAF/scoped storage chặn `list()`).
+  unreadable,
+}
+
+/// Lỗi import giọng có LÝ DO — service không phụ thuộc `BuildContext`, UI
+/// dịch bằng [vieneuVoiceImportProblemMessage].
+class VieneuVoiceImportException implements Exception {
+  const VieneuVoiceImportException(this.problem, {this.detail});
+
+  final VieneuVoiceImportProblem problem;
+  final String? detail;
+
+  @override
+  String toString() => 'VieneuVoiceImportException(${problem.name}'
+      '${detail == null ? '' : ': $detail'})';
+}
+
+/// Câu nguồn cho từng lỗi import giọng (key dịch 8 locale).
+String vieneuVoiceImportProblemMessage(VieneuVoiceImportProblem problem) {
+  switch (problem) {
+    case VieneuVoiceImportProblem.noVoiceData:
+      return 'Thư mục không có dữ liệu giọng hợp lệ — cần ref_codes.txt hoặc speaker.emb.txt';
+    case VieneuVoiceImportProblem.unreadable:
+      return 'Không đọc được thư mục đã chọn — cấp quyền truy cập hoặc chọn tệp trực tiếp';
+  }
+}
+
+/// Engine chưa sẵn sàng nhưng caller cần nói LÝ DO (voice clone, "Khởi tạo").
+class VieneuEngineNotReadyException implements Exception {
+  const VieneuEngineNotReadyException({
+    required this.message,
+    this.blocker,
+    this.detail,
+  });
+
+  /// Câu nguồn (key dịch) — xem [vieneuEngineBlockerMessage].
+  final String message;
+  final VieneuEngineBlocker? blocker;
+
+  /// Lỗi native nguyên văn (nếu có) — giữ để log/issue, không để đoán.
+  final String? detail;
+
+  @override
+  String toString() =>
+      'VieneuEngineNotReadyException($message${detail == null ? '' : ': $detail'})';
+}
+
+/// Model người dùng chọn KHÔNG dùng được — mang đúng [problem] để UI nói được
+/// câu cụ thể (`vieneuModelFileProblemMessage`) thay vì "import thất bại".
+class VieneuModelImportException implements Exception {
+  const VieneuModelImportException(this.problem, {this.path});
+
+  final VieneuModelFileProblem problem;
+  final String? path;
+
+  /// Câu nguồn (key dịch) cho UI.
+  String get message => vieneuModelFileProblemMessage(problem);
+
+  @override
+  String toString() => 'VieneuModelImportException(${problem.name}'
+      '${path == null ? '' : ': $path'})';
 }

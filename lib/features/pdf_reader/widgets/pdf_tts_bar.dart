@@ -16,6 +16,7 @@ import 'package:in4up/core/language/localized_material.dart';
 
 import '../../ocr/ocr_service.dart';
 import '../pdf_reader_controller.dart';
+import '../services/reader_speed.dart';
 import 'pdf_ocr_sheet.dart';
 
 class PdfTtsBar extends StatelessWidget {
@@ -224,6 +225,19 @@ class PdfTtsBar extends StatelessWidget {
                 : null,
           ),
           const SizedBox(width: 6),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.tune, color: Colors.white70),
+            onSelected: (value) => value == 0
+                ? controller.toggleKaraoke() : controller.toggleFollow(),
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem(value: 0,
+                checked: controller.followPolicy.karaoke,
+                child: Text(context.uiText('Đánh dấu câu đang đọc'))),
+              CheckedPopupMenuItem(value: 1,
+                checked: controller.followPolicy.autoScroll,
+                child: Text(context.uiText('Tự cuộn theo câu đọc'))),
+            ],
+          ),
           // Auto-advance trang — đọc liên tục như audiobook.
           _BarBtn(
             icon: controller.ttsAutoAdvance
@@ -250,7 +264,7 @@ class PdfTtsBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                context.uiText('${controller.ttsSpeed.toStringAsFixed(1)}x'),
+                context.uiText(readerSpeedLabel(controller.ttsSpeed)),
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,

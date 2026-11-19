@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PSRC-221 — metadata `android.speech.tts` của In4UpTtsService.
+
+  `settingsActivity` là màn mở ra khi người dùng bấm bánh răng cạnh "In4Up"
+  trong Cài đặt Android ▸ Chuyển văn bản thành giọng nói: mở thẳng app để
+  import/chọn giọng (không có màn cài đặt riêng cho engine).
+-->
+<tts-engine xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.in4up.MainActivity" />

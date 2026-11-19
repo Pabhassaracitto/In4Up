@@ -25,12 +25,14 @@ import 'package:flutter/material.dart' show Icons, BorderRadius, BoxDecoration,
     RoundedRectangleBorder, Material, InkWell, Alignment, Color;
 import 'package:flutter/services.dart' show HapticFeedback;
 
+import '../../../core/files/export_destination.dart';
+import '../../../core/files/export_destination_service.dart';
+import '../../../core/files/widgets/export_destination_tile.dart';
 import '../models/media_export_models.dart';
 import '../services/media_estimates.dart';
 import '../services/media_export_diagnostics.dart';
 import '../services/media_ffmpeg_engine.dart';
 import 'media_export_progress_dialog.dart';
-import 'media_export_follow_up.dart';
 import 'ffmpeg_install_sheet.dart';
 
 const _bg = Color(0xFF141D2E);
@@ -50,9 +52,6 @@ Future<MediaExportResult?> showMediaExportSheet(
 
   /// Có LRC nguồn không (quyết định hiện tuỳ chọn "kèm lời").
   bool hasSourceLrc = false,
-
-  /// Optional context-specific action for opening the exported primary file.
-  Future<void> Function(String path)? openInListenTab,
 }) {
   return showModalBottomSheet<MediaExportResult>(
     context: context,
@@ -63,7 +62,6 @@ Future<MediaExportResult?> showMediaExportSheet(
       knownDuration: knownDuration,
       sourceBitrateKbps: sourceBitrateKbps,
       hasSourceLrc: hasSourceLrc,
-      openInListenTab: openInListenTab,
     ),
   );
 }
@@ -74,14 +72,12 @@ class _MediaExportSheet extends StatefulWidget {
     this.knownDuration,
     this.sourceBitrateKbps,
     this.hasSourceLrc = false,
-    this.openInListenTab,
   });
 
   final MediaExportRequest initialRequest;
   final Duration? knownDuration;
   final int? sourceBitrateKbps;
   final bool hasSourceLrc;
-  final Future<void> Function(String path)? openInListenTab;
 
   @override
   State<_MediaExportSheet> createState() => _MediaExportSheetState();
@@ -96,6 +92,7 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
   bool _checkingFfmpeg = true;
   String? _ffmpegProblem;
   bool _busy = false;
+  ExportDestinationSession? _destinationSession;
 
   @override
   void initState() {
@@ -105,6 +102,17 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
     _keepLrc = widget.hasSourceLrc && widget.initialRequest.keepLrc;
     _registerInRecent = widget.initialRequest.registerInRecent;
     _checkFfmpeg();
+    _loadDestinationSession();
+  }
+
+  Future<void> _loadDestinationSession() async {
+    try {
+      final session = await ExportDestinationService.instance.openSession();
+      if (!mounted) return;
+      setState(() => _destinationSession = session);
+    } catch (_) {
+      // Giữ null nếu môi trường test không đăng ký channel; khi xuất vẫn có mặc định.
+    }
   }
 
   Future<void> _checkFfmpeg() async {
@@ -168,10 +176,19 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
   Future<void> _start() async {
     HapticFeedback.mediumImpact();
     setState(() => _busy = true);
+    ExportDestination? chosenDestination = _request.destination;
+    if (_destinationSession != null) {
+      try {
+        chosenDestination = await ExportDestinationService.instance
+            .commitSession(_destinationSession!);
+      } catch (_) {}
+    }
+    if (!mounted) return;
     final request = _request.copyWith(
       preset: _preset,
       keepLrc: _keepLrc,
       registerInRecent: _registerInRecent,
+      destination: chosenDestination,
     );
 
     final result = await showMediaExportProgressDialog(
@@ -184,13 +201,16 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
     setState(() => _busy = false);
     if (result == null) return;
 
-    // Đóng sheet, trả kết quả cho lối vào.
+    // PSRC-202 — ĐÓNG sheet rồi trả kết quả cho lối vào. Bước "làm gì tiếp"
+    // KHÔNG được chạy ở đây: `context` này là của route vừa bị pop, mà
+    // `showDialog` cần một context còn sống để tìm Navigator. Trước đây
+    // bước follow-up chạy ngay sau `pop` ⇒ hộp thoại
+    // "Đã xuất xong" được đẩy lên từ một route đang bị gỡ ⇒ có lúc hiện rồi
+    // tự biến mất ("bị dish"), có lúc không hiện ⇒ người dùng không có chỗ
+    // bấm "Mở trong tab Nghe" / "Chia sẻ". Nay lối vào
+    // (`media_export_actions.dart`) mở follow-up bằng context CỦA NÓ, sau khi
+    // sheet đã đóng hẳn.
     Navigator.of(context).pop(result);
-    await offerExportFollowUp(
-      context,
-      result,
-      openInListenTab: widget.openInListenTab,
-    );
   }
 
   @override
@@ -293,7 +313,17 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
-                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: ExportDestinationPickerCard(
+                    session: _destinationSession,
+                    onChanged: () {
+                      if (mounted) setState(() {});
+                    },
+                    accentColor: _accent2,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: SizedBox(

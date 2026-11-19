@@ -13,10 +13,13 @@ import 'package:in4up_ai/in4up_ai.dart';
 
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
+import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 
 import '../edge_voice_prefs.dart';
 import '../engines/vieneu_tts_engine.dart';
+import '../vieneu_g2p_dictionary.dart';
 import '../engines/edge_tts_engine.dart';
 import 'voice_clone_section.dart';
 import '../engines/tts_engine.dart';
@@ -776,7 +779,12 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
         }
         final byLang = <String, List<PiperTtsVoice>>{};
         for (final v in voices) {
-          var lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+          // PSRC-230 — ưu tiên ngôn ngữ khai báo trong `<name>.onnx.json` để
+          // nhóm ĐÚNG giọng mà engine sẽ dùng (tên giọng tự đặt có thể không
+          // mang mã ngôn ngữ).
+          var lang = v.languageCode.isNotEmpty
+              ? v.languageCode
+              : SherpaPiperTtsCore.langFromVoiceName(v.name);
           if (lang.isEmpty) {
             lang = 'other';
           } else {
@@ -834,9 +842,13 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
                         ),
                         onChanged: (name) async {
                           if (name == null) return;
+                          // PSRC-230 — chỉ lưu vào kho giọng RIÊNG của Piper
+                          // theo ngôn ngữ. Bản cũ còn gọi
+                          // `TtsService().configure(voiceId: name)` (singleton)
+                          // ⇒ ghi giọng Việt vào `_selectedVoiceId` DÙNG CHUNG
+                          // ⇒ câu tiếng Anh cũng bị đọc bằng giọng đó.
                           await PiperVoicePrefs.instance
                               .setVoiceForLang(entry.key, name);
-                          TtsService().configure(voiceId: name);
                           setState(() => _selected[entry.key] = name);
                         },
                       ),
@@ -1394,11 +1406,18 @@ class _ImportStatus {
   final String? suffixKey;
   final List<String> suffixArgs;
 
+  /// Key dịch của mảnh engine còn thiếu (`sea_g2p.bin`, lib native…).
+  ///
+  /// PSRC-215/216: thông điệp phải nêu ĐÚNG thứ còn thiếu; giữ dạng KEY (không
+  /// phải chuỗi đã dịch) để đổi locale vẫn dịch lại được.
+  final String? blockerKey;
+
   const _ImportStatus(
     this.key, {
     this.args = const <String>[],
     this.suffixKey,
     this.suffixArgs = const <String>[],
+    this.blockerKey,
   });
 
   String localize(BuildContext context) {
@@ -1410,7 +1429,9 @@ class _ImportStatus {
       return text;
     }
 
-    final text = fill(key, args);
+    final values = <String>[...args];
+    if (blockerKey != null) values.add(context.uiText(blockerKey!));
+    final text = fill(key, values);
     return suffixKey == null ? text : text + fill(suffixKey!, suffixArgs);
   }
 }
@@ -1428,6 +1449,13 @@ class _VieneuModelImportSectionState
   /// PSRC-187: bản cài có thư viện native của VieNeu không (`null` = chưa dò).
   bool? _nativeBundled;
 
+  /// Lane L6 / ADR-0028 — trạng thái từ điển phát âm SEA-G2P. Model chỉ nhận
+  /// phoneme, nên thiếu `sea_g2p.bin` thì engine có mặt cũng chưa đọc được.
+  bool? _g2pInstalled;
+  int _g2pBytes = 0;
+  bool _g2pBusy = false;
+  double _g2pProgress = 0;
+
   @override
   void initState() {
     super.initState();
@@ -1441,12 +1469,15 @@ class _VieneuModelImportSectionState
       paths[v] = await VieneuTtsCore.modelPathFor(v);
     }
     final nativeBundled = await VieneuTtsCore.isNativeLibraryAvailable();
+    final g2p = await VieneuG2pDictionaryService.instance.status();
     // PSRC-183: radio phải phản ánh ĐÚNG biến thể đã lưu (đã đồng bộ với
     // file thật ở TtsService), không được tự ý về Q8_0 mỗi lần mở Settings.
     final persisted = await TtsService().getSelectedVieneuModelVariant();
     if (!mounted) return;
     setState(() {
       _nativeBundled = nativeBundled;
+      _g2pInstalled = g2p.installed;
+      _g2pBytes = g2p.bytes;
       _variantModelPaths
         ..clear()
         ..addAll(paths);
@@ -1462,53 +1493,316 @@ class _VieneuModelImportSectionState
     });
   }
 
-  Future<void> _pickAndImport(VieneuModelVariant variant) async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['gguf'],
-      dialogTitle: context.uiText('Chọn file model VieNeu-TTS {value0}')
-          .replaceAll('{value0}', variant.label),
-    );
-    if (result == null || result.files.single.path == null) return;
-
+  /// Lane L6 / ADR-0028 — tải `sea_g2p.bin` (≈60 MB) từ GitHub release đang
+  /// ghim (v0.10.0, khớp submodule native). Tải ra `.part`, kiểm sha256 rồi
+  /// mới thay file đang dùng.
+  Future<void> _downloadG2p() async {
+    if (_g2pBusy) return;
     setState(() {
-      _importing = true;
-      _importingVariant = variant;
+      _g2pBusy = true;
+      _g2pProgress = 0;
       _status = null;
     });
-
     try {
-      final imported = await TtsService()
-          .importVieneuModel(File(result.files.single.path!), variant: variant);
-      if (!mounted) return;
-      await TtsService().setSelectedVieneuModelVariant(variant);
-      await _checkAllModels();
-      widget.onVoicesChanged?.call();
+      final status = await VieneuG2pDictionaryService.instance.download(
+        onProgress: (fraction) {
+          if (!mounted) return;
+          setState(() => _g2pProgress = fraction);
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _importing = false;
-        _importingVariant = null;
-        _selectedVariant = variant;
+        _g2pBusy = false;
+        _g2pInstalled = status.installed;
+        _g2pBytes = status.bytes;
         _status = _ImportStatus(
-          'Đã import {value0}: {value1}',
-          args: <String>[variant.label, p.basename(imported.modelPath)],
-          suffixKey: imported.importedVoices > 0
-              ? ' · {value0} giọng mẫu'
-              : null,
-          suffixArgs: imported.importedVoices > 0
-              ? <String>['${imported.importedVoices}']
-              : const <String>[],
+          'Đã cài từ điển phát âm ({value0})',
+          args: <String>[status.sizeLabel],
         );
         _statusIsError = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
+        _g2pBusy = false;
+        _status = _ImportStatus(_g2pFailureKey(e));
+        _statusIsError = true;
+      });
+    }
+  }
+
+  /// Chọn `sea_g2p.bin` từ máy (đã tải sẵn, thẻ nhớ, Drive…).
+  Future<void> _pickG2pFile() async {
+    if (_g2pBusy) return;
+    final picked = await FilePicker.pickFiles(
+      type: FileType.any,
+      dialogTitle: context.uiText('Chọn tệp sea_g2p.bin'),
+    );
+    final path = picked?.files.single.path;
+    if (path == null) return;
+
+    setState(() {
+      _g2pBusy = true;
+      _status = null;
+    });
+    try {
+      final status =
+          await VieneuG2pDictionaryService.instance.importFromFile(path);
+      if (!mounted) return;
+      setState(() {
+        _g2pBusy = false;
+        _g2pInstalled = status.installed;
+        _g2pBytes = status.bytes;
+        _status = _ImportStatus(
+          'Đã cài từ điển phát âm ({value0})',
+          args: <String>[status.sizeLabel],
+        );
+        _statusIsError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _g2pBusy = false;
+        _status = _ImportStatus(_g2pFailureKey(e));
+        _statusIsError = true;
+      });
+    }
+  }
+
+  /// Dịch lỗi của service thành câu hiển thị (giữ service không phụ thuộc UI).
+  String _g2pFailureKey(Object error) {
+    if (error is VieneuG2pException) {
+      switch (error.reason) {
+        case VieneuG2pFailure.checksum:
+          return 'Tệp từ điển tải về không khớp kiểm tra — thử lại sau';
+        case VieneuG2pFailure.notDictionary:
+          return 'Tệp không phải sea_g2p.bin hợp lệ';
+        case VieneuG2pFailure.storage:
+          return 'Không ghi được từ điển vào bộ nhớ app';
+        case VieneuG2pFailure.network:
+          return 'Không tải được từ điển — kiểm tra mạng rồi thử lại';
+      }
+    }
+    return 'Không cài được từ điển phát âm';
+  }
+
+  Widget _buildG2pCard(BuildContext context) {
+    final installed = _g2pInstalled ?? false;
+    final sizeLabel = _g2pBytes > 0
+        ? formatVieneuDictionarySize(_g2pBytes)
+        : formatVieneuDictionarySize(vieneuG2pDictBytes);
+    final accent = installed ? Colors.green : Colors.orange;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                installed ? Icons.spellcheck : Icons.report_problem_outlined,
+                size: 14,
+                color: accent[300],
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText('Từ điển phát âm (SEA-G2P)'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (_g2pInstalled != null)
+                Text(
+                  installed
+                      ? context
+                          .uiText('Đã có từ điển ({value0})')
+                          .replaceAll('{value0}', sizeLabel)
+                      : context.uiText('Chưa có từ điển phát âm'),
+                  style: TextStyle(fontSize: 9.5, color: accent[200]),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.uiText(
+              'Model chỉ nhận phiên âm, không nhận chữ thô — thiếu từ điển '
+              'này VieNeu chưa đọc được.',
+            ),
+            style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+          ),
+          const SizedBox(height: 8),
+          if (_g2pBusy) ...[
+            LinearProgressIndicator(
+              value: _g2pProgress > 0 ? _g2pProgress : null,
+              minHeight: 4,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context
+                  .uiText('Đang tải từ điển… {value0}%')
+                  .replaceAll(
+                    '{value0}',
+                    (_g2pProgress * 100).round().toString(),
+                  ),
+              style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: installed ? null : _downloadG2p,
+                    icon: const Icon(Icons.download, size: 14),
+                    label: Text(
+                      context.uiText('Tải từ điển (~60 MB)'),
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.grey[600]!),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickG2pFile,
+                    icon: const Icon(Icons.file_open, size: 14),
+                    label: Text(
+                      context.uiText('Chọn tệp sea_g2p.bin'),
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(color: Colors.grey[600]!),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// LỐI IMPORT MODEL DUY NHẤT — dùng cho cả nút trên từng dòng biến thể
+  /// (mục phía trên) và nút "Import Q8_0 (~170 MB)" (mục phía dưới).
+  ///
+  /// PSRC-214: trước 1.29 hai nút là hai hàm khác nhau và không nút nào kiểm
+  /// tệp; nút phía trên còn ghi tệp theo BIẾN THỂ CỦA DÒNG thay vì theo tệp
+  /// thật ⇒ người dùng chọn đúng model mà dòng tương ứng vẫn "Chưa import".
+  /// Nay mọi lối đi qua [_importModelPath] → `TtsService.importVieneuModel`
+  /// (kiểm GGUF + tự nhận biến thể) và luôn kết thúc bằng một trạng thái nói
+  /// thật, kể cả khi người dùng huỷ hộp chọn tệp.
+  Future<void> _pickModelAndImport(VieneuModelVariant variant) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['gguf'],
+      dialogTitle: context.uiText('Chọn file model VieNeu-TTS {value0}')
+          .replaceAll('{value0}', variant.label),
+    );
+    final path = result?.files.isNotEmpty == true
+        ? result!.files.first.path
+        : null;
+    if (path == null) {
+      // Một số nền tảng (SAF/cloud) trả `path = null` và trước đây im lặng
+      // tuyệt đối — người dùng bấm Import mà không thấy gì xảy ra.
+      if (result != null && mounted) {
+        setState(() {
+          _status = const _ImportStatus(
+              'Không đọc được tệp đã chọn — thử chọn lại');
+          _statusIsError = true;
+        });
+      }
+      return;
+    }
+    await _importModelPath(path, requested: variant);
+  }
+
+  /// Nhập một đường dẫn model đã có (chọn tệp, hoặc fallback nhiều tệp).
+  Future<void> _importModelPath(
+    String path, {
+    required VieneuModelVariant requested,
+  }) async {
+    setState(() {
+      _importing = true;
+      _importingVariant = requested;
+      _status = null;
+    });
+
+    try {
+      final imported = await TtsService()
+          .importVieneuModel(File(path), variant: requested);
+      await _checkAllModels();
+      widget.onVoicesChanged?.call();
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _importingVariant = null;
+        _selectedVariant = imported.variant;
+        _engineReady = imported.engineReady;
+        // PSRC-215: KHÔNG báo "thành công" trơn khi engine còn thiếu mảnh.
+        _statusIsError = !imported.engineReady;
+        final name = p.basename(imported.modelPath);
+        final voices = imported.importedVoices;
+        // Bốn tổ hợp: có/không có giọng mẫu × engine nạp được/nạp không được.
+        // Mỗi tổ hợp một KEY riêng (không ghép câu) để 8 locale dịch được.
+        if (imported.engineReady) {
+          _status = voices > 0
+              ? _ImportStatus(
+                  'Đã import {value0} · {value1} giọng mẫu · engine sẵn sàng',
+                  args: <String>[name, '$voices'],
+                )
+              : _ImportStatus(
+                  'Đã import {value0} · engine sẵn sàng',
+                  args: <String>[name],
+                );
+        } else {
+          _status = voices > 0
+              ? _ImportStatus(
+                  'Đã import {value0} · {value1} giọng mẫu nhưng '
+                  'engine chưa sẵn sàng: {value2}',
+                  args: <String>[name, '$voices'],
+                  blockerKey: imported.blockerMessage,
+                )
+              : _ImportStatus(
+                  'Đã import {value0} nhưng engine chưa sẵn sàng: {value1}',
+                  args: <String>[name],
+                  blockerKey: imported.blockerMessage,
+                );
+        }
+      });
+    } on VieneuModelImportException catch (e) {
+      // Tệp không dùng được (không phải GGUF / tải hụt / rỗng): nói đúng lý do.
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _importingVariant = null;
+        // `message` là KEY dịch (không nội suy) — UI dịch theo locale.
+        _status = _ImportStatus(e.message);
+        _statusIsError = true;
+      });
+    } catch (e) {
+      debugPrint('⚠️ VieNeu import error: $e');
+      if (!mounted) return;
+      setState(() {
         _importing = false;
         _importingVariant = null;
         _status = _ImportStatus(
           'Lỗi import {value0}',
-          args: <String>[variant.label],
+          args: <String>[requested.label],
         );
         _statusIsError = true;
       });
@@ -1533,7 +1827,11 @@ class _VieneuModelImportSectionState
       if (dirPath != null) {
         final result =
             await TtsService().importVieneuBundleFromDirectory(dirPath);
-        await _afterBundleImport(result.modelPath, result.importedVoices);
+        await _afterBundleImport(
+          result.modelPath,
+          result.importedVoices,
+          readiness: result.readiness,
+        );
         return;
       }
       // Android/iOS: fallback chọn nhiều file .gguf; giọng mẫu import qua
@@ -1551,6 +1849,7 @@ class _VieneuModelImportSectionState
       }
       var voices = 0;
       String firstPath = '';
+      VieneuEngineProbe? readiness;
       for (final file in picked.files) {
         final path = file.path;
         if (path == null) continue;
@@ -1558,12 +1857,14 @@ class _VieneuModelImportSectionState
         final variant = name.contains('bf16') || name.contains('f16')
             ? VieneuModelVariant.bf16
             : VieneuModelVariant.q8_0;
+        // PSRC-214: biến thể thật do service tự nhận từ tên tệp.
         final result =
             await TtsService().importVieneuModel(File(path), variant: variant);
         if (firstPath.isEmpty) firstPath = result.modelPath;
+        readiness ??= result.readiness;
         voices += result.importedVoices;
       }
-      await _afterBundleImport(firstPath, voices);
+      await _afterBundleImport(firstPath, voices, readiness: readiness);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1574,23 +1875,42 @@ class _VieneuModelImportSectionState
     }
   }
 
-  Future<void> _afterBundleImport(String modelPath, int voices) async {
+  Future<void> _afterBundleImport(
+    String modelPath,
+    int voices, {
+    VieneuEngineProbe? readiness,
+  }) async {
     if (!mounted) return;
     await _checkAllModels();
     widget.onVoicesChanged?.call();
     if (!mounted) return;
+    final blocker = readiness?.blocker;
     setState(() {
       _importing = false;
-      _status = modelPath.isEmpty
-          ? _ImportStatus(
-              'Đã import {value0} giọng mẫu',
-              args: <String>['$voices'],
-            )
-          : _ImportStatus(
-              'Đã import {value0} · {value1} giọng mẫu',
-              args: <String>[p.basename(modelPath), '$voices'],
-            );
-      _statusIsError = false;
+      _engineReady = readiness?.ready ?? _engineReady;
+      // PSRC-215: import xong vẫn phải nói engine có nạp được hay không.
+      _statusIsError = blocker != null;
+      if (blocker != null) {
+        _status = _ImportStatus(
+          modelPath.isEmpty
+              ? 'Đã import {value0} giọng mẫu nhưng engine chưa sẵn sàng: {value1}'
+              : 'Đã import {value0} nhưng engine chưa sẵn sàng: {value1}',
+          args: <String>[
+            modelPath.isEmpty ? '$voices' : p.basename(modelPath),
+          ],
+          blockerKey: vieneuEngineBlockerMessage(blocker),
+        );
+      } else {
+        _status = modelPath.isEmpty
+            ? _ImportStatus(
+                'Đã import {value0} giọng mẫu',
+                args: <String>['$voices'],
+              )
+            : _ImportStatus(
+                'Đã import {value0} · {value1} giọng mẫu',
+                args: <String>[p.basename(modelPath), '$voices'],
+              );
+      }
     });
   }
 
@@ -1631,7 +1951,20 @@ class _VieneuModelImportSectionState
       }
       final count = await TtsService().importVieneuVoicesFromDirectory(dirPath);
       await _afterVoicesImport(count);
+    } on VieneuVoiceImportException catch (e) {
+      // PSRC-217: nói đúng lý do (không có dữ liệu giọng / không đọc được thư
+      // mục) thay vì câu chung "Lỗi import giọng" mà người dùng không hiểu.
+      debugPrint('⚠️ VieNeu import giọng lỗi: $e');
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _status = _ImportStatus(
+          vieneuVoiceImportProblemMessage(e.problem),
+        );
+        _statusIsError = true;
+      });
     } catch (e) {
+      debugPrint('⚠️ VieNeu import giọng lỗi: $e');
       if (!mounted) return;
       setState(() {
         _importing = false;
@@ -1648,11 +1981,60 @@ class _VieneuModelImportSectionState
     if (!mounted) return;
     setState(() {
       _importing = false;
-      _status = _ImportStatus(
-        'Đã import {value0} giọng từ thư mục',
-        args: <String>['$count'],
-      );
+      // `0` = các giọng đó đã có sẵn trong app (không phải lỗi) — PSRC-217.
+      _status = count == 0
+          ? const _ImportStatus('Các giọng này đã có trong ứng dụng')
+          : _ImportStatus(
+              'Đã import {value0} giọng từ thư mục',
+              args: <String>['$count'],
+            );
       _statusIsError = false;
+    });
+  }
+
+  /// "Khởi tạo engine" — PSRC-216.
+  ///
+  /// Trước 1.29 nút này gọi `init()` rồi, nếu thất bại, hiện MỘT câu chung
+  /// ("kiểm tra file .gguf và thư viện native") cho mọi nguyên nhân khác nhau:
+  /// chưa có model / file hỏng / bản cài thiếu lib native / thiếu
+  /// `sea_g2p.bin`. Nay hỏi [VieneuTtsEngine.probe] TRƯỚC, nêu đúng mảnh còn
+  /// thiếu + nút tải từ điển ngay bên dưới, và khi native báo lỗi thì hiện
+  /// nguyên văn lỗi đó.
+  Future<void> _initializeEngine(VieneuModelVariant variant) async {
+    final engine = VieneuTtsEngine.instance;
+    final probe = await engine.probe(modelVariant: variant);
+    if (!mounted) return;
+    if (probe.blocker != null) {
+      setState(() {
+        _engineReady = false;
+        // `args` rỗng ⇒ mảnh còn thiếu (blockerKey) chính là {value0}.
+        _status = _ImportStatus(
+          'Chưa khởi tạo được engine: {value0}',
+          blockerKey: probe.message,
+        );
+        _statusIsError = true;
+      });
+      return;
+    }
+
+    await engine.init(modelVariant: variant);
+    if (!mounted) return;
+    final nativeError = engine.lastInitError;
+    setState(() {
+      _engineReady = engine.isInitialized;
+      if (_engineReady) {
+        _status = _ImportStatus(
+          'Đã khởi tạo engine VieNeu-TTS ({value0})',
+          args: <String>[variant.label],
+        );
+      } else {
+        // Lỗi native nguyên văn (nếu có) — để log/issue biết chính xác thiếu gì.
+        _status = _ImportStatus(
+          'Khởi tạo engine thất bại: {value0}',
+          args: <String>[nativeError ?? 'native'],
+        );
+      }
+      _statusIsError = !_engineReady;
     });
   }
 
@@ -1831,7 +2213,7 @@ class _VieneuModelImportSectionState
                     )
                   else
                     OutlinedButton.icon(
-                      onPressed: () => _pickAndImport(variant),
+                      onPressed: () => _pickModelAndImport(variant),
                       icon: const Icon(Icons.file_upload, size: 14),
                       label: const Text('Import',
                           style: TextStyle(fontSize: 9.5)),
@@ -1877,7 +2259,7 @@ class _VieneuModelImportSectionState
                 onPressed:
                     (_importing && _importingVariant == _selectedVariant)
                         ? null
-                        : () => _pickAndImport(_selectedVariant),
+                        : () => _pickModelAndImport(_selectedVariant),
                 icon: _importing && _importingVariant == _selectedVariant
                     ? const SizedBox(
                         width: 16, height: 16,
@@ -1901,22 +2283,7 @@ class _VieneuModelImportSectionState
             if (selectedImported) ...[
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: () async {
-                  final engine = VieneuTtsEngine.instance;
-                  await engine.init(modelVariant: _selectedVariant);
-                  if (!mounted) return;
-                  setState(() {
-                    _engineReady = engine.isInitialized;
-                    _status = _engineReady
-                        ? _ImportStatus(
-                            'Đã khởi tạo engine VieNeu-TTS ({value0})',
-                            args: <String>[_selectedVariant.label],
-                          )
-                        : _ImportStatus(
-                            'Chưa khởi tạo được engine — kiểm tra file .gguf và thư viện native');
-                    _statusIsError = !_engineReady;
-                  });
-                },
+                onPressed: () => _initializeEngine(_selectedVariant),
                 icon: const Icon(Icons.play_circle, size: 16),
                 label: const Text('Khởi tạo engine',
                     style: TextStyle(fontSize: 11)),
@@ -1970,6 +2337,8 @@ class _VieneuModelImportSectionState
             overflow: TextOverflow.ellipsis,
           ),
         ],
+        // Lane L6 / ADR-0028 — từ điển phát âm SEA-G2P (model chỉ nhận phoneme)
+        _buildG2pCard(context),
         // PSRC-185/186 — import trọn bộ + import giọng từ thư mục
         const SizedBox(height: 8),
         Row(
@@ -2073,6 +2442,9 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       // `engine.init()` ở đây — nạp 170 MB GGUF chỉ để mở dropdown là nguyên
       // nhân timeout/OOM và cảnh báo "chưa import" bị kẹt lại.
       final voices = await engine.getAvailableVoices('vi-VN');
+      // PSRC-218: giọng đã chọn (kể cả giọng clone) được LƯU trong prefs ⇒
+      // mở lại app vẫn dùng đúng giọng, không quay về giọng mặc định của model.
+      final persistedVoice = await service.getSelectedVieneuVoiceId();
       if (!mounted || seq != _loadSeq) return;
       setState(() {
         _voices = voices;
@@ -2080,7 +2452,12 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         _error = null;
         _modelMissing = modelPath == null;
         _loadedVariant = variant;
-        if (voices.isNotEmpty && _selectedVoiceId == null) {
+        final preferred = _selectedVoiceId ?? persistedVoice;
+        if (voices.isNotEmpty &&
+            preferred != null &&
+            voices.any((v) => v.id == preferred)) {
+          _selectedVoiceId = preferred;
+        } else if (voices.isNotEmpty && _selectedVoiceId == null) {
           _selectedVoiceId = voices.first.id;
         } else if (voices.isNotEmpty &&
             _selectedVoiceId != null &&
@@ -2098,12 +2475,107 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
     }
   }
 
+  /// "Không thấy giọng vừa import?" — đọc ĐĨA rồi hiện nguyên văn.
+  ///
+  /// Không phải bảng debug cho lập trình viên: người dùng tự thấy được gốc
+  /// thư mục, thiếu `sea_g2p.bin`, hay một thư mục giọng bị bỏ qua vì file
+  /// không đúng định dạng. Trước đây ba nguyên nhân này đều biểu hiện giống
+  /// nhau: "import thành công mà giọng không hiện / không đọc được".
+  Future<void> _showVoiceDiagnostics() async {
+    final engine = VieneuTtsEngine.instance;
+    final VieneuVoicesDiagnostics diag;
+    try {
+      diag = await engine.diagnoseVoices();
+    } catch (e) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Không đọc được thư mục giọng',
+              style: TextStyle(fontSize: 14)),
+          content: Text('$e', style: const TextStyle(fontSize: 11)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          ],
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final hasG2p = await diag.hasPhonemeDictionary;
+    if (!mounted) return;
+
+    String verdictLine(VieneuVoiceFolderDiagnosis d) {
+      final files = d.fileNames.isEmpty ? '(không có file)' : d.fileNames.join(', ');
+      switch (d.status) {
+        case VieneuVoiceFolderStatus.usable:
+          return '✅ ${d.name} — dùng được${d.resolvedByContent ? ' (nhận theo nội dung)' : ''}';
+        case VieneuVoiceFolderStatus.sampleOnly:
+          return '🎙️ ${d.name} — chỉ có mẫu WAV, mã hoá khi đọc lần đầu';
+        case VieneuVoiceFolderStatus.emptyFolder:
+          return '⚠️ ${d.name} — thư mục rỗng';
+        case VieneuVoiceFolderStatus.noDataFile:
+          return '⚠️ ${d.name} — không có file dữ liệu giọng [$files]';
+        case VieneuVoiceFolderStatus.unknownFormat:
+          return '❌ ${d.name} — file không đúng định dạng [$files]';
+      }
+    }
+
+    final lines = <String>[
+      'Gốc: ${diag.root}',
+      'Model: ${diag.modelPath == null ? 'chưa import .gguf' : p.basename(diag.modelPath!)}',
+      'sea_g2p.bin: ${hasG2p ? 'có' : 'THIẾU (engine không đọc được câu nào)'}',
+      '',
+      'voices/ (${diag.preset.length} thư mục)',
+      if (!diag.presetsDirExists) '  (chưa có thư mục voices/)',
+      if (diag.presetsDirExists && diag.preset.isEmpty)
+        '  (rỗng — thư mục giọng chưa được copy vào; dùng "Nhập giọng")',
+      ...diag.preset.map((d) => '  ${verdictLine(d)}'),
+      '',
+      'cloned_voices/ (${diag.cloned.length} thư mục)',
+      ...diag.cloned.map((d) => '  ${verdictLine(d)}'),
+    ];
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Vì sao giọng không hiện?', style: TextStyle(fontSize: 14)),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            lines.join('\n'),
+            style: const TextStyle(fontSize: 10.5, height: 1.35),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _loading = true;
+                _error = null;
+              });
+              _loadVoices();
+            },
+            child: const Text('Tải lại'),
+          ),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectVoice(String voiceId) async {
     try {
       await VieneuTtsEngine.instance.selectVoice(voiceId);
       if (!mounted) return;
       setState(() => _selectedVoiceId = voiceId);
       TtsService().configure(voiceId: voiceId);
+      // PSRC-218 — lựa chọn giọng phải sống qua lần mở app sau.
+      await TtsService().setSelectedVieneuVoiceId(voiceId);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Lỗi chọn giọng');
@@ -2186,6 +2658,25 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
           Text(
             'Chưa có giọng nào. Import model .gguf và khởi tạo engine ở mục trên.',
             style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+          // Danh sách rỗng chính là lúc cần chẩn đoán nhất: giọng đã import nằm
+          // ở đâu, file nào bị bỏ qua, `sea_g2p.bin` có chưa.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _showVoiceDiagnostics,
+              icon: const Icon(Icons.fact_check_outlined,
+                  size: 14, color: Colors.white38),
+              label: Text(
+                context.uiText('Không thấy giọng vừa import?'),
+                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           ),
         ],
       );
@@ -2298,6 +2789,23 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
           onChanged: (id) {
             if (id != null) _selectVoice(id);
           },
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _showVoiceDiagnostics,
+            icon: const Icon(Icons.fact_check_outlined,
+                size: 14, color: Colors.white38),
+            label: Text(
+              context.uiText('Không thấy giọng vừa import?'),
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
         ),
       ],
     );

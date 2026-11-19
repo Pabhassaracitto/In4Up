@@ -8,7 +8,7 @@
 //   * 1 hàng ~44px LUÔN HIỆN (kể cả khi cuộn chữ) — có pill «Đọc», A−/A+,
 //     Dịch, IPA, Mark, Từ đã lưu và mũi tên bung/gộp cố định ở cuối;
 //   * 1 panel inline khi bung, cao có giới hạn, đúng 1 panel/lần:
-//       Đọc | Công cụ đọc | Hiển thị
+//       Đọc | Công cụ đọc | Tùy biến   (PSRC-235: tab cuối từng tên «Hiển thị»)
 //
 // Hợp đồng kỹ thuật:
 //   * KHÔNG AnimatedSize / AnimatedSlide / AnimatedOpacity / ClipRect trên
@@ -29,6 +29,7 @@ import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
 import '../services/read_text_action_runner.dart';
+import '../sheets/auto_split_sheet.dart';
 import '../sheets/read_settings_sheet.dart';
 import '../sheets/segments_list_sheet.dart';
 import 'read_display_controls.dart';
@@ -45,6 +46,7 @@ class ReadBottomDock extends StatelessWidget {
     required this.showWordlistPanel,
     required this.onToggleWordlist,
     required this.onOpenSource,
+    this.onOpenReadLibrary,
   });
 
   final ReadChromeLayout layout;
@@ -53,6 +55,11 @@ class ReadBottomDock extends StatelessWidget {
   final bool showWordlistPanel;
   final VoidCallback onToggleWordlist;
   final VoidCallback? onOpenSource;
+
+  /// PSRC-246 — lối VỀ thư viện đọc thật (3 tab Gần đây/Cloud/Thiết bị).
+  /// Có mặt ⇒ chip trong panel «Công cụ đọc» nói «Về thư viện đọc» thay cho
+  /// «Mở nguồn» (hai lối mở cùng một drawer là trùng nhau).
+  final VoidCallback? onOpenReadLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +169,7 @@ class ReadBottomDock extends StatelessWidget {
                 _DockIcon(
                   widgetKey: const Key('read-bottom-dock-display'),
                   icon: Icons.tune_rounded,
-                  tooltip: context.uiText('Tùy biến chữ'),
+                  tooltip: context.uiText('Tùy biến'),
                   active: layout.toolsExpanded &&
                       layout.lastPanel == ReadDockPanel.display,
                   onTap: () {
@@ -225,6 +232,7 @@ class ReadBottomDock extends StatelessWidget {
                 onLayoutChanged: onLayoutChanged,
                 textActionCallbacks: textActionCallbacks,
                 onOpenSource: onOpenSource,
+                onOpenReadLibrary: onOpenReadLibrary,
               ),
           ],
         ),
@@ -317,12 +325,14 @@ class _DockPanel extends StatelessWidget {
     required this.onLayoutChanged,
     required this.textActionCallbacks,
     required this.onOpenSource,
+    this.onOpenReadLibrary,
   });
 
   final ReadChromeLayout layout;
   final ValueChanged<ReadChromeLayout> onLayoutChanged;
   final ReadTextActionCallbacks textActionCallbacks;
   final VoidCallback? onOpenSource;
+  final VoidCallback? onOpenReadLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -367,6 +377,7 @@ class _DockPanel extends StatelessWidget {
         return _ToolsPanel(
           textActionCallbacks: textActionCallbacks,
           onOpenSource: onOpenSource,
+          onOpenReadLibrary: onOpenReadLibrary,
         );
       case ReadDockPanel.display:
         if (layout.displayHidden) return const SizedBox.shrink();
@@ -391,9 +402,10 @@ class _PanelTabs extends StatelessWidget {
     const entries = <ReadDockPanel, String>{
       ReadDockPanel.audio: 'Đọc',
       ReadDockPanel.tools: 'Công cụ đọc',
-      ReadDockPanel.display: 'Hiển thị',
+      // PSRC-235: «Hiển thị» → «Tùy biến» (hết trùng tên với sheet/popup).
+      ReadDockPanel.display: 'Tùy biến',
     };
-    // Nhóm «Thông tin & Hiển thị» bị Ẩn ⇒ tab của nó cũng biến mất, nhưng
+    // Nhóm «Thông tin & Tùy biến» bị Ẩn ⇒ tab của nó cũng biến mất, nhưng
     // 2 tab kia vẫn hoạt động (3 nhóm độc lập, không ẩn cả dock).
     final tabs = entries.entries
         .where((entry) =>
@@ -552,10 +564,12 @@ class _ToolsPanel extends StatelessWidget {
   const _ToolsPanel({
     required this.textActionCallbacks,
     required this.onOpenSource,
+    this.onOpenReadLibrary,
   });
 
   final ReadTextActionCallbacks textActionCallbacks;
   final VoidCallback? onOpenSource;
+  final VoidCallback? onOpenReadLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -589,13 +603,35 @@ class _ToolsPanel extends StatelessWidget {
           spacing: 6,
           runSpacing: 4,
           children: [
-            if (onOpenSource != null)
+            // PSRC-246: nguồn Tài liệu đã có lối mở ở góc trái trên ⇒ chip
+            // này đổi thành lối VỀ thư viện đọc (3 tab). Nguồn Web/Tam tạng
+            // vẫn giữ «Mở nguồn» vì nhãn phải nói đúng đích đến thật.
+            if (onOpenReadLibrary != null)
+              ActionChip(
+                key: const Key('read-dock-open-library'),
+                avatar: const Icon(Icons.library_books_outlined,
+                    size: 13, color: Colors.white70),
+                label: Text(context.uiText('Về thư viện đọc')),
+                onPressed: onOpenReadLibrary,
+              )
+            else if (onOpenSource != null)
               ActionChip(
                 avatar: const Icon(Icons.open_in_new_rounded,
                     size: 13, color: Colors.white70),
                 label: Text(context.uiText('Mở nguồn')),
                 onPressed: onOpenSource,
               ),
+            // PSRC-236 / ADR-0030 D3: «Tách dòng tự động» là THAO TÁC trên
+            // văn bản ⇒ rời bảng Cài đặt về đây. Chip = mở một sheet khác
+            // (không phải công tắc). Luôn hiện, kể cả khi chưa có dòng
+            // đang đọc — nó tác động lên TOÀN văn bản.
+            ActionChip(
+              key: const Key('read-dock-auto-split'),
+              avatar: const Icon(Icons.auto_fix_high,
+                  size: 13, color: Colors.white70),
+              label: Text(context.uiText('Tách dòng tự động')),
+              onPressed: () => showAutoSplitSheet(context),
+            ),
           ],
         ),
         if (target != null)
@@ -633,7 +669,7 @@ class _DisplayPanel extends StatelessWidget {
             ActionChip(
               avatar: const Icon(Icons.view_quilt_outlined,
                   size: 13, color: Colors.white70),
-              label: Text(context.uiText('Hiển thị')),
+              label: Text(context.uiText('Bố cục đọc')),
               onPressed: () => showReadDisplaySheet(
                 context,
                 controller: controller,
@@ -648,7 +684,7 @@ class _DisplayPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         // READ-UI-121: các nút tùy biến chữ + «?» + Focus + Đồng bộ tự động
-        // sống ở đúng nhóm «Thông tin & Hiển thị», cùng một cụm với sheet
+        // sống ở đúng nhóm «Thông tin & Tùy biến», cùng một cụm với sheet
         // Hiển thị cạnh ⚡ (không tạo bản sao state).
         ReadDisplayControls(controller: controller),
         const SizedBox(height: 6),

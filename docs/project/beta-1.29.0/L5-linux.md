@@ -1,0 +1,83 @@
+# L5 — Web & YouTube trên Linux
+
+**Đọc trước:** `README.md` (§ 2 commit, § 3 file, § 4 DoD). Bản đồ gốc: `../BETA-1.29.0.md` § 2.
+**Nhánh:** từ `origin/arena/60e35d65-in4up`. **Không** sửa `KANBAN.md` / `BETA-1.29.0.md`.
+
+## Mục tiêu
+
+Trên Linux: bấm biểu tượng Web và chọn kết quả YouTube phải **hiện hình**, không còn màn hình đen.
+
+> Việc phát `.mp4` / "could not play this track" trên Linux thuộc **L2** — đừng sửa ở đây để tránh hai lane cùng chạm `lib/features/video/**`.
+
+## Issue
+
+| # | Triệu chứng (theo Linear) |
+|---|---|
+| **PSRC-212** | Biểu tượng Web ⇒ màn hình đen |
+| **PSRC-213** | Chọn kết quả YouTube ⇒ màn hình đen |
+
+Đợt 2 (cùng khu vực, không thuộc cổng beta): **PSRC-172**, **PSRC-174** (Linux: quét thư viện không phản hồi — cùng gốc với PSRC-206 của L3, đọc phiếu L3 § 206 trước khi tự nghĩ lại).
+
+## Hướng điều tra
+
+Vùng code: `lib/features/web_reader/**` (`web_reader_screen.dart`, `web_reader_controller.dart`, `js/`), `lib/features/web_core/**`, `lib/features/youtube/**` (`yt_player_screen.dart`, `youtube_explorer_screen.dart`), `linux/**`.
+
+1. Xác định cách hiển thị: Flutter WebView trên Linux thường qua `webview_linux`/`flutter_inappwebview` (WebKitGTK) hoặc chạy trong cửa sổ ngoài. Đọc `pubspec.yaml` + `linux/` để biết backend **trước khi** sửa.
+2. Màn hình đen với WebKitGTK thường do: thiếu `webkit2gtk-4.1` runtime, compositing bị tắt trên Wayland (`WEBKIT_DISABLE_COMPOSITING_MODE=1`), hoặc GPU sandbox. Ghi lại phiên bản `webkit2gtk` đã kiểm.
+3. YouTube: nếu là `youtube_player_iframe`/WebView thì video HTML5 trên WebKitGTK có thể cần `gstreamer-plugins-bad` (H.264) hoặc bật MSE; kiểm tra console message của WebView (`onConsoleMessage`) để lấy lỗi thật.
+4. Nếu không thể hiện hình bằng WebView: phương án dự phòng là mở bằng `mpv`/trình duyệt hệ thống và **nói rõ** trong UI là "mở ngoài" — nhưng chỉ khi đã ghi lý do kỹ thuật.
+5. Mọi thay đổi phải có điều kiện `Platform.isLinux`; không làm hồi quy Android/Windows.
+
+## File chạm (dự kiến)
+
+`lib/features/web_reader/**`, `lib/features/web_core/**`, `lib/features/youtube/**`, `linux/**`. Test: phần lớn phải kiểm tay — ghi rõ môi trường (X11 hay Wayland).
+
+## Nghiệm thu
+
+- [ ] Linux + X11: Web reader hiện trang, cuộn được; YouTube phát được hình (hoặc mở ngoài kèm thông báo rõ ràng).
+- [ ] Linux + Wayland: ghi lại kết quả (được/không) và biến môi trường cần thiết.
+- [ ] Không hồi quy Android: `app_analyze` xanh.
+- [ ] Commit body ghi: backend đã xác định, gói hệ thống + phiên bản đã kiểm.
+
+## Không làm
+
+- Không đổi bộ phát của Android/Windows.
+- Không bundle thư viện native nặng nếu chỉ cần tài liệu hoá yêu cầu gói hệ thống — nhưng phải ghi vào `docs/`.
+
+## Commit
+
+```
+fix(PSRC-212): Web reader không còn màn hình đen trên Linux [L5]
+fix(PSRC-213): YouTube phát được trên Linux [L5]
+```
+
+## Phát hiện thêm
+
+- `deploy-web.yml` từng tự publish mọi nhánh `arena/**`, bao gồm L5,
+  trái ghi chú beta không publish. Run 43488848477 đã publish; push cuối
+  trước đó cũng tạo commit `6c1c2d4b2a` trên `gh-pages`, rồi có deploy khác.
+  Theo quyết định của chủ dự án, loại riêng nhánh L5 khỏi trigger push để
+  không publish hoặc huỷ deploy Pages khi rebase; nhánh cha đã có ngoại lệ.
+  Workflow dispatch vẫn chủ động chạy được.
+
+### Backend và phương án Linux (PSRC-212)
+
+`webview_flutter` trong pubspec chỉ có backend Android/iOS; plugin đăng ký
+Linux không có backend `webview_flutter`. Windows dùng `webview_win_floating`
+riêng. Do đó không thể giả định WebKitGTK, compositing hay codec là nguyên nhân;
+Linux tránh khởi tạo controller không được hỗ trợ và mở địa chỉ/tìm kiếm trong
+trình duyệt hệ thống qua `url_launcher_linux`. Công cụ đọc/viết trong app không
+hoạt động trong trình duyệt ngoài. Cần cài và đặt trình duyệt mặc định với
+handler desktop (xdg-open); không yêu cầu hay bundle WebKitGTK/GStreamer cho
+fallback này. WebKitGTK: không cài/không kiểm được phiên bản trong sandbox.
+Sandbox không có DISPLAY/WAYLAND_DISPLAY, chưa tái hiện hoặc kiểm X11/Wayland,
+GPU, trình duyệt thật. Chưa xác định biến môi trường cần thiết trên máy thật.
+
+### YouTube (PSRC-213)
+
+Player YouTube cũng tạo `WebViewController` không có backend Linux. Linux mở
+URL watch của đúng video qua trình duyệt ngoài thay vì tạo player iframe;
+phụ đề đồng bộ/công cụ học trong app không khả dụng trong fallback. Không đổi
+player Android/Windows. Codec H.264/MSE và thông điệp console WebView không thể
+kiểm ở đây: không có backend WebView Linux hay phiên desktop; phát thật phụ
+thuộc trình duyệt và codec hệ thống, phải kiểm trên X11 và Wayland.

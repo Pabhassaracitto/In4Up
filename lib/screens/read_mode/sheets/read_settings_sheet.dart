@@ -4,10 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
-import '../../../features/translation/translation_display_mode.dart';
+import '../../../features/translation/text_provider_translation.dart';
 import '../../../features/translation/translation_language_picker.dart';
-import '../../../features/tts/widgets/auto_split_section.dart';
-import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
@@ -17,6 +15,8 @@ import '../../../services/ipa_styling.dart';
 import '../../../services/storage_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
+import '../widgets/read_settings_group.dart';
+import 'read_voice_settings_page.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();
@@ -46,8 +46,57 @@ class ReadSettingsSheet {
   }
 }
 
-class _SettingsContent extends StatelessWidget {
+/// PSRC-236 / ADR-0030 D1 — các nhóm gập của «Cài đặt Text Studio».
+enum _SettingsGroupId { text, translation, color }
+
+/// PSRC-236 / ADR-0030: bảng cài đặt KHÔNG còn là một trang cuộn dài.
+///
+///   * D1 — 3 nhóm gập, mỗi nhóm có DÒNG TÓM TẮT giá trị đang chọn ⇒ mở bảng
+///     là thấy hết trạng thái hiện tại mà không cần cuộn (nhận ra, không
+///     phải nhớ). Mỗi lần chỉ mở MỘT nhóm ⇒ trang luôn ngắn.
+///   * D2 — cấu hình engine giọng đọc (thứ tự engine, model, giọng theo ngôn
+///     ngữ, cache, giấy phép) là thứ chỉnh MỘT LẦN ⇒ trang riêng
+///     `ReadVoiceSettingsPage`, vào bằng một dòng ở cuối bảng.
+///   * D3 — «Tách dòng tự động» là THAO TÁC trên văn bản ⇒ đã chuyển sang
+///     panel «Công cụ đọc» (`showAutoSplitSheet`), không còn ở đây.
+class _SettingsContent extends StatefulWidget {
   const _SettingsContent();
+
+  @override
+  State<_SettingsContent> createState() => _SettingsContentState();
+}
+
+class _SettingsContentState extends State<_SettingsContent> {
+  /// Nhớ nhóm đang mở TRONG PHIÊN chạy app: đóng bảng rồi mở lại vẫn ở đúng
+  /// nhóm vừa chỉnh. `null` (mặc định) = gập hết ⇒ lần đầu thấy toàn cảnh.
+  static _SettingsGroupId? _lastOpen;
+
+  final Map<_SettingsGroupId, GlobalKey> _groupKeys = {
+    for (final id in _SettingsGroupId.values) id: GlobalKey(),
+  };
+
+  _SettingsGroupId? _open = _lastOpen;
+
+  void _toggle(_SettingsGroupId id) {
+    final opening = _open != id;
+    setState(() {
+      _open = opening ? id : null;
+      _lastOpen = _open;
+    });
+    if (!opening) return;
+    // Nhóm phía trên vừa gập lại ⇒ tiêu đề nhóm vừa chạm có thể trượt ra
+    // ngoài màn hình. Chỉ cuộn khi tiêu đề KHÔNG còn nhìn thấy.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _groupKeys[id]?.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 180),
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +108,12 @@ class _SettingsContent extends StatelessWidget {
       builder: (context, scrollController) {
         return Consumer<TextProvider>(
           builder: (context, tp, _) {
+            // PSRC-238: nguồn HIỆU DỤNG (người dùng chọn, hoặc tự nhận diện).
+            final source = tp.translationSourceLanguage;
+            final target = tp.translationTargetLanguage;
+            final alignLabel = context.uiText(
+              tp.textAlign == TextAlign.center ? 'Giữa' : 'Trái',
+            );
             return SingleChildScrollView(
               controller: scrollController,
               padding: const EdgeInsets.all(20),
@@ -99,120 +154,137 @@ class _SettingsContent extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                  // ===== EXPERIENCE MODE =====
-                  const _SectionTitle(
-                      title: 'Chế độ trải nghiệm', icon: Icons.auto_awesome),
-                  const SizedBox(height: 12),
-                  _SubModeSelector(tp: tp),
-                  const SizedBox(height: 24),
+                  // PSRC-235: thứ tự theo TẦN SUẤT dùng. Đã bỏ khỏi bảng này
+                  // «Chế độ trải nghiệm» (`subMode` không ai đọc — TẠM bỏ,
+                  // xem ADR-0030 D5) và cụm «Text-to-Speech» (lối phát + đường
+                  // tốc độ thứ hai, lệch ADR-0021 D1). Cài đặt chỉ chứa GIÁ
+                  // TRỊ cấu hình, không chứa nút hành động.
 
-                  // ===== FOCUS: giữ phần tiêu đề (IN4-30) =====
-                  const _SectionTitle(
-                      title: 'Chế độ Focus: giữ tiêu đề', icon: Icons.fullscreen),
-                  const SizedBox(height: 12),
-                  const _FocusTitlePositionSelector(),
-                  const SizedBox(height: 24),
+                  // ===== NHÓM 1: CHỮ & BỐ CỤC =====
+                  ReadSettingsGroup(
+                    key: _groupKeys[_SettingsGroupId.text],
+                    tapKey: const Key('read-settings-group-text'),
+                    icon: Icons.text_fields,
+                    title: 'Chữ & bố cục',
+                    summary: '${context.uiText('Cỡ chữ')} '
+                        '${tp.fontSize.round()} · $alignLabel',
+                    open: _open == _SettingsGroupId.text,
+                    onToggle: () => _toggle(_SettingsGroupId.text),
+                    children: [
+                      const _SectionTitle(
+                          title: 'Cỡ chữ', icon: Icons.text_fields),
+                      const SizedBox(height: 12),
+                      _FontSizeControl(tp: tp),
+                      const SizedBox(height: 20),
+                      const _SectionTitle(
+                          title: 'Căn lề văn bản',
+                          icon: Icons.format_align_center),
+                      const SizedBox(height: 12),
+                      _AlignmentSelector(tp: tp),
+                      const SizedBox(height: 20),
+                      // PSRC-235: tên cũ «Hiển thị» trùng với popup / tab
+                      // dock / sheet. Chỉ còn 2 công tắc về DÒNG.
+                      const _SectionTitle(
+                          title: 'Dòng văn bản',
+                          icon: Icons.format_list_numbered),
+                      const SizedBox(height: 12),
+                      _LineOptions(tp: tp),
+                      const SizedBox(height: 20),
+                      // IN4-30 — giữ phần tiêu đề khi ở chế độ Focus.
+                      const _SectionTitle(
+                          title: 'Chế độ Focus: giữ tiêu đề',
+                          icon: Icons.fullscreen),
+                      const SizedBox(height: 12),
+                      const _FocusTitlePositionSelector(),
+                    ],
+                  ),
 
-                  // ===== ALIGNMENT =====
-                  const _SectionTitle(
-                      title: 'Căn lề văn bản', icon: Icons.format_align_center),
-                  const SizedBox(height: 12),
-                  _AlignmentSelector(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== FONT SIZE =====
-                  const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
-                  const SizedBox(height: 12),
-                  _FontSizeControl(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== TTS =====
-                  const _SectionTitle(
-                      title: 'Text-to-Speech', icon: Icons.record_voice_over),
-                  const SizedBox(height: 12),
-                  _TtsControls(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== TRANSLATION + BILINGUAL TTS =====
-                  const _SectionTitle(
-                    title: 'Dịch & đọc song ngữ',
+                  // ===== NHÓM 2: DỊCH & ĐỌC SONG NGỮ =====
+                  ReadSettingsGroup(
+                    key: _groupKeys[_SettingsGroupId.translation],
+                    tapKey: const Key('read-settings-group-translation'),
                     icon: Icons.compare_arrows_rounded,
-                  ),
-                  const SizedBox(height: 12),
-                  _TranslationLanguageSection(tp: tp),
-                  const SizedBox(height: 24),
-
-                  // ===== COLOR MODE =====
-                  const _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
-                  const SizedBox(height: 12),
-                  _ColorModeSelector(tp: tp),
-
-                  // READ-WORDSTYLE-001: kiểu hiển thị từ (nền màu / chỉ màu
-                  // chữ / gạch chân) — tách khỏi "chọn màu gì" để người đọc
-                  // lâu chọn kiểu nhẹ mắt mà vẫn giữ tô màu.
-                  if (tp.colorMode != ColorMode.none) ...[
-                    const SizedBox(height: 16),
-                    _WordColorStyleSelector(tp: tp),
-                    const SizedBox(height: 16),
-                    _LegendPanel(colorMode: tp.colorMode),
-                  ],
-
-                  if (tp.colorMode == ColorMode.wordType) ...[
-                    const SizedBox(height: 16),
-                    _GrammarHighlightSection(tp: tp),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // ===== IPA (READ-IPA-001) =====
-                  const _SectionTitle(
-                      title: 'Phiên âm / IPA', icon: Icons.abc),
-                  const SizedBox(height: 12),
-                  _IpaModeSelector(tp: tp),
-                  const SizedBox(height: 16),
-                  const _IpaSaveSourceSection(),
-                  const SizedBox(height: 12),
-                  _IpaColorOptions(tp: tp),
-
-                  const SizedBox(height: 24),
-
-                  // ===== DISPLAY OPTIONS =====
-                  const _SectionTitle(
-                      title: 'Hiển thị', icon: Icons.visibility),
-                  const SizedBox(height: 12),
-                  _DisplayOptions(tp: tp),
-
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 16),
-
-                  // ★ TTS Settings (Cấu hình nâng cao)
-                  const TtsSettingsSection(
-                    primaryColor: Color(0xFF6C63FF),
+                    title: 'Dịch & đọc song ngữ',
+                    summary: '${source.nativeName} → ${target.nativeName}',
+                    // Cặp trùng (ví dụ «Tiếng Việt → Tiếng Việt») phải lộ ra
+                    // ngay ở dòng tóm tắt, không đợi người dùng mở nhóm.
+                    summaryColor: tp.translationPairUsesSameLanguage
+                        ? Colors.amber
+                        : null,
+                    open: _open == _SettingsGroupId.translation,
+                    onToggle: () => _toggle(_SettingsGroupId.translation),
+                    children: [
+                      _TranslationLanguageSection(tp: tp),
+                    ],
                   ),
 
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 16),
+                  // ===== NHÓM 3: MÀU & PHIÊN ÂM =====
+                  ReadSettingsGroup(
+                    key: _groupKeys[_SettingsGroupId.color],
+                    tapKey: const Key('read-settings-group-color'),
+                    icon: Icons.palette,
+                    title: 'Màu & phiên âm',
+                    summary: '${context.uiText(tp.colorMode.label)} · IPA: '
+                        '${context.uiText(tp.ipaDisplayMode.label)}',
+                    open: _open == _SettingsGroupId.color,
+                    onToggle: () => _toggle(_SettingsGroupId.color),
+                    children: [
+                      const _SectionTitle(
+                          title: 'Chế độ màu', icon: Icons.palette),
+                      const SizedBox(height: 12),
+                      _ColorModeSelector(tp: tp),
 
-                  // ★ Auto Split (Tách dòng tự động)
-                  AutoSplitSection(
-                    currentText: tp.fullText,
-                    primaryColor: const Color(0xFF6C63FF),
-                    onApply: (lines) {
-                      tp.loadFromLines(lines);
-                      Navigator.pop(context); // Đóng settings
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content:
-                                Text(context.uiText('Đã tách thành ${lines.length} dòng'))),
-                      );
-                    },
+                      // READ-WORDSTYLE-001: kiểu hiển thị từ (nền màu / chỉ
+                      // màu chữ / gạch chân) — tách khỏi "chọn màu gì" để
+                      // người đọc lâu chọn kiểu nhẹ mắt mà vẫn giữ tô màu.
+                      if (tp.colorMode != ColorMode.none) ...[
+                        const SizedBox(height: 16),
+                        _WordColorStyleSelector(tp: tp),
+                        const SizedBox(height: 16),
+                        _LegendPanel(colorMode: tp.colorMode),
+                      ],
+
+                      if (tp.colorMode == ColorMode.wordType) ...[
+                        const SizedBox(height: 16),
+                        _GrammarHighlightSection(tp: tp),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      // READ-IPA-001
+                      const _SectionTitle(
+                          title: 'Phiên âm / IPA', icon: Icons.abc),
+                      const SizedBox(height: 12),
+                      _IpaModeSelector(tp: tp),
+                      const SizedBox(height: 16),
+                      const _IpaSaveSourceSection(),
+                      const SizedBox(height: 12),
+                      _IpaColorOptions(tp: tp),
+                    ],
                   ),
 
-                  const SizedBox(height: 32),
+                  // ===== GIỌNG ĐỌC & ENGINE — trang riêng (ADR-0030 D2) =====
+                  ReadSettingsLinkRow(
+                    tapKey: const Key('read-settings-open-voice'),
+                    icon: Icons.record_voice_over,
+                    title: 'Giọng đọc & engine',
+                    summary: 'Thứ tự engine, giọng theo ngôn ngữ, model, cache',
+                    onTap: () => ReadVoiceSettingsPage.open(context),
+                  ),
+
+                  // Chỉ đường cho người quen bảng cũ: thứ đã rời bảng này
+                  // nằm ở đâu (tránh cảm giác «nút biến mất» — ADR-0024).
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                    child: Text(
+                      'Nút đọc, tốc độ và Tách dòng tự động nằm ở thanh công cụ đọc.',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
                 ],
               ),
             );
@@ -366,111 +438,52 @@ class _FontSizeControl extends StatelessWidget {
   }
 }
 
-class _TtsControls extends StatelessWidget {
-  final TextProvider tp;
-  const _TtsControls({required this.tp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          // Speed slider
-          Row(
-            children: [
-              const Icon(Icons.speed, size: 18, color: Colors.white70),
-              const SizedBox(width: 8),
-              const Text('Tốc độ:',
-                  style: TextStyle(color: Colors.white70, fontSize: 13)),
-              Expanded(
-                child: Slider(
-                  value: tp.ttsSpeed,
-                  min: 0.25,
-                  max: 2.0,
-                  divisions: 7,
-                  activeColor: const Color(0xFF2196F3),
-                  onChanged: (v) => tp.setTtsSpeed(v),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Color(0xFF2196F3).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  context.uiText('${tp.ttsSpeed.toStringAsFixed(2)}x'),
-                  style: const TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: _TtsButton(
-                  icon: Icons.play_arrow,
-                  label: 'Đọc dòng',
-                  color: const Color(0xFF4CAF50),
-                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
-                  onTap: () {
-                    Navigator.pop(context);
-                    tp.speakCurrentLine();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _TtsButton(
-                  icon: Icons.playlist_play,
-                  label: 'Đọc tất cả',
-                  color: const Color(0xFF2196F3),
-                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
-                  onTap: () {
-                    Navigator.pop(context);
-                    tp.speakAllLines();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _TtsButton(
-                  icon: Icons.stop,
-                  label: 'Dừng',
-                  color: Colors.red,
-                  enabled: tp.isTtsActive,
-                  onTap: () => tp.stopSpeaking(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TranslationLanguageSection extends StatelessWidget {
   final TextProvider tp;
 
   const _TranslationLanguageSection({required this.tp});
 
+  static const Color _accent = Color(0xFF53D6BD);
+
+  /// Dừng phát rồi mới đổi cặp: giọng đọc phụ thuộc cả nguồn lẫn đích.
+  Future<void> _apply(BuildContext context, TranslationPairChoice choice) async {
+    final playback = context.read<PlaybackController>();
+    if (playback.isRunning) {
+      playback.stop(fileId: tp.currentDocument?.id ?? 'unknown');
+    }
+    await tp.stopSpeaking();
+    await tp.setTranslationLanguagePair(
+      sourceCode: choice.sourceCode,
+      targetCode: choice.target?.translationCode,
+      retranslateExisting: true,
+    );
+  }
+
+  /// PSRC-238: chọn được cả ngôn ngữ nguồn («Tự nhận diện» + danh sách).
+  Future<void> _openPairPicker(BuildContext context) async {
+    // Đang đổi vai ⇒ lý do đã hiện ngay dưới nút (xem `build`).
+    if (tp.rolesSwapped) return;
+    final choice = await showTranslationPairPicker(
+      context,
+      detectedSource: tp.detectedSourceLanguage,
+      pinnedSourceCode: tp.translationSourceIsPinned
+          ? tp.translationSourceLanguage.translationCode
+          : null,
+      currentTarget: tp.translationTargetLanguage,
+      accentColor: _accent,
+    );
+    if (choice == null || !context.mounted) return;
+    await _apply(context, choice);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final source = tp.detectedSourceLanguage;
+    final source = tp.translationSourceLanguage;
     final target = tp.translationTargetLanguage;
+    final sourceIsAuto = !tp.translationSourceIsPinned;
+    final suggestion = tp.suggestedTranslationTarget(
+      uiLanguageCode: Localizations.localeOf(context).toLanguageTag(),
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -485,30 +498,36 @@ class _TranslationLanguageSection extends StatelessWidget {
           TranslationLanguagePickerButton(
             sourceLanguage: source,
             targetLanguage: target,
+            sourceIsAuto: sourceIsAuto,
             compact: false,
-            accentColor: const Color(0xFF53D6BD),
-            onSelected: (language) async {
-              final playback = context.read<PlaybackController>();
-              if (playback.isRunning) {
-                playback.stop(fileId: tp.currentDocument?.id ?? 'unknown');
-              }
-              await tp.stopSpeaking();
-              await tp.setTranslationTargetLanguage(
-                language.translationCode,
-                retranslateExisting: true,
-              );
-            },
+            accentColor: _accent,
+            onPressed: () => _openPairPicker(context),
           ),
           const SizedBox(height: 10),
           Text(
-            context.uiText('Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.'),
+            sourceIsAuto
+                ? context.uiText('Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.')
+                : context.uiText('Nguồn do bạn chọn cho tài liệu này. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.'),
             style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11,
               height: 1.4,
             ),
           ),
-          if (tp.translationPairUsesSameLanguage) ...[
+          if (tp.rolesSwapped) ...[
+            // PSRC-237/238: đang đổi vai ⇒ nút trên không đổi được cặp; nói
+            // lý do ngay tại đây (snackbar sẽ bị bảng cài đặt che mất).
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(TranslationMixin.roleSwapGuardMessage),
+              key: const Key('read-settings-role-swap-note'),
+              style: const TextStyle(
+                color: Colors.amber,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ] else if (tp.translationPairUsesSameLanguage) ...[
             const SizedBox(height: 8),
             const Text(
               'Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.',
@@ -518,57 +537,28 @@ class _TranslationLanguageSection extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TtsButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _TtsButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: enabled
-              ? color.withValues(alpha: 0.15)
-              : Colors.grey.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: enabled ? color.withValues(alpha: 0.3) : Colors.transparent,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: enabled ? color : Colors.grey, size: 18),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: enabled ? color : Colors.grey,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+            // PSRC-238: đề nghị sẵn một đích khác — một chạm là xong.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('read-settings-same-pair-accept'),
+                onPressed: () => _apply(
+                  context,
+                  TranslationPairChoice(target: suggestion),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: _accent,
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: Text(
+                  '${suggestion.flag} '
+                  '${context.uiText('Dịch sang ${suggestion.nativeName}')}',
+                ),
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -2200,16 +2190,16 @@ InputDecoration _readDialogInputDecoration({
   );
 }
 
-class _DisplayOptions extends StatelessWidget {
-
+// PSRC-235: trước đây là `_DisplayOptions` với 4 công tắc. Hai công tắc
+// «Hiện bản dịch» và «Box từng từ» là BẢN SAO của nút Dịch ở dock / chip
+// «Bản dịch: Ẩn · Dưới · Cột» trong sheet Bố cục đọc và chip «Box từng từ ⇄
+// Bôi nhiều chữ» trong cụm Tùy biến chữ ⇒ bỏ (READ-ACT-001: mỗi thứ một chỗ).
+class _LineOptions extends StatelessWidget {
   final TextProvider tp;
-  const _DisplayOptions({required this.tp});
+  const _LineOptions({required this.tp});
 
   @override
   Widget build(BuildContext context) {
-    final visibilityAction = context.uiText(
-      tp.showTranslation ? 'ẩn' : 'hiện',
-    );
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -2218,27 +2208,6 @@ class _DisplayOptions extends StatelessWidget {
       ),
       child: Column(
         children: [
-          SwitchListTile(
-            title: const Text('Hiện bản dịch',
-                style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: Text(
-                context.uiText(tp.translatedLineCount > 0
-                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để $visibilityAction'
-                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng'),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-            value: tp.showTranslation,
-            activeThumbColor: const Color(0xFF4CAF50),
-            onChanged: (val) {
-              // Rõ ràng hơn toggle: bật = stackedBelow, tắt = hidden
-              if (val) {
-                tp.setTranslationDisplayMode(
-                    TranslationDisplayMode.stackedBelow);
-              } else {
-                tp.setTranslationDisplayMode(TranslationDisplayMode.hidden);
-              }
-            },
-          ),
-          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
           SwitchListTile(
             title: const Text('Hiện số dòng',
                 style: TextStyle(color: Colors.white, fontSize: 14)),
@@ -2258,97 +2227,8 @@ class _DisplayOptions extends StatelessWidget {
             activeThumbColor: const Color(0xFF9C27B0),
             onChanged: (v) => tp.toggleAutoSplit(v),
           ),
-          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
-          SwitchListTile(
-            title: const Text('Box từng từ (tap để lưu)',
-                style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: Text(
-              'Tắt = bôi nhiều chữ (mặc định). Bật = mỗi từ một hộp, '
-              'long-press lưu từ — nền lưu hàng loạt.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 11),
-            ),
-            value: tp.wordTapBoxes,
-            activeThumbColor: const Color(0xFFFF9800),
-            onChanged: (v) => tp.setWordTapBoxes(v),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _SubModeSelector extends StatelessWidget {
-  final TextProvider tp;
-  const _SubModeSelector({required this.tp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          _SubModeItem(
-            icon: Icons.menu_book,
-            label: 'Chế độ Đọc',
-            isSelected: tp.subMode == ReadSubMode.reading,
-            onTap: () => tp.setSubMode(ReadSubMode.reading),
-          ),
-          _SubModeItem(
-            icon: Icons.record_voice_over,
-            label: 'Chế độ Nghe (TTS)',
-            isSelected: tp.subMode == ReadSubMode.listening,
-            onTap: () => tp.setSubMode(ReadSubMode.listening),
-          ),
-          _SubModeItem(
-            icon: Icons.translate,
-            label: 'Chế độ Dịch',
-            isSelected: tp.subMode == ReadSubMode.translation,
-            onTap: () => tp.setSubMode(ReadSubMode.translation),
-          ),
-          _SubModeItem(
-            icon: Icons.directions_car,
-            label: 'Chế độ Lái xe',
-            isSelected: tp.subMode == ReadSubMode.driving,
-            onTap: () => tp.setSubMode(ReadSubMode.driving),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SubModeItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SubModeItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading:
-          Icon(icon, color: isSelected ? const Color(0xFF2196F3) : Colors.grey),
-      title: Text(label,
-          style: TextStyle(
-              color: isSelected ? Colors.white : Colors.grey[400],
-              fontSize: 14)),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle, color: Color(0xFF2196F3), size: 18)
-          : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      onTap: onTap,
-      dense: true,
     );
   }
 }

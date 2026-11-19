@@ -1,4 +1,4 @@
-# ADR-0032 — Tài nguyên MDD theo lô có giới hạn
+# ADR-0033 — Tài nguyên MDD theo lô có giới hạn
 
 - Bối cảnh: ADR-0029–0031, PR #192 đã merge vào 251e `4b022c1`; mỗi tài nguyên
   trước đây phải mở và lập lại index của từng part, không phù hợp nhiều ảnh.

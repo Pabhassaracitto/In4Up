@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
+import '../settings/stt_model_settings_screen.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 import 'quick_capture/quick_capture_sheet.dart';
@@ -225,22 +226,25 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGlassHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    // Home trước có 2 icon robot "Quản lý Model AI" (1 ở AppBar của shell + 1 ở
-    // header này). Bỏ icon robot ở HEADER, trả chỗ đó lại cho **thư viện Đọc**
-    // (yêu cầu owner 2026-10-25) — robot vẫn còn ở AppBar nên không mất lối vào.
+    // PSRC-247 (owner 2026-11-15) — HOÁN ĐỔI hai biểu tượng:
+    //   * ô góc trái trên của AppBar shell = **Thư viện Đọc** ở MỌI tab
+    //     (trước đây ở Home ô này là robot ⇒ cùng một ô đổi nghĩa theo tab,
+    //     còn thư viện lại nằm thêm ở header này ⇒ trùng chỗ);
+    //   * header Home = **robot «Quản lý Model AI»** đặt cạnh nút Đăng nhập.
     final headerActions = <Widget>[
-      // Thư viện Đọc (văn bản) — màu xanh Đọc #2196F3. Mở đúng drawer mà
-      // ShellContentOrder đang gán cho Đọc (trái/phải) nên luôn khớp hướng tab.
-      if (widget.onOpenTextLibrary != null)
-        IconButton(
-          icon: const Icon(
-            Icons.menu_book_rounded,
-            color: Color(0xFF2196F3),
-            size: 24,
-          ),
-          tooltip: l10n.readLibrary,
-          onPressed: widget.onOpenTextLibrary,
+      IconButton(
+        key: const Key('home-model-ai'),
+        icon: const Icon(
+          Icons.smart_toy_outlined,
+          color: Color(0xFFFF9800),
+          size: 24,
         ),
+        tooltip: context.uiText('Quản lý Model AI'),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+        ),
+      ),
       _FirebaseAuthButton(),
     ];
 

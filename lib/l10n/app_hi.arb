@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "रीडर के अलग विकल्प",
+  "ttsSharedSettings": "साझा आवाज़ सेटिंग",
+  "ttsInherit": "साझा सेटिंग का उपयोग करें",
+  "ttsOverride": "अलग सेटिंग",
+  "ttsLastPlayback": "पिछला प्लेबैक",
   "@@locale": "hi",
   "tipitakaCommentaries": "टीकाएँ",
   "tipitakaSubcommentaries": "उपटीकाएँ",

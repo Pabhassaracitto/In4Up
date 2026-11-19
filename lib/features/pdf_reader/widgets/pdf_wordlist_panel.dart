@@ -269,7 +269,7 @@ class _MiniWordItem extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  tts.speak(word.word);
+                  tts.speak(word.word, reader: TtsReader.pdf, language: word.language.isEmpty ? 'auto' : word.language, matchVoiceLanguage: true);
                 },
                 child: Icon(Icons.volume_up, size: 14, color: Colors.grey[600]),
               ),

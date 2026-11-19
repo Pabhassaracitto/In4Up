@@ -7,6 +7,9 @@ import 'js/reader_follow_js.dart';
 // Android: giữ nguyên webview_flutter
 
 import 'dart:async';
+
+import 'package:in4up/features/tts/widgets/reader_voice_tile.dart';
+import 'package:in4up/features/tts/reader_voice_preference.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -1421,10 +1424,16 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
           const Icon(Icons.headphones, color: Color(0xFFFFB74D), size: 20),
           const SizedBox(width: 9),
           Expanded(
-            child: Text(
-              paused ? 'Đã tạm dừng bài đọc' : 'Đang đọc bài web',
-              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
+            child: InkWell(
+              onTap: () => showModalBottomSheet<void>(context: context,
+                  builder: (_) => const SafeArea(child: ReaderVoiceTile(TtsReader.web))),
+              child: Column(mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(paused ? 'Đã tạm dừng bài đọc' : 'Đang đọc bài web',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  const ReaderPlaybackLabel(TtsReader.web),
+                ]),
             ),
           ),
           Text(readerSpeedLabel(_controller.ttsSpeed), style: const TextStyle(color: Colors.white60, fontSize: 11)),

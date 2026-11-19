@@ -161,10 +161,8 @@ class YtReadAloudController extends ChangeNotifier {
     int epoch,
   ) async {
     try {
-      // `configure` là cách DUY NHẤT đổi ngôn ngữ/giọng của TtsService — dùng
-      // đúng như tab Đọc đang làm khi chuyển giọng gốc ↔ dịch.
-      _tts.configure(language: langCode, speed: speed);
-      await _tts.speak(text);
+      _tts.configure(speed: speed);
+      await _tts.speak(text, language: langCode, matchVoiceLanguage: true);
       // `speak()` trả về khi âm thanh được dựng; phải chờ đọc xong mới sang
       // lượt kế (nếu không thì các dòng chồng lên nhau).
       await _tts.waitForCompletion();

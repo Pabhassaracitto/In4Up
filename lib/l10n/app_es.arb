@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "Reader overrides",
+  "ttsSharedSettings": "Shared voice settings",
+  "ttsInherit": "Use shared settings",
+  "ttsOverride": "Override",
+  "ttsLastPlayback": "Last playback",
   "commandCenter": "CENTRO DE MANDO",
   "knowledgeOS": "Sistema Operativo de Conocimiento",
   "manageAIModels": "Gestionar modelos de IA",

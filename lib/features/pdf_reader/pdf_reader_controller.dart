@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/grammar/models/grammar_category.dart';
 import '../../features/grammar/models/grammar_highlight_preset.dart';
@@ -240,7 +241,7 @@ class PdfReaderController extends ChangeNotifier {
   /// "câu 3/12 · trang 5" cho thanh TTS.
   /// '0.9x · EN' cho nhãn phụ ở thanh TTS.
   String get ttsSpeedLabel =>
-      '${readerSpeedLabel(_ttsSpeed)} · ${_ttsLanguage == 'vi-VN' ? 'VI' : 'EN'}';
+      '${readerSpeedLabel(_ttsSpeed)} · ${_ttsLanguage.split('-').first.toUpperCase()}';
 
   String get readingProgressLabel {
     if (_readingCues.isEmpty) return '';
@@ -270,7 +271,7 @@ class PdfReaderController extends ChangeNotifier {
   int _focusCueVersion = 0;
   int get focusCueVersion => _focusCueVersion;
 
-  String _ttsLanguage = 'en-US'; // 'en-US' | 'vi-VN' (bilingual chưa khả dụng)
+  String _ttsLanguage = 'auto';
   String get ttsLanguage => _ttsLanguage;
 
   /// Bản dịch từng câu cho chế độ song ngữ chưa được nối trong reader, nên
@@ -331,6 +332,13 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('pdf_tts_locale');
+      if (saved == 'en-US' || saved == 'vi-VN') _ttsLanguage = saved!;
+    } catch (e) {
+      debugPrint('PDF TTS locale: $e');
+    }
     try {
       await _storage.initialize();
       final identity = await PdfFileIdentity.resolve(pdfPath);
@@ -887,10 +895,6 @@ class PdfReaderController extends ChangeNotifier {
           continue;
         }
 
-        _tts.configure(
-          speed: _ttsSpeed,
-          language: _ttsLanguage == 'bilingual' ? 'en-US' : _ttsLanguage,
-        );
         _ttsMachine.markPlaying(session);
         notifyListeners();
 
@@ -904,6 +908,8 @@ class PdfReaderController extends ChangeNotifier {
         final texts = cueOffset == 0 ? allTexts : allTexts.sublist(cueOffset);
         await _tts.speakLines(
           texts,
+          reader: TtsReader.pdf,
+          language: _ttsLanguage,
           pauseBetween: const Duration(milliseconds: 140),
           onLineChanged: (i) {
             // Callback của phiên đã chết = nguồn gốc "lướt nhiều dòng".
@@ -918,6 +924,7 @@ class PdfReaderController extends ChangeNotifier {
           },
         );
         if (!_ttsMachine.isCurrent(session)) return;
+        if (_tts.error != null) break;
         _readingCueIndex = cues.length - 1;
         notifyListeners();
 
@@ -1064,18 +1071,17 @@ class PdfReaderController extends ChangeNotifier {
   Future<void> speakText(String text) async {
     if (text.trim().isEmpty) return;
     if (_ttsMachine.isActive) await stopReading();
-    _tts.configure(
-      speed: _ttsSpeed,
-      language: _ttsLanguage == 'bilingual' ? 'en-US' : _ttsLanguage,
-    );
-    await _tts.speak(text);
+
+    await _tts.speak(text, reader: TtsReader.pdf, language: _ttsLanguage, matchVoiceLanguage: true);
   }
 
   Future<void> stopTts() => stopReading();
 
-  void setTtsLanguage(String lang) {
+  Future<void> setTtsLanguage(String lang) async {
     _ttsLanguage = lang;
     notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pdf_tts_locale', lang);
   }
 
   Timer? _speedRestart;

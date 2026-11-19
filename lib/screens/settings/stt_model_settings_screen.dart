@@ -1496,7 +1496,7 @@ class _PiperVoiceDownloadSheet extends StatefulWidget {
 /// không bị dội ~40 dòng model ngay lần đầu mở Cài đặt.
 class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
   bool _showMore = false;
-  final Set<String> _expandedLanguages = <String>{};
+  final Map<String, ExpansionTileController> _languageTiles = {};
   String? _sriLankaChoice;
 
   static const _priorityNote =
@@ -1598,11 +1598,13 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
                     onPressed: () {
                       setState(() {
                         _sriLankaChoice = choice;
-                        if (choice == 'English') {
-                          _showMore = false;
-                          _expandedLanguages.add('en_US');
-                        }
+                        if (choice == 'English') _showMore = false;
                       });
+                      // ExpansionTile mở bằng controller: đổi state rồi mới
+                      // gán initiallyExpanded sẽ KHÔNG mở tile đã tồn tại.
+                      if (choice == 'English') {
+                        _languageTiles['en_US']?.expand();
+                      }
                     },
                   ),
               ],
@@ -1636,14 +1638,10 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
       out.add(
         ExpansionTile(
           key: Key('piper-lang-$code'),
-          initiallyExpanded: _expandedLanguages.contains(code),
-          onExpansionChanged: (expanded) => setState(() {
-            if (expanded) {
-              _expandedLanguages.add(code);
-            } else {
-              _expandedLanguages.remove(code);
-            }
-          }),
+          controller: _languageTiles.putIfAbsent(
+            code,
+            ExpansionTileController.new,
+          ),
           leading: const Icon(Icons.record_voice_over, size: 18),
           title: Text(
             context.uiText(

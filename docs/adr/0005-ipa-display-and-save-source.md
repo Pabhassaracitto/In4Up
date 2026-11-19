@@ -64,10 +64,11 @@ trước khi code:
    từ đã thuộc** (`MasteryZone.mastered` → alpha thấp) — cả hai default
    OFF, hai toggle riêng.
 
-5. **Interlinear/ruby cho dòng active (READ-IPA-003):** dòng đang
-   phát/được chọn render dạng word-chip (chữ trên, IPA dưới) thay vì
-   SelectableText — tradeoff: mất chọn text trên CHÍNG dòng đó khi IPA
-   bật (chuyển sang dòng khác là lấy lại); tap chip = nghe phát âm từ.
+5. **Interlinear/ruby (READ-IPA-003, cập nhật audit v1.29.0):** khi IPA có
+   hiệu lực (`activeLine` hoặc `all`), mỗi phiên âm nằm trong cùng hộp bố cục
+   với từ gốc. Ô màu giữ cử chỉ cũ; dòng thường dùng cùng luồng PSRC-234 khi
+   bật/tắt IPA (chạm tra từ, chạm đúp cả dòng, giữ-kéo chọn nhiều từ). Từ và
+   IPA xuống hàng cùng nhau; bản dịch vẫn nằm ngoài widget nguồn.
 
 6. **Giao đoạn P1→P5:** P1 ✅ stacked line · P2 nguồn IPA khi lưu ·
    P3 ruby + nhấn nháy dòng · P4 phoneme color + legend + fading ·

@@ -774,3 +774,12 @@ hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK r
   đúng commit nối, 251e trỏ `7a5f446`; **102 commit giữ nguyên SHA**, không rewrite lịch
   sử. Backup ở `refs/backup/251e-merge-8a41e68`. Tag `1.29.0` dời sang commit tuyến tính
   (cùng cây). Từ nay PR vào 251e phải merge bằng `--rebase` hoặc `--squash`.
+- 2026-11-19 | SYNC-96CA | agent `arena/96ca0168-in4up` | **nhánh phiên đồng bộ ngang 251e**:
+  rebase lên `arena/01a0251e-in4up` (`a48e44f5`) ⇒ nhận 5 commit hậu-release: Dictionary
+  MDD ảnh theo nhu cầu + đọc gộp (`b449067c`, #195), TIPI-PERF-01 mở thư viện/bài đọc
+  nhanh (`121ee79e`, #194), wordlist chờ âm thanh khi phát tất cả (`c3ab685a`) + override
+  cho test (`a48e44f5`), ghi chép KANBAN (`8f975245`). Commit nối cũ `8a41e68` bị bỏ khi
+  rebase (`--skip`) vì cây trùng `7a5f446` — **không mất nội dung nào**. Nhánh **không còn
+  commit riêng**; PR này chỉ ghi nhận trạng thái, **không đổi mã nguồn**. Tag `1.29.0` giữ
+  nguyên `7cd8f82` (251e đi trước tag 5 commit). CI trên `a48e44f5`: `app_analyze`
+  44516215217 🟢. **Chưa kiểm máy thật.**

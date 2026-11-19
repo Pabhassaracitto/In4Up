@@ -296,8 +296,9 @@
   TOC/search KHÔNG bị restore đè; xóa vị trí → card mất entry; i18n en sạch.
 
 ### TIPI-PERF-01 — Tipiṭaka mở chậm: tối ưu đường mở (đo trước, sửa đúng chỗ)
-- **Trạng thái:** doing — code + test mới; còn `flutter analyze`, full `flutter test`
-  và nghiệm thu thiết bị (DB demo + DB đã import ≥ 1 gói ngôn ngữ).
+- **Trạng thái:** doing — PR [#194](https://github.com/Pabhassaracitto/In4Up/pull/194)
+  (base `arena/01a0251e-in4up`) MERGEABLE, CI xanh; còn nghiệm thu thiết bị
+  (DB demo + DB đã import ≥ 1 gói ngôn ngữ).
 - **Nguồn:** chủ dự án — "Tipiṭaka demo hay đã thêm ngôn ngữ đều load mở bài lâu,
   người dùng phải chờ"; yêu cầu tối ưu tốc độ mà vẫn giữ trải nghiệm tốt.
 - **Đo được (DB tổng hợp 600k đoạn/323 MB, desktop):** probe cột ngôn ngữ rỗng
@@ -321,6 +322,15 @@
   - 2026-11-15 | proposed→doing | agent arena/00cf7543-in4up | audit + 5 nhóm sửa
     + `test/tipitaka_open_performance_test.dart`; chưa chạy được `flutter analyze`
     trong sandbox
+  - 2026-11-15 | doing giữ nguyên | agent arena/00cf7543-in4up | PR #194; CI
+    `43762616600` xanh (analyze 0 error + Rule 5 + Tipiṭaka tests)
+  - 2026-11-19 | doing giữ nguyên — **gỡ xung đột** | agent arena/00cf7543-in4up |
+    base `251e` tiến 102 commit (beta 1.29.0) ⇒ PR CONFLICTING; rebase lên
+    `7cd8f82d`, chỉ 1 xung đột thật (`read_mode_screen.dart` dòng import: giữ
+    CẢ `role_swap_controls.dart` của base và `db_service.dart` của card), 2 file
+    còn lại tự merge sạch (workflow + KANBAN); commit mới `891cc1f9`
+    (force-with-lease) ⇒ PR MERGEABLE, CI `44446982579` xanh (analyze + Rule 5 +
+    Tipiṭaka + L6/L7/L9 của base); còn job native arm64 của base đang chạy
 
 ### TPI-DISPLAY-03 — Tipiṭaka P4b–P6 (lộ trình còn lại)
 - **Trạng thái:** doing — code Phase 2 hoàn tất; CI run `37295697496` xanh

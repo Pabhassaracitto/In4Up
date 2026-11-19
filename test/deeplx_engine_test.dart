@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:in4up/features/translation/engines/deeplx_engine.dart';
 
+// JSON responses must be encoded like the real UTF-8 endpoint, not the
+// http.Response constructor's default latin1 (which corrupts "Xin chào").
 void main() {
   group('DeepLXEngine.normalizeUrl', () {
     test('host trần (hay gặp với HF Space) → tự nối /translate', () {
@@ -63,7 +65,8 @@ void main() {
   });
 
   group('DeepLXEngine.translate (MockClient, không network)', () {
-    test('200 + data → success; body đúng chuẩn {text, source_lang, target_lang}',
+    test(
+        '200 + data → success; body đúng chuẩn {text, source_lang, target_lang}',
         () async {
       http.Request? captured;
       final engine = DeepLXEngine(
@@ -81,6 +84,7 @@ void main() {
               'method': 'Free',
             }),
             200,
+            headers: const {'content-type': 'application/json; charset=utf-8'},
           );
         }),
       );
@@ -119,7 +123,8 @@ void main() {
       expect(body.containsKey('source_lang'), isFalse);
     });
 
-    test('chấp nhận dạng /v2/translate (DeepL chính thức): translations[0].text',
+    test(
+        'chấp nhận dạng /v2/translate (DeepL chính thức): translations[0].text',
         () async {
       final engine = DeepLXEngine(
         serverUrl: 'https://x.hf.space/v2/translate',
@@ -130,6 +135,9 @@ void main() {
                 ],
               }),
               200,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              },
             )),
       );
 
@@ -147,7 +155,10 @@ void main() {
       ]) {
         final engine = DeepLXEngine(
           serverUrl: 'https://x.hf.space',
-          client: MockClient((request) async => http.Response(body, 200)),
+          client: MockClient((request) async => http.Response(body, 200,
+                  headers: const {
+                    'content-type': 'application/json; charset=utf-8'
+                  })),
         );
         final result = await engine.translate(text: 'Hello', targetLang: 'VI');
         expect(result.isSuccess, isTrue, reason: body);
@@ -158,8 +169,7 @@ void main() {
     test('404 → failure kèm HTTP status rõ ràng', () async {
       final engine = DeepLXEngine(
         serverUrl: 'https://x.hf.space',
-        client:
-            MockClient((request) async => http.Response('Not Found', 404)),
+        client: MockClient((request) async => http.Response('Not Found', 404)),
       );
 
       final result = await engine.translate(text: 'Hello', targetLang: 'VI');
@@ -177,6 +187,9 @@ void main() {
                 'message': 'unsupported target_lang "XX"; valid codes: …',
               }),
               400,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              },
             )),
       );
 
@@ -226,6 +239,9 @@ void main() {
         client: MockClient((request) async => http.Response(
               jsonEncode({'code': 200, 'data': 'Xin chào'}),
               200,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              },
             )),
       );
 

@@ -84,6 +84,7 @@ class ShadowingSamplePlayer {
   Future<void> speakSentence(
     int index, {
     double speed = 1.0,
+    int repeatCount = 1,
     void Function()? onStarted,
     void Function(int repeat)? onRepeat,
     void Function()? onFinished,
@@ -95,7 +96,7 @@ class ShadowingSamplePlayer {
       start: sentence.start,
       end: sentence.end,
       speed: speed,
-      repeatCount: 1,
+      repeatCount: repeatCount.clamp(1, 10).toInt(),
       onStarted: onStarted,
       onRepeat: onRepeat,
       onFinished: onFinished,
@@ -177,8 +178,14 @@ class ShadowingSamplePlayer {
         await _audio.seek(startPos);
         if (!current()) return;
         final elapsed = Stopwatch()..start();
-        await _audio.play();
-        if (!current()) return;
+        // just_audio's play() Future completes only when playback is stopped
+        // or reaches the end of the *whole source*. Awaiting it here used to
+        // bypass the sentence boundary and let the remainder play. Start it,
+        // observe the segment boundary, pause, then join its Future.
+        final playback = _audio.play().then<Object?>(
+          (_) => null,
+          onError: (Object error, StackTrace stack) => error,
+        );
         // The deadline also works when a platform stops delivering position
         // ticks. Never fall back to playing the remainder of the file.
         while (current() &&
@@ -189,6 +196,9 @@ class ShadowingSamplePlayer {
         if (!current()) return;
         await _audio.pause();
         if (!current()) return;
+        final playbackError = await playback;
+        if (!current()) return;
+        if (playbackError != null) throw playbackError;
         await _audio.seek(endPos);
         if (!current()) return;
         onRepeat?.call(i + 1);

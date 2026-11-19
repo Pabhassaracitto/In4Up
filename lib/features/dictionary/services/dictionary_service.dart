@@ -67,6 +67,10 @@ class DictionaryService {
 
   final List<DictInfo> _dicts = [];
   final MddWorkerPool _mddWorkers = MddWorkerPool();
+  final ValueNotifier<int> _resourceRevision = ValueNotifier(0);
+  /// Signals that previously loaded resource bytes should be discarded.
+  ValueListenable<int> get resourceRevision => _resourceRevision;
+  void _invalidateResources() => _resourceRevision.value++;
   bool _initialized = false;
 
   /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
@@ -166,6 +170,18 @@ class DictionaryService {
     final matches = _dicts.where((dict) => dict.id == dictId);
     if (matches.isEmpty) throw StateError('Dictionary not registered');
     return _mddWorkers.start(matches.first, key);
+  }
+
+  /// Resolve several resources with one short-lived index per MDD part.
+  Future<MddReadTask> startMddResourceBatch(String dictId, List<String> keys, {
+    int maxItemBytes = 2 * 1024 * 1024,
+    int maxTotalBytes = 8 * 1024 * 1024,
+  }) async {
+    await ensureInitialized();
+    final matches = _dicts.where((dict) => dict.id == dictId);
+    if (matches.isEmpty) throw StateError('Dictionary not registered');
+    return _mddWorkers.startBatch(matches.first, keys,
+      maxItemBytes: maxItemBytes, maxTotalBytes: maxTotalBytes);
   }
 
   Future<Uint8List?> readMddResource(String dictId, String key) async =>

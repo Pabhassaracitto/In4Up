@@ -154,4 +154,20 @@ void main() {
             play: (_) async => fail('nothing is enabled')),
         isFalse);
   });
+
+  test('cancelling an unavailable reader attempt never starts the next engine',
+      () async {
+    var stopped = false;
+    final attempts = <String>[];
+    expect(
+        await playFirstAvailable(engines,
+            cancelled: () => stopped,
+            play: (candidate) async {
+              attempts.add(candidate.id);
+              stopped = true;
+              return false;
+            }),
+        isFalse);
+    expect(attempts, ['piper_tts']);
+  });
 }

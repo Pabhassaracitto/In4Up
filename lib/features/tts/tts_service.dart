@@ -153,6 +153,8 @@ class TtsService extends ChangeNotifier {
 
   /// True khi [epoch] đã bị một lệnh stop mới hơn thay thế.
   bool isStaleEpoch(int epoch) => epoch != _playbackEpoch;
+  bool _playbackUnavailable = false;
+  bool get playbackUnavailable => _playbackUnavailable;
   TtsReader? _lastReader;
   TtsReader? get lastReader => _lastReader;
   String get lastUsedEngine => _lastUsedEngine;
@@ -177,7 +179,8 @@ class TtsService extends ChangeNotifier {
   final _readerPreferences = <TtsReader, ReaderVoicePreference>{};
   ReaderVoicePreference? preferenceFor(TtsReader? reader) => _readerPreferences[reader];
 
-  Future<void> setReaderPreference(TtsReader reader, ReaderVoicePreference? value) async {
+  Future<void> setReaderPreference(
+      TtsReader reader, ReaderVoicePreference? value) async {
     await settingsReady;
     final prefs = await SharedPreferences.getInstance();
     if (!await ReaderVoicePreference.save(prefs, reader, value)) {
@@ -493,8 +496,8 @@ class TtsService extends ChangeNotifier {
         readerEngineId: readerEngineId,
       );
 
-  Future<(TtsPriority, List<TtsEngineInfo>, String?)> _route(String lang,
-      ReaderVoicePreference? pref, bool matchVoiceLanguage) async {
+  Future<(TtsPriority, List<TtsEngineInfo>, String?)> _route(
+      String lang, ReaderVoicePreference? pref, bool matchVoiceLanguage) async {
     final effectivePriority = await _effectivePriority();
     final edgeEnabled = _engineOrder.any(
       (engine) => engine.id == 'edge_tts' && engine.isEnabled,
@@ -511,7 +514,9 @@ class TtsService extends ChangeNotifier {
     return (effectivePriority, candidates, edgeVoice);
   }
 
-  Future<void> speak(String text, {String? language, TtsReader? reader,
+  Future<void> speak(String text,
+      {String? language,
+      TtsReader? reader,
       bool matchVoiceLanguage = false}) async {
     if (text.trim().isEmpty) return;
     // Dừng âm đang phát nhưng KHÔNG tăng thế hệ: một câu mới trong cùng
@@ -525,6 +530,7 @@ class TtsService extends ChangeNotifier {
     _error = null;
     _lastUsedEngine = '';
     _lastReader = reader;
+    _playbackUnavailable = false;
     _stopRequested = false;
     _paused = false;
     _pausedOfflineEngine = false;
@@ -557,83 +563,103 @@ class TtsService extends ChangeNotifier {
     var remaining = text;
     void continueFrom(String suffix) => remaining = suffix;
     final played = await playFirstAvailable(candidates,
-        cancelled: () => _stopRequested || isStaleEpoch(epoch), play: (engineInfo) async {
-      if (!_engineSupportsLanguage(engineInfo.id, lang)) return false;
-      final voice = pref?.voiceFor(engineInfo.id, lang);
-      switch (engineInfo.id) {
-        case 'vieneu_tts':
-          // TTS-VIENEU-001 — VieNeu-TTS native (GGUF, audio.cpp, on-device,
-          // chỉ tiếng Việt; _engineSupportsLanguage đã lọc lang ở trên).
-          return _trySpeakVieneu(remaining, lang, epoch, voice, continueFrom);
+        cancelled: () => _stopRequested || isStaleEpoch(epoch),
+        play: (engineInfo) async {
+          if (!_engineSupportsLanguage(engineInfo.id, lang)) return false;
+          final voice = pref?.voiceFor(engineInfo.id, lang);
+          switch (engineInfo.id) {
+            case 'vieneu_tts':
+              // TTS-VIENEU-001 — VieNeu-TTS native (GGUF, audio.cpp, on-device,
+              // chỉ tiếng Việt; _engineSupportsLanguage đã lọc lang ở trên).
+              return _trySpeakVieneu(
+                  remaining, lang, epoch, voice, continueFrom);
 
-        case 'piper_tts':
-          return _trySpeakPiper(remaining, lang, epoch, matchVoiceLanguage, voice, continueFrom);
+            case 'piper_tts':
+              return _trySpeakPiper(remaining, lang, epoch, matchVoiceLanguage,
+                  voice, continueFrom);
 
-        case 'offline_tts':
-          return _trySpeakOffline(remaining, lang, voice: voice, voiceLocale: pref?.locale);
+            case 'offline_tts':
+              return _trySpeakOffline(remaining, lang,
+                  voice: voice, voiceLocale: pref?.locale);
 
-        case 'edge_tts':
-          // TTS-EDGE-001 — không cần key, mọi ngôn ngữ: thử trực tiếp;
-          // `_trySpeakOnline` tự check mạng + timeout 15s → false ⇒ chuỗi
-          // chạy tiếp engine kế (fallback mượt, không nghẽn app).
-          // TTS-EDGE-VOICE-001 — dùng giọng Edge đã chọn theo ngôn ngữ
-          // (EdgeVoicePrefs); chưa chọn → null → engine tự chọn mặc định.
-          return _trySpeakOnline(
-            EdgeTtsEngine(),
-            remaining,
-            lang,
-            voiceOverride: voice ?? edgeVoice,
-            epoch: epoch, continueFrom: continueFrom, matchVoiceLanguage: matchVoiceLanguage,
-          );
+            case 'edge_tts':
+              // TTS-EDGE-001 — không cần key, mọi ngôn ngữ: thử trực tiếp;
+              // `_trySpeakOnline` tự check mạng + timeout 15s → false ⇒ chuỗi
+              // chạy tiếp engine kế (fallback mượt, không nghẽn app).
+              // TTS-EDGE-VOICE-001 — dùng giọng Edge đã chọn theo ngôn ngữ
+              // (EdgeVoicePrefs); chưa chọn → null → engine tự chọn mặc định.
+              return _trySpeakOnline(
+                EdgeTtsEngine(),
+                remaining,
+                lang,
+                voiceOverride: voice ?? edgeVoice,
+                epoch: epoch,
+                continueFrom: continueFrom,
+                matchVoiceLanguage: matchVoiceLanguage,
+              );
 
-        case 'google_tts':
-          return _trySpeakOnline(GoogleTtsEngine(), remaining, lang, epoch: epoch, continueFrom: continueFrom, matchVoiceLanguage: matchVoiceLanguage);
+            case 'google_tts':
+              return _trySpeakOnline(GoogleTtsEngine(), remaining, lang,
+                  epoch: epoch,
+                  continueFrom: continueFrom,
+                  matchVoiceLanguage: matchVoiceLanguage);
 
-        case 'zalo_tts':
-          if (_zaloApiKey != null &&
-              _zaloApiKey!.isNotEmpty &&
-              lang.startsWith('vi')) {
-            return _trySpeakOnline(
-              ZaloTtsEngine(apiKey: _zaloApiKey),
-              remaining,
-              lang,
-              epoch: epoch, continueFrom: continueFrom, matchVoiceLanguage: matchVoiceLanguage,
-            );
+            case 'zalo_tts':
+              if (_zaloApiKey != null &&
+                  _zaloApiKey!.isNotEmpty &&
+                  lang.startsWith('vi')) {
+                return _trySpeakOnline(
+                  ZaloTtsEngine(apiKey: _zaloApiKey),
+                  remaining,
+                  lang,
+                  epoch: epoch,
+                  continueFrom: continueFrom,
+                  matchVoiceLanguage: matchVoiceLanguage,
+                );
+              }
+              return false;
+
+            case 'fpt_tts':
+              if (_fptApiKey != null &&
+                  _fptApiKey!.isNotEmpty &&
+                  lang.startsWith('vi')) {
+                return _trySpeakOnline(
+                  FptTtsEngine(apiKey: _fptApiKey),
+                  remaining,
+                  lang,
+                  epoch: epoch,
+                  continueFrom: continueFrom,
+                  matchVoiceLanguage: matchVoiceLanguage,
+                );
+              }
+              return false;
+
+            case 'openai_compat_tts':
+              // WP4 (API-005): chỉ chạy khi đã có provider hỗ trợ TTS trong
+              // store chung WP0 (routing tts ≠ offlineOnly). Chưa cấu hình →
+              // bỏ qua — chuỗi TTS y hệt như trước khi có engine này.
+              final apiEngine = await _resolveApiTtsEngine();
+              if (apiEngine != null) {
+                return _trySpeakOnline(apiEngine, remaining, lang,
+                    epoch: epoch,
+                    continueFrom: continueFrom,
+                    matchVoiceLanguage: matchVoiceLanguage);
+              }
+              return false;
           }
           return false;
+        });
 
-        case 'fpt_tts':
-          if (_fptApiKey != null &&
-              _fptApiKey!.isNotEmpty &&
-              lang.startsWith('vi')) {
-            return _trySpeakOnline(
-              FptTtsEngine(apiKey: _fptApiKey),
-              remaining,
-              lang,
-              epoch: epoch, continueFrom: continueFrom, matchVoiceLanguage: matchVoiceLanguage,
-            );
-          }
-          return false;
-
-        case 'openai_compat_tts':
-          // WP4 (API-005): chỉ chạy khi đã có provider hỗ trợ TTS trong
-          // store chung WP0 (routing tts ≠ offlineOnly). Chưa cấu hình →
-          // bỏ qua — chuỗi TTS y hệt như trước khi có engine này.
-          final apiEngine = await _resolveApiTtsEngine();
-          if (apiEngine != null) {
-            return _trySpeakOnline(apiEngine, remaining, lang, epoch: epoch, continueFrom: continueFrom, matchVoiceLanguage: matchVoiceLanguage);
-          }
-          return false;
-      }
-      return false;
-    });
-
-    if (played && effectivePriority == TtsPriority.offlineFirst && pref == null &&
-        !_stopRequested && !isStaleEpoch(epoch)) {
+    if (played &&
+        effectivePriority == TtsPriority.offlineFirst &&
+        pref == null &&
+        !_stopRequested &&
+        !isStaleEpoch(epoch)) {
       _prefetchOnline(text, lang, matchVoiceLanguage: matchVoiceLanguage);
     }
     if (!played && !_stopRequested && !isStaleEpoch(epoch)) {
       _lastUsedEngine = '';
+      _playbackUnavailable = true;
       _error = 'Không có engine TTS nào phát được văn bản này ($lang).';
       _isLoading = false;
       _isSpeaking = false;
@@ -1498,6 +1524,7 @@ class TtsService extends ChangeNotifier {
       );
       return true;
     } catch (e) {
+      _lastUsedEngine = '';
       debugPrint('⚠️ OfflineTTS direct error: $e');
       return false;
     } finally {
@@ -2035,8 +2062,11 @@ class TtsService extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
     await settingsReady;
-    final lang = language == 'auto' ? LanguageDetector.detect(trimmed)
-        : language == null ? _resolveLanguage(trimmed) : _normalizeRequestedLocale(language);
+    final lang = language == 'auto'
+        ? LanguageDetector.detect(trimmed)
+        : language == null
+            ? _resolveLanguage(trimmed)
+            : _normalizeRequestedLocale(language);
     final pref = preferenceFor(reader);
     final (_, candidates, edgeVoice) = await _route(lang, pref, reader != null);
     // Only these backends currently export audio bytes in a known file format.
@@ -2049,8 +2079,11 @@ class TtsService extends ChangeNotifier {
         switch (candidate.id) {
           case 'vieneu_tts':
             final vieneu = VieneuTtsEngine.instance;
-            voice ??= await getSelectedVieneuVoiceId() ?? VieneuTtsCore.defaultVoiceId;
-            await vieneu.init(modelVariant: await getSelectedVieneuModelVariant(), voiceId: voice);
+            voice ??= await getSelectedVieneuVoiceId() ??
+                VieneuTtsCore.defaultVoiceId;
+            await vieneu.init(
+                modelVariant: await getSelectedVieneuModelVariant(),
+                voiceId: voice);
             engine = vieneu;
             extension = 'wav';
           case 'piper_tts':
@@ -2063,8 +2096,12 @@ class TtsService extends ChangeNotifier {
           default:
             continue;
         }
-        final result = await engine.synthesize(text: trimmed, language: lang,
-            speed: _speed, pitch: _pitch, voiceId: voice);
+        final result = await engine.synthesize(
+            text: trimmed,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: voice);
         final audio = result.audioData;
         if (!result.isSuccess || audio == null || audio.isEmpty) continue;
         final path = '$pathWithoutExtension.$extension';
@@ -2083,11 +2120,16 @@ class TtsService extends ChangeNotifier {
 
   Future<List<TtsVoice>> readerVoiceCatalog(String engine) async {
     switch (engine) {
-      case 'piper_tts': return PiperTtsEngine.instance.getAvailableVoices('');
-      case 'edge_tts': return EdgeTtsEngine.catalogVoices;
-      case 'vieneu_tts': return VieneuTtsEngine.instance.getAvailableVoices('vi-VN');
-      case 'offline_tts': return _offlineEngine.getAvailableVoices('');
-      default: return const [];
+      case 'piper_tts':
+        return PiperTtsEngine.instance.getAvailableVoices('');
+      case 'edge_tts':
+        return EdgeTtsEngine.mergedCatalogVoices;
+      case 'vieneu_tts':
+        return VieneuTtsEngine.instance.getAvailableVoices('vi-VN');
+      case 'offline_tts':
+        return _offlineEngine.getAvailableVoices('');
+      default:
+        return const [];
     }
   }
 

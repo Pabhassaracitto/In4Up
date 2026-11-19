@@ -1,4 +1,5 @@
 {
+  "ttsPlaybackUnavailable": "कोई भी इंजन यह पाठ नहीं पढ़ सका",
   "ttsReaderOverrides": "रीडर के अलग विकल्प",
   "ttsSharedSettings": "साझा आवाज़ सेटिंग",
   "ttsInherit": "साझा सेटिंग का उपयोग करें",

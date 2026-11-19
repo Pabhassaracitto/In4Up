@@ -4,7 +4,7 @@ PDF, web, Tipiṭaka và tab Đọc vốn đã dùng cùng `TtsService`. Khác b
 
 **Quy tắc:** trong Đọc → Cài đặt Text Studio → Giọng đọc & engine, các cài đặt cũ là **cấu hình chung**. Mở **Ghi đè theo nơi đọc**, chạm tên nơi đọc để chọn engine; nút giọng bên phải cho phép chọn giọng riêng với Piper, VieNeu, Edge hoặc hệ thống. Giữ **Kế thừa cấu hình chung** ở mục giọng nếu chỉ muốn đổi engine. Một giọng riêng chỉ áp dụng cho engine và ngôn ngữ tương thích; các ngôn ngữ khác dùng bộ chọn giọng chung. Chọn kế thừa ở mục engine sẽ xóa cả ghi đè. Không sao chép cấu hình chung vào từng màn hình.
 
-Engine riêng được thử trước, sau đó là đường phát chung (gồm ưu tiên giọng Edge đã chọn). Không bật lại engine đã tắt, không gọi online trong chế độ chỉ offline. Giữa câu, chỉ chuyển phần chưa đọc sang engine kế. Fallback không ghi đè lựa chọn đã lưu. Nhãn **Lần phát gần nhất** là nguồn âm thực tế, không phải tên engine đặt trước; trên thanh phát PDF/web cũng có nhãn nguồn. Xuất âm thanh web chỉ thử các backend hỗ trợ xuất file (VieNeu/Piper WAV, Edge MP3), không thay đổi nhãn lần phát.
+Engine riêng được thử trước, sau đó là đường phát chung (gồm ưu tiên giọng Edge đã chọn). Không bật lại engine đã tắt, không gọi online trong chế độ chỉ offline. Giữa câu, chỉ chuyển phần chưa đọc sang engine kế. Fallback không ghi đè lựa chọn đã lưu. Nhãn **Lần phát gần nhất** là nguồn âm thực tế, không phải tên engine đặt trước; khi đang đọc, tab Đọc, Tipiṭaka, PDF và web cũng hiển thị nhãn nguồn. Xuất âm thanh web chỉ thử các backend hỗ trợ xuất file (VieNeu/Piper WAV, Edge MP3), không thay đổi nhãn lần phát.
 
 ## Kiểm tra trên Android
 

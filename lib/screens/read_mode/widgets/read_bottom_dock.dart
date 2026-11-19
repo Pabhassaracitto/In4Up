@@ -17,6 +17,8 @@
 //   * Không tự gọi translateAll() — phát đi qua `startReadPlayback` (P0).
 //   * Mọi nhãn đi qua `context.uiText` (quy tắc vàng #5).
 
+import 'package:in4up/features/tts/reader_voice_preference.dart';
+import 'package:in4up/features/tts/widgets/reader_voice_tile.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 import 'package:provider/provider.dart';
@@ -95,6 +97,7 @@ class ReadBottomDock extends StatelessWidget {
               ),
               minHeight: 3,
             ),
+            if (playing) const ReaderPlaybackLabel(TtsReader.read),
             // ── Hàng chính: LUÔN có, kể cả khi chrome phía trên smart-hide ──
             Row(
               children: [

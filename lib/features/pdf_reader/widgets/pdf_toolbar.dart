@@ -510,7 +510,9 @@ class _MoreButton extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _PdfOptionsSheet(
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => SingleChildScrollView(child: _PdfOptionsSheet(
         controller: controller,
         onShowAnnotations: onShowAnnotations,
         onOpenGrammarSettings: onOpenGrammarSettings,
@@ -519,7 +521,7 @@ class _MoreButton extends StatelessWidget {
         onShowShortcuts: onShowShortcuts,
         onShowReaderTheme: onShowReaderTheme,
         readerThemeState: readerThemeState,
-      ),
+      )),
     );
   }
 }
@@ -578,7 +580,8 @@ class _PdfOptionsSheet extends StatelessWidget {
           const Text('Giọng đọc',
               style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 8),
-          _TtsLanguageSelector(controller: controller),
+          ListenableBuilder(listenable: controller, builder: (_, __) =>
+              _TtsLanguageSelector(controller: controller)),
           const ReaderVoiceTile(TtsReader.pdf),
 
           const SizedBox(height: 16),

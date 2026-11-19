@@ -1747,14 +1747,24 @@ jobs:
           code=$?
           cat read_translation_test.log
           if [ "$code" -ne 0 ]; then
-            # Build-log extraction alone misses Flutter Expected/Actual and
-            # widget exceptions. Surface failing assertions, not just suite names.
-            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
-              read_translation_test.log > read_translation_clean.log
-            grep -nE -B3 -A18 'Expected:|Actual:|\[E\]|EXCEPTION CAUGHT|Error:|Exception:|NoSuchMethodError|HiveError' \
-              read_translation_clean.log | head -260 | while IFS= read -r line; do
-              echo "::error title=Read translation tests::${line//%/%25}"
-            done
+            # Aggregate failures: Actions keeps at most ten error annotations
+            # per step, so one annotation per log line loses the later failures.
+            python3 - <<'PYLOG'
+          import re
+          from pathlib import Path
+          raw = Path('read_translation_test.log').read_text(errors='replace')
+          lines = re.sub(r'\x1b\[[0-9;]*[A-Za-z]|\r|\x08', '', raw).splitlines()
+          picked = set()
+          for index, line in enumerate(lines):
+              if re.search(r'Expected:|Actual:|\[E\]|EXCEPTION CAUGHT|Error:|Exception:', line):
+                  picked.update(range(max(0, index - 3), min(len(lines), index + 22)))
+          summary = '\n'.join(lines[index] for index in sorted(picked))
+          if not summary:
+              summary = '\n'.join(lines[-40:])
+          for start in range(0, min(len(summary), 35000), 3500):
+              chunk = summary[start:start + 3500].replace('%', '%25').replace('\n', '%0A')
+              print('::error title=Read translation tests::' + chunk)
+          PYLOG
           fi
           exit $code
 

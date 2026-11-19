@@ -54,7 +54,11 @@ class RecordingTranslationEngine extends TranslationEngine {
     return succeeds
         ? TranslationResult.success(
             original: text,
-            translated: echoSource ? text : 'Bản dịch $id.',
+            translated: echoSource
+                ? text
+                : targetLang == 'EN'
+                    ? 'Translated text from $id.'
+                    : 'Bản dịch $id.',
             engine: name,
             detectedLang: sourceLang,
             targetLang: targetLang,
@@ -72,6 +76,8 @@ class RecordingTranslationEngine extends TranslationEngine {
 class TranslationTestDocument extends ChangeNotifier with TranslationMixin {
   @override
   final List<TextItem> lines = [];
+
+  Future<void> saveCurrentTranslationsToCloud() async {}
 
   Future<void> prepare(TranslationService service, {int count = 1}) async {
     translationServiceForTest = service;

@@ -1,6 +1,8 @@
 import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_ai/in4up_ai.dart';
+import '../../widgets/heavy_task_warning_banner.dart';
+import 'ai_model_options_sheet.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/understand_ai/understand_ai_context.dart';
@@ -90,9 +92,46 @@ Câu hỏi của người học: $question''';
   }
 
   /// Import model + snackbar kết quả rõ ràng (tên file, dung lượng, lỗi thật).
-  Future<void> _importModel(BuildContext context, AiServiceFacade facade) async {
-    final success = await facade.importModelFromUser();
+  Future<void> _importModel(
+    BuildContext context,
+    AiServiceFacade facade, {
+    bool confirmedRisk = false,
+  }) async {
+    final success = await facade.importModelFromUser(
+      userConfirmedRisk: confirmedRisk,
+    );
     if (!context.mounted) return;
+    final verdict = facade.lastModelFitVerdict;
+    if (!success && verdict?.needsConfirmation == true && !confirmedRisk) {
+      // Chưa có số liệu RAM (hoặc model lớn): xác nhận rõ ràng thay vì tự nạp.
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(context.uiText('Model lớn hơn ngưỡng gợi ý')),
+          content: Text(
+            context.uiText(
+              'Thiết bị không trả đủ số liệu RAM, hoặc file model lớn hơn '
+              'mức khuyến nghị (RAM đỉnh chỉ là ước tính). Nạp model có thể '
+              'làm app chậm, nóng máy hoặc bị hệ thống thu hồi. Vẫn thử?',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(context.uiText('Không')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(context.uiText('Vẫn thử')),
+            ),
+          ],
+        ),
+      );
+      if (ok == true && context.mounted) {
+        await _importModel(context, facade, confirmedRisk: true);
+      }
+      return;
+    }
     final messenger = ScaffoldMessenger.of(context);
     if (success) {
       final name = facade.modelFileName ?? '';
@@ -157,6 +196,14 @@ Câu hỏi của người học: $question''';
                   : () => _importModel(context, facade),
             ),
           ),
+          Consumer<AiServiceFacade>(
+            builder: (context, facade, _) => IconButton(
+              key: const Key('ai-model-options-button'),
+              tooltip: context.uiText('Chọn model theo thiết bị'),
+              icon: const Icon(Icons.tune),
+              onPressed: () => showAiModelOptionsSheet(context, facade),
+            ),
+          ),
           IconButton(
             tooltip: context.uiText('Xóa cuộc trò chuyện'),
             icon: const Icon(Icons.delete_sweep_outlined),
@@ -175,6 +222,12 @@ Câu hỏi của người học: $question''';
           Consumer<AiServiceFacade>(
             builder: (context, facade, _) =>
                 _RemoteRouteBanner(facade: facade),
+          ),
+          HeavyTaskWarningBanner(
+            message: context.uiText(
+              'Đang có nhiều tác vụ AI nặng chạy cùng lúc — máy có thể nóng '
+              'và tốn RAM. Đợi một tác vụ xong rồi tiếp tục.',
+            ),
           ),
           // A static banner avoids rebuilding message bubbles and GPU fades.
           Consumer<AiServiceFacade>(

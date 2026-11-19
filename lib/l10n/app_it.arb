@@ -1,4 +1,5 @@
 {
+  "ttsPlaybackUnavailable": "No engine could play this text",
   "ttsReaderOverrides": "Reader overrides",
   "ttsSharedSettings": "Shared voice settings",
   "ttsInherit": "Use shared settings",

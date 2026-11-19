@@ -646,8 +646,8 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    _SettingsSectionLabel(context.uiText('Tốc độ đọc')),
                     const ReaderVoiceTile(TtsReader.tipitaka),
+                    _SettingsSectionLabel(context.uiText('Tốc độ đọc')),
                     Row(
                       children: [
                         Expanded(
@@ -1032,7 +1032,9 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   ) async {
     for (final chunk in _speechChunks(segment)) {
       if (generation != _globalTtsGeneration) return;
-      await _tts.speak(chunk.text, reader: TtsReader.tipitaka, language: chunk.languageCode, matchVoiceLanguage: true);
+      await _tts.speak(chunk.text, reader: TtsReader.tipitaka,
+          language: chunk.languageCode, matchVoiceLanguage: true);
+      if (_tts.playbackUnavailable) return;
     }
   }
 
@@ -1057,7 +1059,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     if (!mounted || generation != _globalTtsGeneration) return;
     setState(() {
       _speakingSegmentId = null;
-      _ttsCursor = absoluteIndex + 1;
+      _ttsCursor = _tts.playbackUnavailable ? absoluteIndex : absoluteIndex + 1;
     });
   }
 
@@ -1089,7 +1091,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
             _ttsCursor = offset;
           });
           await _speakSegmentChunks(segment, generation);
-          if (generation != _globalTtsGeneration) return;
+          if (generation != _globalTtsGeneration || _tts.playbackUnavailable) return;
           offset++;
           _ttsCursor = offset;
         }
@@ -1379,7 +1381,9 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
+                        if (_speakingSegmentId != null)
+                          const ReaderPlaybackLabel(TtsReader.tipitaka)
+                        else Text(
                           _segments.isEmpty
                               ? '0/$_totalCount ${context.uiText('đoạn')}'
                               : '${context.uiText('Đoạn')} ${_loadedOffset + 1}'

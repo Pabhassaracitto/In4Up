@@ -100,10 +100,14 @@ void main() {
       final stt = File('lib/features/shadowing/services/offline_stt_service.dart').readAsStringSync();
       final provider = File('lib/features/shadowing/providers/shadowing_provider.dart').readAsStringSync();
       expect(stt, isNot(contains('return originalText')));
-      expect(stt, contains('Future<String?> transcribe'));
+      expect(stt, contains('Future<ShadowingTranscription> transcribe'));
+      expect(stt, contains('autoFallback: true'));
+      expect(stt, contains('cacheResults: false'));
+      expect(stt, contains("errorCode: 'no_audio'"));
+      expect(stt, contains("errorCode: 'recognition_error'"));
       expect(provider, isNot(contains('hello world')));
-      expect(provider, contains("recognizedText == null || recognizedText.trim().isEmpty"));
-      expect(provider, contains("_analysisError = 'no_speech'"));
+      expect(provider, contains('if (!transcription.hasText)'));
+      expect(provider, contains("_analysisError = transcription.errorCode ?? 'recognition_error'"));
     });
   });
 }

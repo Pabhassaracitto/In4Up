@@ -759,9 +759,9 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Text(
-            'Sẵn sàng!',
-            style: TextStyle(
+          Text(
+            context.uiText('Đang chuẩn bị micro…'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
             ),
@@ -784,13 +784,10 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                     ),
                   ),
                   child: Center(
-                    child: Text(
-                      context.uiText('${shadowing.countdown}'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: const Icon(
+                      Icons.mic_none_rounded,
+                      color: Colors.white,
+                      size: 48,
                     ),
                   ),
                 ),
@@ -1096,7 +1093,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             shadowing.reset();
           },
           icon: const Icon(Icons.close),
-          label: const Text('Hủy đếm ngược'),
+          label: const Text('Hủy chuẩn bị'),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white70,
           ),
@@ -1160,7 +1157,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       case ShadowingState.playingOriginal:
         return 'Đang nghe mẫu...';
       case ShadowingState.countdown:
-        return 'Đếm ngược';
+        return 'Đang chuẩn bị micro…';
       case ShadowingState.recording:
         return 'Đang ghi âm';
       case ShadowingState.analyzing:

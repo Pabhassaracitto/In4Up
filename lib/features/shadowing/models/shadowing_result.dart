@@ -305,7 +305,7 @@ class ShadowingWordBreakdown {
 enum ShadowingState {
   idle, // Chờ bắt đầu
   playingOriginal, // Đang phát audio gốc
-  countdown, // Đếm ngược trước khi ghi
+  countdown, // Đang chuẩn bị micro trước khi ghi
   recording, // Đang ghi âm
   analyzing, // Đang phân tích
   showingResults, // Hiển thị kết quả

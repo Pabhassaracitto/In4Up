@@ -220,6 +220,24 @@ void main() {
     });
   }
 
+  test('resource revision invalidates on reimport, relink and delete', () async {
+    final service = DictionaryService.instance;
+    final mdx = await writeMdx('images.mdx', {'hello': 'hello'});
+    final before = service.resourceRevision.value;
+    final outcome = await service.importDictionaryBundle(absoluteFilePaths: [mdx],
+      rootPath: '', mode: DictStorageMode.linked);
+    expect(service.resourceRevision.value, greaterThan(before));
+    final id = outcome.imported.single.id;
+    var revision = service.resourceRevision.value;
+    expect(await service.relinkSafSource(id, treeUri: 'content://provider/tree/root',
+      sourceWasFolder: true, files: [const DictDeviceFile(uri: 'content://provider/mdx',
+        name: 'images.mdx', relativePath: 'images.mdx', sizeBytes: 1, extension: 'mdx')]), isTrue);
+    expect(service.resourceRevision.value, greaterThan(revision));
+    revision = service.resourceRevision.value;
+    await service.deleteDict(id);
+    expect(service.resourceRevision.value, greaterThan(revision));
+  });
+
   test('SAF relink replaces selected MDD locations and persists them', () async {
     final mdx = await writeMdx('media.mdx', {'hello': 'hello'});
     final outcome = await DictionaryService.instance.importDictionaryBundle(

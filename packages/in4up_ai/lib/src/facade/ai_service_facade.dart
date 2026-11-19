@@ -258,6 +258,48 @@ class AiServiceFacade extends ChangeNotifier {
   /// Kết luận gần nhất của preflight (null = chưa từng import/tải model).
   AiModelFitVerdict? lastModelFitVerdict;
 
+  /// Lựa chọn ưu tiên của người dùng: nhẹ (pin/RAM) ↔ đầy đủ (tốc độ).
+  /// null = tự theo RAM đo được. Lưu local, không đồng bộ cloud.
+  AiLocalProfile? _selectedLocalProfile;
+  AiLocalProfile? get selectedLocalProfile => _selectedLocalProfile;
+  AiLocalProfile get effectiveLocalProfile =>
+      _selectedLocalProfile ?? recommendedProfileForRam(_measuredTotalRamBytes);
+
+  /// Gọi từ UI. Không bao giờ nới quá trần RAM đo được (logic ở fit layer).
+  void selectLocalProfile(AiLocalProfile? profile) {
+    if (profile == _selectedLocalProfile) return;
+    _selectedLocalProfile = profile;
+    if (!_disposed) notifyListeners();
+    unawaited(() async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (profile == null) {
+          await prefs.remove(_localProfileKey);
+        } else {
+          await prefs.setString(_localProfileKey, profile.id);
+        }
+      } catch (_) {
+        // Lưu thất bại ⇒ chỉ giữ trong phiên hiện tại, không làm crash UI.
+      }
+    }());
+  }
+
+  Future<void> _restoreLocalProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getString(_localProfileKey);
+      if (id == null || id.isEmpty) return;
+      for (final profile in AiLocalProfile.values) {
+        if (profile.id == id) {
+          _selectedLocalProfile = profile;
+          break;
+        }
+      }
+    } catch (_) {
+      // Không có prefs ⇒ dùng mặc định "tự theo RAM".
+    }
+  }
+
   /// Gọi trước khi nạp file vào native. Trả false + ghi importError khi model
   /// vượt ngưỡng RAM đo được. Giữ nguyên model cũ đang chạy nếu bị chặn.
   bool _preflightModelFile(String path, {bool userConfirmedRisk = false}) {
@@ -272,6 +314,7 @@ class AiServiceFacade extends ChangeNotifier {
       modelFileBytes: fileBytes,
       totalRamBytes: _measuredTotalRamBytes,
       userConfirmedRisk: userConfirmedRisk,
+      requestedProfile: _selectedLocalProfile,
     );
     lastModelFitVerdict = verdict;
     if (verdict.isBlocked) {
@@ -316,6 +359,7 @@ class AiServiceFacade extends ChangeNotifier {
 
   // ── Chat state (from branches 01a01580/01a019bb) ──
   static const String _chatHistoryKey = 'in4up_ai_chat_history_v1';
+  static const String _localProfileKey = 'in4up_ai_local_profile_v1';
   final List<ChatMessage> _chatMessages = <ChatMessage>[];
   List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
   bool _chatHistoryLoaded = false;
@@ -961,6 +1005,7 @@ class AiServiceFacade extends ChangeNotifier {
     // động (router tự đo lần đầu bên trong).
     unawaited(AiConnectivityRouter.instance.ensureStarted());
     await _restoreChatHistory();
+    await _restoreLocalProfile();
     // WP1: nạp cấu hình provider/routing (WP0) để route chat/analysis biết
     // có tầng API nào không. Không chặn khi prefs hỏng — store tự dùng mặc định.
     unawaited(AiProviderStore.instance.ensureLoaded().catchError((Object e) {

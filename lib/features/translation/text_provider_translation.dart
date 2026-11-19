@@ -720,6 +720,7 @@ mixin TranslationMixin on ChangeNotifier {
     _startTranslation();
     try {
       await service.settingsReady;
+      await service.refreshRoutingPolicy();
       if (runId != _translationRunId) return;
       final pipelineTag = service.pipelineTag;
       final (result, appliedSource) = await _translateLineContent(
@@ -731,7 +732,10 @@ mixin TranslationMixin on ChangeNotifier {
         skipCache: true,
       );
       if (runId != _translationRunId || index >= lines.length) return;
-      if (service.targetLang != target.translationCode) return;
+      if (service.targetLang != target.translationCode) {
+        _translationStatus = TranslationRunStatus.cancelled;
+        return;
+      }
 
       _lastTranslationResult = result;
       if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
@@ -798,6 +802,7 @@ mixin TranslationMixin on ChangeNotifier {
     final runId = ++_translationRunId;
     _startTranslation();
     await service.settingsReady;
+    await service.refreshRoutingPolicy();
     if (runId != _translationRunId) return;
     final targetCode = target.translationCode;
     final pipelineTag = service.pipelineTag;
@@ -849,12 +854,16 @@ mixin TranslationMixin on ChangeNotifier {
 
     var consecutiveErrors = 0;
     var doneCount = 0;
+    var targetChanged = false;
     const notifyEvery = 5;
 
     try {
       for (var position = 0; position < toTranslate.length; position++) {
         if (!_isTranslating || runId != _translationRunId) break;
-        if (service.targetLang != targetCode) break;
+        if (service.targetLang != targetCode) {
+          targetChanged = true;
+          break;
+        }
 
         final lineIndex = toTranslate[position];
         if (lineIndex >= lines.length) continue;
@@ -869,12 +878,16 @@ mixin TranslationMixin on ChangeNotifier {
           skipCache: force,
         );
 
-        if (runId != _translationRunId || service.targetLang != targetCode) {
+        if (runId != _translationRunId) break;
+        if (service.targetLang != targetCode) {
+          targetChanged = true;
           break;
         }
         _lastTranslationResult = result;
+        final succeeded =
+            result.isSuccess && result.translatedText.trim().isNotEmpty;
         if (lineIndex < lines.length) {
-          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+          if (succeeded) {
             lines[lineIndex] = line.copyWith(
               translation: result.translatedText,
               sourceLanguageCode:
@@ -903,8 +916,12 @@ mixin TranslationMixin on ChangeNotifier {
         doneCount++;
         _translationProgress = doneCount / toTranslate.length;
         final isLast = position == toTranslate.length - 1;
-        if (doneCount == 1 || isLast || doneCount % notifyEvery == 0)
+        if (doneCount == 1 ||
+            (succeeded && _successfulTranslations == 1) ||
+            isLast ||
+            doneCount % notifyEvery == 0) {
           notifyListeners();
+        }
 
         if (!isLast) {
           await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -931,11 +948,16 @@ mixin TranslationMixin on ChangeNotifier {
     } finally {
       if (runId == _translationRunId) {
         _isTranslating = false;
-        _translationStatus = _failedTranslations == 0
-            ? TranslationRunStatus.succeeded
-            : _successfulTranslations > 0
-                ? TranslationRunStatus.partial
-                : TranslationRunStatus.failed;
+        if (targetChanged) {
+          _translationError = null;
+          _translationStatus = TranslationRunStatus.cancelled;
+        } else {
+          _translationStatus = _failedTranslations == 0
+              ? TranslationRunStatus.succeeded
+              : _successfulTranslations > 0
+                  ? TranslationRunStatus.partial
+                  : TranslationRunStatus.failed;
+        }
         _translationProgress = doneCount / toTranslate.length;
         _appliedPipelineTag = pipelineTag;
         notifyListeners();
@@ -960,9 +982,6 @@ mixin TranslationMixin on ChangeNotifier {
     }
     _translationRunId++;
     _isTranslating = false;
-    // Qua seam `_translationService` (production vẫn là singleton) để hàm
-    // này test được mà không dựng engine thật.
-    _translationService.activeEngineNotifier.value = null;
     for (var index = 0; index < lines.length; index++) {
       lines[index] = lines[index].copyWith(clearTranslation: true);
     }
@@ -1056,6 +1075,15 @@ mixin TranslationMixin on ChangeNotifier {
       restoreSavedRoleSwap();
     }
     return hits;
+  }
+
+  @override
+  void dispose() {
+    // Pending engine work may outlive a Read provider. Invalidate its results
+    // without clearing another screen's service-wide active-engine status.
+    _translationRunId++;
+    _isTranslating = false;
+    super.dispose();
   }
 }
 

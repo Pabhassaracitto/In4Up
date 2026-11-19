@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up/features/translation/engines/llm_mt_engine.dart';
 import 'package:in4up/features/translation/engines/translation_engine.dart';
 import 'package:in4up/features/translation/text_provider_translation.dart';
 import 'package:in4up/features/translation/translation_service.dart';
@@ -28,9 +30,15 @@ class RecordingTranslationEngine extends TranslationEngine {
   final List<String> log = [];
   Future<void>? waitFor;
   void Function()? onCall;
+  Future<void>? availabilityWaitFor;
+  void Function()? onAvailabilityCheck;
 
   @override
-  Future<bool> isAvailable() async => available;
+  Future<bool> isAvailable() async {
+    onAvailabilityCheck?.call();
+    await availabilityWaitFor;
+    return available;
+  }
 
   @override
   Future<TranslationResult> translate({
@@ -93,3 +101,40 @@ TranslationService translationTestService({
           dictionary ?? RecordingTranslationEngine('offline', succeeds: false),
       networkAvailable: network,
     );
+
+/// Exercise the real LLM engine's availability/policy gates without network,
+/// credentials or registering a provider in application settings.
+class TranslationTestLlmEnv implements LlmMtEnv {
+  TranslationTestLlmEnv({this.mode = AiRouteMode.onlineFirst});
+  AiRouteMode mode;
+  AiProviderConfig? provider = const AiProviderConfig(
+    id: 'translation-test',
+    label: 'Test server',
+    baseUrl: 'http://192.168.1.10:11434/v1',
+    translationModel: 'test-mt',
+  );
+
+  @override
+  Future<AiProviderConfig?> resolveProvider() async =>
+      mode == AiRouteMode.offlineOnly ? null : provider;
+  @override
+  Future<AiRouteMode> routeMode() async => mode;
+  @override
+  Future<bool> hasNetwork() async => true;
+}
+
+class TranslationTestLlmBackend implements LlmMtBackend {
+  int calls = 0;
+  @override
+  Future<String> chat({
+    required AiProviderConfig provider,
+    required String model,
+    required String systemPrompt,
+    required String userPrompt,
+    required int maxTokens,
+    required Duration timeout,
+  }) async {
+    calls++;
+    return 'Bản dịch LLM.';
+  }
+}

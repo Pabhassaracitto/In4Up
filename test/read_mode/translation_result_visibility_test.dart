@@ -159,6 +159,113 @@ void main() {
     expect(doc.translationStatus, TranslationRunStatus.idle);
   });
 
+  test(
+      'first successful batch line notifies immediately even after a failed first line',
+      () async {
+    final third = Completer<void>();
+    final startedThird = Completer<void>();
+    final engine = RecordingTranslationEngine('google_free');
+    engine.onCall = () {
+      engine.succeeds = engine.calls != 1;
+      if (engine.calls == 3) {
+        engine.waitFor = third.future;
+        startedThird.complete();
+      }
+    };
+    final doc = TranslationTestDocument();
+    await doc.prepare(translationTestService(google: engine), count: 3);
+    var observedSuccess = false;
+    doc.addListener(() {
+      if (doc.lines[1].translation != null) observedSuccess = true;
+    });
+    final run = doc.translateAll();
+    await startedThird.future;
+    expect(observedSuccess, isTrue,
+        reason: 'renderer must rebuild before the last line finishes');
+    expect(doc.isTranslating, isTrue);
+    third.complete();
+    await run;
+    expect(doc.translationStatus, TranslationRunStatus.partial);
+  });
+
+  test(
+      'five failures stop finitely without replacing the model error with a network guess',
+      () async {
+    final doc = TranslationTestDocument();
+    await doc.prepare(
+        translationTestService(
+          google: RecordingTranslationEngine('google_free', succeeds: false),
+        ),
+        count: 7);
+    await doc.translateAll();
+    expect(doc.failedTranslations, 5);
+    expect(doc.translationProgress, 5 / 7);
+    expect(doc.translationStatus, TranslationRunStatus.failed);
+    expect(doc.translationError, contains('model unavailable'));
+    expect(doc.translationError, isNot(contains('kết nối mạng')));
+    expect(doc.isTranslating, isFalse);
+  });
+
+  for (final batch in [false, true]) {
+    test(
+        'target changed by another screen cancels $batch, never leaves a translating outcome',
+        () async {
+      final entered = Completer<void>();
+      final pending = Completer<void>();
+      final engine = RecordingTranslationEngine('google_free')
+        ..waitFor = pending.future
+        ..onCall = entered.complete;
+      final service = translationTestService(google: engine);
+      final doc = TranslationTestDocument();
+      await doc.prepare(service);
+      final run = batch ? doc.translateAll() : doc.translateLine(0);
+      await entered.future;
+      service.configure(targetLang: 'DE');
+      pending.complete();
+      await run;
+      expect(doc.translationStatus, TranslationRunStatus.cancelled);
+      expect(doc.isTranslating, isFalse);
+      expect(doc.lines.first.translation, isNull);
+    });
+
+    test(
+        'disposing a document invalidates pending $batch work without notifying a disposed provider',
+        () async {
+      final entered = Completer<void>();
+      final pending = Completer<void>();
+      final engine = RecordingTranslationEngine('google_free')
+        ..waitFor = pending.future
+        ..onCall = entered.complete;
+      final doc = TranslationTestDocument();
+      await doc.prepare(translationTestService(google: engine));
+      final run = batch ? doc.translateAll() : doc.translateLine(0);
+      await entered.future;
+      doc.dispose();
+      pending.complete();
+      await run;
+      expect(doc.lines.first.translation, isNull);
+    });
+  }
+
+  test('clearing one document cannot clear another request active-engine label',
+      () async {
+    final entered = Completer<void>();
+    final pending = Completer<void>();
+    final engine = RecordingTranslationEngine('google_free')
+      ..waitFor = pending.future
+      ..onCall = entered.complete;
+    final service = translationTestService(google: engine);
+    final doc = TranslationTestDocument();
+    await doc.prepare(service);
+    final otherScreen = service.translateText('Hello', sourceLang: 'EN');
+    await entered.future;
+    doc.clearAllTranslations();
+    expect(service.activeEngineName, 'Google Translate');
+    pending.complete();
+    await otherScreen;
+    expect(service.activeEngineName, isNull);
+  });
+
   testWidgets(
       'result is visibly below original; status identifies preferred and fallback engine at 320px',
       (tester) async {

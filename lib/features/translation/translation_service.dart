@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:in4up_ai/in4up_ai.dart' show AiRouteMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
@@ -130,6 +131,7 @@ class TranslationService extends ChangeNotifier {
   bool _priorityChanged = false;
   bool _deeplxConfigured = false;
   bool _llmRunsFirst = false;
+  String _llmPolicyTag = '';
   List<String>? _enginePriority;
   int _activeEngineToken = 0;
 
@@ -369,7 +371,35 @@ class TranslationService extends ChangeNotifier {
   String get pipelineTag {
     final pref = _offlineEnginePref.name;
     final priority = _enginePriority?.join(',') ?? 'auto';
-    return '$pref|${_offlineOnly ? 'off' : 'on'}|$priority|${_deeplxUrl ?? ''}';
+    return '$pref|${_offlineOnly ? 'off' : 'on'}|$priority|${_deeplxUrl ?? ''}|$_llmPolicyTag';
+  }
+
+  /// Refresh the existing Server & API policy before cache lookup. Otherwise
+  /// changing its provider/model or automatic LLM order can return a previous
+  /// pipeline's cached text without ever entering the engine chain.
+  Future<void> refreshRoutingPolicy() async {
+    final llm = _llmMt;
+    if (llm == null) return;
+    var first = false;
+    var tag = 'unavailable';
+    try {
+      final mode = await llm.routeMode().timeout(const Duration(seconds: 6));
+      final provider =
+          await llm.currentProvider().timeout(const Duration(seconds: 6));
+      first = mode == AiRouteMode.onlineFirst;
+      // Deliberately exclude API keys and headers. These are local cache tags,
+      // not a second provider configuration store.
+      tag =
+          '${mode.name}|${provider?.id ?? ''}|${provider?.baseUrl ?? ''}|${provider?.effectiveTranslationModel ?? ''}';
+    } catch (_) {
+      // Same safe default as runsBeforeFreeOnlineEngines: do not block a
+      // working offline/free engine on an unavailable provider configuration.
+    }
+    if (_llmRunsFirst != first || _llmPolicyTag != tag) {
+      _llmRunsFirst = first;
+      _llmPolicyTag = tag;
+      notifyListeners();
+    }
   }
 
   List<String> get activeEngines => [
@@ -559,6 +589,14 @@ class TranslationService extends ChangeNotifier {
     bool skipCache = false,
   }) async {
     await settingsReady;
+    await refreshRoutingPolicy();
+    // One immutable order/tag for cache, mixed segments and pivot steps. A
+    // later settings edit applies to the NEXT request, not half of this one.
+    final routing = _TranslationRoutingSnapshot(
+      engines: _routingEngines,
+      offlinePreference: _offlineEnginePref,
+      cacheTag: pipelineTag,
+    );
     _totalRequests++;
 
     final trimmed = text.trim();
@@ -599,7 +637,7 @@ class TranslationService extends ChangeNotifier {
       // thành đúng ngôn ngữ đích ⇒ trước đây trả nguyên văn, người dùng
       // thấy "bấm Dịch không có gì xảy ra". Giờ soi từng mẩu câu: còn mẩu
       // ngoại ngữ thì vẫn dịch riêng mẩu đó rồi ghép lại.
-      final mixed = await _translateMixedLanguage(text, target);
+      final mixed = await _translateMixedLanguage(text, target, routing);
       if (mixed != null) return mixed;
 
       _lastUsedEngine = '↔️ Cùng ngôn ngữ';
@@ -617,7 +655,7 @@ class TranslationService extends ChangeNotifier {
         text: text,
         sourceLang: source.translationCode,
         targetLang: target.translationCode,
-        engine: pipelineTag,
+        engine: routing.cacheTag,
       );
       if (cached != null) {
         _cacheHits++;
@@ -634,7 +672,7 @@ class TranslationService extends ChangeNotifier {
 
     await _ensureGlossary();
     final hasNetwork = _offlineOnly ? false : await _checkNetwork();
-    return _translateWithPipeline(text, source, target, hasNetwork);
+    return _translateWithPipeline(text, source, target, hasNetwork, routing);
   }
 
   /// Dịch phần NGOẠI NGỮ của một đoạn đã cùng ngôn ngữ với đích.
@@ -645,6 +683,7 @@ class TranslationService extends ChangeNotifier {
   Future<TranslationResult?> _translateMixedLanguage(
     String text,
     AppLanguage target,
+    _TranslationRoutingSnapshot routing,
   ) async {
     final segments = segmentByLanguage(text, target: target);
     if (!segments.any((segment) => segment.isForeign)) return null;
@@ -656,6 +695,7 @@ class TranslationService extends ChangeNotifier {
     final engines = <String>{};
     final routes = <TranslationRoute>[];
     var translatedAny = false;
+    TranslationResult? lastFailure;
 
     for (final segment in segments) {
       if (!segment.isForeign) {
@@ -667,6 +707,7 @@ class TranslationService extends ChangeNotifier {
         segment.language,
         target,
         hasNetwork,
+        routing,
       );
       final translated = result.translatedText.trim();
       if (result.isSuccess && translated.isNotEmpty) {
@@ -676,10 +717,26 @@ class TranslationService extends ChangeNotifier {
         translatedAny = true;
       } else {
         buffer.write(segment.text);
+        lastFailure = result;
       }
     }
 
-    if (!translatedAny) return null;
+    // Foreign text was found: a total engine failure is NOT the same as
+    // same-language content. Do not report the unchanged source as success.
+    if (!translatedAny && lastFailure != null) {
+      return TranslationResult(
+        originalText: text,
+        translatedText: '',
+        isSuccess: false,
+        engineName: lastFailure.engineName,
+        error: lastFailure.error,
+        errorCode: lastFailure.errorCode,
+        missingModelCodes: lastFailure.missingModelCodes,
+        detectedLang: 'MIXED',
+        targetLang: target.translationCode,
+        route: lastFailure.route,
+      );
+    }
 
     _lastUsedEngine = '🧩 Hỗn hợp ngôn ngữ · ${engines.join(' · ')}';
     return TranslationResult.success(
@@ -699,11 +756,12 @@ class TranslationService extends ChangeNotifier {
     AppLanguage source,
     AppLanguage target,
     bool hasNetwork,
+    _TranslationRoutingSnapshot routing,
   ) async {
     final sourceCode = source.translationCode;
     final targetCode = target.translationCode;
-    final cacheTag = pipelineTag;
-    final steps = await _planSteps(sourceCode, targetCode);
+    final steps =
+        await _planSteps(sourceCode, targetCode, routing.offlinePreference);
 
     var current = text;
     var placeholderBase = 0;
@@ -734,6 +792,7 @@ class TranslationService extends ChangeNotifier {
         sourceCode: stepSource,
         targetCode: stepTarget,
         hasNetwork: hasNetwork,
+        routing: routing,
       );
       if (!result.isSuccess) {
         _lastUsedEngine = '❌ ${result.engineName}';
@@ -764,7 +823,7 @@ class TranslationService extends ChangeNotifier {
         sourceLang: sourceCode,
         targetLang: targetCode,
         translation: current,
-        engine: cacheTag,
+        engine: routing.cacheTag,
       );
     }
     _lastUsedEngine = glossaryHits > 0
@@ -843,8 +902,9 @@ class TranslationService extends ChangeNotifier {
   Future<List<(String, String)>> _planSteps(
     String sourceCode,
     String targetCode,
+    HyMtOfflinePreference offlinePreference,
   ) async {
-    final cacheKey = '$sourceCode>$targetCode|${_offlineEnginePref.name}';
+    final cacheKey = '$sourceCode>$targetCode|${offlinePreference.name}';
     final cached = _stepPlanCache[cacheKey];
     final cachedAt = _stepPlanCachedAt[cacheKey];
     if (cached != null &&
@@ -852,7 +912,8 @@ class TranslationService extends ChangeNotifier {
         DateTime.now().difference(cachedAt) < _stepPlanTtl) {
       return cached;
     }
-    final plan = await _planStepsUncached(sourceCode, targetCode);
+    final plan =
+        await _planStepsUncached(sourceCode, targetCode, offlinePreference);
     _stepPlanCache[cacheKey] = plan;
     _stepPlanCachedAt[cacheKey] = DateTime.now();
     return plan;
@@ -861,10 +922,11 @@ class TranslationService extends ChangeNotifier {
   Future<List<(String, String)>> _planStepsUncached(
     String sourceCode,
     String targetCode,
+    HyMtOfflinePreference offlinePreference,
   ) async {
     final hymt = _hymt;
     if (hymt != null &&
-        _offlineEnginePref != HyMtOfflinePreference.mlkit &&
+        offlinePreference != HyMtOfflinePreference.mlkit &&
         await hymt.hasModel &&
         HyMtPrompts.supports(sourceCode) &&
         HyMtPrompts.supports(targetCode)) {
@@ -915,17 +977,10 @@ class TranslationService extends ChangeNotifier {
     required String sourceCode,
     required String targetCode,
     required bool hasNetwork,
+    required _TranslationRoutingSnapshot routing,
   }) async {
     final llm = _llmMt;
-    if (llm != null) {
-      final first = await llm.runsBeforeFreeOnlineEngines();
-      if (_llmRunsFirst != first) {
-        _llmRunsFirst = first;
-        notifyListeners();
-      }
-    }
-    // Snapshot once: another screen may edit settings while this request runs.
-    final engines = _routingEngines;
+    final engines = routing.engines;
     final selected = engines.first;
     final attempted = <String>[];
     TranslationResult? sentenceFailure;
@@ -946,7 +1001,9 @@ class TranslationService extends ChangeNotifier {
         // Model/provider availability checks are local; never download models
         // or probe an online server merely to build/reorder the settings list.
         if ((identical(engine, _mlkit) || identical(engine, llm)) &&
-            !await engine.isAvailable()) {
+            !await engine
+                .isAvailable()
+                .timeout(const Duration(seconds: 5), onTimeout: () => false)) {
           continue;
         }
       } catch (_) {
@@ -985,6 +1042,10 @@ class TranslationService extends ChangeNotifier {
                   sourceCode,
                   targetCode,
                 ))) {
+          debugPrint(
+            '⏭️ ${engine.name}: trả về NGÔN NGỮ NGUỒN '
+            '($sourceCode→$targetCode) ⇒ bỏ qua, thử engine kế.',
+          );
           result = TranslationResult.failure(
             original: text,
             error: 'The engine returned untranslated text',
@@ -1011,7 +1072,7 @@ class TranslationService extends ChangeNotifier {
       // Preserve the existing explicit Hy-MT + offline-only contract.
       if (identical(engine, _hymt) &&
           _offlineOnly &&
-          _offlineEnginePref == HyMtOfflinePreference.hymt) {
+          routing.offlinePreference == HyMtOfflinePreference.hymt) {
         return traced(result);
       }
       debugPrint('❌ ${engine.name}: ${result.error}');
@@ -1168,7 +1229,9 @@ class TranslationService extends ChangeNotifier {
       return cached;
     }
     try {
-      final result = await Connectivity().checkConnectivity();
+      final result = await Connectivity()
+          .checkConnectivity()
+          .timeout(const Duration(seconds: 5));
       final online = result.any(
         (entry) =>
             entry == ConnectivityResult.wifi ||
@@ -1215,8 +1278,7 @@ class TranslationService extends ChangeNotifier {
           _deeplxRejectedUrl = savedDeeplxUrl.trim();
         }
       }
-      final llm = _llmMt;
-      if (llm != null) _llmRunsFirst = await llm.runsBeforeFreeOnlineEngines();
+      await refreshRoutingPolicy();
     } catch (error) {
       debugPrint('Translation settings load: $error');
     }
@@ -1249,4 +1311,16 @@ class TranslationService extends ChangeNotifier {
   static set targetLangStatic(String lang) {
     TranslationService().configure(targetLang: lang);
   }
+}
+
+class _TranslationRoutingSnapshot {
+  final List<TranslationEngine> engines;
+  final HyMtOfflinePreference offlinePreference;
+  final String cacheTag;
+
+  _TranslationRoutingSnapshot({
+    required Iterable<TranslationEngine> engines,
+    required this.offlinePreference,
+    required this.cacheTag,
+  }) : engines = List.unmodifiable(engines);
 }

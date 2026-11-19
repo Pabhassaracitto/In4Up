@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up/features/translation/engines/llm_mt_engine.dart';
 
 import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/core/language/translation_ui_labels.dart';
@@ -282,6 +284,109 @@ void main() {
       expect(service.selectedEngineId, 'mlkit');
       final next = await service.translateText('Hello', sourceLang: 'EN');
       expect(next.engineName, 'ML Kit On-Device');
+    });
+  });
+
+  group('Shared engine priority — Server & API and request snapshots', () {
+    test(
+        'custom priority overrides automatic LLM placement, not its provider gate',
+        () async {
+      final env = TranslationTestLlmEnv();
+      final backend = TranslationTestLlmBackend();
+      final service = TranslationService.forTest(
+        onlineEngines: [RecordingTranslationEngine('google_free')],
+        mlkitEngine: RecordingTranslationEngine('mlkit'),
+        offlineEngine: RecordingTranslationEngine('offline', succeeds: false),
+        llmMtEngine: LlmMtEngine.forTest(env: env, backend: backend),
+        networkAvailable: true,
+      );
+      await service.refreshRoutingPolicy();
+      expect(service.selectedEngineId, 'llm_mt');
+      service.preferEngine('mlkit');
+      final offline = await service.translateText('Hello', sourceLang: 'EN');
+      expect(offline.route?.actualEngineId, 'mlkit');
+      expect(backend.calls, 0);
+      env.mode = AiRouteMode.offlineOnly;
+      service.preferEngine('llm_mt');
+      final gated = await service.translateText('Hello', sourceLang: 'EN');
+      expect(gated.route?.selectedEngineId, 'llm_mt');
+      expect(gated.route?.actualEngineId, 'mlkit');
+      expect(gated.route?.usedFallback, isTrue);
+      expect(backend.calls, 0);
+    });
+
+    test(
+        'changing existing LLM route/model cannot hit the previous pipeline cache',
+        () async {
+      final env = TranslationTestLlmEnv();
+      final backend = TranslationTestLlmBackend();
+      final service = TranslationService.forTest(
+        onlineEngines: [RecordingTranslationEngine('google_free')],
+        mlkitEngine: RecordingTranslationEngine('mlkit'),
+        offlineEngine: RecordingTranslationEngine('offline', succeeds: false),
+        llmMtEngine: LlmMtEngine.forTest(env: env, backend: backend),
+        networkAvailable: true,
+      );
+      expect(
+          (await service.translateText('Hello', sourceLang: 'EN')).engineName,
+          'LLM API');
+      expect(
+          (await service.translateText('Hello', sourceLang: 'EN')).engineName,
+          'cache');
+      final previousTag = service.pipelineTag;
+      env.mode = AiRouteMode.offlineFirst;
+      expect(
+          (await service.translateText('Hello', sourceLang: 'EN')).engineName,
+          'Google Translate');
+      expect(service.pipelineTag, isNot(previousTag));
+      env.mode = AiRouteMode.onlineFirst;
+      env.provider = env.provider!.copyWith(translationModel: 'next-mt-model');
+      expect(
+          (await service.translateText('Hello', sourceLang: 'EN')).engineName,
+          'LLM API');
+      expect(backend.calls, 2);
+    });
+
+    test(
+        'priority remains fixed while a pivot plan is awaiting model readiness',
+        () async {
+      final entered = Completer<void>();
+      final pending = Completer<void>();
+      final mlkit = RecordingTranslationEngine('mlkit')
+        ..availabilityWaitFor = pending.future
+        ..onAvailabilityCheck = () {
+          if (!entered.isCompleted) entered.complete();
+        };
+      final google = RecordingTranslationEngine('google_free');
+      final service = translationTestService(google: google, mlkit: mlkit);
+      final run = service.translateText('नमस्ते', sourceLang: 'HI');
+      await entered.future;
+      service.preferEngine('mlkit');
+      pending.complete();
+      final first = await run;
+      expect(first.route?.selectedEngineId, 'google_free');
+      expect(first.route?.actualEngineId, 'google_free');
+      expect(google.calls, 2,
+          reason: 'both pivot steps use the same request snapshot');
+      final next = await service.translateText('नमस्ते', sourceLang: 'HI');
+      expect(next.route?.actualEngineId, 'mlkit');
+      expect(mlkit.calls, 2,
+          reason: 'old in-flight result was not cached under the new order');
+    });
+
+    test(
+        'a mixed-language engine failure cannot be reported as same-language success',
+        () async {
+      final service = translationTestService(
+          google: RecordingTranslationEngine('google_free', succeeds: false));
+      final result = await service.translateText(
+        'Hôm nay tôi học bài mới. The quick brown fox jumps over the lazy dog. Bài học này rất thú vị.',
+        sourceLang: 'VI',
+        targetLang: 'VI',
+      );
+      expect(result.isSuccess, isFalse);
+      expect(result.engineName, isNot('same-language'));
+      expect(result.route?.actualEngineId, isNull);
     });
   });
 

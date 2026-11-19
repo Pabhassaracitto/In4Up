@@ -23,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/files/incoming_file_router.dart';
 import 'core/responsive/app_responsive.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
+import 'features/ocr/ocr_service.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/audio_library_provider.dart';
@@ -474,6 +475,14 @@ class _MyAppState extends State<MyApp> {
           create: (_) {
             final facade = AiServiceFacade();
             facade.initializeAsync();
+            // PSRC-253: lấy TỔNG RAM ĐO ĐƯỢC từ native (Android). Nền tảng
+            // khác/kênh cũ không trả số liệu ⇒ facade giữ null, UI nói rõ
+            // "không có số liệu" thay vì giả định RAM.
+            unawaited(
+              OcrService.instance.probeCapabilities().then(
+                    (caps) => facade.setMeasuredTotalRamBytes(caps.totalRamBytes),
+                  ),
+            );
             return facade;
           },
         ),

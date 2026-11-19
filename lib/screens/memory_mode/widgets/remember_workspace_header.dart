@@ -32,7 +32,7 @@ const Key rememberToolStatsKey = Key('remember_tool_stats');
 const Key rememberToolWordMapKey = Key('remember_tool_word_map');
 const Key rememberToolQuickActionsKey = Key('remember_tool_quick_actions');
 
-class RememberWorkspaceHeader extends StatelessWidget {
+class RememberWorkspaceHeader extends StatefulWidget {
   /// Số từ đến hạn ôn (badge trên banner + CTA chính).
   final int dueCount;
 
@@ -52,19 +52,33 @@ class RememberWorkspaceHeader extends StatelessWidget {
     required this.dueCount,
     required this.totalWords,
     required this.onOpenReview,
+    required this.onOpenLearnByHeart,
     required this.onOpenWordList,
     required this.onOpenTimeline,
     required this.onOpenStats,
     required this.onOpenMap,
     required this.onOpenQuickActions,
-    this.onOpenLearnByHeart,
   });
+
+  @override
+  State<RememberWorkspaceHeader> createState() =>
+      _RememberWorkspaceHeaderState();
+}
+
+class _RememberWorkspaceHeaderState extends State<RememberWorkspaceHeader> {
+  /// PSRC-255 — mặc định GỌN: chỉ tiêu đề + số đến hạn. Mô tả và tổng số từ
+  /// mở ra khi cần, không ép người dùng cuộn qua cả banner dài.
+  bool _detailsExpanded = false;
+
+  /// Nhóm công cụ "Xem tiến độ" cũng gọn: một dòng + mũi tên; bấm mới hiện
+  /// các chip. Không xoá/bỏ callback nào.
+  bool _toolsExpanded = false;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
         border: Border(
@@ -75,20 +89,19 @@ class RememberWorkspaceHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBanner(context),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _buildPrimaryActions(context),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _buildProgressTools(context),
         ],
       ),
     );
   }
 
-  // ── Tầng 0: banner nhận diện + badge số liệu ───────────────────────────
   Widget _buildBanner(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -98,134 +111,139 @@ class RememberWorkspaceHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: const Color(0xFF4CAF50).withValues(alpha: 0.24),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Expanded(
+                child: Text(
                   context.uiText('Nhớ · Retention Workspace'),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.uiText(
-                    'Tập trung vào ôn tập, duy trì ký ức dài hạn và nhìn lại tiến độ từ vựng.',
-                  ),
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11.5,
-                    height: 1.3,
-                  ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+              ),
               _StatPill(
                 key: rememberDueBadgeKey,
-                value: '$dueCount',
+                value: '${widget.dueCount}',
                 label: 'Đến hạn',
                 color: const Color(0xFF81C784),
               ),
-              const SizedBox(height: 8),
-              _StatPill(
-                value: '$totalWords',
-                label: 'Tổng từ',
-                color: const Color(0xFFA5D6A7),
+              IconButton(
+                key: rememberDetailsToggleKey,
+                tooltip: context.uiText(
+                  _detailsExpanded ? 'Thu gọn chi tiết' : 'Xem chi tiết',
+                ),
+                icon: Icon(
+                  _detailsExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: Colors.white70,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () =>
+                    setState(() => _detailsExpanded = !_detailsExpanded),
               ),
             ],
           ),
+          if (_detailsExpanded) ...[
+            const SizedBox(height: 6),
+            Text(
+              context.uiText(
+                'Tập trung vào ôn tập, duy trì ký ức dài hạn và nhìn lại tiến độ từ vựng.',
+              ),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11.5,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 6),
+            _StatPill(
+              value: '${widget.totalWords}',
+              label: 'Tổng từ',
+              color: const Color(0xFFA5D6A7),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // ── Tầng 1: hoạt động học chính ────────────────────────────────────────
   Widget _buildPrimaryActions(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          height: 48,
-          child: ElevatedButton(
-            key: rememberPrimaryCtaKey,
-            onPressed: onOpenReview,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.school, size: 20),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    context.uiText('Ôn tập ngay'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                if (dueCount > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      context.uiText('$dueCount'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+    final review = SizedBox(
+      height: 46,
+      child: ElevatedButton(
+        key: rememberPrimaryCtaKey,
+        onPressed: widget.onOpenReview,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF4CAF50),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
-        if (onOpenLearnByHeart != null) ...[
-          const SizedBox(height: 8),
-          SizedBox(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.school, size: 18),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                context.uiText('Ôn tập ngay'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (widget.dueCount > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  context.uiText('${widget.dueCount}'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    final learn = widget.onOpenLearnByHeart == null
+        ? null
+        : SizedBox(
             height: 44,
             child: OutlinedButton.icon(
               key: rememberLearnByHeartKey,
-              onPressed: onOpenLearnByHeart,
+              onPressed: widget.onOpenLearnByHeart,
               icon: const Icon(Icons.auto_stories_rounded, size: 18),
               label: const Text(
                 'Thuộc lòng',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF81C784),
@@ -237,86 +255,125 @@ class RememberWorkspaceHeader extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ],
-      ],
+          );
+
+    // Màn đủ rộng: các hoạt động học chính đứng cạnh nhau, tiết kiệm chiều
+    // cao. Màn hẹp (≤480dp): xếp dọc để chữ không bị ép.
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth >= 480 && learn != null
+          ? Row(
+              children: [
+                Expanded(child: review),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 190),
+                  child: learn,
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                review,
+                if (learn != null) ...[
+                  const SizedBox(height: 6),
+                  learn,
+                ],
+              ],
+            ),
     );
   }
 
-  // ── Tầng 2: công cụ xem dữ liệu ("Xem tiến độ") ────────────────────────
-  //
-  // AUDIT-2026-10-20 (mục 3): nhóm này nay dùng cơ chế 2 TẦNG (gộp ⇄ bung
-  // bằng mũi tên) giống thanh phát trong vùng đọc — mặc định GỘP (chỉ
-  // icon) cho gọn, bấm mũi tên để bung nhãn. Trước đây CẢ thanh chức năng
-  // bị `AutoHideInfoBanner` ẩn sau 5 giây ⇒ người dùng chưa kịp chọn.
   Widget _buildProgressTools(BuildContext context) {
     return Column(
-      key: rememberProgressGroupKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            context.uiText('Xem tiến độ').toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: Colors.grey,
-              letterSpacing: 1.2,
+        InkWell(
+          key: rememberProgressGroupKey,
+          onTap: () => setState(() => _toolsExpanded = !_toolsExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  context.uiText('Xem tiến độ').toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.grey,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  context.uiText('5 công cụ'),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+                const Spacer(),
+                Icon(
+                  _toolsExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              ],
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: CollapsibleActionBar(
-            actions: [
-              CollapsibleAction(
-                widgetKey: rememberToolWordListKey,
-                label: 'Word List',
-                icon: Icons.format_list_bulleted,
-                active: true,
-                activeColor: const Color(0xFF6C63FF),
-                onPressed: onOpenWordList,
-              ),
-              CollapsibleAction(
-                widgetKey: rememberToolTimelineKey,
-                label: 'Timeline',
-                icon: Icons.timeline,
-                active: true,
-                activeColor: const Color(0xFF9C27B0),
-                onPressed: onOpenTimeline,
-              ),
-              CollapsibleAction(
-                widgetKey: rememberToolStatsKey,
-                label: context.uiText('Thống kê'),
-                icon: Icons.bar_chart_rounded,
-                active: true,
-                activeColor: const Color(0xFF42A5F5),
-                onPressed: onOpenStats,
-              ),
-              CollapsibleAction(
-                widgetKey: rememberToolWordMapKey,
-                label: 'Word Map',
-                icon: Icons.map_outlined,
-                active: true,
-                activeColor: const Color(0xFF26C6DA),
-                onPressed: onOpenMap,
-              ),
-              CollapsibleAction(
-                widgetKey: rememberToolQuickActionsKey,
-                label: context.uiText('Công cụ nhanh'),
-                icon: Icons.auto_awesome,
-                active: true,
-                activeColor: const Color(0xFF81C784),
-                onPressed: onOpenQuickActions,
-              ),
-            ],
+        if (_toolsExpanded)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: CollapsibleActionBar(
+              actions: [
+                CollapsibleAction(
+                  widgetKey: rememberToolWordListKey,
+                  label: 'Word List',
+                  icon: Icons.format_list_bulleted,
+                  active: true,
+                  activeColor: const Color(0xFF6C63FF),
+                  onPressed: widget.onOpenWordList,
+                ),
+                CollapsibleAction(
+                  widgetKey: rememberToolTimelineKey,
+                  label: 'Timeline',
+                  icon: Icons.timeline,
+                  active: true,
+                  activeColor: const Color(0xFF9C27B0),
+                  onPressed: widget.onOpenTimeline,
+                ),
+                CollapsibleAction(
+                  widgetKey: rememberToolStatsKey,
+                  label: context.uiText('Thống kê'),
+                  icon: Icons.bar_chart_rounded,
+                  active: true,
+                  activeColor: const Color(0xFF42A5F5),
+                  onPressed: widget.onOpenStats,
+                ),
+                CollapsibleAction(
+                  widgetKey: rememberToolWordMapKey,
+                  label: 'Word Map',
+                  icon: Icons.map_outlined,
+                  active: true,
+                  activeColor: const Color(0xFF26C6DA),
+                  onPressed: widget.onOpenMap,
+                ),
+                CollapsibleAction(
+                  widgetKey: rememberToolQuickActionsKey,
+                  label: context.uiText('Công cụ nhanh'),
+                  icon: Icons.auto_awesome,
+                  active: true,
+                  activeColor: const Color(0xFF81C784),
+                  onPressed: widget.onOpenQuickActions,
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
 }
+
+/// Nút bật/tắt phần chi tiết của banner (mặc định gọn).
+const Key rememberDetailsToggleKey = Key('remember_details_toggle');
 
 class _StatPill extends StatelessWidget {
   final String value;

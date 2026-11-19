@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "Reader overrides",
+  "ttsSharedSettings": "Shared voice settings",
+  "ttsInherit": "Use shared settings",
+  "ttsOverride": "Override",
+  "ttsLastPlayback": "Last playback",
   "commandCenter": "មជ្ឈមណ្ឌលបញ្ជា",
   "knowledgeOS": "ប្រព័ន្ធប្រតិបត្តិការចំណេះដឹង",
   "manageAIModels": "គ្រប់គ្រងម៉ូដែល AI",

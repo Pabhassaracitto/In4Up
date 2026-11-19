@@ -41,6 +41,7 @@ class FlutterTtsServiceImpl implements TtsService {
       await _appTts.speak(
         text,
         language: _activeLocale,
+        reader: app_tts.TtsReader.read,
         matchVoiceLanguage: true,
       );
 

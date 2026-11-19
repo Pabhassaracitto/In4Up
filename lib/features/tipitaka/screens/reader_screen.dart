@@ -1,3 +1,4 @@
+import 'package:in4up/features/tts/widgets/reader_voice_tile.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -654,6 +655,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                     ),
                     const SizedBox(height: 10),
                     _SettingsSectionLabel(context.uiText('Tốc độ đọc')),
+                    const ReaderVoiceTile(TtsReader.tipitaka),
                     Row(
                       children: [
                         Expanded(
@@ -1038,7 +1040,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   ) async {
     for (final chunk in _speechChunks(segment)) {
       if (generation != _globalTtsGeneration) return;
-      await _tts.speak(chunk.text, language: chunk.languageCode);
+      await _tts.speak(chunk.text, reader: TtsReader.tipitaka, language: chunk.languageCode, matchVoiceLanguage: true);
     }
   }
 

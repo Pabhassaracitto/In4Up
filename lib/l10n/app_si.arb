@@ -1,4 +1,9 @@
 {
+  "ttsReaderOverrides": "කියවනය අනුව සැකසුම්",
+  "ttsSharedSettings": "පොදු හඬ සැකසුම්",
+  "ttsInherit": "පොදු සැකසුම් භාවිත කරන්න",
+  "ttsOverride": "වෙනම සැකසුම",
+  "ttsLastPlayback": "අවසන් වරට වාදනය කළේ",
   "@@locale": "si",
   "tipitakaCommentaries": "අටුවා",
   "tipitakaSubcommentaries": "ටීකා",

@@ -122,6 +122,33 @@ void main() {
     );
   });
 
+  test('Content-Length chỉ lấy số thập phân dương, không đoán từ URL/tên file', () {
+    expect(parseHttpContentLength(' 1610612736 '), 1610612736);
+    expect(parseHttpContentLength('0'), isNull);
+    expect(parseHttpContentLength('-1'), isNull);
+    expect(parseHttpContentLength('1.5GB'), isNull);
+    expect(parseHttpContentLength(''), isNull);
+    expect(parseHttpContentLength(null), isNull);
+    expect(formatAiDownloadSize(1610612736), '1.5 GB');
+    expect(formatAiDownloadSize(512 * _mib), '512 MB');
+  });
+
+  test('dung lượng HEAD dùng chung ngưỡng RAM với preflight sau tải', () {
+    const probe = AiDownloadSizeProbe(
+      contentLengthBytes: 4096 * _mib,
+      source: AiDownloadProbeSource.head,
+    );
+    expect(probe.hasSize, isTrue);
+    final verdict = assessAiLocalModelFit(
+      modelFileBytes: probe.contentLengthBytes!,
+      totalRamBytes: 2048 * _mib,
+    );
+    expect(verdict.isBlocked, isTrue);
+
+    const unavailable = AiDownloadSizeProbe.unavailable();
+    expect(unavailable.hasSize, isFalse);
+  });
+
   test('RAM đỉnh là ước tính, không phải số đo', () {
     final verdict = assessAiLocalModelFit(
       modelFileBytes: 2000 * _mib,

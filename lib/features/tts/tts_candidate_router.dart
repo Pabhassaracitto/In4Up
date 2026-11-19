@@ -10,6 +10,7 @@ List<TtsEngineInfo> orderTtsCandidates({
   required Iterable<TtsEngineInfo> engines,
   required TtsPriority priority,
   String? preferredEngineId,
+  String? readerEngineId,
 }) {
   final enabled = engines.where((engine) => engine.isEnabled).toList()
     ..sort((a, b) => a.priority.compareTo(b.priority));
@@ -35,15 +36,24 @@ List<TtsEngineInfo> orderTtsCandidates({
       enabled.where((engine) => !engine.isOnline).toList(),
   };
 
-  if (priority == TtsPriority.offlineOnly || preferredEngineId == null) {
-    return ordered;
+  // Promote within the allowed set only. If the local choice cannot play,
+  // continue with exactly the common route (including a pinned Edge voice).
+  for (final id in [preferredEngineId, readerEngineId]) {
+    final index = ordered.indexWhere((engine) => engine.id == id);
+    if (index > 0) ordered.insert(0, ordered.removeAt(index));
   }
+  return ordered;
+}
 
-  final preferred = enabled.where((engine) => engine.id == preferredEngineId);
-  if (preferred.isEmpty) return ordered;
-  final selected = preferred.first;
-  return [
-    selected,
-    ...ordered.where((engine) => engine.id != selected.id),
-  ];
+/// An unavailable/failed candidate is not a settings change. Stop at the first
+/// successful playback, and never start a fallback after cancellation.
+Future<bool> playFirstAvailable(Iterable<TtsEngineInfo> candidates, {
+  required bool Function() cancelled,
+  required Future<bool> Function(TtsEngineInfo) play,
+}) async {
+  for (final candidate in candidates) {
+    if (cancelled()) break;
+    if (await play(candidate)) return true;
+  }
+  return false;
 }

@@ -22,7 +22,7 @@ void main() {
     expect(translation, greaterThan(target));
     expect(RegExp('sourceLang: chunkSourceLang').allMatches(body).length, 3);
     expect(RegExp('targetLang: chunkTargetLang').allMatches(body).length, 3);
-    expect(body, contains('_tts.configure(language: chunkTargetLang)'));
+    expect(body, contains('_tts.speak(translated, language: chunkTargetLang)'));
   });
 
   test('per-entry direction survives edit, finish and saved journal reload', () async {

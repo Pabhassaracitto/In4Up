@@ -22,6 +22,7 @@ import '../engines/vieneu_tts_engine.dart';
 import '../vieneu_g2p_dictionary.dart';
 import '../engines/edge_tts_engine.dart';
 import 'voice_clone_section.dart';
+import 'reader_voice_tile.dart';
 import '../engines/tts_engine.dart';
 import '../piper_voice_prefs.dart';
 import '../tts_service.dart';
@@ -94,6 +95,11 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
             ),
             const SizedBox(height: 12),
 
+            ExpansionTile(
+              title: Text(AppLocalizations.of(context).ttsReaderOverrides),
+              children: [for (final reader in TtsReader.values) ReaderVoiceTile(reader)],
+            ),
+            Text(AppLocalizations.of(context).ttsSharedSettings),
             // ── PRIORITY MODE ──
             _PrioritySelector(
               current: _ttsService.priority,

@@ -210,7 +210,7 @@ void main() {
       expect(playCurrent, greaterThan(prepareNext));
     });
 
-    test('engine hỏng giữa dòng ⇒ đọc nốt bằng giọng máy, không đọc lại từ đầu',
+    test('engine hỏng giữa dòng ⇒ engine kế đọc nốt, không đọc lại từ đầu',
         () {
       final body = _between(
         service,
@@ -220,7 +220,8 @@ void main() {
       expect(body.contains('if (i == 0) return false;'), isTrue,
           reason: 'chỉ trả false khi CHƯA phát được gì');
       expect(body.contains('chunks.sublist(from).join('), isTrue);
-      expect(body.contains('_trySpeakOffline('), isTrue);
+      expect(body.contains('continueFrom(chunks.sublist(from)'), isTrue);
+      expect(body.contains('_trySpeakOffline('), isFalse);
     });
   });
 

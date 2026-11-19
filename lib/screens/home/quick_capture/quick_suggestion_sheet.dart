@@ -75,10 +75,9 @@ class _QuickSuggestionSheetState extends State<QuickSuggestionSheet> {
     }
     final language = suggestion.entry.language.trim();
     try {
-      _tts.configure(language: language.isEmpty ? 'auto' : language);
       _speaking = true;
       if (mounted) setState(() {});
-      await _tts.speak(suggestion.word);
+      await _tts.speak(suggestion.word, language: language.isEmpty ? 'auto' : language);
     } catch (_) {
       // TTS không khả dụng (thiếu model Piper / engine máy) — im lặng bỏ qua,
       // word/IPA/nghĩa vẫn hiện đủ.

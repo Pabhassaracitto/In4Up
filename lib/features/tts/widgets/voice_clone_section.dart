@@ -922,8 +922,9 @@ class _ClonedVoice {
   });
 }
 
-/// Một dòng trong danh sách giọng đã clone.
-class _ClonedVoiceTile extends StatelessWidget {
+/// Một dòng trong danh sách giọng đã clone (có thể mở rộng để xem các mẫu
+/// thành phần trong `cloned_voices/<id>/samples/`).
+class _ClonedVoiceTile extends StatefulWidget {
   final _ClonedVoice voice;
   final Color primaryColor;
   final Future<void> Function(_ClonedVoice) onDelete;
@@ -935,8 +936,53 @@ class _ClonedVoiceTile extends StatelessWidget {
   });
 
   @override
+  State<_ClonedVoiceTile> createState() => _ClonedVoiceTileState();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _ClonedVoiceTile &&
+          runtimeType == other.runtimeType &&
+          voice == other.voice;
+
+  @override
+  int get hashCode => voice.hashCode;
+}
+
+class _ClonedVoiceTileState extends State<_ClonedVoiceTile> {
+  bool _expanded = false;
+  List<File>? _sampleFiles;
+
+  Future<void> _toggleExpand() async {
+    final next = !_expanded;
+    setState(() => _expanded = next);
+    if (next && _sampleFiles == null) {
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final samplesDir = Directory(
+          p.join(docDir.path, 'vieneu_tts', 'cloned_voices', widget.voice.id, 'samples'),
+        );
+        if (await samplesDir.exists()) {
+          final files = await samplesDir
+              .list(followLinks: false)
+              .where((e) => e is File)
+              .cast<File>()
+              .toList();
+          files.sort((a, b) => p.basename(a.path).compareTo(p.basename(b.path)));
+          if (mounted) setState(() => _sampleFiles = files);
+        } else {
+          if (mounted) setState(() => _sampleFiles = const []);
+        }
+      } catch (_) {
+        if (mounted) setState(() => _sampleFiles = const []);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final voice = widget.voice;
     // PSRC-171: dữ liệu giọng là `ref_codes.txt` (mã hoá thật), không còn là
     // `speaker.emb.txt` placeholder. Giọng cũ tạo bằng bản 1.28 không có ref
     // codes ⇒ hiện trạng thái "chưa có dữ liệu giọng" để người dùng tạo lại.
@@ -950,38 +996,69 @@ class _ClonedVoiceTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: ListTile(
-        dense: true,
-        // Voice IDs are user content, not presentation strings.
-        title: material.Text(
-          voice.id,
-          style: const TextStyle(fontSize: 12, color: Colors.white),
-        ),
-        subtitle: Text(
-          '${l10n.ttsCloneVoiceSamplesCount(voice.sampleCount)} · $embeddingStatus',
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(Icons.delete, color: Colors.red[300], size: 18),
-              onPressed: () => onDelete(voice),
-              tooltip: l10n.ttsCloneVoiceDelete,
+      child: Column(
+        children: [
+          ListTile(
+            dense: true,
+            onTap: voice.sampleCount > 0 ? _toggleExpand : null,
+            // Voice IDs are user content, not presentation strings.
+            title: material.Text(
+              voice.id,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
-          ],
-        ),
+            subtitle: Text(
+              '${l10n.ttsCloneVoiceSamplesCount(voice.sampleCount)} · $embeddingStatus',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (voice.sampleCount > 0)
+                  IconButton(
+                    icon: Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.grey[400],
+                      size: 18,
+                    ),
+                    onPressed: _toggleExpand,
+                  ),
+                IconButton(
+                  icon: Icon(Icons.delete, color: Colors.red[300], size: 18),
+                  onPressed: () => widget.onDelete(voice),
+                  tooltip: l10n.ttsCloneVoiceDelete,
+                ),
+              ],
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: _sampleFiles == null
+                  ? const SizedBox(
+                      height: 20,
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final f in _sampleFiles!)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: material.Text(
+                              '• ${p.basename(f.path)} (${(f.lengthSync() / 1024).toStringAsFixed(0)} KB)',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+        ],
       ),
     );
   }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _ClonedVoiceTile &&
-          runtimeType == other.runtimeType &&
-          voice == other.voice;
-
-  @override
-  int get hashCode => voice.hashCode;
 }

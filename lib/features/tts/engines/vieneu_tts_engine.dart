@@ -328,8 +328,17 @@ class VieneuTtsEngine implements TtsEngine {
       // ⇒ trước đây import báo thành công nhưng giọng KHÔNG hiện trong danh
       // sách; nay nhận ra bằng nội dung và truyền thẳng đường dẫn xuống native
       // (audio.cpp không quan tâm tên file).
+      //
+      // PSRC-249 — dùng `isVoice` (kể cả giọng CHỈ có mẫu WAV), KHÔNG dùng
+      // `usable`. Trước 1.29 giọng wav-only bị import (vì
+      // `folderHasVieneuVoiceData` dùng `isVoice`) nhưng KHÔNG bao giờ liệt
+      // kê ở đây ⇒ người dùng import xong vẫn không thấy giọng trong danh
+      // sách chọn, và `_materializeSample` không bao giờ chạy vì giọng không
+      // có trong `_voiceIndex`. Giọng wav-only được mã hoá thành
+      // `ref_codes.txt` ngay lần `selectVoice` đầu tiên (xem
+      // `_materializeSample`), nên phải hiện ra để người dùng chọn được.
       final resolved = await resolveVieneuVoiceFiles(entity);
-      if (!resolved.usable) continue;
+      if (!resolved.isVoice) continue;
       if (resolved.resolvedByContent) {
         debugPrint('ℹ️ VieNeu: giọng "$voiceId" nhận theo nội dung '
             '(ref=${resolved.refCodesPath == null ? '-' : p.basename(resolved.refCodesPath!)}, '
@@ -477,7 +486,24 @@ class VieneuTtsEngine implements TtsEngine {
       _workerVoiceId = null;
     }
     _lastInitError = null;
-    final model = await VieneuTtsCore.modelPathFor(modelVariant);
+    // PSRC-249 — rớt về biến thể CÓ FILE THẬT khi biến thể được yêu cầu chưa
+    // có file (giống `probe()` và `isAvailable()`). Trước 1.29 `_initOnce`
+    // chỉ hỏi đúng `modelVariant` trong khi `isAvailable()`/`probe()` rớt về
+    // biến thể khác ⇒ prefs ghi bf16 nhưng đĩa chỉ có q8_0 thì
+    // `isAvailable()` trả true, `_trySpeakVieneu` tưởng engine sẵn sàng rồi
+    // rơi về Piper mà không có lý do nào hiện ra. Đồng bộ `_modelVariant`
+    // về biến thể thật để `synthesize()` dùng đúng file.
+    var model = await VieneuTtsCore.modelPathFor(modelVariant);
+    if (model == null) {
+      for (final candidate in VieneuModelVariant.values) {
+        if (candidate == modelVariant) continue;
+        model = await VieneuTtsCore.modelPathFor(candidate);
+        if (model != null) {
+          _modelVariant = candidate;
+          break;
+        }
+      }
+    }
     if (model == null) {
       _initialized = false;
       _workerVoiceId = null;

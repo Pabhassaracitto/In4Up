@@ -349,9 +349,71 @@ Future<bool> _folderHasAnyTextContent(Directory folder) async {
   return false;
 }
 
-/// Liệt kê các THƯ MỤC GIỌNG trong [source]:
+/// Gom mọi thư mục là MỘT GIỌNG (theo NỘI DUNG) trong cây [dir], độ sâu
+/// tối đa [maxDepth]. Gặp thư mục giọng thì dừng nhánh đó (tránh `samples/`
+/// bị đếm thành giọng thứ hai). Bỏ thư mục ẩn/hệ thống (tên bắt đầu bằng
+/// `.` hoặc `_`, gồm cả `_temp_samples`).
+///
+/// PSRC-249 — bản cũ của [findVieneuVoiceFolders] chỉ kiểm MỘT cấp con nên
+/// giọng nằm sâu hơn (vd. người dùng chọn thẳng thư mục gốc của gói mà
+/// giọng nằm ở `voices/<tên>/`, hoặc gói đổi tên thư mục) đều ra 0 giọng
+/// và UI báo "thư mục không có dữ liệu giọng hợp lệ" dù file TXT hợp lệ
+/// vẫn nằm bên trong. Quét đệ quy theo nội dung thay vì theo tên cố định.
+/// Lỗi `list()` (SAF) được ném lên để caller phân loại `unreadable`.
+Future<void> collectVieneuVoiceFolders(
+  Directory dir,
+  List<Directory> out, {
+  int maxDepth = 4,
+}) async {
+  if (maxDepth < 0) return;
+  if (await folderHasVieneuVoiceData(dir)) {
+    out.add(dir);
+    return;
+  }
+  await for (final entity in dir.list(followLinks: false)) {
+    if (entity is! Directory) continue;
+    final name = p.basename(entity.path);
+    if (name.startsWith('.') || name.startsWith('_')) continue;
+    await collectVieneuVoiceFolders(entity, out, maxDepth: maxDepth - 1);
+  }
+}
+
+/// Mô tả ngắn gọn nội dung một thư mục (dùng cho `detail` của lỗi import
+/// giọng): tối đa 8 tên file + 4 thư mục con, để người dùng đối chiếu với
+/// yêu cầu (`ref_codes.txt` / `speaker.emb.txt` / mẫu WAV) thay vì chỉ thấy
+/// câu chung "không có dữ liệu giọng hợp lệ".
+Future<String> describeVieneuFolderContents(Directory dir) async {
+  final files = <String>[];
+  final subdirs = <String>[];
+  try {
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is File) files.add(p.basename(entity.path));
+      if (entity is Directory) subdirs.add(p.basename(entity.path));
+    }
+  } catch (_) {
+    return 'không đọc được nội dung thư mục';
+  }
+  files.sort();
+  subdirs.sort();
+  final parts = <String>[];
+  if (files.isNotEmpty) {
+    final shown = files.take(8).join(', ');
+    parts.add(
+        'file: $shown${files.length > 8 ? ' (+${files.length - 8} nữa)' : ''}');
+  }
+  if (subdirs.isNotEmpty) {
+    final shown = subdirs.take(4).join(', ');
+    parts.add(
+        'thư mục con: $shown${subdirs.length > 4 ? ' (+${subdirs.length - 4} nữa)' : ''}');
+  }
+  if (parts.isEmpty) return 'thư mục rỗng';
+  return parts.join(' · ');
+}
+
+/// Liệt kê các THƯ MỤC GIỌNG trong [source] (quét đệ quy theo nội dung,
+/// xem [collectVieneuVoiceFolders]):
 ///   * chính [source] nếu nó đã là một giọng (có dữ liệu thật);
-///   * ngược lại là các thư mục con có dữ liệu thật (bỏ `_temp_samples`, `_*`).
+///   * ngược lại là mọi thư mục con cháu có dữ liệu thật.
 ///
 /// Ném [VieneuVoiceImportException] `unreadable` khi thư mục không tồn tại
 /// hoặc hệ điều hành chặn `list()` (SAF/scoped storage) — đó chính là lý do
@@ -366,13 +428,7 @@ Future<List<Directory>> findVieneuVoiceFolders(Directory source) async {
 
   final found = <Directory>[];
   try {
-    if (await folderHasVieneuVoiceData(source)) return <Directory>[source];
-    await for (final entity in source.list(followLinks: false)) {
-      if (entity is! Directory) continue;
-      final id = p.basename(entity.path);
-      if (id.startsWith('_') || id == vieneuTempSamplesDirName) continue;
-      if (await folderHasVieneuVoiceData(entity)) found.add(entity);
-    }
+    await collectVieneuVoiceFolders(source, found);
   } on FileSystemException catch (e) {
     // Gồm cả PathAccessException (SAF/scoped storage chặn đọc thư mục).
     throw VieneuVoiceImportException(

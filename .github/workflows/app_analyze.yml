@@ -1718,6 +1718,8 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+      - name: Check failure-log diagnostics
+        run: python3 -m unittest discover -s test -p test_ci_failure_annotations.py
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.1'
@@ -1747,24 +1749,9 @@ jobs:
           code=$?
           cat read_translation_test.log
           if [ "$code" -ne 0 ]; then
-            # Aggregate failures: Actions keeps at most ten error annotations
-            # per step, so one annotation per log line loses the later failures.
-            python3 - <<'PYLOG'
-          import re
-          from pathlib import Path
-          raw = Path('read_translation_test.log').read_text(errors='replace')
-          lines = re.sub(r'\x1b\[[0-9;]*[A-Za-z]|\r|\x08', '', raw).splitlines()
-          picked = set()
-          for index, line in enumerate(lines):
-              if re.search(r'Expected:|Actual:|\[E\]|EXCEPTION CAUGHT|Error:|Exception:', line):
-                  picked.update(range(max(0, index - 3), min(len(lines), index + 22)))
-          summary = '\n'.join(lines[index] for index in sorted(picked))
-          if not summary:
-              summary = '\n'.join(lines[-40:])
-          for start in range(0, min(len(summary), 35000), 3500):
-              chunk = summary[start:start + 3500].replace('%', '%25').replace('\n', '%0A')
-              print('::error title=Read translation tests::' + chunk)
-          PYLOG
+            # Reserve annotation capacity for the runner's own exit error;
+            # include assertions both before and after each [E] marker.
+            python3 scripts/ci/emit_failure_annotation.py read_translation_test.log "Read translation tests" 8
           fi
           exit $code
 

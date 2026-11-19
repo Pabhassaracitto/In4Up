@@ -71,6 +71,34 @@ def _priority_lines(lines: list[str]) -> list[str]:
                 seen.add(index)
                 picked.append(index)
 
+    # Flutter assertions appear BEFORE [E] for widgets and AFTER [E] for
+    # plain tests. Keep all failing names first; loading/tail alone can lose
+    # the actual assertion (or an entire later failure) under Actions' cap.
+    failures = [i for i, line in enumerate(lines) if re.search(r"\[E\]$", line)]
+    if failures:
+        selected = ["Failing tests:"] + [lines[i] for i in failures]
+        for index in failures:
+            selected.append("\n--- " + lines[index])
+            for line in lines[index + 1:index + 14]:
+                if re.match(r"^\d+:\d+ .*\+\d+", line):
+                    break
+                selected.append(line)
+        for index, line in enumerate(lines):
+            if "EXCEPTION CAUGHT" not in line:
+                continue
+            selected.append("\n--- Widget exception")
+            for context in lines[index:index + 18]:
+                if "When the exception was thrown" in context:
+                    break
+                selected.append(context)
+            # A short application/test frame identifies the caller without
+            # spending the annotation budget on framework stack frames.
+            frames = [s for s in lines[index + 1:index + 100]
+                      if s.startswith("#") and
+                      ("package:in4up/" in s or "/test/" in s)]
+            selected.extend(frames[:2])
+        return selected + ["\n--- Log tail"] + lines[-12:]
+
     # 1. Dòng mở đầu khối lỗi Gradle + 3 dòng sau (tên task hỏng).
     for index, line in enumerate(lines):
         if re.search(CONTEXT_START, line):
@@ -100,7 +128,22 @@ def _priority_lines(lines: list[str]) -> list[str]:
 
 
 def _chunks(text: str) -> list[str]:
-    return [text[start:start + CHUNK] for start in range(0, len(text), CHUNK)]
+    # The receiver caps UTF-8 bytes, not Python/Dart character counts. Keep
+    # escapes atomic too: splitting %0A between commands corrupts the log.
+    chunks: list[str] = []
+    current: list[str] = []
+    size = 0
+    for token in re.findall(r"%(?:25|0A|0D)|.", text, re.DOTALL):
+        length = len(token.encode("utf-8"))
+        if current and size + length > CHUNK:
+            chunks.append("".join(current))
+            current = []
+            size = 0
+        current.append(token)
+        size += length
+    if current:
+        chunks.append("".join(current))
+    return chunks
 
 
 def main(argv: list[str]) -> int:

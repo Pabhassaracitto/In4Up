@@ -830,23 +830,28 @@ class _TranslationEngineSettingsSheetState
               : Colors.grey.withValues(alpha: 0.25),
         ),
       ),
-      child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        dense: true,
-        title: Text(
-          context.uiText('Chỉ dùng dịch offline'),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+      // The Material must be ABOVE this card's decoration so ListTile ink
+      // remains visible (and Flutter 3.44's ListTile assertion stays satisfied).
+      child: Material(
+        type: MaterialType.transparency,
+        child: SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          dense: true,
+          title: Text(
+            context.uiText('Chỉ dùng dịch offline'),
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          subtitle: Text(
+            context.uiText('Bỏ qua engine online (Hy-MT / ML Kit + từ điển).'),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
+          ),
+          value: _offlineOnly ?? false,
+          activeColor: widget.accentColor,
+          onChanged: (v) {
+            setState(() => _offlineOnly = v);
+            widget.service.offlineOnly = v;
+          },
         ),
-        subtitle: Text(
-          context.uiText('Bỏ qua engine online (Hy-MT / ML Kit + từ điển).'),
-          style: TextStyle(color: Colors.grey[600], fontSize: 11),
-        ),
-        value: _offlineOnly ?? false,
-        activeColor: widget.accentColor,
-        onChanged: (v) {
-          setState(() => _offlineOnly = v);
-          widget.service.offlineOnly = v;
-        },
       ),
     );
   }
@@ -1097,24 +1102,27 @@ class _TranslationEngineSettingsSheetState
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
       ),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        leading: Icon(Icons.bookmark_border, color: widget.accentColor),
-        title: Text(
-          context.uiText('Thuật ngữ dịch (glossary)'),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          leading: Icon(Icons.bookmark_border, color: widget.accentColor),
+          title: Text(
+            context.uiText('Thuật ngữ dịch (glossary)'),
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          subtitle: Text(
+            context
+                .uiText('Khóa thuật ngữ Phật học/Pali — engine không được đè.'),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+          onTap: () async {
+            await showGlossarySheet(context, accentColor: widget.accentColor);
+            if (mounted) setState(() {});
+          },
         ),
-        subtitle: Text(
-          context
-              .uiText('Khóa thuật ngữ Phật học/Pali — engine không được đè.'),
-          style: TextStyle(color: Colors.grey[600], fontSize: 11),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: () async {
-          await showGlossarySheet(context, accentColor: widget.accentColor);
-          if (mounted) setState(() {});
-        },
       ),
     );
   }
@@ -1357,7 +1365,8 @@ class _TranslationEngineSettingsSheetState
             ],
           ),
           const SizedBox(height: 8),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextButton.icon(
                 onPressed: _probing ? null : _probeEngine,
@@ -1370,19 +1379,17 @@ class _TranslationEngineSettingsSheetState
                     : const Icon(Icons.science_outlined, size: 16),
                 label: Text(context.uiText('Kiểm tra engine ngay')),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _probeMessage ??
-                      context.uiText(
-                        'Dịch thử một câu để biết engine nào thực sự trả lời.',
-                      ),
-                  style: TextStyle(
-                    color: _probeMessage == null
-                        ? Colors.grey[600]
-                        : (_probeOk ? Colors.greenAccent : Colors.redAccent),
-                    fontSize: 11,
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                _probeMessage ??
+                    context.uiText(
+                      'Dịch thử một câu để biết engine nào thực sự trả lời.',
+                    ),
+                style: TextStyle(
+                  color: _probeMessage == null
+                      ? Colors.grey[600]
+                      : (_probeOk ? Colors.greenAccent : Colors.redAccent),
+                  fontSize: 11,
                 ),
               ),
             ],

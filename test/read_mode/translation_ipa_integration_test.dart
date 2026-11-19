@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:in4up/features/translation/cache/translation_cache.dart';
 import 'package:in4up/features/translation/translation_display_mode.dart';
+import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/models/color_mode.dart';
 import 'package:in4up/models/ipa_color_visibility.dart';
 import 'package:in4up/models/ipa_display_mode.dart';
@@ -98,9 +99,19 @@ class _Playback extends ChangeNotifier implements PlaybackController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late TranslationService service;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await TranslationCache().clear();
+    service = translationTestService(
+        google: RecordingTranslationEngine('google_free'));
+    // TranslationLineDisplay also reads the shared factory. Keep it on the
+    // same fake as the document without booting real Hive/LLM/native storage.
+    TranslationService.debugSetInstance(service);
+  });
+  tearDown(() {
+    TranslationService.debugSetInstance(null);
+    service.dispose();
   });
 
   for (final ipaMode in IpaDisplayMode.values) {
@@ -112,8 +123,7 @@ void main() {
           'actual renderer retains translation with IPA=$ipaMode and layout=$display',
           (tester) async {
         final doc = _IpaDocument(ipaMode);
-        await doc.prepare(translationTestService(
-            google: RecordingTranslationEngine('google_free')));
+        await doc.prepare(service);
         // Stacked starts hidden to reproduce Translate -> visible default.
         if (display == TranslationDisplayMode.sideBySide)
           doc.setTranslationDisplayMode(display);

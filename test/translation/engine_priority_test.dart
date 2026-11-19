@@ -429,7 +429,10 @@ void main() {
       await tester.pumpWidget(sheet());
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('translation-engine-order')), findsNothing);
-      await tester.tap(find.text('Translation engine order'));
+      final priorityHeader = find.text('Translation engine order');
+      await tester.ensureVisible(priorityHeader);
+      await tester.pumpAndSettle();
+      await tester.tap(priorityHeader);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('translation-engine-order')), findsOneWidget);
       service.preferEngine('mlkit');
@@ -486,8 +489,16 @@ void main() {
         child: TranslationEngineOrderList(
             service: service, accentColor: Colors.purple),
       ))));
-      await tester.drag(find.byKey(const ValueKey('translation-drag-mlkit')),
-          const Offset(0, -65));
+      final handle = find.byKey(const ValueKey('translation-drag-mlkit'));
+      final firstRow = find.byKey(const ValueKey('google_free'));
+      final destination = tester.getTopLeft(firstRow) + const Offset(20, 1);
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      // Give the reorder recognizer and proxy layout a frame before dropping.
+      await gesture.moveBy(const Offset(0, -24));
+      await tester.pump();
+      await gesture.moveTo(destination);
+      await tester.pump(const Duration(milliseconds: 500));
+      await gesture.up();
       await tester.pumpAndSettle();
       expect(service.engineChoices.first.id, 'mlkit');
       expect(tester.takeException(), isNull);

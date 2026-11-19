@@ -83,7 +83,16 @@ class TranslationService extends ChangeNotifier {
   }
 
   static final TranslationService _instance = TranslationService._();
-  factory TranslationService() => _instance;
+  static TranslationService? _instanceForTest;
+  factory TranslationService() => _instanceForTest ?? _instance;
+
+  /// Keep real renderers/shells on the injected service in widget tests too.
+  /// Without this, a display-only call to the factory boots Hive, provider
+  /// storage and platform-channel timers in the test's fake-async zone.
+  @visibleForTesting
+  static void debugSetInstance(TranslationService? service) {
+    _instanceForTest = service;
+  }
 
   /// Constructor test DUY NHẤT (không phải singleton): inject engine,
   /// glossary, network. Không chạm Hive/asset/SharedPreferences.

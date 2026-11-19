@@ -629,6 +629,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       // curtain touches the waveform regardless of device/shell height.
       _lrcHeight = double.maxFinite;
     });
+
+    // Generation can start from either transcript sheet. Close that overlay
+    // after success so the newly expanded main lyrics curtain is actually
+    // visible without requiring the user to dismiss/drag the sheet manually.
+    if (_aiSheetOpen) _closeAiSheet();
+    if (_sheetOpen) _closeSheet();
   }
 
   void _showWaveformActionSheet(Duration position) {

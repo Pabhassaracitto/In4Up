@@ -88,6 +88,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
 
   final LineTapClassifier _tap = LineTapClassifier();
   int? _lastTappedWord;
+  bool _lastTapHadIpa = false;
 
   List<LineWordSpan> _spans = const <LineWordSpan>[];
 
@@ -314,8 +315,12 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
   void _handleTapUp(BuildContext context, TapUpDetails details) {
     final wordIndex = _wordAt(details.localPosition);
     // Two short neighboring words can be within the double-tap distance.
-    if (_lastTappedWord != wordIndex) _tap.reset();
+    // If the first tap activated IPA on this line, allow a second tap at the
+    // same screen position even though the original paragraph rewrapped.
+    final hasIpa = widget.wordIpa.isNotEmpty;
+    if (_lastTapHadIpa == hasIpa && _lastTappedWord != wordIndex) _tap.reset();
     _lastTappedWord = wordIndex;
+    _lastTapHadIpa = hasIpa;
 
     // Chạm đúp là thao tác của CẢ DÒNG nên vẫn phải chạy kể cả khi cú chạm
     // không ghép được từ nào (dòng chỉ có dấu câu, phân tích lệch nội dung).

@@ -94,7 +94,7 @@ class ShadowingProvider extends ChangeNotifier {
   int _completedRepetitions = 0;
   int get completedRepetitions => _completedRepetitions;
 
-  int _countdown = 3;
+  int _countdown = 0;
   int get countdown => _countdown;
 
   Duration _recordingDuration = Duration.zero;
@@ -151,7 +151,8 @@ class ShadowingProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   Timer? _recordingTimer;
   Timer? _autoStopTimer; // Thêm biến quản lý auto-stop
-  Timer? _countdownTimer;
+  int _recordingAttempt = 0;
+  bool _recordingStartInFlight = false;
 
   List<AbSuggestion> get sentenceSuggestions => _samplePlayer.sentences;
   int get selectedSentenceIndex => _samplePlayer.selectedIndex;
@@ -253,12 +254,12 @@ class ShadowingProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _recordingAttempt++;
     _samplePlayer.dispose();
     _player.dispose();
     _recorder.dispose();
     _recordingTimer?.cancel();
     _autoStopTimer?.cancel();
-    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -431,6 +432,7 @@ class ShadowingProvider extends ChangeNotifier {
     return _samplePlayer.speakSentence(
       index,
       speed: _playbackSpeed,
+      repeatCount: _repeatCount,
       onStarted: _onSampleStarted,
       onRepeat: _onSampleRepeat,
       onFinished: _onSampleFinished,
@@ -478,83 +480,84 @@ class ShadowingProvider extends ChangeNotifier {
   // ==================== RECORDING ====================
 
   Future<void> startShadowing(String text) async {
-    stopPlayback();
-    _analysisError = null;
-    if (text.trim().isNotEmpty) {
-      setPracticeText(text);
-    }
     if (_state == ShadowingState.recording) {
       await stopRecording();
-    } else {
-      _startCountdown();
+      return;
     }
-  }
-
-  void _startCountdown() {
+    if (_state == ShadowingState.countdown) {
+      reset();
+      return;
+    }
+    if (_recordingStartInFlight) return;
+    stopPlayback();
+    _analysisError = null;
+    if (text.trim().isNotEmpty) setPracticeText(text);
+    final attempt = ++_recordingAttempt;
+    _recordingStartInFlight = true;
+    _countdown = 0; // state name retained for compatibility: now means prepare.
     _setState(ShadowingState.countdown);
-    _countdown = 3;
-    notifyListeners();
-
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _countdown--;
-      notifyListeners();
-
-      debugPrint('⏱️ Countdown: $_countdown');
-
-      if (_countdown <= 0) {
-        timer.cancel();
-        _startRecording();
-      }
-    });
+    _recordingDuration = Duration.zero;
+    _userRecordingPath = null;
+    unawaited(_prepareAndStartRecording(attempt));
   }
 
-  Future<void> _startRecording() async {
-    _setState(ShadowingState.recording);
-    _recordingDuration = Duration.zero;
-
-    debugPrint('🎤 Starting recording...');
-
+  Future<void> _prepareAndStartRecording(int attempt) async {
+    bool current() => attempt == _recordingAttempt;
     try {
-      if (await _recorder.hasPermission()) {
-        final dir = await getTemporaryDirectory();
-        final path =
-            '${dir.path}/shadowing_${DateTime.now().millisecondsSinceEpoch}.wav';
+      // Permission and recorder startup happen immediately, without a forced
+      // three-second delay. Keep the UI in "preparing" until start() returns,
+      // so it never claims to record before the native recorder is ready.
+      if (!await _recorder.hasPermission()) {
+        if (!current()) return;
+        _analysisError = 'permission_denied';
+        _setState(ShadowingState.idle);
+        return;
+      }
+      if (!current()) return;
+      final dir = await getTemporaryDirectory();
+      if (!current()) return;
+      final path =
+          '${dir.path}/shadowing_${DateTime.now().microsecondsSinceEpoch}.wav';
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 44100,
+          numChannels: 1,
+        ),
+        path: path,
+      );
+      if (!current()) {
+        await _recorder.stop();
+        return;
+      }
 
-        await _recorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.wav,
-            sampleRate: 44100,
-            numChannels: 1,
-          ),
-          path: path,
-        );
+      _userRecordingPath = path;
+      _recordingDuration = Duration.zero;
+      _setState(ShadowingState.recording);
+      debugPrint('🎤 Recording started and ready: $path');
 
-        _userRecordingPath = path;
-        debugPrint('🎤 Recording to: $path');
+      _recordingTimer?.cancel();
+      _recordingTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        if (_state != ShadowingState.recording) return;
+        _recordingDuration += const Duration(milliseconds: 200);
+        notifyListeners();
+      });
 
-        _recordingTimer?.cancel();
-        _recordingTimer =
-            Timer.periodic(const Duration(milliseconds: 200), (timer) {
-          _recordingDuration += const Duration(milliseconds: 200);
-          notifyListeners();
-        });
-
-        // Auto-stop after 30 seconds
-        _autoStopTimer?.cancel();
-        _autoStopTimer = Timer(const Duration(seconds: 30), () {
-          if (_state == ShadowingState.recording) {
-            debugPrint('🎤 Auto-stopping recording (30s limit)');
-            stopRecording();
-          }
-        });
-      } else {
-        debugPrint('❌ No recording permission');
+      _autoStopTimer?.cancel();
+      _autoStopTimer = Timer(const Duration(seconds: 30), () {
+        if (_state == ShadowingState.recording) {
+          debugPrint('🎤 Auto-stopping recording (30s limit)');
+          stopRecording();
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ Error preparing recording: $e');
+      if (current()) {
+        _analysisError = 'recording_failed';
         _setState(ShadowingState.idle);
       }
-    } catch (e) {
-      debugPrint('❌ Error starting recording: $e');
-      _setState(ShadowingState.idle);
+    } finally {
+      _recordingStartInFlight = false;
     }
   }
 
@@ -574,10 +577,12 @@ class ShadowingProvider extends ChangeNotifier {
         await _analyzeRecording();
       } else {
         debugPrint('❌ Recording path is null');
+        _analysisError = 'recording_failed';
         _setState(ShadowingState.idle);
       }
     } catch (e) {
       debugPrint('❌ Error stopping recording: $e');
+      _analysisError = 'recording_failed';
       _setState(ShadowingState.idle);
     }
   }
@@ -598,21 +603,22 @@ class ShadowingProvider extends ChangeNotifier {
     if (recordingPath == null || recordingPath.isEmpty) {
       _currentResult = null;
       _similarityScore = 0;
-      _analysisError = 'no_speech';
+      _analysisError = 'recording_failed';
       _setState(ShadowingState.idle);
       return;
     }
     _setState(ShadowingState.analyzing);
 
     try {
-      final recognizedText = await OfflineSTTService.transcribe(recordingPath);
-      if (recognizedText == null || recognizedText.trim().isEmpty) {
+      final transcription = await OfflineSTTService.transcribe(recordingPath);
+      if (!transcription.hasText) {
         _currentResult = null;
         _similarityScore = 0;
-        _analysisError = 'no_speech';
+        _analysisError = transcription.errorCode ?? 'recognition_error';
         _setState(ShadowingState.idle);
         return;
       }
+      final recognizedText = transcription.text!.trim();
 
       final originalWaveform = await _extractWaveform(_originalAudioPath);
       final userWaveform = await _extractWaveform(recordingPath);
@@ -717,17 +723,20 @@ class ShadowingProvider extends ChangeNotifier {
   // ==================== RESET ====================
 
   void reset() {
+    final wasRecording = _state == ShadowingState.recording;
+    _recordingAttempt++;
     unawaited(_samplePlayer.stop());
     _recordingTimer?.cancel();
     _autoStopTimer?.cancel();
-    _countdownTimer?.cancel();
+    if (wasRecording) unawaited(_recorder.stop());
 
     _state = ShadowingState.idle;
     _completedRepetitions = 0;
-    _countdown = 3;
+    _countdown = 0;
     _recordingDuration = Duration.zero;
     _currentResult = null;
     _similarityScore = 0.0;
+    _analysisError = null;
 
     notifyListeners();
   }

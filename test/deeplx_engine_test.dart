@@ -84,7 +84,7 @@ void main() {
               'method': 'Free',
             }),
             200,
-            encoding: utf8,
+            headers: const {'content-type': 'application/json; charset=utf-8'},
           );
         }),
       );
@@ -135,7 +135,9 @@ void main() {
                 ],
               }),
               200,
-              encoding: utf8,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              },
             )),
       );
 
@@ -153,8 +155,10 @@ void main() {
       ]) {
         final engine = DeepLXEngine(
           serverUrl: 'https://x.hf.space',
-          client: MockClient(
-              (request) async => http.Response(body, 200, encoding: utf8)),
+          client: MockClient((request) async => http.Response(body, 200,
+                  headers: const {
+                    'content-type': 'application/json; charset=utf-8'
+                  })),
         );
         final result = await engine.translate(text: 'Hello', targetLang: 'VI');
         expect(result.isSuccess, isTrue, reason: body);
@@ -183,7 +187,9 @@ void main() {
                 'message': 'unsupported target_lang "XX"; valid codes: …',
               }),
               400,
-              encoding: utf8,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              },
             )),
       );
 
@@ -233,7 +239,9 @@ void main() {
         client: MockClient((request) async => http.Response(
               jsonEncode({'code': 200, 'data': 'Xin chào'}),
               200,
-              encoding: utf8,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8'
+              },
             )),
       );
 

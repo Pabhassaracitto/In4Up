@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/features/shadowing/providers/shadowing_provider.dart';
+import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:in4up/providers/focus_provider.dart';
 import 'package:in4up/providers/player_provider.dart';
@@ -68,8 +69,19 @@ void main() {
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
   });
 
+  late TranslationService translation;
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Shell navigation tests exercise the real Read screen, not startup IO of
+    // the translation singleton. Keep provider/storage/channel timers out of
+    // the widget test's fake-async zone (as with the existing TTS/audio fakes).
+    translation = TranslationService.forTest();
+    TranslationService.debugSetInstance(translation);
+  });
+  tearDown(() {
+    TranslationService.debugSetInstance(null);
+    translation.dispose();
+    debugDefaultTargetPlatformOverride = null;
   });
 
   test('authStateChanges allows simultaneous and sequential subscribers',

@@ -30,6 +30,8 @@ import 'package:in4up/models/text_item.dart';
 class _TestDocument extends ChangeNotifier with TranslationMixin {
   @override
   final List<TextItem> lines = <TextItem>[];
+
+  Future<void> saveCurrentTranslationsToCloud() async {}
 }
 
 /// ML Kit giả: mô phỏng máy owner (đã tải en+vi, chưa tải de). Lỗi thiếu
@@ -76,7 +78,9 @@ class _ScriptedMlKitEngine extends TranslationEngine {
     }
     return TranslationResult.success(
       original: text,
-      translated: '[$source→$target] $text',
+      // Keep source attribution, but return target-language text, not an
+      // echo that the service correctly rejects as untranslated.
+      translated: '[$source→$target] Đây là bản dịch của dòng đã chọn.',
       engine: name,
       detectedLang: source,
       targetLang: target,

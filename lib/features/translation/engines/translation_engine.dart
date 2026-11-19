@@ -1,11 +1,56 @@
 // lib/features/translation/engines/translation_engine.dart
 
+/// Request-scoped provenance. Never read a singleton's "last engine" to explain
+/// a result: another document / screen-translation request may have finished.
+class TranslationRoute {
+  final String selectedEngineId;
+  final String selectedEngineName;
+  final String? actualEngineId;
+  final String? actualEngineName;
+  final List<String> attemptedEngineIds;
+  final bool? _usedFallback;
+
+  TranslationRoute({
+    required this.selectedEngineId,
+    required this.selectedEngineName,
+    required this.actualEngineId,
+    this.actualEngineName,
+    required Iterable<String> attemptedEngineIds,
+    bool? usedFallback,
+  })  : attemptedEngineIds = List.unmodifiable(attemptedEngineIds),
+        _usedFallback = usedFallback;
+
+  bool get usedFallback =>
+      _usedFallback ??
+      (actualEngineId != null && actualEngineId != selectedEngineId);
+
+  /// Preserve provenance through mixed-language segments and ML Kit pivots.
+  /// engineName on TranslationResult keeps its legacy value for other callers.
+  static TranslationRoute? combine(Iterable<TranslationRoute> routes) {
+    final parts = routes.toList();
+    if (parts.isEmpty) return null;
+    final actualIds = parts.map((part) => part.actualEngineId).toSet();
+    final actualNames =
+        parts.map((part) => part.actualEngineName).whereType<String>().toSet();
+    return TranslationRoute(
+      selectedEngineId: parts.first.selectedEngineId,
+      selectedEngineName: parts.first.selectedEngineName,
+      actualEngineId: actualIds.length == 1 ? actualIds.single : null,
+      actualEngineName: actualNames.isEmpty ? null : actualNames.join(' / '),
+      attemptedEngineIds:
+          parts.expand((part) => part.attemptedEngineIds).toSet(),
+      usedFallback: parts.any((part) => part.usedFallback),
+    );
+  }
+}
+
 /// Kết quả dịch từ bất kỳ engine nào
 class TranslationResult {
   final String originalText;
   final String translatedText;
   final bool isSuccess;
   final String? error;
+
   /// Mã lỗi cấu trúc (vd Hy-MT: `busy`, `isolate_dead`, `request_timeout`…
   /// — xem `HyMtErrorCode`). `null` khi success.
   final String? errorCode;
@@ -13,6 +58,7 @@ class TranslationResult {
   final String? targetLang;
   final String engineName;
   final Duration responseTime;
+  final TranslationRoute? route;
 
   /// Translation code (vd 'DE') của ngôn ngữ cần model offline mà CHƯA TẢI.
   ///
@@ -33,6 +79,7 @@ class TranslationResult {
     this.targetLang,
     this.responseTime = Duration.zero,
     this.missingModelCodes,
+    this.route,
   });
 
   factory TranslationResult.success({
@@ -42,6 +89,7 @@ class TranslationResult {
     String? detectedLang,
     String? targetLang,
     Duration responseTime = Duration.zero,
+    TranslationRoute? route,
   }) {
     return TranslationResult(
       originalText: original,
@@ -51,6 +99,7 @@ class TranslationResult {
       detectedLang: detectedLang,
       targetLang: targetLang,
       responseTime: responseTime,
+      route: route,
     );
   }
 
@@ -91,6 +140,21 @@ class TranslationResult {
         targetLang: target,
         responseTime: responseTime,
         missingModelCodes: missingModelCodes,
+        route: route,
+      );
+
+  TranslationResult withRoute(TranslationRoute value) => TranslationResult(
+        originalText: originalText,
+        translatedText: translatedText,
+        isSuccess: isSuccess,
+        engineName: engineName,
+        error: error,
+        errorCode: errorCode,
+        detectedLang: detectedLang,
+        targetLang: targetLang,
+        responseTime: responseTime,
+        missingModelCodes: missingModelCodes,
+        route: value,
       );
 }
 

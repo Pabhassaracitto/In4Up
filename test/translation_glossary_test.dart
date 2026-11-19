@@ -370,7 +370,12 @@ void main() {
     ]);
 
     test('glossary BẬT: engine nhận text đã protect (placeholder)', () async {
-      final fake = _RecordingEngine();
+      // Preserve slots while translating surrounding words. Pass-through
+      // English is correctly rejected as untranslated by the engine chain.
+      final fake = _RecordingEngine(
+          transform: (input) => input
+              .replaceAll('the teaching of', 'lời dạy về')
+              .replaceAll('and', 'và'));
       final service = TranslationService.forTest(
         onlineEngines: <TranslationEngine>[fake],
         glossary: glossary,
@@ -390,8 +395,7 @@ void main() {
       expect(fake.inputs.first, contains('__G1__'));
       // Output restore đúng nghĩa khóa.
       expect(result.isSuccess, isTrue);
-      expect(result.translatedText,
-          'the teaching of chánh niệm and Pháp');
+      expect(result.translatedText, 'lời dạy về chánh niệm và Pháp');
     });
 
     test('glossary TẮT: engine nhận text trần (chứng minh thứ tự tầng)',
@@ -449,12 +453,13 @@ void main() {
     test(
         'pivot HI→VI: 2 bước qua EN, glossary bảo vệ ở bước EN→VI',
         () async {
-      // ML Kit giả: bước 1 (HI→EN) giữ 'sati', bước 2 (EN→VI) pass-through.
+      // ML Kit giả: bước 1 (HI→EN) giữ 'sati', bước 2 dịch sang VI,
+      // giữ nguyên placeholder để tầng glossary restore sau engine.
       final mlkitFake = _RecordingEngine(transform: (input) {
         if (input.contains('sati') && !input.contains('__G')) {
           return 'sati is here'; // HI → EN
         }
-        return input; // EN → VI (text đã protect)
+        return input.replaceAll('is here', 'đang ở đây'); // EN → VI
       });
       final service = TranslationService.forTest(
         onlineEngines: const <TranslationEngine>[],
@@ -473,7 +478,7 @@ void main() {
       // Bước 2: 'sati' (EN context) đã bị protect thành placeholder.
       expect(mlkitFake.inputs[1], isNot(contains('sati')));
       expect(mlkitFake.inputs[1], contains('__G0__'));
-      expect(result.translatedText, 'chánh niệm is here');
+      expect(result.translatedText, 'chánh niệm đang ở đây');
     });
   });
 

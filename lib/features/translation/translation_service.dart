@@ -28,6 +28,7 @@ import 'glossary/translation_glossary.dart';
 import 'mixed_language_segmenter.dart';
 import 'mlkit_pack_downloads.dart';
 import 'translation_link_guard.dart';
+import 'translation_engine_priority.dart';
 
 /// Translation orchestration with automatic source detection and engine
 /// fallback. Language metadata comes from the same 26-language catalog used
@@ -45,7 +46,7 @@ import 'translation_link_guard.dart';
 ///   → restore placeholder → cache lưu CÂU ĐÃ RESTORE.
 ///
 /// HI ↔ VI: pivot qua EN (2 bước + glossary hai đầu) khi đủ model ML Kit.
-class TranslationService {
+class TranslationService extends ChangeNotifier {
   TranslationService._({
     List<TranslationEngine>? onlineEngines,
     TranslationEngine? offlineEngine,
@@ -53,6 +54,7 @@ class TranslationService {
     LlmMtEngine? llmMtEngine,
     Glossary? glossary,
     bool? networkAvailable,
+    SharedPreferences? preferences,
   })  : _cache = TranslationCache(),
         _engines = onlineEngines ?? <TranslationEngine>[],
         _offlineEngine = offlineEngine ?? OfflineEngine(),
@@ -63,12 +65,14 @@ class TranslationService {
             : llmMtEngine,
         _glossary = glossary ?? const Glossary(const <GlossaryEntry>[]),
         _glossaryStore = glossary == null ? GlossaryStore() : null,
-        _persistPrefs = onlineEngines == null,
+        _persistPrefs = onlineEngines == null || preferences != null,
+        _injectedPreferences = preferences,
         _injectedNetwork = networkAvailable {
     if (onlineEngines == null) {
       _initEngines();
-      _loadOfflineOnlyPref();
     }
+    _settingsReady =
+        _persistPrefs ? _loadOfflineOnlyPref() : Future<void>.value();
     final store = _glossaryStore;
     if (store != null) {
       // Fire-and-forget: không block UI; translateText sẽ ensureInit lại.
@@ -89,6 +93,7 @@ class TranslationService {
     LlmMtEngine? llmMtEngine,
     Glossary? glossary,
     bool networkAvailable = false,
+    SharedPreferences? preferences,
   }) {
     return TranslationService._(
       onlineEngines: onlineEngines,
@@ -97,6 +102,7 @@ class TranslationService {
       llmMtEngine: llmMtEngine,
       glossary: glossary ?? const Glossary(const <GlossaryEntry>[]),
       networkAvailable: networkAvailable,
+      preferences: preferences,
     );
   }
 
@@ -116,6 +122,133 @@ class TranslationService {
   /// XLAT-DEEPLX-001: chỉ instance singleton (app) mới đọc/ghi
   /// SharedPreferences — instance forTest không chạm (đúng hợp đồng test).
   final bool _persistPrefs;
+  final SharedPreferences? _injectedPreferences;
+  late final Future<void> _settingsReady;
+  Future<void> _pendingSettingsWrite = Future<void>.value();
+  bool _offlineOnlyChanged = false;
+  bool _offlinePrefChanged = false;
+  bool _priorityChanged = false;
+  bool _deeplxConfigured = false;
+  bool _llmRunsFirst = false;
+  List<String>? _enginePriority;
+  int _activeEngineToken = 0;
+
+  Future<SharedPreferences> _preferences() async =>
+      _injectedPreferences ?? await SharedPreferences.getInstance();
+
+  /// One initialization future shared by UI and requests. A slow startup read
+  /// cannot overwrite a newer user selection.
+  Future<void> get settingsReady => _settingsReady;
+
+  @visibleForTesting
+  Future<void> get settingsSaved => _pendingSettingsWrite;
+
+  static const enginePriorityPrefKey = 'translation_engine_priority_v1';
+
+  /// null is the legacy automatic order (including Server & API's LLM route).
+  /// Once explicitly reordered, stable ids are persisted, never display names.
+  List<String>? get savedEnginePriority => _enginePriority;
+
+  List<TranslationEngine> get engineChoices {
+    final candidates = <TranslationEngine>[
+      ..._engines,
+      if (_hymt != null) _hymt!,
+      _mlkit,
+      if (_llmMt != null) _llmMt!,
+    ];
+    if (_enginePriority == null && _llmRunsFirst && _llmMt != null) {
+      candidates.remove(_llmMt);
+      candidates.insert(0, _llmMt!);
+    }
+    return List.unmodifiable(orderTranslationEngines(
+      candidates,
+      _enginePriority,
+      idOf: (engine) => engine.id,
+    ));
+  }
+
+  List<TranslationEngine> get _routingEngines => <TranslationEngine>[
+        for (final engine in engineChoices)
+          if ((!_offlineOnly || !_isOnline(engine)) &&
+              !(engine.id == 'hymt' &&
+                  _offlineEnginePref == HyMtOfflinePreference.mlkit) &&
+              !(engine.id == 'mlkit' &&
+                  _offlineEnginePref == HyMtOfflinePreference.hymt))
+            engine,
+        _offlineEngine,
+      ];
+
+  bool _isOnline(TranslationEngine engine) =>
+      _engines.contains(engine) || identical(engine, _llmMt);
+
+  String get selectedEngineId => _routingEngines.first.id;
+  String get selectedEngineName => _routingEngines.first.name;
+
+  void setEnginePriority(Iterable<String> ids) {
+    _priorityChanged = true;
+    _enginePriority = normalizeTranslationEnginePriority(ids);
+    _saveRoutingSettings();
+    notifyListeners();
+  }
+
+  void resetEnginePriority() {
+    _priorityChanged = true;
+    _enginePriority = null;
+    _saveRoutingSettings();
+    notifyListeners();
+  }
+
+  /// An explicit online selection is also explicit consent to leave offline-only
+  /// mode. Dragging a row NEVER changes that privacy/network gate.
+  void preferEngine(String id) {
+    final match = engineChoices.where((engine) => engine.id == id);
+    if (match.isEmpty) return;
+    final engine = match.first;
+    _priorityChanged = true;
+    _enginePriority = normalizeTranslationEnginePriority([
+      id,
+      ...engineChoices.map((engine) => engine.id),
+    ]);
+    if (_isOnline(engine)) {
+      _offlineOnlyChanged = true;
+      _offlineOnly = false;
+    } else if (id == 'hymt' || id == 'mlkit') {
+      _offlinePrefChanged = true;
+      _offlineEnginePref = HyMtOfflinePreference.auto;
+    }
+    _saveRoutingSettings();
+    notifyListeners();
+  }
+
+  void _saveRoutingSettings() {
+    if (!_persistPrefs) return;
+    final order = _enginePriority;
+    final offline = _offlineOnly;
+    final preference = _offlineEnginePref;
+    final writeOrder = _priorityChanged;
+    final writeOffline = _offlineOnlyChanged;
+    final writePreference = _offlinePrefChanged;
+    // Serialize rapid drag/drop/selection writes; restart must see the LAST
+    // order, not whichever asynchronous preference write happened to finish.
+    _pendingSettingsWrite = _pendingSettingsWrite.then((_) async {
+      await settingsReady;
+      final prefs = await _preferences();
+      if (writeOrder) {
+        if (order == null) {
+          await prefs.remove(enginePriorityPrefKey);
+        } else {
+          await prefs.setStringList(enginePriorityPrefKey, order);
+        }
+      }
+      if (writeOffline) await prefs.setBool(_offlineOnlyPrefKey, offline);
+      if (writePreference) {
+        await prefs.setString('translation_offline_engine', preference.name);
+      }
+    }).catchError((Object error) {
+      debugPrint('Translation routing settings: $error');
+    });
+  }
+
   StreamSubscription<void>? _glossarySub;
 
   /// Engine đang chạy (null = không có) — UI dùng để hiện đúng trạng thái
@@ -176,8 +309,8 @@ class TranslationService {
   int get totalRequests => _totalRequests;
   int get cacheSize => _cache.memorySize;
 
-  AppLanguage get targetLanguage =>
-      AppLanguageCatalog.fromCode(_targetLang, fallback: AppLanguageCatalog.vietnamese);
+  AppLanguage get targetLanguage => AppLanguageCatalog.fromCode(_targetLang,
+      fallback: AppLanguageCatalog.vietnamese);
   String get targetLangFlag => targetLanguage.flag;
   String get targetLangLabel => targetLanguage.translationCode;
   String get targetLangName => targetLanguage.nativeName;
@@ -208,8 +341,10 @@ class TranslationService {
 
   HyMtOfflinePreference get offlineEnginePref => _offlineEnginePref;
   set offlineEnginePref(HyMtOfflinePreference value) {
+    _offlinePrefChanged = true;
     _offlineEnginePref = value;
-    unawaited(HyMtEngine.savePreference(value));
+    _saveRoutingSettings();
+    notifyListeners();
   }
 
   /// Glossary hiện tại (snapshot) — UI + test.
@@ -223,15 +358,18 @@ class TranslationService {
 
   bool get offlineOnly => _offlineOnly;
   set offlineOnly(bool value) {
+    _offlineOnlyChanged = true;
     _offlineOnly = value;
-    _persistOfflineOnly(value);
+    _saveRoutingSettings();
+    notifyListeners();
   }
 
   /// Tag pipeline hiện tại — cache/UI dùng để không dính bản Hy-MT cũ
   /// khi đổi engine hoặc tắt "chỉ offline".
   String get pipelineTag {
     final pref = _offlineEnginePref.name;
-    return '$pref|${_offlineOnly ? 'off' : 'on'}';
+    final priority = _enginePriority?.join(',') ?? 'auto';
+    return '$pref|${_offlineOnly ? 'off' : 'on'}|$priority|${_deeplxUrl ?? ''}';
   }
 
   List<String> get activeEngines => [
@@ -247,21 +385,8 @@ class TranslationService {
   /// UI Cài đặt dịch dùng đúng hàm này để trả lời câu owner hỏi 24/10: "người
   /// dùng không biết chính xác engine đang là online hay offline, Hy-MT hay ML
   /// Kit". Không đoán: sao chép đúng điều kiện của [_runEngineChain].
-  List<String> get routingOrder {
-    final order = <String>[];
-    if (!_offlineOnly) {
-      order.addAll(_engines.map((engine) => engine.name));
-    }
-    final hymt = _hymt;
-    if (hymt != null && _offlineEnginePref != HyMtOfflinePreference.mlkit) {
-      order.add('Hy-MT ${_offlineOnly ? '· offline' : '· offline (dự phòng)'}');
-    }
-    if (_offlineEnginePref != HyMtOfflinePreference.hymt) {
-      order.add(_mlkit.name);
-    }
-    order.add(_offlineEngine.name);
-    return order;
-  }
+  List<String> get routingOrder =>
+      _routingEngines.map((engine) => engine.name).toList(growable: false);
 
   /// Engine đã thực sự trả bản dịch gần nhất ('💾 Cache', 'Google Translate',
   /// 'ML Kit'…). Rỗng khi chưa dịch gì trong phiên.
@@ -321,14 +446,14 @@ class TranslationService {
 
     var rebuildEngines = false;
     if (deeplxUrl != null) {
+      _deeplxConfigured = true;
       // XLAT-DEEPLX-001: chuẩn hoá (host trần → tự nối /translate) + lưu lại
       // để khởi động lần sau vẫn còn.
       // AUDIT-1.21.0 #6: link bài hướng dẫn/forum bị TỪ CHỐI (không lưu,
       // không đưa vào chuỗi engine). User vẫn dịch được bằng engine khác /
       // model offline, và `deeplxConfigError` nói rõ lý do.
       final verdict = assessDeepLXEndpoint(deeplxUrl);
-      final normalizedUrl =
-          verdict.isValid ? verdict.normalizedUrl : null;
+      final normalizedUrl = verdict.isValid ? verdict.normalizedUrl : null;
       rebuildEngines = normalizedUrl != _deeplxUrl;
       _deeplxUrl = normalizedUrl;
       if (_persistPrefs) _persistDeeplxUrl(normalizedUrl);
@@ -339,7 +464,10 @@ class TranslationService {
         _deeplxRejectedUrl = null;
       }
     }
-    if (rebuildEngines) _initEngines();
+    if (rebuildEngines) {
+      _initEngines();
+      notifyListeners();
+    }
 
     debugPrint(
       '🔧 Translation configured: source=$_sourceLang, target=$_targetLang, '
@@ -364,7 +492,7 @@ class TranslationService {
     try {
       await _cache.init();
       await _ensureGlossary();
-      if (_persistPrefs) await _loadOfflineOnlyPref();
+      await settingsReady;
       await _checkNetwork();
     } catch (e) {
       debugPrint('⚠️ TranslationService.warmUp: $e');
@@ -430,6 +558,7 @@ class TranslationService {
     String? targetLang,
     bool skipCache = false,
   }) async {
+    await settingsReady;
     _totalRequests++;
 
     final trimmed = text.trim();
@@ -570,11 +699,13 @@ class TranslationService {
   ) async {
     final sourceCode = source.translationCode;
     final targetCode = target.translationCode;
+    final cacheTag = pipelineTag;
     final steps = await _planSteps(sourceCode, targetCode);
 
     var current = text;
     var placeholderBase = 0;
     var engineLabel = '';
+    TranslationRoute? route;
     var glossaryHits = 0;
 
     for (final step in steps) {
@@ -613,12 +744,14 @@ class TranslationService {
           ? protection.restore(result.translatedText)
           : result.translatedText;
       engineLabel = result.engineName;
+      route = result.route;
     }
 
     final enriched = TranslationResult.success(
       original: text,
       translated: current,
       engine: engineLabel,
+      route: route,
       detectedLang: sourceCode,
       targetLang: targetCode,
     );
@@ -628,7 +761,7 @@ class TranslationService {
         sourceLang: sourceCode,
         targetLang: targetCode,
         translation: current,
-        engine: pipelineTag,
+        engine: cacheTag,
       );
     }
     _lastUsedEngine = glossaryHits > 0
@@ -752,7 +885,8 @@ class TranslationService {
     return <(String, String)>[(sourceCode, targetCode)];
   }
 
-  Future<bool> _sentenceEngineReady(String sourceCode, String targetCode) async {
+  Future<bool> _sentenceEngineReady(
+      String sourceCode, String targetCode) async {
     try {
       // Local (không dùng field trực tiếp): promotion qua `is` chỉ chắc
       // chắn trên local variable — field _mlkit không được promote.
@@ -770,290 +904,122 @@ class TranslationService {
     }
   }
 
-  /// Engine chain của MỘT bước — mặc định THÔNG MINH:
-  ///   0) LLM API (WP3/API-004) — CHỈ khi routing translation =
-  ///      onlineFirst: API chạy TRƯỚC mọi engine khác (ADR-0008).
-  ///   1) ONLINE engines (có mạng + không khóa "chỉ offline") — thử trước;
-  ///      online luôn tốt hơn về chất lượng cặp ngôn ngữ mà model offline
-  ///      không phủ (vd EN→HI, HI→VI...).
-  ///   2) OFFLINE fallback khi hết mạng hoặc mọi online engine fail:
-  ///      Hy-MT GGUF (nếu chọn/auto + có model) → ML Kit.
-  ///   2.5) LLM API — routing offlineFirst (MẶC ĐỊNH): offline câu đã
-  ///      lỗi/thiếu model → thử API TRƯỚC khi rơi xuống từ điển
-  ///      ("thử offline trước; lỗi → thử API").
-  ///   3) Từ điển offline (last resort).
-  ///
-  /// Tầng API TẮT (chưa cấu hình provider / routing offlineOnly / mất
-  /// mạng) → bước 0 + 2.5 tự ngắn mạch, thứ tự các engine hiện có
-  /// NGUYÊN VẸN như trước khi có WP3.
-  ///
-  /// Lịch sử: chain cũ chạy Hy-MT/ML Kit TRƯỚC online — user có model Hy-MT
-  /// thì MỌI câu đều dịch offline (online không bao giờ chạm đến) dù đang
-  /// có mạng và đã tắt "chỉ offline" (báo cáo owner 2026-09-03).
+  /// One ordered chain for settings, the Read tab and every other caller.
+  /// The default preserves legacy routing. User ordering only changes priority:
+  /// offline-only, offline model choice and LLM provider policy remain gates.
   Future<TranslationResult> _runEngineChain({
     required String text,
     required String sourceCode,
     required String targetCode,
     required bool hasNetwork,
   }) async {
-    // 0) LLM API (WP3/API-004) — routing onlineFirst: API trước mọi thứ.
     final llm = _llmMt;
-    if (llm != null && hasNetwork && !_offlineOnly) {
-      if (await llm.runsBeforeFreeOnlineEngines()) {
-        final result = await _tryLlmMt(llm, text, sourceCode, targetCode);
-        if (result != null) return result;
+    if (llm != null) {
+      final first = await llm.runsBeforeFreeOnlineEngines();
+      if (_llmRunsFirst != first) {
+        _llmRunsFirst = first;
+        notifyListeners();
       }
     }
-
-    // 1) ONLINE first (smart default).
-    if (hasNetwork && !_offlineOnly) {
-      for (final engine in _engines) {
-        _activeEngine.value = engine.name;
-        try {
-          final result = await engine
-              .translate(
-                text: text,
-                targetLang: targetCode,
-                sourceLang: sourceCode,
-              )
-              .timeout(
-                const Duration(seconds: 12),
-                onTimeout: () => TranslationResult.failure(
-                  original: text,
-                  error: 'Timeout sau 12 giây',
-                  engine: engine.name,
-                  detectedLang: sourceCode,
-                  targetLang: targetCode,
-                ),
-              );
-
-          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-            // YT-AUDIT-03 (IN4-101): engine trả nguyên văn bản nguồn mà vẫn
-            // báo thành công ⇒ ĐÓ LÀ THẤT BẠI, đi tiếp engine kế thay vì
-            // nhận tiếng Anh làm bản dịch.
-            if (_looksUntranslated(
-              text,
-              result.translatedText,
-              sourceCode,
-              targetCode,
-            )) {
-              debugPrint(
-                '⏭️ ${engine.name}: trả về NGÔN NGỮ NGUỒN '
-                '($sourceCode→$targetCode) ⇒ bỏ qua, thử engine kế.',
-              );
-            } else {
-              return result;
-            }
-          }
-          debugPrint('❌ ${engine.name}: ${result.error}');
-        } catch (error) {
-          debugPrint('❌ ${engine.name} exception: $error');
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      }
-      // Mọi online engine fail (mạng chết, rate-limit...) → rơi xuống offline.
-    }
-
-    // 2) OFFLINE fallback — Hy-MT GGUF.
+    // Snapshot once: another screen may edit settings while this request runs.
+    final engines = _routingEngines;
+    final selected = engines.first;
+    final attempted = <String>[];
     TranslationResult? sentenceFailure;
-    final hymt = _hymt;
-    final pref = _offlineEnginePref;
-    if (hymt != null && pref != HyMtOfflinePreference.mlkit) {
-      _activeEngine.value = hymt.name;
+    TranslationResult? lastFailure;
+
+    TranslationResult traced(TranslationResult result, {String? actualId}) =>
+        result.withRoute(TranslationRoute(
+          selectedEngineId: selected.id,
+          selectedEngineName: selected.name,
+          actualEngineId: actualId,
+          attemptedEngineIds: attempted,
+        ));
+
+    for (final engine in engines) {
+      if (_isOnline(engine) && (!hasNetwork || _offlineOnly)) continue;
       try {
-        // HYMT-002: KHÔNG còn "timeout 2 phút phẳng". Engine tự giới hạn
-        // theo lớp (chunk ≤500 ký tự + timeout riêng mỗi chunk + slot
-        // single-flight + restart/retry 1 lần). Budget bên ngoài này là
-        // safety-net tỷ lệ theo độ dài (hữu hạn, không vô hạn).
-        final result = await hymt
+        // Model/provider availability checks are local; never download models
+        // or probe an online server merely to build/reorder the settings list.
+        if ((identical(engine, _mlkit) || identical(engine, llm)) &&
+            !await engine.isAvailable()) {
+          continue;
+        }
+      } catch (_) {
+        continue;
+      }
+      attempted.add(engine.id);
+      final token = ++_activeEngineToken;
+      _activeEngine.value = engine.name;
+      TranslationResult result;
+      try {
+        final budget = identical(engine, _hymt)
+            ? _hyMtBudget(text)
+            : identical(engine, llm)
+                ? _llmBudget(text)
+                : _isOnline(engine)
+                    ? const Duration(seconds: 12)
+                    : const Duration(seconds: 30);
+        result = await engine
             .translate(
               text: text,
               targetLang: targetCode,
               sourceLang: sourceCode,
             )
-            .timeout(
-              _hyMtBudget(text),
-              onTimeout: () => TranslationResult.failure(
-                original: text,
-                error: 'Hy-MT offline quá thời gian dự trù '
-                    '(${text.length} ký tự). Máy có thể yếu hoặc văn bản '
-                    'quá dài — thử lại hoặc dùng engine online.',
-                engine: hymt.name,
-                errorCode: 'request_timeout',
-              ),
-            );
-        if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-          // YT-AUDIT-03 (IN4-101): cùng bước soi đầu ra như engine online.
-          if (_looksUntranslated(
-            text,
-            result.translatedText,
-            sourceCode,
-            targetCode,
-          )) {
-            debugPrint(
-              '⏭️ ${hymt.name}: trả về NGÔN NGỮ NGUỒN '
-              '($sourceCode→$targetCode) ⇒ bỏ qua.',
-            );
-          } else {
-            return result;
-          }
+            .timeout(budget,
+                onTimeout: () => TranslationResult.failure(
+                      original: text,
+                      error: '${engine.name}: request timed out',
+                      errorCode: 'request_timeout',
+                      engine: engine.name,
+                    ));
+        if (result.isSuccess &&
+            (!identical(engine, _offlineEngine) &&
+                _looksUntranslated(
+                  text,
+                  result.translatedText,
+                  sourceCode,
+                  targetCode,
+                ))) {
+          result = TranslationResult.failure(
+            original: text,
+            error: 'The engine returned untranslated text',
+            errorCode: 'untranslated',
+            engine: engine.name,
+          );
         }
-        sentenceFailure = result;
-        debugPrint('❌ ${hymt.name}: ${result.error}');
       } catch (error) {
-        debugPrint('❌ ${hymt.name} exception: $error');
-      }
-      if (pref == HyMtOfflinePreference.hymt && _offlineOnly) {
-        return sentenceFailure ??
-            TranslationResult.failure(
-              original: text,
-              error: 'Hy-MT chưa sẵn sàng',
-              engine: hymt.name,
-              errorCode: 'load_failed',
-            );
-      }
-    }
-
-    // 3) OFFLINE fallback — ML Kit (câu, Android/iOS).
-    TranslationResult? mlkitFailure = sentenceFailure;
-    if (pref != HyMtOfflinePreference.hymt && await _mlkit.isAvailable()) {
-      _activeEngine.value = _mlkit.name;
-      try {
-        final result = await _mlkit
-            .translate(
-              text: text,
-              targetLang: targetCode,
-              sourceLang: sourceCode,
-            )
-            .timeout(
-              const Duration(seconds: 30),
-              onTimeout: () => TranslationResult.failure(
-                original: text,
-                error: 'Timeout ML Kit sau 30 giây',
-                engine: _mlkit.name,
-              ),
-            );
-        if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-          // YT-AUDIT-03 (IN4-101): cùng bước soi đầu ra như engine online.
-          if (_looksUntranslated(
-            text,
-            result.translatedText,
-            sourceCode,
-            targetCode,
-          )) {
-            debugPrint(
-              '⏭️ ${_mlkit.name}: trả về NGÔN NGỮ NGUỒN '
-              '($sourceCode→$targetCode) ⇒ bỏ qua.',
-            );
-          } else {
-            return result;
-          }
-        }
-        mlkitFailure = result;
-        debugPrint('❌ ${_mlkit.name}: ${result.error}');
-      } catch (error) {
-        debugPrint('❌ ${_mlkit.name} exception: $error');
-      }
-    }
-
-    // 2.5) LLM API (WP3/API-004) — routing offlineFirst (mặc định):
-    //      engine offline câu (Hy-MT/ML Kit) đã fail/thiếu model → thử
-    //      API TRƯỚC từ điển. Tầng tắt/mất mạng → engine fail nhanh
-    //      `no_provider`/`no_network` và chuỗi đi tiếp như chưa có WP3.
-    if (llm != null && hasNetwork && !_offlineOnly) {
-      if (!await llm.runsBeforeFreeOnlineEngines()) {
-        final result = await _tryLlmMt(llm, text, sourceCode, targetCode);
-        if (result != null) return result;
-      }
-    }
-
-    // 4) Từ điển offline (last resort — placeholder __G{n}__ không có trong
-    //    từ điển nên được giữ nguyên → restore sau).
-    final dictResult = await _offlineEngine.translate(
-      text: text,
-      targetLang: targetCode,
-      sourceLang: sourceCode,
-    );
-    if (dictResult.isSuccess) return dictResult;
-    // Cặp này không service được offline (vd thiếu model Hindi + không
-    // mạng) → trả lỗi CỤ THỂ hơn của ML Kit thay cho lỗi chung của từ điển.
-    return mlkitFailure ?? dictResult;
-  }
-
-  /// Thử 1 lượt LLM API trong chuỗi. Trả kết quả THÀNH CÔNG, hoặc null
-  /// khi engine fail (đã log + `_activeEngine` nhả lại) → chuỗi đi tiếp
-  /// engine kế tiếp. Timeout ngoài là safety-net tỷ lệ theo độ dài
-  /// (budget thật nằm BÊN TRONG engine — mỗi chunk có timeout riêng).
-  /// Đã nhắc "chưa cấu hình provider LLM" chưa — chỉ nhắc 1 lần / phiên.
-  ///
-  /// IN4-17 (log 18/10): dịch màn hình gọi dịch liên tục (mỗi block OCR),
-  /// nên thông báo này bị lặp ~2 lần/giây và làm log ngỡ như lỗi routing.
-  bool _llmNoProviderNoticeShown = false;
-
-  Future<TranslationResult?> _tryLlmMt(
-    LlmMtEngine engine,
-    String text,
-    String sourceCode,
-    String targetCode,
-  ) async {
-    // IN4-17: provider chưa cấu hình ⇒ lớp LLM KHÔNG có gì để làm — bỏ qua
-    // im lặng (thông báo 1 lần) để chuỗi engine online/offline phía dưới chạy
-    // bình thường. Không đổi routing, không ép online.
-    if (!await engine.isAvailable()) {
-      if (!_llmNoProviderNoticeShown) {
-        _llmNoProviderNoticeShown = true;
-        debugPrint(
-          'ℹ️ LLM API: chưa cấu hình provider cho dịch LLM (màn Server & API) '
-          'hoặc routing "Dịch" đang "Chỉ offline" — bỏ qua lớp LLM, '
-          'dùng engine khác. (thông báo này chỉ in 1 lần)',
+        result = TranslationResult.failure(
+          original: text,
+          error: error.toString(),
+          engine: engine.name,
         );
+      } finally {
+        if (_activeEngineToken == token) _activeEngine.value = null;
       }
-      return null;
-    }
-    _llmNoProviderNoticeShown = false;
-    _activeEngine.value = engine.name;
-    try {
-      final result = await engine
-          .translate(
-            text: text,
-            targetLang: targetCode,
-            sourceLang: sourceCode,
-          )
-          .timeout(
-            _llmBudget(text),
-            onTimeout: () => TranslationResult.failure(
-              original: text,
-              error: 'LLM API quá thời gian dự trù '
-                  '(${text.length} ký tự). Server có thể đang chậm — thử lại '
-                  'hoặc dùng engine khác.',
-              engine: engine.name,
-              errorCode: 'timeout',
-              detectedLang: sourceCode,
-              targetLang: targetCode,
-            ),
-          );
       if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-        // YT-AUDIT-03 (IN4-101): cùng bước soi đầu ra như engine online.
-        if (_looksUntranslated(
-          text,
-          result.translatedText,
-          sourceCode,
-          targetCode,
-        )) {
-          debugPrint(
-            '⏭️ ${engine.name}: trả về NGÔN NGỮ NGUỒN '
-            '($sourceCode→$targetCode) ⇒ bỏ qua.',
-          );
-        } else {
-          return result;
-        }
+        return traced(result, actualId: engine.id);
+      }
+      lastFailure = result;
+      if (identical(engine, _mlkit) || identical(engine, _hymt)) {
+        sentenceFailure = result;
+      }
+      // Preserve the existing explicit Hy-MT + offline-only contract.
+      if (identical(engine, _hymt) &&
+          _offlineOnly &&
+          _offlineEnginePref == HyMtOfflinePreference.hymt) {
+        return traced(result);
       }
       debugPrint('❌ ${engine.name}: ${result.error}');
-      return null;
-    } catch (error) {
-      debugPrint('❌ ${engine.name} exception: $error');
-      return null;
     }
+    return traced(sentenceFailure ??
+        lastFailure ??
+        TranslationResult.failure(
+          original: text,
+          error: 'No translation engine is available',
+          engine: selected.name,
+          errorCode: 'unavailable',
+        ));
   }
 
   /// Safety-net timeout cho LLM API: nền 75s + 75s cho mỗi chunk ~2000
@@ -1215,18 +1181,27 @@ class TranslationService {
 
   Future<void> _loadOfflineOnlyPref() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _offlineOnly = prefs.getBool(_offlineOnlyPrefKey) ?? false;
-      _offlineEnginePref = await HyMtEngine.loadPreference();
-      // XLAT-DEEPLX-001: phục hồi URL DeepLX đã lưu. Chỉ áp dụng khi session
-      // này chưa được configure URL khác (tránh đè cấu hình mới bằng giá trị
-      // cũ khi prefs trả về chậm hơn một lượt configure).
+      final prefs = await _preferences();
+      if (!_offlineOnlyChanged) {
+        _offlineOnly = prefs.getBool(_offlineOnlyPrefKey) ?? false;
+      }
+      if (!_offlinePrefChanged) {
+        final saved = prefs.getString('translation_offline_engine');
+        _offlineEnginePref = HyMtOfflinePreference.values.firstWhere(
+          (value) => value.name == saved,
+          orElse: () => HyMtOfflinePreference.auto,
+        );
+      }
+      if (!_priorityChanged) {
+        final saved = prefs.get(enginePriorityPrefKey);
+        if (saved is List<String>) {
+          _enginePriority = normalizeTranslationEnginePriority(saved);
+        }
+      }
       final savedDeeplxUrl = prefs.getString(_deeplxUrlPrefKey);
-      if (_deeplxUrl == null &&
+      if (!_deeplxConfigured &&
           savedDeeplxUrl != null &&
           savedDeeplxUrl.trim().isNotEmpty) {
-        // AUDIT-1.21.0 #6: máy đã từng lưu link bài hướng dẫn ⇒ KHÔNG phục
-        // hồi lại (nếu không mỗi lần mở app lại kẹt "Thử kết nối DeepLX").
         final verdict = assessDeepLXEndpoint(savedDeeplxUrl);
         if (verdict.isValid) {
           _deeplxUrl = verdict.normalizedUrl;
@@ -1236,20 +1211,18 @@ class TranslationService {
           _deeplxRejectedUrl = savedDeeplxUrl.trim();
         }
       }
-    } catch (_) {}
-  }
-
-  Future<void> _persistOfflineOnly(bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_offlineOnlyPrefKey, value);
-    } catch (_) {}
+      final llm = _llmMt;
+      if (llm != null) _llmRunsFirst = await llm.runsBeforeFreeOnlineEngines();
+    } catch (error) {
+      debugPrint('Translation settings load: $error');
+    }
+    notifyListeners();
   }
 
   /// XLAT-DEEPLX-001: lưu/xoá URL DeepLX — `null` là xoá (ô để trống).
   Future<void> _persistDeeplxUrl(String? url) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _preferences();
       if (url == null) {
         await prefs.remove(_deeplxUrlPrefKey);
       } else {

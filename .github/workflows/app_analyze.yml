@@ -671,6 +671,36 @@ jobs:
           path: psrc_181_182_test.log
           if-no-files-found: ignore
 
+      # Audit v1.29.0 §6 — keep this lane separate from word/IPA changes.
+      - name: "Audit 1.29.0 section 6 — Read translation, priority and fallback"
+        id: read-translation-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        timeout-minutes: 6
+        run: |
+          set +e
+          flutter test test/translation/engine_priority_test.dart \
+            test/read_mode/translation_result_visibility_test.dart \
+            test/read_mode/translation_ipa_integration_test.dart \
+            test/read_mode/translation_blur_test.dart \
+            test/translation_cache_engine_test.dart \
+            test/translation_glossary_test.dart test/llm_mt_engine_test.dart \
+            test/deeplx_engine_test.dart test/translation_source_language_test.dart \
+            -r expanded > read_translation_test.log 2>&1
+          code=$?
+          cat read_translation_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py read_translation_test.log "Read translation tests" 10
+          fi
+          exit $code
+
+      - name: Upload Read translation test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: read-translation-test-log
+          path: read_translation_test.log
+          if-no-files-found: ignore
+
       # API-TRANS-MODEL-001 / MODEL-PICKER-001 / API-SYNC-001 / API-DIAG-001:
       # model dịch riêng, hòa giải cấu hình cloud (LWW + bia mộ), báo cáo
       # "AI đang chạy" theo loại mạng, và chạy thử THẬT qua transport giả.

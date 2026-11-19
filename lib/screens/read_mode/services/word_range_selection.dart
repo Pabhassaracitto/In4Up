@@ -14,6 +14,7 @@
 import 'dart:ui' show Offset, Rect;
 
 import '../../../models/word_analysis.dart';
+import 'line_word_hit.dart';
 
 /// Khoảng chọn từ trong MỘT dòng, tính theo chỉ số từ (bao gồm cả hai đầu).
 ///
@@ -29,8 +30,7 @@ class WordRange {
   int get end => anchorIndex <= focusIndex ? focusIndex : anchorIndex;
   int get length => end - start + 1;
 
-  bool contains(int wordIndex) =>
-      wordIndex >= start && wordIndex <= end;
+  bool contains(int wordIndex) => wordIndex >= start && wordIndex <= end;
 
   /// Cùng mỏ neo, đầu kéo mới — thao tác mở rộng duy nhất.
   ///
@@ -60,8 +60,7 @@ class WordSelectionText {
   final int endOffset;
 
   @override
-  String toString() =>
-      'WordSelectionText("$text", $startOffset..$endOffset)';
+  String toString() => 'WordSelectionText("$text", $startOffset..$endOffset)';
 }
 
 /// Kẹp khoảng chọn vào `[0, wordCount)`.
@@ -107,17 +106,14 @@ WordSelectionText? buildWordSelectionText({
   final text = selected.join(' ');
   if (text.trim().isEmpty) return null;
 
-  final firstWord = words[start].word;
-  var startOffset = firstWord.isEmpty ? -1 : lineContent.indexOf(firstWord);
-  if (startOffset < 0) startOffset = 0;
-
-  final lastWord = words[end].word;
-  var endOffset = lastWord.isEmpty ? -1 : lineContent.lastIndexOf(lastWord);
-  if (endOffset < 0) {
-    endOffset = startOffset + text.length;
-  } else {
-    endOffset += lastWord.length;
-  }
+  final spans = buildLineWordSpans(
+    content: lineContent,
+    words: words.map((word) => word.word).toList(growable: false),
+  );
+  final startOffset =
+      lineWordSpanFor(spans: spans, wordIndex: start)?.start ?? 0;
+  var endOffset = lineWordSpanFor(spans: spans, wordIndex: end)?.end ??
+      startOffset + text.length;
   if (endOffset < startOffset) endOffset = startOffset + text.length;
 
   return WordSelectionText(

@@ -1436,37 +1436,12 @@ class _PiperModelCardState extends State<_PiperModelCard> {
   }
 
   Future<void> _downloadPiperBundle(BuildContext context) async {
-    const en = SherpaModelManager.defaultPiperVoice;
-    const enLessac = 'en_US-lessac-medium';
-    const vi = 'vi_VN-vais1000-medium';
-
-    final voice = await showDialog<String>(
+    // PSRC-252 — một nơi chọn giọng duy nhất (bản cũ có SimpleDialog 3 giọng
+    // CHÈA NGANG sheet đầy đủ → người dùng không thấy các ngôn ngữ mới).
+    final voice = await showModalBottomSheet<String>(
       context: context,
-      builder: (_) => SimpleDialog(
-        title: const Text('Tải giọng Piper (~75MB, tự cài)'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, en),
-            child: const Text('en_US-libritts_r-medium (Anh, nữ)'),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, enLessac),
-            child: const Text('en_US-lessac-medium (Anh, nữ)'),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, vi),
-            child: const Text('vi_VN-vais1000-medium (Việt, nữ)'),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text(
-              'App tự tải, giải nén và cài. Giữ Wi-Fi, đợi thanh tiến độ xong '
-              'là dùng được — không cần giải nén tay.',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      builder: (_) => const _PiperVoiceDownloadSheet(),
     );
     if (voice == null || !mounted) return;
 
@@ -1509,15 +1484,30 @@ class _PiperModelCardState extends State<_PiperModelCard> {
 }
 
 class _PiperVoiceDownloadSheet extends StatefulWidget {
-  const _PiperVoiceDownloadSheet();
+  const _PiperVoiceDownloadSheet({super.key});
 
   @override
   State<_PiperVoiceDownloadSheet> createState() =>
       _PiperVoiceDownloadSheetState();
 }
 
+/// PSRC-252 — danh sách ưu tiên được render DẠNG GỘP: mỗi ngôn ngữ là một
+/// dòng với số giọng; chỉ khi bấm mũi tên mới hiện từng model. Người dùng
+/// không bị dội ~40 dòng model ngay lần đầu mở Cài đặt.
 class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
   bool _showMore = false;
+  final Set<String> _expandedLanguages = <String>{};
+  String? _sriLankaChoice;
+
+  static const _priorityNote =
+      'Chọn ngôn ngữ trước, sau đó mở ra để chọn giọng. Dung lượng tính theo '
+      'file model, không phải RAM cần để chạy.';
+  static const _sriLankaNote =
+      'Sri Lanka là quốc gia, không phải tên ngôn ngữ. Hãy chọn cụ thể: '
+      'Sinhala, Tamil hoặc English.';
+  static const _noNativeVoice =
+      'Piper chưa có giọng bản xứ cho ngôn ngữ này. Dùng Edge TTS/giọng hệ '
+      'thống, hoặc tự import model tương thích — đừng tải nhầm giọng tiếng khác.';
 
   @override
   Widget build(BuildContext context) {
@@ -1532,28 +1522,25 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: ListView(
+            key: const Key('piper-voice-download-sheet'),
             controller: scroll,
             children: [
               Text(
-                context.uiText('Download Piper voice (~75MB, auto-install)'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                context.uiText('Tải giọng Piper (tự cài)'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 6),
               Text(
-                context.uiText(
-                  'Priority: Vietnamese, English, Chinese, Hindi. '
-                  'More languages below. Source: HuggingFace rhasspy/piper-voices '
-                  '(k2-fsa bundle first). Sinhala is not in this catalog yet.',
-                ),
+                context.uiText(_priorityNote),
                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
               const SizedBox(height: 12),
+              _buildSriLankaChooser(context),
+              const SizedBox(height: 4),
               ..._groupTiles(context, featured),
               const SizedBox(height: 8),
               TextButton.icon(
+                key: const Key('piper-voice-show-more'),
                 onPressed: () => setState(() => _showMore = !_showMore),
                 icon: Icon(
                   _showMore ? Icons.expand_less : Icons.expand_more,
@@ -1561,11 +1548,19 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
                 ),
                 label: Text(
                   context.uiText(
-                    _showMore ? 'Hide extra languages' : 'Show more languages',
+                    _showMore ? 'Ẩn ngôn ngữ khác' : 'Xem thêm ngôn ngữ',
                   ),
                 ),
               ),
               if (_showMore) ..._groupTiles(context, extra),
+              const SizedBox(height: 8),
+              Text(
+                context.uiText(
+                  'Nguồn model: HuggingFace rhasspy/piper-voices '
+                  '(k2-fsa bundle trước, HuggingFace sau).',
+                ),
+                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              ),
             ],
           ),
         );
@@ -1573,41 +1568,113 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
     );
   }
 
-  List<Widget> _groupTiles(BuildContext context, List<PiperVoiceOffer> voices) {
-    final byLang = <String, List<PiperVoiceOffer>>{};
-    for (final v in voices) {
-      byLang.putIfAbsent(v.languageCode, () => []).add(v);
-    }
-    final out = <Widget>[];
-    for (final entry in byLang.entries) {
-      out.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 4),
-          child: Text(
-            context.uiText('${entry.value.first.languageLabelEn} (${entry.key})'),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF80CBC4),
+  /// PSRC-252: Sri Lanka cần xác định NGÔN NGỮ trước khi chọn model. Các nút
+  /// này chỉ lọc/đi tới nhóm tương ứng — KHÔNG tự coi "Sri Lanka" là một mã
+  /// ngôn ngữ và cũng không gán giọng tiếng khác cho Sinhala/Tamil.
+  Widget _buildSriLankaChooser(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('Sri Lanka — chọn ngôn ngữ cụ thể'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
-          ),
-        ),
-      );
-      for (final v in entry.value) {
-        out.add(
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(v.id, style: const TextStyle(fontSize: 13)),
-            subtitle: Text(
-              context.uiText('${v.speaker} · ${v.quality} · ~${v.approxSizeMB}MB'),
+            const SizedBox(height: 4),
+            Text(
+              context.uiText(_sriLankaNote),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
-            trailing: const Icon(Icons.download, size: 18),
-            onTap: () => Navigator.pop(context, v.id),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final choice in <String>['Sinhala', 'Tamil', 'English'])
+                  ActionChip(
+                    key: Key('piper-sri-lanka-$choice'),
+                    label: Text(context.uiText(choice)),
+                    onPressed: () {
+                      setState(() {
+                        _sriLankaChoice = choice;
+                        if (choice == 'English') {
+                          _showMore = false;
+                          _expandedLanguages.add('en_US');
+                        }
+                      });
+                    },
+                  ),
+              ],
+            ),
+            if (_sriLankaChoice != null &&
+                _sriLankaChoice != 'English')
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  context.uiText(_noNativeVoice),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _groupTiles(BuildContext context, List<PiperVoiceOffer> voices) {
+    final grouped = PiperVoiceCatalog.groupByLanguage(
+      voices,
+      languageCodes: PiperVoiceCatalog.priorityLanguageCodes,
+    );
+    final out = <Widget>[];
+    for (final entry in grouped.entries) {
+      final code = entry.key;
+      out.add(
+        ExpansionTile(
+          key: Key('piper-lang-$code'),
+          initiallyExpanded: _expandedLanguages.contains(code),
+          onExpansionChanged: (expanded) => setState(() {
+            if (expanded) {
+              _expandedLanguages.add(code);
+            } else {
+              _expandedLanguages.remove(code);
+            }
+          }),
+          leading: const Icon(Icons.record_voice_over, size: 18),
+          title: Text(
+            context.uiText(
+              '${entry.value.first.languageLabelEn} (${entry.key})',
+            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
-        );
-      }
+          subtitle: Text(
+            context.uiText('${entry.value.length} giọng'),
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          ),
+          children: [
+            for (final v in entry.value)
+              ListTile(
+                key: Key('piper-voice-${v.id}'),
+                dense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                title: Text(v.id, style: const TextStyle(fontSize: 12)),
+                subtitle: Text(
+                  context.uiText(
+                    '${v.speaker} · ${v.quality} · ~${v.approxSizeMB}MB',
+                  ),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                ),
+                trailing: const Icon(Icons.download, size: 18),
+                onTap: () => Navigator.pop(context, v.id),
+              ),
+          ],
+        ),
+      );
     }
     return out;
   }

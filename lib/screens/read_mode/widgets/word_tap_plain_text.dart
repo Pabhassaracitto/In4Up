@@ -84,6 +84,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
   /// Key của `RichText` để lấy được `RenderParagraph` — nguồn duy nhất đổi
   /// toạ độ chạm sang chỉ số ký tự.
   final GlobalKey _textKey = GlobalKey();
+  final _ipaWordKeys = <int, GlobalKey>{};
 
   final LineTapClassifier _tap = LineTapClassifier();
   int? _lastTappedWord;
@@ -112,6 +113,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
           (i) => oldWidget.words[i].word == widget.words[i].word,
         )) {
       _rebuildWordSpans();
+      _ipaWordKeys.clear();
       _tap.reset();
       // Dòng đổi nội dung (sửa dòng, đổi tài liệu) ⇒ vùng chọn cũ vô nghĩa.
       // Không gọi clearSelection() ngay tại đây: didUpdateWidget chạy trong
@@ -226,6 +228,7 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
           alignment: PlaceholderAlignment.baseline,
           baseline: TextBaseline.alphabetic,
           child: Column(
+            key: _ipaWordKeys.putIfAbsent(index, () => GlobalKey()),
             mainAxisSize: MainAxisSize.min,
             children: [
               RichText(
@@ -260,30 +263,35 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
     if (_displaySpans.isEmpty) return null;
     final renderObject = _textKey.currentContext?.findRenderObject();
     if (renderObject is! RenderParagraph) return null;
-    final position = renderObject.getPositionForOffset(local);
-    if (widget.wordIpa.isNotEmpty) {
-      // Caret offsets are shared at token boundaries. In particular the
-      // right half of a WidgetSpan may return its end, not its start.
-      for (final span in _displaySpans) {
-        if (!span.contains(position.offset)) continue;
-        if (renderObject
-            .getBoxesForSelection(
-              TextSelection(baseOffset: span.start, extentOffset: span.end),
-            )
-            .any((box) => box.toRect().contains(local))) {
-          return span.wordIndex;
-        }
+    // The IPA tier may be far below the glyph baseline. Hit-test the actual
+    // pair before asking the paragraph for a caret in the nearest text run.
+    for (final wordIndex in widget.wordIpa.keys) {
+      if (_ipaWordRect(wordIndex, ancestor: renderObject)?.contains(local) ??
+          false) {
+        return wordIndex;
       }
     }
+    final position = renderObject.getPositionForOffset(local);
     return wordIndexAtCharOffset(
       spans: _displaySpans,
       charOffset: position.offset,
     );
   }
 
+  Rect? _ipaWordRect(int wordIndex, {RenderBox? ancestor}) {
+    final box = _ipaWordKeys[wordIndex]?.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return MatrixUtils.transformRect(
+      box.getTransformTo(ancestor),
+      Offset.zero & box.size,
+    );
+  }
+
   /// Hình chữ nhật (toạ độ toàn cục) của từ [#wordIndex] — để pop tra nhanh
   /// trồi lên đúng cạnh từ vừa chạm. `null` = chưa đo được, pop tự chọn chỗ.
   Rect? _wordRect(int wordIndex) {
+    final pair = _ipaWordRect(wordIndex);
+    if (pair != null) return pair;
     final span = lineWordSpanFor(spans: _displaySpans, wordIndex: wordIndex);
     if (span == null) return null;
     final renderObject = _textKey.currentContext?.findRenderObject();

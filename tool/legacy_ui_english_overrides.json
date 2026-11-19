@@ -4217,5 +4217,7 @@
   "Đầy đủ — máy nhiều RAM, cần tốc độ": "Full — high-RAM devices, better speed",
   "Model vượt ngưỡng RAM đo được — chọn profile nhẹ hơn (lite/balanced).": "The model exceeds the measured RAM limit — choose a lighter profile (lite/balanced).",
   "Kéo để sắp xếp ưu tiên. Provider trên lỗi sẽ tự chuyển sang provider kế tiếp theo thứ tự này.": "Drag to set priority. If the top provider fails, the app tries the next one in this order.",
-  "Phạm vi đồng bộ: chỉ qua tài khoản đã đăng nhập (Firebase). Thứ tự ưu tiên kéo-thả được lưu cùng cấu hình. Chưa đăng nhập ⇒ chỉ lưu trên máy; app KHÔNG có đồng bộ xuyên thiết bị tự động.": "Sync scope: only via the signed-in account (Firebase). The drag-and-drop priority order is saved with the configuration. While signed out it stays on this device only; there is no automatic cross-device sync."
+  "Phạm vi đồng bộ: chỉ qua tài khoản đã đăng nhập (Firebase). Thứ tự ưu tiên kéo-thả được lưu cùng cấu hình. Chưa đăng nhập ⇒ chỉ lưu trên máy; app KHÔNG có đồng bộ xuyên thiết bị tự động.": "Sync scope: only via the signed-in account (Firebase). The drag-and-drop priority order is saved with the configuration. While signed out it stays on this device only; there is no automatic cross-device sync.",
+  "5 công cụ": "5 tools",
+  "Thu gọn chi tiết": "Collapse details"
 }

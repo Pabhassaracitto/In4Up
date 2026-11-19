@@ -25,6 +25,7 @@
 // `TextProvider` để các nút Dịch/Ngữ pháp/Từ điển ở header vẫn thấy).
 import 'dart:async';
 
+import 'package:flutter/material.dart' as material show Text;
 import 'package:flutter/rendering.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
@@ -161,11 +162,11 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
     // Vùng chọn bị xoá ở nơi khác (nút ✕ của thanh hành động, chạm ra ngoài
     // dòng, clearSelection từ luồng khác) ⇒ thoát chế độ chọn cho khớp trạng
     // thái thật của app — cùng luật với `ColoredTextWidget`.
-    final selectionLine = context.select<TextProvider, int?>(
-      (tp) => tp.selectedTextInfo?.lineIndex,
-    );
     final range = _range;
-    if (range != null && selectionLine != widget.lineIndex) {
+    if (range != null &&
+        context.select<TextProvider, int?>(
+                (tp) => tp.selectedTextInfo?.lineIndex) !=
+            widget.lineIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _range != null) {
           setState(() => _range = null);
@@ -232,9 +233,12 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
             key: _ipaWordKeys.putIfAbsent(index, () => GlobalKey()),
             mainAxisSize: MainAxisSize.min,
             children: [
-              RichText(
-                text: TextSpan(text: text, style: baseStyle.merge(style)),
+              // Source content isn't chrome. WidgetSpan scales this child.
+              material.Text(
+                text,
+                style: baseStyle.merge(style).copyWith(inherit: false),
                 textAlign: TextAlign.center,
+                textScaler: TextScaler.noScaling,
               ),
               ReadWordIpa(span: ipa, inline: true),
             ],
@@ -318,7 +322,9 @@ class _WordTapPlainTextState extends State<WordTapPlainText> {
     // If the first tap activated IPA on this line, allow a second tap at the
     // same screen position even though the original paragraph rewrapped.
     final hasIpa = widget.wordIpa.isNotEmpty;
-    if (_lastTapHadIpa == hasIpa && _lastTappedWord != wordIndex) _tap.reset();
+    if ((_lastTapHadIpa || !hasIpa) && _lastTappedWord != wordIndex) {
+      _tap.reset();
+    }
     _lastTappedWord = wordIndex;
     _lastTapHadIpa = hasIpa;
 

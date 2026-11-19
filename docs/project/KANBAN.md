@@ -10072,6 +10072,11 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
   - 2026-11-09 | doing→doing | agent arena/e15b13fa-in4up | worker MDD và huỷ có đóng nguồn theo ADR-0031, test synthetic/mock; chờ CI và QA thiết bị, chưa media UI.
   - 2026-11-09 | doing→doing | agent arena/e15b13fa-in4up | CI 43760882725 xanh trên `e208d4c`; PR #192; còn cache, CSS/media UI và QA LAAD3/SAF thật.
+  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | tối ưu MDD theo lô giới hạn ADR-0032, index mỗi phần một lần trong tác vụ, chờ CI/QA.
+  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | thử hiển thị ảnh MDD theo yêu cầu, PNG/JPEG giới hạn + huỷ theo ADR-0033; chờ CI/review/QA thiết bị, CSS/audio chưa có.
+  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | CI 43799648679 xanh trên `d8c0196`; PR #195. Ảnh MDD thử nghiệm theo yêu cầu, chưa CSS/audio, còn QA LAAD3/SAF thật.
+  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | đồng bộ 251e `7cd8f82`; số ADR trong hai dòng trước được đổi: MDD theo lô 0032→0033, ảnh 0033→0034 để tránh trùng ADR-0032 của tab Đọc; chờ CI sau đồng bộ.
+
 ### BETA-1.29.0 — (2026-11-12) Beta hub v1.29.0: tổng hợp 9 lane audit 1.28.0 trước khi vào 251e
 - **Trạng thái:** 🔨 doing — hub mở, **chưa có nhánh con nào**; chưa có code mới trên nhánh này
 - **Nguồn:** owner 2026-11-12 — *"I4U - Beta For v1.29.0 … nhánh này làm quản lý tên Beta. Nơi tổng hợp, kiểm thử, 9 agent sẽ là các nhánh con làm xong sẽ merge rebase vô đây để chạy thử, nếu ok thì mới rebase vô nhánh cha là nhánh 251e."*

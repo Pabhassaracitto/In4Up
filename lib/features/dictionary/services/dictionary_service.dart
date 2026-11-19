@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show visibleForTesting, ValueNotifier, ValueListenable;
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
 
@@ -57,6 +57,10 @@ class DictionaryService {
 
   final List<DictInfo> _dicts = [];
   final MddWorkerPool _mddWorkers = MddWorkerPool();
+  final ValueNotifier<int> _resourceRevision = ValueNotifier(0);
+  /// Signals that previously loaded resource bytes should be discarded.
+  ValueListenable<int> get resourceRevision => _resourceRevision;
+  void _invalidateResources() => _resourceRevision.value++;
   bool _initialized = false;
 
   /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
@@ -123,6 +127,18 @@ class DictionaryService {
     final matches = _dicts.where((dict) => dict.id == dictId);
     if (matches.isEmpty) throw StateError('Dictionary not registered');
     return _mddWorkers.start(matches.first, key);
+  }
+
+  /// Resolve several resources with one short-lived index per MDD part.
+  Future<MddReadTask> startMddResourceBatch(String dictId, List<String> keys, {
+    int maxItemBytes = 2 * 1024 * 1024,
+    int maxTotalBytes = 8 * 1024 * 1024,
+  }) async {
+    await ensureInitialized();
+    final matches = _dicts.where((dict) => dict.id == dictId);
+    if (matches.isEmpty) throw StateError('Dictionary not registered');
+    return _mddWorkers.startBatch(matches.first, keys,
+      maxItemBytes: maxItemBytes, maxTotalBytes: maxTotalBytes);
   }
 
   Future<Uint8List?> readMddResource(String dictId, String key) async =>
@@ -371,6 +387,9 @@ class DictionaryService {
           needsReselect = true;
         }
         missingAll.add('${set.suggestedName}: $e');
+      } finally {
+        // A read could start while reimport awaited I/O; discard it as well.
+        _invalidateResources();
       }
     }
 
@@ -474,6 +493,7 @@ class DictionaryService {
           );
           _dicts.removeWhere((d) => d.id == info.id);
           _dicts.add(info);
+          _invalidateResources();
           imported.add(info);
         } catch (e) {
           problems.add('${file.name}: $e');
@@ -557,6 +577,8 @@ class DictionaryService {
         md5.convert(utf8.encode(fileName)).toString().substring(0, 12);
     final dbPath = '$dictDir/$dictId.dict.sqlite';
 
+    // Reimport can replace a bundle before indexing completes.
+    _invalidateResources();
     final absMdx = absOf(set.mdx);
 
     String? resourcePath;
@@ -871,6 +893,7 @@ class DictionaryService {
     final mdxUri = uriByPath[match.mdx.path];
     if (mdxUri == null) return false;
 
+    _invalidateResources();
     _dicts[dictIndex] = dict.copyWith(
       sourceFolder: treeUri,
       resourcePath: treeUri,
@@ -947,6 +970,7 @@ class DictionaryService {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
     if (idx < 0) return;
     final dict = _dicts[idx];
+    _invalidateResources();
 
     try {
       await DictDbService.deleteDb(dict.dbPath);
@@ -977,6 +1001,7 @@ class DictionaryService {
     }
 
     _dicts.removeAt(idx);
+    _invalidateResources();
     await _saveManifest();
   }
 
@@ -1018,6 +1043,7 @@ class DictionaryService {
 
       if (dict.needsReselect != !accessible) {
         _dicts[i] = dict.copyWith(needsReselect: !accessible);
+        _invalidateResources();
         changed = true;
       }
     }

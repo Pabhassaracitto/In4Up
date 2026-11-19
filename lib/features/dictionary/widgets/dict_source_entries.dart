@@ -6,10 +6,11 @@ import 'package:html/parser.dart' as html;
 import '../models/dict_entry.dart';
 import '../services/dictionary_service.dart';
 import '../services/dict_entry_links.dart';
+import 'dict_source_images.dart';
 
 /// Separate source entries, without the lossy sense limits of the quick view.
-/// This is intentionally a text-only HTML subset, not an MDict renderer: no
-/// scripts, links, stylesheets, network, file access or media are executed.
+/// Safe text subset plus optional bounded MDD images, not a full renderer:
+/// no scripts, stylesheets, network, arbitrary file access or audio are executed.
 class DictSourceEntries extends StatelessWidget {
   final List<DictEntry> entries;
   final bool initiallyExpanded;
@@ -43,7 +44,7 @@ class DictSourceEntries extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          context.uiText('Bản văn bản từ dữ liệu đã nhập; chưa hỗ trợ CSS, ảnh và âm thanh.'),
+          context.uiText('Ảnh MDD đang thử nghiệm; chưa hỗ trợ CSS và âm thanh.'),
           style: TextStyle(color: Colors.grey[400], fontSize: 12),
         ),
         for (final entry in entries)
@@ -69,6 +70,7 @@ class DictSourceEntries extends StatelessWidget {
                   ),
                 ),
               ),
+              DictSourceImages(dictId: entry.dictId, definition: entry.definition),
               if (onLookupWord != null &&
                   DictEntryLinks.extract(entry.definition).isNotEmpty) ...<Widget>[
                 const SizedBox(height: 8),

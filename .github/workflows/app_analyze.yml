@@ -379,6 +379,7 @@ jobs:
           files=""
           for f in test/dictionary/dict_entry_links_test.dart \
                    test/dictionary/dict_source_entries_test.dart \
+                   test/dictionary/dict_source_images_test.dart \
                    test/dictionary/mdx_parser_test.dart \
                    test/dictionary/mdd_reader_test.dart \
                    test/dictionary/dict_mdd_resources_test.dart \

@@ -158,12 +158,13 @@ class MddReader {
 
   /// Returns null for a missing/unsafe key; blocks are decoded on demand.
   /// An asset spanning multiple blocks is assembled with a strict size cap.
-  Future<Uint8List?> readResource(String key) async {
+  Future<Uint8List?> readResource(String key, {int maxBytes = maxAssetBytes}) async {
+    if (maxBytes < 0 || maxBytes > maxAssetBytes) throw ArgumentError.value(maxBytes);
     final name = normalizeKey(key);
     final range = name == null ? null : _entries[name];
     if (range == null) return null;
     final size = range.end - range.start;
-    if (size > maxAssetBytes) throw const FormatException('MDD asset exceeds limit');
+    if (size > maxBytes) throw const FormatException('MDD asset exceeds limit');
     final out = BytesBuilder(copy: false);
     for (final block in _blocks) {
       final blockEnd = block.offset + block.unpacked;
@@ -300,18 +301,40 @@ class MddParts {
     if (_openers.length > maxParts) throw ArgumentError('Too many MDD parts');
   }
 
-  Future<Uint8List?> readResource(String key) async {
-    if (MddReader.normalizeKey(key) == null) return null;
+  /// Resolve a small batch in one pass. Each part is indexed at most once for
+  /// this operation; no index survives a source close/relink/revocation.
+  Future<List<Uint8List?>> readResources(List<String> keys, {
+    int maxItemBytes = MddReader.maxAssetBytes,
+    int maxTotalBytes = MddReader.maxAssetBytes,
+  }) async {
+    if (keys.length > 4 || maxItemBytes < 0 || maxItemBytes > MddReader.maxAssetBytes ||
+        maxTotalBytes < 0 || maxTotalBytes > MddReader.maxAssetBytes) {
+      throw ArgumentError('Invalid MDD batch limits');
+    }
+    final names = keys.map(MddReader.normalizeKey).toList();
+    final pending = names.whereType<String>().toSet();
+    final found = <String, Uint8List>{};
+    var total = 0;
     for (final open in _openers) {
+      if (pending.isEmpty) break;
       final source = await open();
       try {
         final reader = await MddReader.open(source);
-        final data = await reader.readResource(key);
-        if (data != null) return data;
+        for (final name in pending.toList()) {
+          final bytes = await reader.readResource(name, maxBytes: maxItemBytes);
+          if (bytes == null) continue;
+          total += bytes.length;
+          if (total > maxTotalBytes) throw const FormatException('MDD batch exceeds limit');
+          found[name] = bytes;
+          pending.remove(name);
+        }
       } finally {
         await source.close();
       }
     }
-    return null;
+    return [for (final name in names) name == null ? null : found[name]];
   }
+
+  Future<Uint8List?> readResource(String key) async =>
+      (await readResources([key])).single;
 }

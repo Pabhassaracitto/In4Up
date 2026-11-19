@@ -482,13 +482,17 @@ class TextLineWidget extends StatelessWidget {
       );
     }
 
-    final grammarSettings =
-        context.select<TextProvider, GrammarHighlightSettings>(
-      (tp) => tp.grammarSettings,
-    );
-    final palette = context.select<TextProvider, GrammarPalette>(
-      (tp) => tp.activeGrammarPalette,
-    );
+    final useGrammar = data.colorMode == ColorMode.wordType;
+    final grammarSettings = useGrammar
+        ? context.select<TextProvider, GrammarHighlightSettings>(
+            (tp) => tp.grammarSettings,
+          )
+        : null;
+    final palette = grammarSettings?.enabled == true
+        ? context.select<TextProvider, GrammarPalette>(
+            (tp) => tp.activeGrammarPalette,
+          )
+        : null;
 
     // PSRC-234: dòng không bật box từng từ trước đây là `SelectableText` /
     // `SelectableText.rich` ⇒ chạm một từ KHÔNG có phản ứng gì (chỉ đặt con
@@ -504,8 +508,6 @@ class TextLineWidget extends StatelessWidget {
       lineIndex: index,
       fontSize: data.fontSize,
       textAlign: data.textAlign,
-      lineStartOffset:
-          context.read<ReadModeController>().getLineStartOffset(index),
       wordStyle: (wordIndex, selected) => _wordStyle(
         data,
         grammarSettings,
@@ -522,24 +524,22 @@ class TextLineWidget extends StatelessWidget {
 
   TextStyle _wordStyle(
     _LineData data,
-    GrammarHighlightSettings grammarSettings,
-    GrammarPalette palette,
+    GrammarHighlightSettings? grammarSettings,
+    GrammarPalette? palette,
     int wordIndex,
     bool selected,
   ) {
     final word = data.analyzedWords[wordIndex];
-    final useGrammar =
-        data.colorMode == ColorMode.wordType && grammarSettings.enabled;
-    final grammarCategory =
-        useGrammar ? grammarCategoryFromLegacyWordType(word.wordType) : null;
-    final grammarResolved = useGrammar && grammarCategory != null
-        ? GrammarStyleMapper.resolve(
-            category: grammarCategory,
-            palette: palette,
-            settings: grammarSettings,
-            defaultTextColor: Colors.white,
-          )
-        : null;
+    final grammarCategory = grammarCategoryFromLegacyWordType(word.wordType);
+    final grammarResolved =
+        grammarSettings != null && palette != null && grammarCategory != null
+            ? GrammarStyleMapper.resolve(
+                category: grammarCategory,
+                palette: palette,
+                settings: grammarSettings,
+                defaultTextColor: Colors.white,
+              )
+            : null;
 
     // READ-WORDSTYLE-001 — cùng một luật với ColoredTextWidget:
     //   fill      → nền màu + chữ màu

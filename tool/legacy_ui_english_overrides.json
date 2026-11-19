@@ -4179,5 +4179,14 @@
   "Dịch sang {value0}": "Translate to {value0}",
   "Chỉ đổi nguồn": "Change source only",
   "Ngôn ngữ nguồn: {value0}": "Source language: {value0}",
-  "Nguồn do bạn chọn cho tài liệu này. Khi đọc song ngữ, In4Up sẽ chuyển giọng {value0} ↔ {value1} trước từng lượt đọc.": "You chose the source language for this document. In bilingual reading, In4Up switches the voice {value0} ↔ {value1} before each turn."
+  "Nguồn do bạn chọn cho tài liệu này. Khi đọc song ngữ, In4Up sẽ chuyển giọng {value0} ↔ {value1} trước từng lượt đọc.": "You chose the source language for this document. In bilingual reading, In4Up switches the voice {value0} ↔ {value1} before each turn.",
+  "Tải giọng Piper (tự cài)": "Download Piper voice (auto-install)",
+  "Chọn ngôn ngữ trước, sau đó mở ra để chọn giọng. Dung lượng tính theo file model, không phải RAM cần để chạy.": "Choose a language first, then expand to see voices. Size is the model file size, not the RAM needed to run it.",
+  "Sri Lanka — chọn ngôn ngữ cụ thể": "Sri Lanka — choose a specific language",
+  "Sri Lanka là quốc gia, không phải tên ngôn ngữ. Hãy chọn cụ thể: Sinhala, Tamil hoặc English.": "Sri Lanka is a country, not a language. Choose one specifically: Sinhala, Tamil or English.",
+  "Piper chưa có giọng bản xứ cho ngôn ngữ này. Dùng Edge TTS/giọng hệ thống, hoặc tự import model tương thích — đừng tải nhầm giọng tiếng khác.": "Piper has no native voice for this language. Use Edge TTS/a system voice, or import a compatible model yourself — do not download a voice in another language by mistake.",
+  "Ẩn ngôn ngữ khác": "Hide other languages",
+  "Xem thêm ngôn ngữ": "Show more languages",
+  "Nguồn model: HuggingFace rhasspy/piper-voices (k2-fsa bundle trước, HuggingFace sau).": "Model source: HuggingFace rhasspy/piper-voices (k2-fsa bundle first, HuggingFace second).",
+  "{value0} · {value1} · ~{value2}MB": "{value0} · {value1} · ~{value2}MB"
 }

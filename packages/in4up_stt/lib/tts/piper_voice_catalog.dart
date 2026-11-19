@@ -1,8 +1,19 @@
 // Curated Piper voices for in-app download.
-// Catalog keys match https://huggingface.co/rhasspy/piper-voices
-// (voices.json). Install prefers k2-fsa sherpa tar.bz2 (onnx+tokens+espeak),
-// then HuggingFace onnx+json.
+//
+// PSRC-252 — danh sách này được đối chiếu với `voices.json` của
+// https://huggingface.co/rhasspy/piper-voices (nhánh `main`, khảo sát
+// 2026-11-19). Mọi `id` ở đây PHẢI là một key có thật trong voices.json:
+//   ├── file ONNX:  <hfOnnxRel>
+//   └── file config: <hfOnnxRel>.json
+// Không thêm model "nghe tên giống có" — đặc biệt với my_MM/si_LK/tạ
+// (xem [PiperVoiceCatalog.unavailableLanguages]): Piper hiện KHÔNG có giọng
+// bản xứ cho các ngôn ngữ đó.
+//
+// Trình cài ưu tiên bundle k2-fsa (onnx+tokens+espeak), rồi mới tải thẳng
+// HuggingFace onnx+json (xem `SherpaModelManager.downloadPiperBundle`). Vì vậy
+// các bản `medium/x_low/low` của rhasspy đều dùng được ở đây.
 
+/// Một giọng Piper có thật trên HuggingFace.
 class PiperVoiceOffer {
   final String id;
   final String languageCode;
@@ -10,7 +21,9 @@ class PiperVoiceOffer {
   final String quality;
   final String speaker;
   final String hfOnnxRel;
-  final bool featured;
+
+  /// Kích thước ~MB của file ONNX (làm tròn từ `size_bytes` của voices.json).
+  /// Chỉ để hiển thị — KHÔNG phải mức RAM cần để chạy model.
   final int approxSizeMB;
 
   const PiperVoiceOffer({
@@ -20,9 +33,13 @@ class PiperVoiceOffer {
     required this.quality,
     required this.speaker,
     required this.hfOnnxRel,
-    this.featured = false,
-    this.approxSizeMB = 75,
+    this.approxSizeMB = 60,
   });
+
+  /// Có nằm trong nhóm ngôn ngữ ưu tiên hay không (UI gom nhóm, không cần
+  /// cờ `featured` rời rạc như bản cũ).
+  bool get isPriority =>
+      PiperVoiceCatalog.priorityLanguageCodes.contains(languageCode);
 
   String get hfOnnxUrl =>
       'https://huggingface.co/rhasspy/piper-voices/resolve/main/$hfOnnxRel';
@@ -33,19 +50,54 @@ class PiperVoiceOffer {
       'https://huggingface.co/rhasspy/piper-voices/tree/main';
 }
 
+/// Ngôn ngữ người dùng thường hỏi nhưng Piper KHÔNG có giọng bản xứ.
+/// [languageCode] là mã NGÔN NGỮ — không phải tên quốc gia (Sri Lanka có
+/// Sinhala, Tamil và English; Myanmar có Burmese).
+class PiperUnavailableLanguage {
+  final String languageCode;
+  final String languageLabelEn;
+
+  const PiperUnavailableLanguage({
+    required this.languageCode,
+    required this.languageLabelEn,
+  });
+}
+
 class PiperVoiceCatalog {
   PiperVoiceCatalog._();
 
-  /// Surface first: VI, EN, ZH, HI. Sinhala is not in piper-voices (2026).
+  /// Ngôn ngữ hiển thị ở chế độ gọn. Có vài giọng bản xứ cho mỗi ngôn ngữ;
+  /// `zh_CN` và `zh_TW` là hai mặt chữ — chỉ liệt kê `zh_CN` vì đây là mã có
+  /// model thật trong piper-voices.
   static const List<String> priorityLanguageCodes = [
     'vi_VN',
     'en_US',
     'en_GB',
     'zh_CN',
     'hi_IN',
+    'ja_JP',
+    'th_TH',
+  ];
+
+  /// Không có giọng nào cho các mã này trong piper-voices (2026-11). UI phải
+  /// nói rõ để người dùng không tải nhầm model tiếng khác rồi tưởng là lỗi.
+  static const List<PiperUnavailableLanguage> unavailableLanguages = [
+    PiperUnavailableLanguage(
+      languageCode: 'my_MM',
+      languageLabelEn: 'Burmese (Myanmar)',
+    ),
+    PiperUnavailableLanguage(
+      languageCode: 'si_LK',
+      languageLabelEn: 'Sinhala (Sri Lanka)',
+    ),
+    PiperUnavailableLanguage(
+      languageCode: 'ta_LK',
+      languageLabelEn: 'Tamil (Sri Lanka)',
+    ),
   ];
 
   static const List<PiperVoiceOffer> all = [
+    // ── Tiếng Việt ────────────────────────────────────────────────────────
     PiperVoiceOffer(
       id: 'vi_VN-vais1000-medium',
       languageCode: 'vi_VN',
@@ -53,18 +105,27 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'vais1000',
       hfOnnxRel: 'vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx',
-      featured: true,
+      approxSizeMB: 60,
     ),
     PiperVoiceOffer(
-      id: 'vi_VN-25hours_single-medium',
+      id: 'vi_VN-25hours_single-low',
       languageCode: 'vi_VN',
       languageLabelEn: 'Vietnamese',
-      quality: 'medium',
+      quality: 'low',
       speaker: '25hours_single',
-      hfOnnxRel:
-          'vi/vi_VN/25hours_single/medium/vi_VN-25hours_single-medium.onnx',
-      featured: true,
+      hfOnnxRel: 'vi/vi_VN/25hours_single/low/vi_VN-25hours_single-low.onnx',
+      approxSizeMB: 60,
     ),
+    PiperVoiceOffer(
+      id: 'vi_VN-vivos-x_low',
+      languageCode: 'vi_VN',
+      languageLabelEn: 'Vietnamese',
+      quality: 'x_low',
+      speaker: 'vivos',
+      hfOnnxRel: 'vi/vi_VN/vivos/x_low/vi_VN-vivos-x_low.onnx',
+      approxSizeMB: 27,
+    ),
+    // ── Tiếng Anh ─────────────────────────────────────────────────────────
     PiperVoiceOffer(
       id: 'en_US-lessac-medium',
       languageCode: 'en_US',
@@ -72,7 +133,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'lessac',
       hfOnnxRel: 'en/en_US/lessac/medium/en_US-lessac-medium.onnx',
-      featured: true,
+      approxSizeMB: 60,
     ),
     PiperVoiceOffer(
       id: 'en_US-libritts_r-medium',
@@ -81,7 +142,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'libritts_r',
       hfOnnxRel: 'en/en_US/libritts_r/medium/en_US-libritts_r-medium.onnx',
-      featured: true,
+      approxSizeMB: 74,
     ),
     PiperVoiceOffer(
       id: 'en_US-amy-medium',
@@ -90,6 +151,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'amy',
       hfOnnxRel: 'en/en_US/amy/medium/en_US-amy-medium.onnx',
+      approxSizeMB: 60,
     ),
     PiperVoiceOffer(
       id: 'en_US-ryan-medium',
@@ -98,6 +160,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'ryan',
       hfOnnxRel: 'en/en_US/ryan/medium/en_US-ryan-medium.onnx',
+      approxSizeMB: 60,
     ),
     PiperVoiceOffer(
       id: 'en_GB-alan-medium',
@@ -106,7 +169,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'alan',
       hfOnnxRel: 'en/en_GB/alan/medium/en_GB-alan-medium.onnx',
-      featured: true,
+      approxSizeMB: 60,
     ),
     PiperVoiceOffer(
       id: 'en_GB-alba-medium',
@@ -115,16 +178,55 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'alba',
       hfOnnxRel: 'en/en_GB/alba/medium/en_GB-alba-medium.onnx',
+      approxSizeMB: 60,
     ),
+    PiperVoiceOffer(
+      id: 'en_GB-cori-medium',
+      languageCode: 'en_GB',
+      languageLabelEn: 'English (UK)',
+      quality: 'medium',
+      speaker: 'cori',
+      hfOnnxRel: 'en/en_GB/cori/medium/en_GB-cori-medium.onnx',
+      approxSizeMB: 60,
+    ),
+    // ── Tiếng Trung (giản thể) ────────────────────────────────────────────
     PiperVoiceOffer(
       id: 'zh_CN-huayan-medium',
       languageCode: 'zh_CN',
-      languageLabelEn: 'Chinese (Mandarin)',
+      languageLabelEn: 'Chinese (Mandarin, simplified)',
       quality: 'medium',
       speaker: 'huayan',
       hfOnnxRel: 'zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx',
-      featured: true,
+      approxSizeMB: 60,
     ),
+    PiperVoiceOffer(
+      id: 'zh_CN-chaowen-medium',
+      languageCode: 'zh_CN',
+      languageLabelEn: 'Chinese (Mandarin, simplified)',
+      quality: 'medium',
+      speaker: 'chaowen',
+      hfOnnxRel: 'zh/zh_CN/chaowen/medium/zh_CN-chaowen-medium.onnx',
+      approxSizeMB: 60,
+    ),
+    PiperVoiceOffer(
+      id: 'zh_CN-xiao_ya-medium',
+      languageCode: 'zh_CN',
+      languageLabelEn: 'Chinese (Mandarin, simplified)',
+      quality: 'medium',
+      speaker: 'xiao_ya',
+      hfOnnxRel: 'zh/zh_CN/xiao_ya/medium/zh_CN-xiao_ya-medium.onnx',
+      approxSizeMB: 60,
+    ),
+    PiperVoiceOffer(
+      id: 'zh_CN-huayan-x_low',
+      languageCode: 'zh_CN',
+      languageLabelEn: 'Chinese (Mandarin, simplified)',
+      quality: 'x_low',
+      speaker: 'huayan',
+      hfOnnxRel: 'zh/zh_CN/huayan/x_low/zh_CN-huayan-x_low.onnx',
+      approxSizeMB: 20,
+    ),
+    // ── Tiếng Hindi ────────────────────────────────────────────────────────
     PiperVoiceOffer(
       id: 'hi_IN-pratham-medium',
       languageCode: 'hi_IN',
@@ -132,7 +234,16 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'pratham',
       hfOnnxRel: 'hi/hi_IN/pratham/medium/hi_IN-pratham-medium.onnx',
-      featured: true,
+      approxSizeMB: 60,
+    ),
+    PiperVoiceOffer(
+      id: 'hi_IN-priyamvada-medium',
+      languageCode: 'hi_IN',
+      languageLabelEn: 'Hindi',
+      quality: 'medium',
+      speaker: 'priyamvada',
+      hfOnnxRel: 'hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx',
+      approxSizeMB: 60,
     ),
     PiperVoiceOffer(
       id: 'hi_IN-rohan-medium',
@@ -141,8 +252,28 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'rohan',
       hfOnnxRel: 'hi/hi_IN/rohan/medium/hi_IN-rohan-medium.onnx',
-      featured: true,
+      approxSizeMB: 60,
     ),
+    // ── Tiếng Nhật / Thái ──────────────────────────────────────────────────
+    PiperVoiceOffer(
+      id: 'ja_JP-hi_fi_captain-medium',
+      languageCode: 'ja_JP',
+      languageLabelEn: 'Japanese',
+      quality: 'medium',
+      speaker: 'hi_fi_captain',
+      hfOnnxRel: 'ja/ja_JP/hi_fi_captain/medium/ja_JP-hi_fi_captain-medium.onnx',
+      approxSizeMB: 73,
+    ),
+    PiperVoiceOffer(
+      id: 'th_TH-tsync2-medium',
+      languageCode: 'th_TH',
+      languageLabelEn: 'Thai',
+      quality: 'medium',
+      speaker: 'tsync2',
+      hfOnnxRel: 'th/th_TH/tsync2/medium/th_TH-tsync2-medium.onnx',
+      approxSizeMB: 60,
+    ),
+    // ── Các ngôn ngữ khác (mở rộng) ───────────────────────────────────────
     PiperVoiceOffer(
       id: 'fr_FR-siwis-medium',
       languageCode: 'fr_FR',
@@ -166,22 +297,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'sharvard',
       hfOnnxRel: 'es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx',
-    ),
-    PiperVoiceOffer(
-      id: 'ja_JP-tsuida-medium',
-      languageCode: 'ja_JP',
-      languageLabelEn: 'Japanese',
-      quality: 'medium',
-      speaker: 'tsuida',
-      hfOnnxRel: 'ja/ja_JP/tsuida/medium/ja_JP-tsuida-medium.onnx',
-    ),
-    PiperVoiceOffer(
-      id: 'th_TH-thai_female-medium',
-      languageCode: 'th_TH',
-      languageLabelEn: 'Thai',
-      quality: 'medium',
-      speaker: 'thai_female',
-      hfOnnxRel: 'th/th_TH/thai_female/medium/th_TH-thai_female-medium.onnx',
+      approxSizeMB: 73,
     ),
     PiperVoiceOffer(
       id: 'ar_JO-kareem-medium',
@@ -198,6 +314,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'google',
       hfOnnxRel: 'bn/bn_BD/google/medium/bn_BD-google-medium.onnx',
+      approxSizeMB: 73,
     ),
     PiperVoiceOffer(
       id: 'nl_NL-mls-medium',
@@ -206,6 +323,7 @@ class PiperVoiceCatalog {
       quality: 'medium',
       speaker: 'mls',
       hfOnnxRel: 'nl/nl_NL/mls/medium/nl_NL-mls-medium.onnx',
+      approxSizeMB: 73,
     ),
     PiperVoiceOffer(
       id: 'pl_PL-darkman-medium',
@@ -239,6 +357,7 @@ class PiperVoiceCatalog {
       speaker: 'ukrainian_tts',
       hfOnnxRel:
           'uk/uk_UA/ukrainian_tts/medium/uk_UA-ukrainian_tts-medium.onnx',
+      approxSizeMB: 73,
     ),
     PiperVoiceOffer(
       id: 'it_IT-paola-medium',
@@ -282,11 +401,32 @@ class PiperVoiceCatalog {
     ),
   ];
 
-  static List<PiperVoiceOffer> featured() =>
-      all.where((v) => v.featured).toList(growable: false);
+  /// Giọng ưu tiên — TẤT CẢ model của các ngôn ngữ ưu tiên, nhiều lựa chọn
+  /// bản xứ cho mỗi ngôn ngữ. UI gom theo [languageCode] và mặc định GỘP.
+  static List<PiperVoiceOffer> featured() => all.where((v) => v.isPriority).toList(growable: false);
 
   static List<PiperVoiceOffer> more() =>
-      all.where((v) => !v.featured).toList(growable: false);
+      all.where((v) => !v.isPriority).toList(growable: false);
+
+  /// Gom giọng theo mã ngôn ngữ, giữ thứ tự [languageCodes] nếu đưa vào
+  /// (dùng để hiển thị ưu tiên trước, các ngôn ngữ còn lại theo thứ tự catalog).
+  static Map<String, List<PiperVoiceOffer>> groupByLanguage(
+    List<PiperVoiceOffer> offers, {
+    List<String>? languageCodes,
+  }) {
+    final byLang = <String, List<PiperVoiceOffer>>{};
+    for (final v in offers) {
+      byLang.putIfAbsent(v.languageCode, () => []).add(v);
+    }
+    if (languageCodes == null) return byLang;
+    final ordered = <String, List<PiperVoiceOffer>>{};
+    for (final code in languageCodes) {
+      final group = byLang.remove(code);
+      if (group != null) ordered[code] = group;
+    }
+    ordered.addAll(byLang);
+    return ordered;
+  }
 
   static PiperVoiceOffer? byId(String id) {
     for (final v in all) {

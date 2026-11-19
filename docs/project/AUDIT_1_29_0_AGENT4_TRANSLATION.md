@@ -7,9 +7,9 @@
   `arena/60e35d65-in4up`. PR **vào hub đó**, không vào main/251e.
 - Đây là **Agent 4 của audit v1.29.0**, không phải sửa lại lane L4 bong bóng
   dịch của audit v1.28.0.
-- Trạng thái: **lane hồi quy dịch xanh; oracle tổng đang xác nhận; chờ nghiệm
-  thu máy**. Không merge, tag, release hay tự xuất bản. Không đổi
-  version/KANBAN/PLAN/tài liệu hub.
+- Trạng thái: **lane hồi quy dịch và oracle tổng xanh; chờ nghiệm thu máy**.
+  Không merge, tag, release hay tự xuất bản. Không đổi version/KANBAN/PLAN/
+  tài liệu hub.
 - Quyết định chi tiết: [ADR-0033](../adr/0033-read-translation-engine-priority.md).
 
 ## Đã đối chiếu / phạm vi
@@ -54,10 +54,11 @@ các engine và cấu hình đã có trên base.
    không sửa lại lựa chọn người dùng. Giữ provenance qua glossary, pivot và
    dòng hỗn hợp. Cache cũ chỉ có văn bản: hiện rõ “không chạy engine”, không
    bịa tên engine gốc.
-6. Cùng một snapshot thứ tự/tag cho cache, các mẩu câu và bước pivot trong
-   một request; thay cấu hình lúc đang chạy chỉ áp dụng vào request sau
-   (bật Chỉ offline vẫn ngăn các lượt gọi online tiếp theo). Đổi route/model
-   LLM hiện có không trả cache của cấu hình trước.
+6. Cùng một snapshot **thứ tự/tag** cho cache, các mẩu câu và bước pivot trong
+   một request. Ưu tiên mới áp dụng từ request sau; bật Chỉ offline vẫn ngăn
+   các lượt gọi online tiếp theo. Đổi route/model LLM hiện có không trả cache
+   của cấu hình trước. Không hứa đóng băng mọi cài đặt backend: LLM vẫn tự
+   resolve provider bên trong engine.
 
 ## File chung cần hub / agent từ–IPA phối hợp
 
@@ -128,11 +129,12 @@ Tài liệu bàn giao được commit riêng sau đó; không thay mã đã test
   [44558482506](https://github.com/Pabhassaracitto/In4Up/actions/runs/44558482506),
   job `135680931525`, 1m30s. Cả bước self-test chẩn đoán (4 ca Python) và
   lệnh **14 file Flutter ở trên** đã chạy thành công, không phải skipped.
-- **Oracle tổng:**
+- **Oracle tổng xanh, 4/4 job:**
   [44558482389](https://github.com/Pabhassaracitto/In4Up/actions/runs/44558482389).
-  Checkpoint: analyze, Rule 5 locale, Linux shell, Knowledge, Vocabulary và
-  web-build-validation **xanh**; job `analyze-and-locale-test` còn chạy các
-  bộ test sau đó. Chưa gọi toàn workflow xanh khi chưa có kết luận cuối.
+  `analyze-and-locale-test`, `knowledge-regressions`, `vocabulary-tools` và
+  `web-build-validation` đều **success**. Gồm full-app analyze, Rule 5 locale,
+  Linux shell, Read actions + mixed-language, PSRC-237/238, API/Hy-MT, dịch
+  màn hình và các cổng hồi quy có sẵn; không bỏ/tắt step để làm xanh.
 - **Build web xanh, không publish:**
   [44558482452](https://github.com/Pabhassaracitto/In4Up/actions/runs/44558482452).
   Bước **Publish to gh-pages skipped**. Guard main-only của base giữ nguyên;

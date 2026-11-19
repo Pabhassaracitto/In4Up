@@ -1,4 +1,5 @@
 {
+  "ttsPlaybackUnavailable": "Không có engine nào phát được",
   "ttsReaderOverrides": "Ghi đè theo nơi đọc",
   "ttsSharedSettings": "Cấu hình giọng chung",
   "ttsInherit": "Kế thừa cấu hình chung",

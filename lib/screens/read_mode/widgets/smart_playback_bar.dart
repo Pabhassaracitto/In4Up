@@ -1,5 +1,7 @@
 // lib/screens/read_mode/widgets/smart_playback_bar.dart
 
+import 'package:in4up/features/tts/reader_voice_preference.dart';
+import 'package:in4up/features/tts/widgets/reader_voice_tile.dart';
 import 'dart:async';
 
 import 'package:in4up/core/language/localized_material.dart';
@@ -247,6 +249,8 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // ── Live Status (khi đang phát) ──────────────────────
+        if (widget.showMainRow && (controller.isRunning || tp.isTtsActive))
+          const ReaderPlaybackLabel(TtsReader.read),
         if (controller.isRunning && controller.snapshot != null)
           _LiveStatusBar(
             snapshot: controller.snapshot!,

@@ -1,4 +1,5 @@
 {
+  "ttsPlaybackUnavailable": "沒有能朗讀此文字的引擎",
   "ttsReaderOverrides": "各閱讀器的個別設定",
   "ttsSharedSettings": "共用語音設定",
   "ttsInherit": "繼承共用設定",

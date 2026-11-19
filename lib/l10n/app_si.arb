@@ -1,4 +1,5 @@
 {
+  "ttsPlaybackUnavailable": "කිසිදු එන්ජිමකට මෙම පෙළ කියවිය නොහැකි විය",
   "ttsReaderOverrides": "කියවනය අනුව සැකසුම්",
   "ttsSharedSettings": "පොදු හඬ සැකසුම්",
   "ttsInherit": "පොදු සැකසුම් භාවිත කරන්න",

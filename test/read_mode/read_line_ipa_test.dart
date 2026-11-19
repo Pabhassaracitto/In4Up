@@ -1,9 +1,15 @@
-import 'package:flutter/gestures.dart' show kLongPressTimeout;
+import 'dart:io';
+
+import 'package:flutter/gestures.dart'
+    show kDoubleTapTimeout, kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
 import 'package:in4up/core/language/app_language.dart';
+import 'package:in4up/features/translation/glossary/glossary_store.dart';
 import 'package:in4up/features/translation/translation_display_mode.dart';
+import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/word_lookup/services/word_insight_service.dart';
 import 'package:in4up/models/color_mode.dart';
 import 'package:in4up/models/ipa_display_mode.dart';
@@ -173,6 +179,21 @@ Future<void> _mount(WidgetTester tester, _ReaderText tp) async {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory storage;
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    storage = await Directory.systemTemp.createTemp('read_ipa_test_');
+    Hive.init(storage.path);
+    // The translation-line widget initializes the singleton even when hidden.
+    // Open its storage outside the widget test's fake async clock.
+    TranslationService();
+    await GlossaryStore().ensureInit();
+  });
+  tearDownAll(() async {
+    await Hive.close();
+    await storage.delete(recursive: true);
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     LineIpaService.clearCache();
@@ -225,7 +246,8 @@ void main() {
         // Touching either tier opens the real quick dictionary pop for the
         // second occurrence, not the first word that shares its pronunciation.
         await tester.tap(secondIpa);
-        await tester.pump();
+        // The existing box-mode line-action double tap defers single taps.
+        await tester.pump(boxes ? kDoubleTapTimeout : Duration.zero);
         expect(tp.spoken, ['cat']);
         var pop = tester.widget<WordMiniPop>(find.byType(WordMiniPop));
         expect(pop.wordIndex, _repeatedWordIndex);
@@ -253,7 +275,7 @@ void main() {
               .center;
           await tester.tapAt(paragraph.localToGlobal(target));
         }
-        await tester.pump();
+        await tester.pump(boxes ? kDoubleTapTimeout : Duration.zero);
         expect(tp.spoken, ['cat', 'an']);
         pop = tester.widget<WordMiniPop>(find.byType(WordMiniPop));
         expect(pop.wordIndex, 2);

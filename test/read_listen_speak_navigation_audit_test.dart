@@ -62,6 +62,8 @@ void main() {
       expect(success, contains('_showLrcOnMain = true'));
       expect(success, contains('_lrcHiddenByUser = false'));
       expect(success, contains('_lrcHeight = double.maxFinite'));
+      expect(success, contains('if (_aiSheetOpen) _closeAiSheet()'));
+      expect(success, contains('if (_sheetOpen) _closeSheet()'));
       expect(layout, contains('.clamp(_lrcMinHeight, 650.0)'));
       expect(layout, contains('displayHeight > maxH'));
       expect(layout, contains('_lrcHeight = normalized'));

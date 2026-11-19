@@ -2024,10 +2024,77 @@ class _GemmaChatModelCard extends StatelessWidget {
         ],
       ),
     );
+    // Lấy URL TRƯỚC khi dispose — controller đã dispose thì không đọc tiếp.
+    final url = controller.text.trim();
     controller.dispose();
-    if (confirmed != true) return;
+    if (confirmed != true || url.isEmpty || !mounted) return;
 
-    final ok = await facade.downloadModel(controller.text);
+    // PSRC-253 bổ sung: hỏi máy chủ dung lượng FILE trước khi tải. Đây là số
+    // do HEAD báo, không phải RAM cần để chạy; nếu máy chủ không trả thì vẫn
+    // tải bình thường và để preflight sau tải kiểm tra file thật.
+    final probe = await facade.probeModelDownloadFit(url);
+    if (!mounted) return;
+    var confirmedRisk = false;
+    if (probe.hasSize) {
+      final verdict = facade.lastModelFitVerdict;
+      if (verdict?.isBlocked == true) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText(
+                'Dung lượng tải vượt ngưỡng RAM đo được — đã chặn trước khi tải.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      if (verdict?.needsConfirmation == true) {
+        final sizeLabel = formatAiDownloadSize(probe.contentLengthBytes!);
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(context.uiText('Model lớn hơn ngưỡng gợi ý')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.uiText('Máy chủ báo dung lượng tải: $sizeLabel'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  context.uiText(
+                    'Kích thước là số do máy chủ báo qua HEAD, chưa phải file '
+                    'trên máy. RAM đỉnh khi chạy vẫn chỉ là ước tính. Tải file '
+                    'lớn có thể tốn băng thông, pin và làm app chậm/nóng.',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(context.uiText('Không')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(context.uiText('Vẫn tải')),
+              ),
+            ],
+          ),
+        );
+        if (ok != true || !mounted) return;
+        confirmedRisk = true;
+      }
+    }
+
+    final ok = await facade.downloadModel(
+      url,
+      userConfirmedRisk: confirmedRisk,
+      skipSizeProbe: true, // đã dò ở trên, không gọi HEAD lần hai.
+    );
+    if (!mounted) return;
     final modelNote =
         facade.modelFileName != null ? ' — ${facade.modelFileName}' : '';
     messenger.showSnackBar(

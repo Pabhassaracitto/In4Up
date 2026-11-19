@@ -15,6 +15,8 @@ export 'src/mapper/ai_model_mapper.dart';
 
 // PSRC-253 — preflight RAM / profile model local (thuần logic, test được).
 export 'src/model/ai_local_model_fit.dart';
+// PSRC-253 bổ sung — dò Content-Length trước khi tải model.
+export 'src/model/ai_download_preflight.dart';
 
 // Loader - cho UI hiển thị trạng thái model
 export 'src/loader/ai_model_loader.dart'

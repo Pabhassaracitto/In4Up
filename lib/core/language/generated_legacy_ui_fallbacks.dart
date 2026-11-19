@@ -2394,4 +2394,8 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Dự án Tipiṭaka đa ngữ được cộng đồng Pa-Auk hỗ trợ.': 'Multilingual Tipiṭaka project supported by the Pa-Auk community.',
   'Không mở được trang OpenTipitaka.': 'Could not open the OpenTipitaka page.',
   'Nguồn nội dung: OpenTipitaka · opentipitaka.org': 'Content source: OpenTipitaka · opentipitaka.org',
+  // PSRC-253 bổ sung — profile selection
+  'Khuyến nghị theo RAM': 'Recommended for this RAM',
+  'Tự theo RAM': 'Auto (by RAM)',
+  'Ưu tiên hiện tại': 'Current preference',
 };

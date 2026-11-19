@@ -83,6 +83,45 @@ void main() {
         reason: 'Không có số liệu ⇒ không tự chặn oan, nhưng cũng không cam kết');
   });
 
+  test('lựa chọn profile đổi ngưỡng mềm nhưng KHÔNG nới trần RAM đo được', () {
+    final file = 3000 * _mib;
+    const ram = 8192 * _mib;
+    expect(
+      assessAiLocalModelFit(
+        modelFileBytes: file,
+        totalRamBytes: ram,
+        requestedProfile: AiLocalProfile.lite,
+      ).status,
+      AiModelFitStatus.needsConfirmation,
+    );
+    expect(
+      assessAiLocalModelFit(
+        modelFileBytes: file,
+        totalRamBytes: ram,
+        requestedProfile: AiLocalProfile.balanced,
+      ).status,
+      AiModelFitStatus.fit,
+    );
+    // Chọn "đầy đủ" trên máy 2GB vẫn bị chặn: số đo thực tế là trần cứng.
+    expect(
+      assessAiLocalModelFit(
+        modelFileBytes: file,
+        totalRamBytes: 2 * 1024 * _mib,
+        requestedProfile: AiLocalProfile.full,
+        userConfirmedRisk: true,
+      ).isBlocked,
+      isTrue,
+    );
+    // Không có số RAM ⇒ chọn profile lớn vẫn phải xác nhận.
+    expect(
+      assessAiLocalModelFit(
+        modelFileBytes: file,
+        requestedProfile: AiLocalProfile.full,
+      ).status,
+      AiModelFitStatus.needsConfirmation,
+    );
+  });
+
   test('RAM đỉnh là ước tính, không phải số đo', () {
     final verdict = assessAiLocalModelFit(
       modelFileBytes: 2000 * _mib,

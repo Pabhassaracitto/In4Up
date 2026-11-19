@@ -13,6 +13,7 @@ class _FakeSampleAudio implements ShadowingSampleAudio {
   Duration? loadedDuration = const Duration(seconds: 60);
   Future<Duration?> Function(int call)? onLoad;
   Future<void> Function()? onPlay;
+  Future<void> Function()? onPause;
   final loads = <String>[];
   final seeks = <Duration>[];
   final speeds = <double>[];
@@ -46,7 +47,10 @@ class _FakeSampleAudio implements ShadowingSampleAudio {
   }
 
   @override
-  Future<void> pause() async => pauses++;
+  Future<void> pause() async {
+    pauses++;
+    await onPause?.call();
+  }
   @override
   Future<void> stop() async => stops++;
 }
@@ -151,6 +155,82 @@ void main() {
     await future;
     expect(audio.plays, 1);
     expect(finished, 0);
+  });
+
+  test('sentence sample uses the configured round count but never leaves its range', () async {
+    final audio = _FakeSampleAudio();
+    final player = build(audio);
+    addTearDown(player.dispose);
+    final repeats = <int>[];
+    await player.speakSentence(2, repeatCount: 4, onRepeat: repeats.add);
+
+    expect(audio.plays, 4);
+    expect(repeats, [1, 2, 3, 4]);
+    expect(audio.seeks, [
+      const Duration(seconds: 10), const Duration(seconds: 15),
+      const Duration(seconds: 10), const Duration(seconds: 15),
+      const Duration(seconds: 10), const Duration(seconds: 15),
+      const Duration(seconds: 10), const Duration(seconds: 15),
+    ]);
+  });
+
+  test('configured repeat count repeats only the selected interval', () async {
+    final audio = _FakeSampleAudio();
+    final player = build(audio);
+    addTearDown(player.dispose);
+    final repeats = <int>[];
+    await player.playOriginal(
+      start: const Duration(seconds: 10),
+      end: const Duration(seconds: 15),
+      repeatCount: 3,
+      onRepeat: repeats.add,
+    );
+
+    expect(audio.plays, 3);
+    expect(repeats, [1, 2, 3]);
+    expect(audio.seeks, [
+      const Duration(seconds: 10), const Duration(seconds: 15),
+      const Duration(seconds: 10), const Duration(seconds: 15),
+      const Duration(seconds: 10), const Duration(seconds: 15),
+    ]);
+  });
+
+  test('does not await whole-track play future before enforcing sentence end', () async {
+    final audio = _FakeSampleAudio();
+    final playFinished = Completer<void>();
+    audio.onPlay = () async {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      audio.position = const Duration(seconds: 15);
+      await playFinished.future;
+    };
+    audio.onPause = () async {
+      if (!playFinished.isCompleted) playFinished.complete();
+    };
+    final player = build(audio);
+    addTearDown(player.dispose);
+    var finished = 0;
+
+    await player.speakSentence(2, onFinished: () => finished++);
+
+    expect(audio.pauses, 1);
+    expect(audio.seeks, [const Duration(seconds: 10), const Duration(seconds: 15)]);
+    expect(finished, 1);
+  });
+
+  test('stop and replay uses the current sentence range, not a stale segment', () async {
+    final audio = _FakeSampleAudio();
+    final player = build(audio);
+    addTearDown(player.dispose);
+    await player.speakSentence(1);
+    await player.stop();
+    await player.speakSentence(4);
+
+    expect(player.selectedIndex, 4);
+    expect(audio.plays, 2);
+    expect(audio.seeks, [
+      const Duration(seconds: 5), const Duration(seconds: 10),
+      const Duration(seconds: 20), const Duration(seconds: 25),
+    ]);
   });
 
   test('missing position ticks still hit the bounded-sample deadline', () async {

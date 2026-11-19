@@ -161,6 +161,9 @@ void main() {
       await tester.pumpWidget(_memoryHost(calls: calls));
 
       expect(find.byKey(rememberProgressGroupKey), findsOneWidget);
+      // PSRC-255: nhóm công cụ mặc định GỌN — mở ra mới thấy từng chip.
+      await tester.tap(find.byKey(rememberProgressGroupKey));
+      await tester.pump();
       expect(find.byKey(rememberToolWordListKey), findsOneWidget);
       expect(find.byKey(rememberToolTimelineKey), findsOneWidget);
       expect(find.byKey(rememberToolStatsKey), findsOneWidget);
@@ -172,6 +175,8 @@ void main() {
         (tester) async {
       final calls = _MemoryCalls();
       await tester.pumpWidget(_memoryHost(calls: calls));
+      await tester.tap(find.byKey(rememberProgressGroupKey));
+      await tester.pump();
 
       Future<void> tapTool(Key key) async {
         await tester.ensureVisible(find.byKey(key));

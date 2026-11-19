@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io' show File;
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:in4up_core/heavy_task_monitor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,6 +26,7 @@ import '../loader/ai_model_loader.dart';
 import '../loader/model_copy_cancel_token.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
+import '../model/ai_download_preflight.dart';
 import '../model/ai_local_model_fit.dart';
 import '../provider/ai_provider_config.dart';
 import '../provider/ai_provider_fallback.dart';
@@ -325,6 +327,48 @@ class AiServiceFacade extends ChangeNotifier {
       return false;
     }
     return true;
+  }
+
+  /// Thời gian tối đa chờ HEAD — không được làm chậm/chặn tải khi máy chủ
+  /// không phản hồi. Khi hết giờ coi như KHÔNG có số liệu, vẫn cho tải.
+  static const Duration _downloadProbeTimeout = Duration(seconds: 8);
+
+  /// Dò `Content-Length` qua HEAD rồi chạy cùng bộ ngưỡng RAM với preflight
+  /// sau tải. Không có số ⇒ trả probe.unavailable, KHÔNG chặn oan.
+  /// Gọi từ UI trước khi mở dialog tải; `lastModelFitVerdict` được cập nhật
+  /// để UI phân biệt "quá ngưỡng" / "cần xác nhận".
+  Future<AiDownloadSizeProbe> probeModelDownloadFit(String url) async {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      lastModelFitVerdict = null;
+      return const AiDownloadSizeProbe.unavailable();
+    }
+    final client = http.Client();
+    try {
+      final response = await client
+          .head(uri, headers: const <String, String>{'Accept': '*/*'})
+          .timeout(_downloadProbeTimeout);
+      final bytes = parseHttpContentLength(response.headers['content-length']);
+      if (response.statusCode >= 400 || bytes == null) {
+        lastModelFitVerdict = null;
+        return const AiDownloadSizeProbe.unavailable();
+      }
+      lastModelFitVerdict = assessAiLocalModelFit(
+        modelFileBytes: bytes,
+        totalRamBytes: _measuredTotalRamBytes,
+        requestedProfile: _selectedLocalProfile,
+      );
+      return AiDownloadSizeProbe(
+        contentLengthBytes: bytes,
+        source: AiDownloadProbeSource.head,
+      );
+    } catch (_) {
+      // HEAD không được hỗ trợ / mạng lỗi / redirect lạ ⇒ bỏ qua bước dò.
+      lastModelFitVerdict = null;
+      return const AiDownloadSizeProbe.unavailable();
+    } finally {
+      client.close();
+    }
   }
 
   void _setImportStage(
@@ -1709,8 +1753,39 @@ class AiServiceFacade extends ChangeNotifier {
   }
 
   /// Download a model; stop cancellation before persisting the new path.
-  Future<bool> downloadModel(String url, {bool userConfirmedRisk = false}) async {
+  ///
+  /// Mặc định dò `Content-Length` qua HEAD trước khi tải: chặn sớm model quá
+  /// nặng, không tốn băng thông. UI đã tự dò và xác nhận thì truyền
+  /// [skipSizeProbe] = true để khỏi gọi HEAD hai lần. Bỏ qua được thì vẫn còn
+  /// preflight sau khi file có trên máy.
+  Future<bool> downloadModel(
+    String url, {
+    bool userConfirmedRisk = false,
+    bool skipSizeProbe = false,
+  }) async {
     if (isImportActive) return false;
+    if (!skipSizeProbe) {
+      final probe = await probeModelDownloadFit(url);
+      if (isImportActive) return false;
+      if (probe.hasSize) {
+        final verdict = lastModelFitVerdict;
+        if (verdict?.isBlocked == true) {
+          _setImportStage(
+            AiImportStage.failed,
+            error:
+                'Dung lượng tải vượt ngưỡng RAM đo được — đã chặn trước khi tải.',
+          );
+          return false;
+        }
+        if (verdict?.needsConfirmation == true && !userConfirmedRisk) {
+          _setImportStage(
+            AiImportStage.failed,
+            error: 'Model lớn hơn ngưỡng gợi ý — cần xác nhận trước khi tải.',
+          );
+          return false;
+        }
+      }
+    }
     final token = ModelCopyCancelToken();
     _activeImportToken = token;
     final previousStage = _importStage;

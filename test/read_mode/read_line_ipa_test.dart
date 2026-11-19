@@ -101,7 +101,7 @@ class _Playback extends ChangeNotifier implements PlaybackController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _ReaderController implements ReadModeController {
+class _ReaderController extends ChangeNotifier implements ReadModeController {
   @override
   int getLineStartOffset(int lineIndex) => 0;
   @override
@@ -134,20 +134,22 @@ Future<void> _mount(WidgetTester tester, _ReaderText tp) async {
   final pp = _Player();
   final playback = _Playback();
   final vocab = _Vocab();
+  final controller = _ReaderController();
   final scroll = ScrollController();
   addTearDown(() {
     tp.dispose();
     pp.dispose();
     playback.dispose();
     vocab.dispose();
+    controller.dispose();
     scroll.dispose();
   });
   await tester.pumpWidget(MultiProvider(
     providers: [
       ChangeNotifierProvider<TextProvider>.value(value: tp),
       ChangeNotifierProvider<PlayerProvider>.value(value: pp),
-      Provider<PlaybackController>.value(value: playback),
-      Provider<ReadModeController>.value(value: _ReaderController()),
+      ChangeNotifierProvider<PlaybackController>.value(value: playback),
+      ChangeNotifierProvider<ReadModeController>.value(value: controller),
       ChangeNotifierProvider<VocabularyProvider>.value(value: vocab),
     ],
     child: MaterialApp(

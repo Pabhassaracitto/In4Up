@@ -933,19 +933,26 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         const SizedBox(width: 12),
         Expanded(
           child: ShadowingButton(
-            icon: shadowing.isRecording ? Icons.stop : Icons.mic,
+            icon: shadowing.isRecording
+                ? Icons.stop
+                : shadowing.state == ShadowingState.countdown
+                    ? Icons.close
+                    : Icons.mic,
             label: shadowing.isRecording
                 ? 'Dừng (${_formatDuration(shadowing.recordingDuration)})'
                 : shadowing.state == ShadowingState.countdown
-                    ? 'Đếm: ${shadowing.countdown}'
+                    ? 'Hủy chuẩn bị'
                     : 'Ghi âm',
             color: shadowing.isRecording ? Colors.red : const Color(0xFF9C27B0),
             enabled: shadowing.state == ShadowingState.idle ||
                 shadowing.state == ShadowingState.showingResults ||
+                shadowing.state == ShadowingState.countdown ||
                 shadowing.isRecording,
             onTap: () {
               if (shadowing.isRecording) {
                 shadowing.stopRecording();
+              } else if (shadowing.state == ShadowingState.countdown) {
+                shadowing.reset();
               } else {
                 shadowing.startShadowing(loopText);
               }
@@ -980,7 +987,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       case ShadowingState.playingOriginal:
         return '▶ Đang phát';
       case ShadowingState.countdown:
-        return '⏱ Đếm ngược';
+        return 'Đang chuẩn bị';
       case ShadowingState.recording:
         return '● Ghi âm';
       case ShadowingState.analyzing:

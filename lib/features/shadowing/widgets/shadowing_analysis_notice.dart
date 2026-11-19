@@ -1,7 +1,7 @@
 import 'package:in4up/core/language/localized_material.dart';
 
-/// Honest failure state for shadowing analysis: no transcript/reference means
-/// no score, never a fabricated perfect result.
+/// Honest failure state for shadowing analysis: missing/silent recordings,
+/// permission failures, and speech-recognition failures have distinct guidance.
 class ShadowingAnalysisNotice extends StatelessWidget {
   const ShadowingAnalysisNotice({super.key, required this.code});
 
@@ -9,13 +9,22 @@ class ShadowingAnalysisNotice extends StatelessWidget {
 
   String get _message {
     switch (code) {
+      case 'permission_denied':
+        return 'Chưa được cấp quyền micro. Hãy cho phép ứng dụng dùng micro rồi thử lại.';
+      case 'no_audio':
+        return 'Không thu được âm thanh từ micro. Hãy kiểm tra đầu vào âm thanh rồi ghi lại.';
+      case 'unrecognized':
+        return 'Đã thu được âm thanh nhưng nhận dạng không tạo ra bản chép lời. Hãy đọc lại rõ hơn hoặc thử ngôn ngữ khác.';
+      case 'recognition_error':
+        return 'Không thể chạy nhận dạng giọng nói cho bản ghi này. Hãy thử lại.';
+      case 'recording_failed':
+        return 'Không thể bắt đầu hoặc lưu bản ghi âm. Hãy thử lại.';
       case 'no_reference':
         return 'Chưa có câu mẫu để chấm điểm. Hãy chọn một câu có lời.';
       case 'analysis_failed':
         return 'Chưa phân tích được bản ghi. Hãy thử ghi âm lại.';
-      case 'no_speech':
       default:
-        return 'Không nghe rõ bài đọc. Hãy kiểm tra micro rồi ghi âm lại.';
+        return 'Chưa phân tích được bản ghi. Hãy thử ghi âm lại.';
     }
   }
 

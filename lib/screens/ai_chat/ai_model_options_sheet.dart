@@ -25,10 +25,17 @@ Future<void> showAiModelOptionsSheet(
   );
 }
 
-class _AiModelOptionsSheet extends StatelessWidget {
+class _AiModelOptionsSheet extends StatefulWidget {
   final AiServiceFacade facade;
 
   const _AiModelOptionsSheet({required this.facade});
+
+  @override
+  State<_AiModelOptionsSheet> createState() => _AiModelOptionsSheetState();
+}
+
+class _AiModelOptionsSheetState extends State<_AiModelOptionsSheet> {
+  AiServiceFacade get facade => widget.facade;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +65,18 @@ class _AiModelOptionsSheet extends StatelessWidget {
           _MeasuredFacts(facade: facade),
           const SizedBox(height: 12),
           ...AiLocalProfile.values.map(
-            (profile) => _ProfileTile(profile: profile),
+            (profile) => _ProfileTile(
+              profile: profile,
+              facade: facade,
+              selected: facade.selectedLocalProfile == profile,
+              recommended: facade.effectiveLocalProfile == profile &&
+                  facade.selectedLocalProfile == null,
+              onSelected: () => setState(
+                () => facade.selectLocalProfile(
+                  facade.selectedLocalProfile == profile ? null : profile,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           _ExpansionNote(
@@ -100,6 +118,12 @@ class _MeasuredFacts extends StatelessWidget {
               value: ram == null
                   ? context.uiText('Không có số liệu từ nền tảng')
                   : formatAiMemoryMb(ram),
+            ),
+            _FactRow(
+              label: 'Ưu tiên hiện tại',
+              value: facade.selectedLocalProfile == null
+                  ? context.uiText('Tự theo RAM')
+                  : facade.selectedLocalProfile!.id,
             ),
             _FactRow(
               label: 'File model hiện tại (ĐO ĐƯỢC)',
@@ -164,7 +188,18 @@ class _FactRow extends StatelessWidget {
 
 class _ProfileTile extends StatelessWidget {
   final AiLocalProfile profile;
-  const _ProfileTile({required this.profile});
+  final AiServiceFacade facade;
+  final bool selected;
+  final bool recommended;
+  final VoidCallback onSelected;
+
+  const _ProfileTile({
+    required this.profile,
+    required this.facade,
+    required this.selected,
+    required this.recommended,
+    required this.onSelected,
+  });
 
   static const _examples = {
     AiLocalProfile.lite: '~1,5–2 GB · ví dụ Gemma 2B / Qwen 2.5 3B (Q4)',
@@ -177,7 +212,13 @@ class _ProfileTile extends StatelessWidget {
     return ListTile(
       dense: true,
       key: Key('ai-profile-${profile.id}'),
-      leading: const Icon(Icons.memory, size: 18),
+      selected: selected,
+      onTap: onSelected,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        size: 18,
+        color: selected ? const Color(0xFF4CAF50) : null,
+      ),
       title: Text(
         context.uiText(
           switch (profile) {
@@ -188,10 +229,27 @@ class _ProfileTile extends StatelessWidget {
         ),
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
-      subtitle: Text(
-        context.uiText(_examples[profile]!),
-        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.uiText(_examples[profile]!),
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          ),
+          if (recommended)
+            Text(
+              context.uiText('Khuyến nghị theo RAM'),
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF81C784),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+        ],
       ),
+      trailing: selected
+          ? Icon(Icons.check, size: 16, color: Theme.of(context).primaryColor)
+          : null,
     );
   }
 }

@@ -4222,5 +4222,8 @@
   "Thu gọn chi tiết": "Collapse details",
   "Không mở được trang OpenTipitaka.": "Could not open the OpenTipitaka page.",
   "Nguồn nội dung: OpenTipitaka · opentipitaka.org": "Content source: OpenTipitaka · opentipitaka.org",
-  "Dự án Tipiṭaka đa ngữ được cộng đồng Pa-Auk hỗ trợ.": "Multilingual Tipiṭaka project supported by the Pa-Auk community."
+  "Dự án Tipiṭaka đa ngữ được cộng đồng Pa-Auk hỗ trợ.": "Multilingual Tipiṭaka project supported by the Pa-Auk community.",
+  "Ưu tiên hiện tại": "Current preference",
+  "Tự theo RAM": "Auto (by RAM)",
+  "Khuyến nghị theo RAM": "Recommended for this RAM"
 }

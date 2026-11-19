@@ -137,6 +137,10 @@ AiModelFitVerdict assessAiLocalModelFit({
   required int modelFileBytes,
   int? totalRamBytes,
   bool userConfirmedRisk = false,
+
+  /// Lựa chọn của người dùng (ưu tiên nhẹ/tốc độ). null = tự theo RAM đo
+  /// được. Không bao giờ được nới quá trần RAM ĐO ĐƯỢC của thiết bị.
+  AiLocalProfile? requestedProfile,
 }) {
   final fileMiB = modelFileBytes / (1024 * 1024);
   final evidence = totalRamBytes != null && totalRamBytes > 0
@@ -153,33 +157,39 @@ AiModelFitVerdict assessAiLocalModelFit({
         recommendedProfile: recommended,
       );
 
+  // Trần cứng theo RAM đo được — user chọn profile "đầy đủ" cũng KHÔNG được
+  // nới quá trần này (nếu không có số đo thì chỉ cho phép sau xác nhận).
+  final int hardCapMiB;
   if (evidence == AiMemoryEvidence.unavailable) {
-    if (fileMiB <= kAiLiteMaxFileMiB) return verdict(AiModelFitStatus.fit);
-    return verdict(userConfirmedRisk
-        ? AiModelFitStatus.fit
-        : AiModelFitStatus.needsConfirmation);
-  }
-
-  final totalMiB = totalRamBytes! / (1024 * 1024);
-  if (totalMiB < kAiLowRamTotalMiB) {
-    return verdict(fileMiB <= kAiLiteMaxFileMiB
-        ? AiModelFitStatus.fit
-        : AiModelFitStatus.tooLarge);
-  }
-  if (totalMiB < kAiMidRamTotalMiB) {
-    if (fileMiB <= kAiLiteMaxFileMiB) return verdict(AiModelFitStatus.fit);
-    if (fileMiB <= kAiBalancedMaxFileMiB) {
-      return verdict(AiModelFitStatus.fit);
+    hardCapMiB = kAiFullMaxFileMiB;
+  } else {
+    final totalMiB = totalRamBytes! / (1024 * 1024);
+    if (totalMiB < kAiLowRamTotalMiB) {
+      hardCapMiB = kAiLiteMaxFileMiB;
+    } else if (totalMiB < kAiMidRamTotalMiB) {
+      hardCapMiB = kAiBalancedMaxFileMiB;
+    } else {
+      hardCapMiB = kAiFullMaxFileMiB;
     }
-    return verdict(AiModelFitStatus.tooLarge);
   }
-  if (fileMiB > kAiFullMaxFileMiB) return verdict(AiModelFitStatus.tooLarge);
-  if (fileMiB > kAiBalancedMaxFileMiB) {
-    return verdict(userConfirmedRisk
-        ? AiModelFitStatus.fit
-        : AiModelFitStatus.needsConfirmation);
-  }
-  return verdict(AiModelFitStatus.fit);
+  if (fileMiB > hardCapMiB) return verdict(AiModelFitStatus.tooLarge);
+
+  // Trần mềm theo lựa chọn của user (mặc định = gợi ý theo RAM). Vượt trần
+  // mềm ⇒ xác nhận; KHÔNG phải coi là "an toàn" chỉ vì file vừa kích thước.
+  final chosen = requestedProfile ?? recommended;
+  final softCapMiB = evidence == AiMemoryEvidence.unavailable
+      ? kAiLiteMaxFileMiB // không có số đo ⇒ KHÔNG tự nới theo profile đã chọn
+      : switch (chosen) {
+          AiLocalProfile.lite => kAiLiteMaxFileMiB,
+          AiLocalProfile.balanced => kAiBalancedMaxFileMiB,
+          // "Đầy đủ" chỉ mở đường cho xác nhận model lớn — vẫn không tự
+          // coi file > balanced là an toàn.
+          AiLocalProfile.full => kAiBalancedMaxFileMiB,
+        };
+  if (fileMiB <= softCapMiB) return verdict(AiModelFitStatus.fit);
+  return verdict(
+    userConfirmedRisk ? AiModelFitStatus.fit : AiModelFitStatus.needsConfirmation,
+  );
 }
 
 /// KiB → MiB, tiện cho UI hiển thị số đo được mà không tự chia nhầm đơn vị.

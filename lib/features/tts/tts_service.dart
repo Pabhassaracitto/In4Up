@@ -879,7 +879,7 @@ class TtsService extends ChangeNotifier {
       await vieneu.init(modelVariant: selectedVariant, voiceId: activeVoiceId);
       if (!await vieneu.isAvailable()) {
         _lastVieneuFallbackReason = vieneu.lastInitError ??
-            vieneu.blockingReason?.message ??
+            vieneu.blockingReason ??
             'VieNeu-TTS chưa sẵn sàng';
         debugPrint('⚠️ VieNeu-TTS fallback: $_lastVieneuFallbackReason');
         return false;

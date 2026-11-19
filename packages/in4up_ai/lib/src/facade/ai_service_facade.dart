@@ -27,6 +27,7 @@ import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
 import '../model/ai_local_model_fit.dart';
 import '../provider/ai_provider_config.dart';
+import '../provider/ai_provider_fallback.dart';
 import '../provider/ai_provider_store.dart';
 import '../provider/ai_sse.dart';
 
@@ -642,8 +643,34 @@ class AiServiceFacade extends ChangeNotifier {
   /// KẾT CỤC (câu trả lời đủ/một phần, user chủ động dừng, hoặc phiên chat
   /// bị xoá); false khi remote lỗi mà CHƯA thu được token nào — caller bỏ
   /// placeholder và fallback engine kế tiếp trong route.
-  Future<bool> _processChatRemote(_PendingChat item) async {
-    final remote = await _ensureRemoteEngine();
+  Future<bool> _processChatRemote(_PendingChat item,
+      {Set<String>? skipProviderIds}) async {
+    final store = AiProviderStore.instance;
+    final attempted = <String>{...?skipProviderIds};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (var attempt = 0; attempt < _providerFallback.maxAttempts; attempt++) {
+      final cooling = _providerFallback.coolingIds(nowMs: now);
+      final provider = store.resolveProvider(
+        AiRouteCapability.chat,
+        excludeIds: {...attempted, ...cooling},
+      );
+      if (provider == null) return false;
+      attempted.add(provider.id);
+      final handled = await _processChatRemoteOnce(item, provider);
+      if (handled) return true; // đã có kết cục — KHÔNG fallback thêm (tránh trùng).
+      if (item.epoch != _chatEpoch || _activeChatToken?.isCancelled == true) {
+        return true; // user xoá chat/dừng giữa chừng.
+      }
+      _providerFallback.markFailed(provider.id, nowMs: DateTime.now().millisecondsSinceEpoch);
+    }
+    return false;
+  }
+
+  /// Một lần thử với ĐÚNG một provider. Trả false khi chưa thu được token nào
+  /// ⇒ wrapper được phép sang provider kế; có token ⇒ luôn trả true.
+  Future<bool> _processChatRemoteOnce(
+      _PendingChat item, AiProviderConfig provider) async {
+    final remote = await _ensureRemoteEngine(provider: provider);
     if (remote == null) return false;
     if (_disposed) return true;
     if (item.epoch != _chatEpoch) return true; // phiên chat đã bị xoá.
@@ -1050,13 +1077,23 @@ class AiServiceFacade extends ChangeNotifier {
         .resolve(AiProviderStore.instance.routing.modeOf(AiRouteCapability.chat));
   }
 
+  /// PSRC-254 — provider vừa lỗi bị làm lạnh ngắn hạn; giới hạn số lượt thử
+  /// trong một tin nhắn. Không dùng vòng lặp while không điều kiện.
+  final AiProviderFallbackTracker _providerFallback = AiProviderFallbackTracker();
+
+  /// id provider đã trả lời/đang dùng ở lượt gần nhất (UI có thể hiển thị nếu cần).
+  String? get lastRemoteProviderId => _remoteEngineProviderId;
+  String? _remoteEngineProviderId;
+
+  void clearProviderFallback() => _providerFallback.clearAll();
+
   /// Lấy (hoặc tái tạo) engine remote theo provider đang bật. Trả về null
   /// khi: store chưa nạp / offlineOnly / không provider / provider thiếu
   /// model chat. Tái tạo khi user đổi cấu hình (khác key) — hủy request cũ.
-  Future<AiEngineRemote?> _ensureRemoteEngine() async {
+  Future<AiEngineRemote?> _ensureRemoteEngine({AiProviderConfig? provider}) async {
     final store = AiProviderStore.instance;
     if (!store.isLoaded) return null;
-    final provider = store.resolveProvider(AiRouteCapability.chat);
+    provider ??= store.resolveProvider(AiRouteCapability.chat);
     if (provider == null) return null;
     final key = '${provider.id}|${provider.baseUrl}|${provider.chatModel ?? ''}';
     final existing = _remoteEngine;
@@ -1073,6 +1110,8 @@ class AiServiceFacade extends ChangeNotifier {
     }
     _remoteEngine = engine;
     _remoteEngineKey = key;
+    _remoteEngineProviderId = provider.id;
+    _providerFallback.clear(provider.id);
     debugPrint('[AiServiceFacade] 🛰️ Remote engine ready: $key');
     return engine;
   }

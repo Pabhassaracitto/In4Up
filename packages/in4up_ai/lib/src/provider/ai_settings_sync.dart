@@ -205,10 +205,36 @@ AiSettingsMergeResult mergeAiSettings({
       ..addEntries(newest.take(_kTombstoneCap));
   }
 
-  final routing = remoteNewer ? remote.routing : local.routing;
+  var routingBase = remoteNewer ? remote.routing : local.routing;
 
   final providerList = merged.values.toList()
     ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+
+  // PSRC-254 — merge theo id làm mất thứ tự danh sách, nên thứ tự kéo-thả
+  // được lưu RIÊNG trong routing.providerOrder. Ưu tiên bản newer; nếu bản
+  // đó chưa có order (nâng cấp từ 1.29.0) thì giữ order của bản kia, rồi thêm
+  // provider mới vào cuối.
+  final preferredOrder = routingBase.providerOrder.isNotEmpty
+      ? routingBase.providerOrder
+      : (remoteNewer ? local.routing.providerOrder : remote.routing.providerOrder);
+  final hasExplicitOrder = preferredOrder.isNotEmpty;
+  if (hasExplicitOrder) {
+    final seenOrder = <String>{};
+    final order = <String>[
+      for (final id in preferredOrder)
+        if (merged.containsKey(id) && seenOrder.add(id)) id,
+    ];
+    for (final id in merged.keys) {
+      if (seenOrder.add(id)) order.add(id);
+    }
+    providerList.sort(
+      (a, b) => order.indexOf(a.id).compareTo(order.indexOf(b.id)),
+    );
+    routingBase = routingBase.copyWith(
+      providerOrder: List.unmodifiable(order),
+    );
+  }
+  final routing = routingBase;
 
   final mergedSnapshot = AiSettingsSnapshot(
     providers: providerList,
@@ -258,6 +284,10 @@ bool _sameRouting(AiRoutingPrefs a, AiRoutingPrefs b) {
   for (final cap in AiRouteCapability.values) {
     if (a.modeOf(cap) != b.modeOf(cap)) return false;
     if (a.preferredProviderOf(cap) != b.preferredProviderOf(cap)) return false;
+  }
+  if (a.providerOrder.length != b.providerOrder.length) return false;
+  for (var i = 0; i < a.providerOrder.length; i++) {
+    if (a.providerOrder[i] != b.providerOrder[i]) return false;
   }
   return true;
 }

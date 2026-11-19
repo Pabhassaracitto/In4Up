@@ -11,7 +11,7 @@ void main() {
     expect(uri.scheme, 'https');
   });
 
-  testWidgets('hiện gọn dưới dạng link, bấm gọi launchUrl', (tester) async {
+  testWidgets('hiện gọn dưới dạng link, không chiếm nhiều chỗ', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: OpenTipitakaCredit())),
     );

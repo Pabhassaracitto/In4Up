@@ -415,9 +415,9 @@ class TranslationService extends ChangeNotifier {
       ..add(MyMemoryEngine())
       ..add(LibreEngine());
 
-    final line = '🔧 Translation engines — online trước: '
+    final line = '🔧 Registered online translation engines: '
         '${_engines.map((e) => e.name).join(" → ")}'
-        ' | offline fallback: Hy-MT → ML Kit → Offline';
+        ' | routing: see routingOrder';
     if (line != _lastEnginesLog) {
       _lastEnginesLog = line;
       debugPrint(line);
@@ -654,6 +654,7 @@ class TranslationService extends ChangeNotifier {
 
     final buffer = StringBuffer();
     final engines = <String>{};
+    final routes = <TranslationRoute>[];
     var translatedAny = false;
 
     for (final segment in segments) {
@@ -671,6 +672,7 @@ class TranslationService extends ChangeNotifier {
       if (result.isSuccess && translated.isNotEmpty) {
         buffer.write(segment.text.replaceFirst(segment.core, translated));
         engines.add(result.engineName);
+        if (result.route != null) routes.add(result.route!);
         translatedAny = true;
       } else {
         buffer.write(segment.text);
@@ -684,6 +686,7 @@ class TranslationService extends ChangeNotifier {
       original: text,
       translated: buffer.toString(),
       engine: 'mixed-language',
+      route: TranslationRoute.combine(routes),
       detectedLang: 'MIXED',
       targetLang: target.translationCode,
     );
@@ -705,7 +708,7 @@ class TranslationService extends ChangeNotifier {
     var current = text;
     var placeholderBase = 0;
     var engineLabel = '';
-    TranslationRoute? route;
+    final routes = <TranslationRoute>[];
     var glossaryHits = 0;
 
     for (final step in steps) {
@@ -744,14 +747,14 @@ class TranslationService extends ChangeNotifier {
           ? protection.restore(result.translatedText)
           : result.translatedText;
       engineLabel = result.engineName;
-      route = result.route;
+      if (result.route != null) routes.add(result.route!);
     }
 
     final enriched = TranslationResult.success(
       original: text,
       translated: current,
       engine: engineLabel,
-      route: route,
+      route: TranslationRoute.combine(routes),
       detectedLang: sourceCode,
       targetLang: targetCode,
     );
@@ -933,6 +936,7 @@ class TranslationService extends ChangeNotifier {
           selectedEngineId: selected.id,
           selectedEngineName: selected.name,
           actualEngineId: actualId,
+          actualEngineName: actualId == null ? null : result.engineName,
           attemptedEngineIds: attempted,
         ));
 

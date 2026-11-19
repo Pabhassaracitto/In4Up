@@ -121,13 +121,6 @@ const Map<String, Map<String, String>> translationUiOverrides = {
     'zh_TW': '翻譯失敗',
     'si': 'පරිවර්තනය අසාර්ථකයි',
   },
-  TranslationUiLabels.cancelled: {
-    'en': 'Translation stopped',
-    'hi': 'अनुवाद रोक दिया गया',
-    'zh': '翻译已停止',
-    'zh_TW': '翻譯已停止',
-    'si': 'පරිවර්තනය නතර විය',
-  },
   TranslationUiLabels.counts: {
     'en': 'Succeeded / failed',
     'hi': 'सफल / विफल',

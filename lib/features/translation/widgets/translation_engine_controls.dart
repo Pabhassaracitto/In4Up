@@ -222,6 +222,7 @@ class TranslationRunStatusPanel extends StatelessWidget {
           final color = failed ? Colors.orangeAccent : Colors.tealAccent;
           final result = document.lastTranslationResult;
           final route = result?.route;
+          final actual = route?.actualEngineName ?? result?.engineName ?? '';
           final active = document.isTranslating
               ? document.translationEngineNotifier.value
               : null;
@@ -251,8 +252,8 @@ class TranslationRunStatusPanel extends StatelessWidget {
                           ? context.uiText(TranslationUiLabels.cache)
                           : route?.usedFallback == true
                               ? '${context.uiText(TranslationUiLabels.fallback)}: '
-                                  '${route!.selectedEngineName} → ${result.engineName}'
-                              : '${context.uiText(TranslationUiLabels.actual)}: ${result.engineName}',
+                                  '${route!.selectedEngineName} → $actual'
+                              : '${context.uiText(TranslationUiLabels.actual)}: $actual',
                       key: const Key('translation-result-engine'),
                       style:
                           const TextStyle(fontSize: 11, color: Colors.white70),

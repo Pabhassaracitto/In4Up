@@ -793,6 +793,8 @@ mixin TranslationMixin on ChangeNotifier {
       return;
     }
 
+    final previousResult = _lastTranslationResult;
+    final previousEngine = _currentEngine;
     final runId = ++_translationRunId;
     _startTranslation();
     await service.settingsReady;
@@ -836,6 +838,11 @@ mixin TranslationMixin on ChangeNotifier {
           ? TranslationRunStatus.succeeded
           : TranslationRunStatus.idle;
       _translationProgress = 1;
+      _successfulTranslations = translatedLineCount;
+      if (previousResult?.isSuccess == true) {
+        _lastTranslationResult = previousResult;
+        _currentEngine = previousEngine;
+      }
       notifyListeners();
       return;
     }
@@ -885,8 +892,9 @@ mixin TranslationMixin on ChangeNotifier {
             consecutiveErrors++;
             _failedTranslations++;
             if (consecutiveErrors >= 5) {
-              _translationError =
-                  'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
+              // Keep the actual model/engine error, not an invented network
+              // diagnosis. Count the failed attempt even when stopping early.
+              doneCount++;
               break;
             }
           }

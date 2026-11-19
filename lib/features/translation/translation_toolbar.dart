@@ -458,6 +458,7 @@ class _TranslationEngineSettingsSheetState
     extends State<TranslationEngineSettingsSheet> {
   late final TextEditingController _urlController =
       TextEditingController(text: widget.service.deeplxUrl ?? '');
+  bool _urlEdited = false;
 
   /// PSRC-28: danh sách gói ML Kit = 3 ngôn ngữ phổ biến hiện sẵn + phần còn
   /// lại trong 26 ngôn ngữ của app (mở bằng "Thêm ngôn ngữ").
@@ -550,6 +551,10 @@ class _TranslationEngineSettingsSheetState
     setState(() {
       _offlineOnly = widget.service.offlineOnly;
       _enginePref = widget.service.offlineEnginePref;
+      if (!_urlEdited) {
+        final url = widget.service.deeplxUrl ?? '';
+        if (_urlController.text != url) _urlController.text = url;
+      }
     });
   }
 
@@ -1044,6 +1049,7 @@ class _TranslationEngineSettingsSheetState
       children: [
         TextField(
           controller: _urlController,
+          onChanged: (_) => _urlEdited = true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: context.uiText('Để trống → dùng Google Free'),

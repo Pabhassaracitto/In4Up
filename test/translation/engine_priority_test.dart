@@ -8,6 +8,7 @@ import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/core/language/translation_ui_labels.dart';
 import 'package:in4up/features/translation/cache/translation_cache.dart';
 import 'package:in4up/features/translation/engines/hymt_engine.dart';
+import 'package:in4up/features/translation/translation_toolbar.dart';
 import 'package:in4up/features/translation/translation_engine_priority.dart';
 import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/translation/widgets/translation_engine_controls.dart';
@@ -156,6 +157,24 @@ void main() {
       expect(service.activeEngineName, isNull);
     });
 
+    test('mixed-language result retains real engine and fallback provenance',
+        () async {
+      final service = translationTestService(
+        google: RecordingTranslationEngine('google_free'),
+        mlkit: RecordingTranslationEngine('mlkit', succeeds: false),
+      )..preferEngine('mlkit');
+      final result = await service.translateText(
+        'Hôm nay tôi học bài mới. The quick brown fox jumps over the lazy dog. Bài học này rất thú vị.',
+        sourceLang: 'VI',
+        targetLang: 'VI',
+      );
+      expect(result.engineName, 'mixed-language',
+          reason: 'legacy API stays compatible');
+      expect(result.route?.actualEngineName, 'Google Translate');
+      expect(result.route?.usedFallback, isTrue);
+      expect(result.translatedText, contains('Hôm nay tôi học bài mới.'));
+    });
+
     test(
         'changing order invalidates the same-text cache; cache never invents an engine',
         () async {
@@ -261,10 +280,69 @@ void main() {
       expect(result.route?.selectedEngineId, 'google_free');
       expect(result.route?.actualEngineId, 'google_free');
       expect(service.selectedEngineId, 'mlkit');
+      final next = await service.translateText('Hello', sourceLang: 'EN');
+      expect(next.engineName, 'ML Kit On-Device');
     });
   });
 
   group('Engine UI — drag, selection and shared configuration', () {
+    testWidgets('online timeout falls back and terminates active status',
+        (tester) async {
+      final pending = Completer<void>();
+      final entered = Completer<void>();
+      final google = RecordingTranslationEngine('google_free')
+        ..waitFor = pending.future
+        ..onCall = entered.complete;
+      final service = translationTestService(
+          google: google, mlkit: RecordingTranslationEngine('mlkit'));
+      final run = service.translateText('Hello', sourceLang: 'EN');
+      await tester.pump();
+      await entered.future;
+      await tester.pump(const Duration(seconds: 13));
+      final result = await run;
+      expect(result.route?.usedFallback, isTrue);
+      expect(result.route?.actualEngineId, 'mlkit');
+      expect(service.activeEngineName, isNull);
+      pending.complete();
+      await tester.pump();
+    });
+
+    testWidgets(
+        'PSRC-191 sheet keeps priority list collapsed; reopen shares selection',
+        (tester) async {
+      final service = translationTestService(
+        google: RecordingTranslationEngine('google_free'),
+        mlkit: RecordingTranslationEngine('mlkit'),
+      );
+      Widget sheet() => MaterialApp(
+              home: Scaffold(
+                  body: SizedBox(
+            width: 320,
+            child: TranslationEngineSettingsSheet(
+                service: service, accentColor: Colors.purple),
+          )));
+      await tester.pumpWidget(sheet());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('translation-engine-order')), findsNothing);
+      await tester.tap(find.text('Translation engine order'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('translation-engine-order')), findsOneWidget);
+      service.preferEngine('mlkit');
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(sheet());
+      await tester.pumpAndSettle();
+      expect(service.selectedEngineId, 'mlkit');
+      expect(
+          tester
+              .widget<DropdownButton<String>>(
+                  find.byKey(const Key('translation-engine-picker')))
+              .value,
+          'mlkit');
+      expect(find.byKey(const Key('translation-engine-order')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
         'two selectors synchronize immediately; Google exits offline-only',
         (tester) async {

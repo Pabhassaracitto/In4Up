@@ -168,6 +168,32 @@ jobs:
           path: dharma_test.log
           if-no-files-found: ignore
 
+      - name: "GLIB tests — Thư Viện Chung: pack core + download manager (logic thuần)"
+        id: glib-tests
+        timeout-minutes: 5
+        run: |
+          set +e
+          if [ ! -d test/great_library ]; then
+            echo "Không có test/great_library trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/great_library/ -r expanded > glib_test.log 2>&1
+          code=$?
+          cat glib_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 glib_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\\n/%0A/g')
+            echo "::error title=GLIB test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload great_library test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-great-library-test-log
+          path: glib_test.log
+          if-no-files-found: ignore
+
       - name: "I4U18 tests — Video/Listen Library (logic thuần)"
         id: i4u18-lib-tests
         run: |

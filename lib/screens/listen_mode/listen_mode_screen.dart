@@ -17,6 +17,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
+// PSRC-266 — danh sách ngôn ngữ Whisper cho "Tạo lời" phát sinh từ engine.
+import 'package:in4up_stt/utils/whisper_language.dart';
 import 'package:in4up_stt/diarization/speaker_sidecar.dart';
 // PARAKEET-002 — chip "Offline (sherpa)" cần danh sách model offline đã cài.
 import 'package:in4up_stt/sherpa_model_manager.dart';
@@ -3064,29 +3066,117 @@ class _LrcModelSelector extends StatefulWidget {
   State<_LrcModelSelector> createState() => _LrcModelSelectorState();
 }
 
-/// Ngôn ngữ Whisper hỗ trợ cho tạo LRC — 'auto' = tự nhận diện (đa ngữ).
-/// (Whisper multilingual: mọi model tiny/base/... đều hiểu cả danh sách này.)
-const Map<String, String> _lrcSttLanguages = {
-  'auto': 'Tự động',
-  'vi': 'Tiếng Việt',
-  'en': 'English',
-  'zh': 'Tiếng Trung',
-  'ja': 'Tiếng Nhật',
-  'ko': 'Tiếng Hàn',
-  'th': 'Tiếng Thái',
-  'es': 'Tiếng Tây Ban Nha',
-  'fr': 'Tiếng Pháp',
-  'de': 'Tiếng Đức',
-  'ru': 'Tiếng Nga',
-  'id': 'Tiếng Indonesia',
-  'hi': 'Tiếng Hindi',
-  'pi': 'Pali',
-};
+// PSRC-266 — danh sách ngôn ngữ "Tạo lời" KHÔNG còn là một map cứng ~13 mục
+// (và không còn chip "Pali" gửi mã 'pi' mà whisper.cpp không có). Nguồn sự
+// thật duy nhất là `WhisperLanguage.languageOptions()` / `allOptions()` —
+// phát sinh từ đúng 100 mã whisper.cpp hỗ trợ. Mỗi lựa chọn gắn chặt
+// nhãn↔mã qua `WhisperLanguageOption.engineCode` nên nhãn nào hiện thì đúng
+// mã đó được đưa vào engine.
+// (Đã xoá `_lrcSttLanguages` cũ.)
 
 class _LrcModelSelectorState extends State<_LrcModelSelector> {
   WhisperModelLevel? _selectedLevel;
   SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
   String _language = 'auto';
+
+  /// PSRC-266 — mở rộng danh sách ngôn ngữ đầy đủ (mặc định chỉ hiện nhóm
+  /// ngắn + nút "Xem thêm").
+  bool _showMoreLanguages = false;
+
+  /// Nhãn hiển thị cho mã Whisper đang chọn (chế độ Whisper, không sherpa).
+  /// Pali được ghi rõ là chạy 'auto' vì whisper.cpp không có mã riêng.
+  String _languageLabel(BuildContext context, String code) {
+    if (code == 'pi') {
+      final opt = WhisperLanguageOption.pali;
+      return '${opt.displayLabel(vietnamese: true)} · '
+          '${context.uiText('không có model riêng — tự nhận diện')}';
+    }
+    if (code == WhisperLanguage.auto) {
+      return context.uiText('Tự động');
+    }
+    final opt = WhisperLanguageOption.forCode(code);
+    return opt.displayLabel(vietnamese: true);
+  }
+
+  /// PSRC-266 — bộ chọn ngôn ngữ Whisper cho "Tạo lời": nhóm ngắn chào sẵn
+  /// + nút "Xem thêm" bung danh sách đầy đủ (cuộn được) phát sinh từ chính
+  /// 100 mã whisper.cpp. Chọn xong lưu đúng `engineCode` vào `_language` nên
+  /// nhãn nào hiện thì mã đó chạy; Pali hiện nhưng được gắn cờ rõ là sẽ tự
+  /// nhận diện (không có model riêng).
+  Widget _buildWhisperLanguagePicker(BuildContext context) {
+    final options = _showMoreLanguages
+        ? WhisperLanguage.allOptions()
+        : WhisperLanguage.featuredOptions();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PopupMenuButton<String>(
+          tooltip: context.uiText('Ngôn ngữ'),
+          onSelected: (value) => setState(() {
+            // Lưu MÃ ENGINE (an toàn cho whisper.cpp), không lưu mã hiển
+            // thị — 'pi' trở thành 'auto' tại đây.
+            _language = value == 'pi' ? WhisperLanguage.auto : value;
+          }),
+          itemBuilder: (context) => [
+            for (final opt in options)
+              PopupMenuItem(
+                value: opt.code,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.uiText(opt.displayLabel(vietnamese: true)),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    if (opt.resolvesToAuto)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Text(
+                          context.uiText('tự nhận diện'),
+                          style:
+                              TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+          child: ListTile(
+            dense: true,
+            title: Text(context.uiText('Ngôn ngữ')),
+            subtitle: Text(_languageLabel(context, _language)),
+            trailing: const Icon(Icons.expand_more),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('lrc-language-show-more'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () =>
+                setState(() => _showMoreLanguages = !_showMoreLanguages),
+            icon: Icon(
+              _showMoreLanguages ? Icons.expand_less : Icons.expand_more,
+              size: 16,
+            ),
+            label: Text(
+              context.uiText(
+                _showMoreLanguages
+                    ? 'Ẩn bớt ngôn ngữ'
+                    : 'Xem thêm ngôn ngữ (${WhisperLanguage.supported.length})',
+              ),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   /// PARAKEET-002 — dùng model sherpa OFFLINE (Parakeet đa ngữ / Zipformer VI)
   /// thay cho Whisper. Chỉ bật được khi máy đã cài ít nhất 1 model offline
@@ -3161,7 +3251,8 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
   }
 
   /// Ngôn ngữ của các model sherpa offline **dùng được** — khác danh sách
-  /// Whisper ở `_lrcSttLanguages`. Model streaming và model import dở bị loại.
+  /// Whisper ([WhisperLanguage.supported]). Model streaming và model import
+  /// dở bị loại.
   List<String> _sherpaLanguages() =>
       AsrModelRouter.installedLanguages(
         isInstalled: (profileId) => _sherpaVerdict(profileId).canUse,
@@ -3313,30 +3404,27 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
         ],
         const SizedBox(height: 8),
         // Ngôn ngữ STT — mặc định 'Tự động' (Whisper tự nhận diện đa ngữ).
-        // Ở chế độ sherpa chỉ hiện ngôn ngữ model offline ĐÃ CÀI thật (chọn
-        // ngôn ngữ Parakeet không hỗ trợ sẽ báo lỗi ngay khi bấm tạo).
-        PopupMenuButton<String>(
-          tooltip: context.uiText('Ngôn ngữ'),
-          onSelected: (value) => setState(() => _language = value),
-          itemBuilder: (context) => [
-            if (_useSherpa)
+        // Ở chế độ sherpa chỉ hiện ngôn ngữ model offline ĐÃ CÀI thật.
+        // Ở chế độ Whisper: PSRC-266 hiện nhóm ngôn ngữ CHÀO SẴN ngắn gọn,
+        // kèm nút "Xem thêm" mở danh sách ĐẦY ĐỦ phát sinh từ whisper.cpp.
+        if (_useSherpa)
+          PopupMenuButton<String>(
+            tooltip: context.uiText('Ngôn ngữ'),
+            onSelected: (value) => setState(() => _language = value),
+            itemBuilder: (context) => [
               for (final language in _sherpaLanguages())
                 PopupMenuItem(value: language,
-                    child: Text(AsrModelRouter.languageDisplayName(language)))
-            else
-              for (final entry in _lrcSttLanguages.entries)
-                PopupMenuItem(value: entry.key,
-                    child: Text(context.uiText(entry.value))),
-          ],
-          child: ListTile(
-            dense: true,
-            title: Text(context.uiText('Ngôn ngữ')),
-            subtitle: Text(_useSherpa
-                ? AsrModelRouter.languageDisplayName(_language)
-                : context.uiText(_lrcSttLanguages[_language] ?? 'Tự động')),
-            trailing: const Icon(Icons.expand_more),
-          ),
-        ),
+                    child: Text(AsrModelRouter.languageDisplayName(language))),
+            ],
+            child: ListTile(
+              dense: true,
+              title: Text(context.uiText('Ngôn ngữ')),
+              subtitle: Text(AsrModelRouter.languageDisplayName(_language)),
+              trailing: const Icon(Icons.expand_more),
+            ),
+          )
+        else
+          _buildWhisperLanguagePicker(context),
         const SizedBox(height: 12),
         if (!widget.isProcessing)
           SegmentedButton<SttSegmentGrouping>(
@@ -3395,7 +3483,7 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                       '${AsrModelRouter.languageDisplayName(_language)})'
                   : _language == 'auto'
                       ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
-                      : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})'),
+                      : 'Tạo lời thoại (LRC — ${_languageLabel(context, _language)})'),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade700,

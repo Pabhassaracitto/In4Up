@@ -217,4 +217,68 @@ void main() {
       expect(cfg.copyWith().honorWhisperModel, isTrue);
     });
   });
+
+  group('PSRC-266 — danh sách ngôn ngữ "Tạo lời" phát sinh từ engine', () {
+    test('languageOptions bao trọn đúng 100 mã whisper.cpp, không sót/thừa',
+        () {
+      final opts = WhisperLanguage.languageOptions();
+      expect(opts.length, WhisperLanguage.supported.length);
+      // Mọi mã hỗ trợ đều có mặt đúng một lần; không có 'auto' lẫn vào.
+      final codes = opts.map((o) => o.code).toSet();
+      expect(codes.length, opts.length, reason: 'không được trùng mã');
+      expect(codes, equals(WhisperLanguage.supported));
+      expect(codes.contains('auto'), isFalse);
+    });
+
+    test('nhãn↔mã gắn chặt: engineCode của mọi option đều là mã whisper hợp lệ',
+        () {
+      // Đây chính là lỗi cũ: chip "Pali" gửi 'pi' → whisper.cpp ném
+      // "unknown language". Bây giờ mọi option phải map về mã thật.
+      for (final o in WhisperLanguage.allOptions()) {
+        expect(
+          WhisperLanguage.supported.contains(o.engineCode) ||
+              o.engineCode == WhisperLanguage.auto,
+          isTrue,
+          reason: 'engineCode của ${o.code} (${o.labelEn}) không hợp lệ',
+        );
+      }
+    });
+
+    test('Pali được hiển thị thành thật là "không có model riêng → auto"', () {
+      const pali = WhisperLanguageOption.pali;
+      expect(pali.resolvesToAuto, isTrue);
+      // Mã gửi xuống engine phải là 'auto', KHÔNG phải 'pi' (mã không tồn tại).
+      expect(pali.engineCode, WhisperLanguage.auto);
+      // Pali không nằm trong danh sách transcribe trực tiếp.
+      expect(WhisperLanguage.supported.contains('pi'), isFalse);
+    });
+
+    test('featured gọn + moreOptions phủ phần còn lại, không trùng/sót', () {
+      final featured = WhisperLanguage.featuredOptions();
+      expect(featured.first.code, WhisperLanguage.auto,
+          reason: 'Tự động phải đứng đầu');
+      // Nhóm đầu gọn (chỉ vài ngôn ngữ chào sẵn), không dài như full list.
+      expect(featured.length, lessThan(WhisperLanguage.supported.length));
+
+      final featuredCodes = featured.map((o) => o.code).toSet();
+      final more = WhisperLanguage.moreOptions();
+      // Không trùng với nhóm đầu, không lặp 'auto'.
+      expect(more.any((o) => featuredCodes.contains(o.code)), isFalse);
+      expect(more.any((o) => o.code == WhisperLanguage.auto), isFalse);
+      // featured (trừ 'auto' & 'pi') + more = toàn bộ 100 mã.
+      final real = featuredCodes
+          .where((c) => c != WhisperLanguage.auto && c != 'pi')
+          .toSet()
+        ..addAll(more.map((o) => o.code));
+      expect(real, equals(WhisperLanguage.supported));
+    });
+
+    test('các ngôn ngữ ngoài nhóm cũ giờ chọn được (es/fr/de/ru/id/pt/km…)',
+        () {
+      final all = {for (final o in WhisperLanguage.allOptions()) o.code};
+      for (final code in ['es', 'fr', 'de', 'ru', 'id', 'pt', 'km', 'ar', 'it']) {
+        expect(all, contains(code), reason: '$code phải chọn được');
+      }
+    });
+  });
 }

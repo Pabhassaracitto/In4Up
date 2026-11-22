@@ -42,8 +42,15 @@ class FirebasePackStorage implements PackStorageBackend {
   @override
   String get backendId => 'firebase';
 
-  String get bucket =>
-      _bucket ?? DefaultFirebaseOptions.currentPlatform.storageBucket;
+  String get bucket {
+    final resolved =
+        _bucket ?? DefaultFirebaseOptions.currentPlatform.storageBucket ?? '';
+    if (resolved.isEmpty) {
+      throw const PackStorageException(PackStorageErrorCode.unknown,
+          'FirebaseOptions thiếu storageBucket');
+    }
+    return resolved;
+  }
 
   Uri _objectUri(PackStorageRef ref) => Uri.https(
         'firebasestorage.googleapis.com',

@@ -6,6 +6,7 @@ import 'ai_model_options_sheet.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/understand_ai/understand_ai_context.dart';
+import 'ai_chat_markdown.dart';
 
 /// Màn chat AI dùng chung (Home) và cho Trợ lý hiểu bài (tab Hiểu).
 ///
@@ -872,7 +873,38 @@ class _MessageBubble extends StatelessWidget {
                   : const Color(0xFF171D34),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(display),
+        // PSRC-263: bubble của TRỢ LÝ được render qua markdown tối thiểu để
+        // không lộ ký hiệu thô (`**`, `*`, backtick, `#`, `-`). Bubble của
+        // NGƯỜI DÙNG giữ nguyên Text thường (họ gõ chữ, không phải markdown).
+        child: isUser ? Text(display) : _AssistantMarkdownBody(text: display),
+      ),
+    );
+  }
+}
+
+/// Thân bubble trợ lý — dựng [TextSpan] từ markdown tối thiểu.
+///
+/// Dùng [RichText] (đã được shim export) nên KHÔNG đụng tới class `Text` shim;
+/// `DefaultTextStyle` của bubble vẫn chảy xuống làm style cơ sở cho các span.
+class _AssistantMarkdownBody extends StatelessWidget {
+  const _AssistantMarkdownBody({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = DefaultTextStyle.of(context).style;
+    final styles = ChatMarkdownStyles.from(base);
+    final mdSpans = ChatMarkdown.parse(text, styles);
+    if (mdSpans.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return RichText(
+      text: TextSpan(
+        style: base,
+        children: [
+          for (final s in mdSpans) TextSpan(text: s.text, style: s.style),
+        ],
       ),
     );
   }

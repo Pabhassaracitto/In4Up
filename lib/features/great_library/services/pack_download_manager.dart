@@ -195,7 +195,7 @@ class PackDownloadManager {
               await _store.appendPartial(packId, chunk);
               emit(PackDownloadState.downloading,
                   await _store.partialLength(packId));
-              throw const PackStorageException(PackStorageErrorCode.network,
+              throw PackStorageException(PackStorageErrorCode.network,
                   'short-body: ${chunk.length}/$expectedBytes');
             } else {
               throw const PackStorageException(PackStorageErrorCode.unknown,

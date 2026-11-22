@@ -1525,3 +1525,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
     45074714897: analyze + GLIB tests xanh (run đầu 45073927840 đỏ 2 analyzer
     ERROR: `storageBucket` String? + const-interpolation → sửa, verify() bắt
     thêm ArchiveException khi giải nén vùng hỏng). GLIB-001/002 ✅ done.
+  - 2026-11-15 | doing — CI 🟢 run 45079525127 | agent `arena/a04e4405-in4up` |
+    GLIB-003 ✅ (code): catalog service (TTL cache + offline fallback) +
+    transport public (không cần token — D5) + schema/rules doc; owner deploy
+    rules theo `docs/great_library_firestore_schema.md` §4.

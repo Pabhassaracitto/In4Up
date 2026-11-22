@@ -100,4 +100,43 @@ void main() {
   test('show-more list is non-empty', () {
     expect(PiperVoiceCatalog.more(), isNotEmpty);
   });
+
+  test('PSRC-260: hasNativeVoice/isUnavailable gate the download sheet', () {
+    // Ngôn ngữ có model tải thật ⇒ được phép hiển thị như một lựa chọn.
+    expect(PiperVoiceCatalog.hasNativeVoice('vi_VN'), isTrue);
+    expect(PiperVoiceCatalog.hasNativeVoice('en'), isTrue); // mã ngắn
+    expect(PiperVoiceCatalog.hasNativeVoice('en-GB'), isTrue); // dạng gạch ngang
+
+    // Sinhala/Tamil/Burmese: KHÔNG có model ⇒ không được dựng thành lựa chọn.
+    expect(PiperVoiceCatalog.hasNativeVoice('si_LK'), isFalse);
+    expect(PiperVoiceCatalog.hasNativeVoice('si'), isFalse);
+    expect(PiperVoiceCatalog.hasNativeVoice('ta'), isFalse);
+    expect(PiperVoiceCatalog.hasNativeVoice('my_MM'), isFalse);
+
+    expect(PiperVoiceCatalog.isUnavailable('si_LK'), isTrue);
+    expect(PiperVoiceCatalog.isUnavailable('ta-LK'), isTrue);
+    expect(PiperVoiceCatalog.isUnavailable('my_MM'), isTrue);
+    expect(PiperVoiceCatalog.isUnavailable('vi_VN'), isFalse);
+
+    // Ngôn ngữ có giọng thật thì KHÔNG bị đánh dấu unavailable — phân biệt
+    // "model không tồn tại" với "một lần tải lỗi tạm thời".
+    expect(PiperVoiceCatalog.isUnavailable('ko_KR'), isFalse);
+    expect(PiperVoiceCatalog.isUnavailable('en_US'), isFalse);
+
+    // Input rỗng/không rõ ⇒ không khẳng định gì (an toàn).
+    expect(PiperVoiceCatalog.hasNativeVoice(''), isFalse);
+    expect(PiperVoiceCatalog.isUnavailable(''), isFalse);
+  });
+
+  test('PSRC-260: no downloadable offer belongs to an unavailable language', () {
+    // Bảo đảm catalog không tự mâu thuẫn: không model nào vừa "tải được" vừa
+    // thuộc ngôn ngữ đã ghi là "chưa có giọng bản xứ".
+    for (final offer in PiperVoiceCatalog.all) {
+      expect(
+        PiperVoiceCatalog.isUnavailable(offer.languageCode),
+        isFalse,
+        reason: '${offer.id} thuộc ngôn ngữ đã đánh dấu unavailable',
+      );
+    }
+  });
 }

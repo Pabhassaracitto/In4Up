@@ -384,6 +384,15 @@ class VocabularyProvider extends ChangeNotifier {
 
   Future<void> forcePushAll() => _sync.pushAll();
 
+  /// PSRC-262 — chẩn đoán "từ đã lưu trên cloud có nhiều hơn đang hiển thị
+  /// không". Trả về số liệu best-effort (không ghi/xoá gì) để UI giải thích
+  /// cho người dùng và gợi ý "Đồng bộ lại toàn bộ" khi cloud có nhiều hơn.
+  Future<VocabSyncDiagnostic> inspectSyncCounts() => _sync.inspectCounts();
+
+  /// Số từ ĐANG ĐƯỢC HIỂN THỊ (sau lọc/tìm) — để UI đối chiếu với [total]
+  /// (tổng đã lưu cục bộ) khi người dùng thấy danh sách "ít hơn mong đợi".
+  int get displayedCount => displayedWords.length;
+
   Future<void> _saveWord(WordEntry w) async {
     try {
       _box.put(w.id, jsonEncode(w.toJson()));

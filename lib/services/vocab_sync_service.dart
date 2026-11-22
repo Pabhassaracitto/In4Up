@@ -515,4 +515,63 @@ class VocabSyncService {
     }
     await flushPending();
   }
+
+  /// PSRC-262 — chẩn đoán đối chiếu SỐ LƯỢNG, best-effort (KHÔNG ghi gì).
+  ///
+  /// Trả về `(số từ trong Hive cục bộ, số document trên cloud, số đang chờ
+  /// đẩy)`; `cloud` = null khi không đọc được (offline / lỗi) để UI phân
+  /// biệt "không đọc được" với "cloud thật sự rỗng", thay vì đoán. Đây là
+  /// bằng chứng "nguồn vs đã tải" mà người dùng cần khi thấy danh sách thiếu.
+  Future<VocabSyncDiagnostic> inspectCounts() async {
+    final localCount =
+        Hive.isBoxOpen(_vocabBoxName) ? Hive.box<String>(_vocabBoxName).length : 0;
+    final pendingCount = Hive.isBoxOpen(_pendingBoxName)
+        ? Hive.box<String>(_pendingBoxName).length
+        : 0;
+
+    int? cloudCount;
+    if (_currentUid != null) {
+      try {
+        if (await _hasNetwork()) {
+          final docs = _useRestSync
+              ? await _rest.listCollection('users/$_currentUid/vocabulary')
+              : (await db
+                      .collection('users')
+                      .doc(_currentUid)
+                      .collection('vocabulary')
+                      .get())
+                  .docs;
+          cloudCount = docs.length;
+        }
+      } catch (e) {
+        debugPrint('⚠️ VocabSync.inspectCounts: $e');
+        cloudCount = null;
+      }
+    }
+    return VocabSyncDiagnostic(
+      localCount: localCount,
+      cloudCount: cloudCount,
+      pendingCount: pendingCount,
+    );
+  }
+}
+
+/// PSRC-262 — kết quả đối chiếu số lượng (nguồn cloud vs đã lưu cục bộ vs
+/// đang chờ đẩy). `cloudCount == null` nghĩa là KHÔNG đọc được cloud.
+class VocabSyncDiagnostic {
+  final int localCount;
+  final int? cloudCount;
+  final int pendingCount;
+  const VocabSyncDiagnostic({
+    required this.localCount,
+    required this.cloudCount,
+    required this.pendingCount,
+  });
+
+  /// Cloud đọc được VÀ chứa nhiều hơn local → dấu hiệu "thiếu từ đã lưu".
+  bool get cloudHasMore => cloudCount != null && cloudCount! > localCount;
+
+  @override
+  String toString() =>
+      'VocabSyncDiagnostic(local=$localCount, cloud=$cloudCount, pending=$pendingCount)';
 }

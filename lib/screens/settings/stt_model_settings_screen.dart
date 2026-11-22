@@ -1497,17 +1497,16 @@ class _PiperVoiceDownloadSheet extends StatefulWidget {
 class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
   bool _showMore = false;
   final Map<String, ExpansionTileController> _languageTiles = {};
-  String? _sriLankaChoice;
 
   static const _priorityNote =
       'Chọn ngôn ngữ trước, sau đó mở ra để chọn giọng. Dung lượng tính theo '
       'file model, không phải RAM cần để chạy.';
-  static const _sriLankaNote =
-      'Sri Lanka là quốc gia, không phải tên ngôn ngữ. Hãy chọn cụ thể: '
-      'Sinhala, Tamil hoặc English.';
+  // PSRC-260 — Sinhala/Tamil/Burmese KHÔNG có model Piper tải thật: không
+  // dựng chúng thành lựa chọn nổi bật ở đầu sheet, chỉ ghi chú gọn ở cuối.
   static const _noNativeVoice =
-      'Piper chưa có giọng bản xứ cho ngôn ngữ này. Dùng Edge TTS/giọng hệ '
-      'thống, hoặc tự import model tương thích — đừng tải nhầm giọng tiếng khác.';
+      'Piper chưa có giọng bản xứ cho các ngôn ngữ dưới đây (khảo sát '
+      'rhasspy/piper-voices 2026-11). Hãy dùng Edge TTS/giọng hệ thống, hoặc '
+      'tự import model tương thích — đừng tải nhầm giọng của ngôn ngữ khác.';
 
   @override
   Widget build(BuildContext context) {
@@ -1535,8 +1534,6 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
               const SizedBox(height: 12),
-              _buildSriLankaChooser(context),
-              const SizedBox(height: 4),
               ..._groupTiles(context, featured),
               const SizedBox(height: 8),
               TextButton.icon(
@@ -1561,6 +1558,10 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
                 ),
                 style: TextStyle(fontSize: 10, color: Colors.grey[600]),
               ),
+              // PSRC-260 — ngôn ngữ chưa có giọng tải thật (Sinhala/Tamil/…)
+              // chỉ là MỘT ghi chú gập ở CUỐI, không còn là chip nổi bật trên
+              // đầu như bản cũ.
+              _buildUnavailableNote(context),
             ],
           ),
         );
@@ -1568,61 +1569,53 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
     );
   }
 
-  /// PSRC-252: Sri Lanka cần xác định NGÔN NGỮ trước khi chọn model. Các nút
-  /// này chỉ lọc/đi tới nhóm tương ứng — KHÔNG tự coi "Sri Lanka" là một mã
-  /// ngôn ngữ và cũng không gán giọng tiếng khác cho Sinhala/Tamil.
-  Widget _buildSriLankaChooser(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.uiText('Sri Lanka — chọn ngôn ngữ cụ thể'),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              context.uiText(_sriLankaNote),
+  /// PSRC-260: Sinhala/Tamil/Burmese… KHÔNG có giọng Piper tải thật. Thay vì
+  /// cụm chip nổi bật ở ĐẦU sheet (bản cũ — khiến Sinhala trông như một lựa
+  /// chọn tải được và lốm hơn cả ngôn ngữ dùng được), các ngôn ngữ này chỉ
+  /// hiện trong MỘT ghi chú gập ở CUỐI: đủ để giải thích, không gợi tải nhầm.
+  /// Danh sách lấy từ [PiperVoiceCatalog.unavailableLanguages] — nguồn sự
+  /// kiện duy nhất, không hardcode tên ngôn ngữ trong UI.
+  Widget _buildUnavailableNote(BuildContext context) {
+    final unavailable = PiperVoiceCatalog.unavailableLanguages;
+    if (unavailable.isEmpty) return const SizedBox.shrink();
+    return Theme(
+      // Bỏ vạch kẻ của ExpansionTile để ghi chú gọn, không như một mục chính.
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: const Key('piper-unavailable-note'),
+        tilePadding: EdgeInsets.zero,
+        childrenPadding:
+            const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+        leading: Icon(Icons.info_outline, size: 16, color: Colors.grey[500]),
+        title: Text(
+          context.uiText('Ngôn ngữ Piper chưa có giọng bản xứ'),
+          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              context.uiText(_noNativeVoice),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final choice in <String>['Sinhala', 'Tamil', 'English'])
-                  ActionChip(
-                    key: Key('piper-sri-lanka-$choice'),
-                    label: Text(context.uiText(choice)),
-                    onPressed: () {
-                      setState(() {
-                        _sriLankaChoice = choice;
-                        if (choice == 'English') _showMore = false;
-                      });
-                      // ExpansionTile mở bằng controller: đổi state rồi mới
-                      // gán initiallyExpanded sẽ KHÔNG mở tile đã tồn tại.
-                      if (choice == 'English') {
-                        _languageTiles['en_US']?.expand();
-                      }
-                    },
+          ),
+          for (final lang in unavailable)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                children: [
+                  Icon(Icons.block, size: 12, color: Colors.grey[600]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${lang.languageLabelEn} (${lang.languageCode})',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
                   ),
-              ],
-            ),
-            if (_sriLankaChoice != null &&
-                _sriLankaChoice != 'English')
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  context.uiText(_noNativeVoice),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

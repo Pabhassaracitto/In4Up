@@ -255,7 +255,7 @@
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
 | GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | ✅ done (code + 2 file test thuần + **CI 🟢 run 45074714897**; logic thuần — không cần nghiệm thu máy) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0031 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
 | GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | ✅ done (code + 11 test thuần + **CI 🟢 run 45074714897**; file store path_provider nối ở GLIB-004/005) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
-| GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | 📋 proposed | PLAN-049, ADR-0031 D2/D5 |
+| GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | 🔨 doing (code + test thuần xong; chờ CI) | PLAN-049, ADR-0031 D2/D5 — `gl_catalog_service.dart` (TTL cache + offline fallback) + `gl_catalog_transport_firestore.dart` (public read, không cần token) + `docs/great_library_firestore_schema.md` (rules để owner dán) |
 | GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | 📋 proposed | PLAN-049 §GLIB-004; rule vàng #5 (T2 đủ hi/zh/zh_TW/si) |
 | GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | 📋 proposed | PLAN-049; tái dùng audio_import/vocab/vocab_image, không chạm SM-2 |
 | GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
@@ -9995,17 +9995,30 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 ### GLIB-003 — Thư Viện Chung: Catalog service + Firestore schema/rules + cache — P0
 
-- **Trạng thái:** proposed (chưa code).
+- **Trạng thái:** doing — code + test thuần xong, chờ CI + owner deploy rules.
 - **Nguồn:** PLAN-049, ADR-0031 D2.
 - **Nội dung:** `gl_catalog_service.dart` trên `FirestoreRestClient` (list/
   search/filter trên cache TTL, `getPack`, `getVersions`); collections
   `gl_packs`/`gl_pack_versions`/`gl_contributions`/`gl_config/admins`; block
   rules `gl_*` (read public khi `published`; create contribution cần auth);
   `docs/great_library_firestore_schema.md` mô tả schema + rule mẫu.
-- **AT:** parse document→model; filter/search thuần trên cache; rules cho phép/
-  chặn đúng vai trò (kiểm REST tay trước P1).
+- **Đã làm (2026-11-15):** `models/gl_pack_entry.dart` (entry = manifest phẳng
+  + fileSha256/fileBytes/publishedAt); `gl_catalog_service.dart` (interface
+  `GlCatalogTransport`/`GlCatalogCacheStore` tách để test thuần; TTL 6h;
+  **fetch lỗi → dùng cache cũ** đúng offline-first; `GlCatalogQuery` filter
+  type/lang/level/tag/text + sort newest/downloads/rating thuần);
+  `gl_catalog_transport_firestore.dart` (runQuery `status==published` —
+  bắt buộc để rules cho LIST; **không bắt buộc token** — D5; tái dùng
+  `decodeFields` của FirestoreRestClient); schema doc gồm block rules
+  Firestore + Storage + checklist deploy cho owner + lệnh curl test AT3.
+- **Phát hiện quan trọng:** `FirestoreRestClient` bắt buộc idToken cho mọi
+  read → catalog public KHÔNG đi qua client đó; transport riêng chỉ đính token
+  khi sẵn có.
+- **Còn lại:** owner deploy rules theo checklist §4 của schema doc; nối cache
+  file thật ở GLIB-004.
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | agent code + test thuần (parse/filter/sort/TTL/fallback).
 
 ### GLIB-004 — Thư Viện Chung: UI browse · preview · tải — P0
 

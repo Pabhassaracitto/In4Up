@@ -13,7 +13,6 @@
 // Entry gốc khác manifest.json được BỎ QUA khi đọc (forward-compat) nhưng bị
 // cấm khi build. Tên có '..', '/', '\' ở đầu, rỗng → từ chối (chống zip-slip).
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -225,6 +224,9 @@ class PackFile {
       contents = extract(packBytes);
     } on FormatException catch (e) {
       return <String>['corrupt-zip:${e.message}'];
+    } on Object catch (e) {
+      // archive ném ArchiveException khi giải nén vùng dữ liệu hỏng.
+      return <String>['corrupt-zip:$e'];
     }
     final manifestErrors = contents.manifest.validate();
     if (manifestErrors.isNotEmpty) {

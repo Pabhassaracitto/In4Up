@@ -32,6 +32,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final _scrollController = ScrollController();
   bool _sending = false;
 
+  /// PSRC-264: ngữ cảnh tab Hiểu chỉ đính vào prompt của lượt ĐẦU tiên.
+  /// Banner vẫn hiện suốt, nhưng các câu hỏi sau không bị "dính" ngữ cảnh
+  /// cũ nữa — trước đây block ngữ cảnh được nối THẲNG vào MỌI tin ⇒ lịch sử
+  /// hội thoại cứ thế lặp lại prompt cũ ở mọi lượt.
+  bool _coachContextSent = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,25 +64,25 @@ class _AiChatScreenState extends State<AiChatScreen> {
     final question = _controller.text.trim();
     if (question.isEmpty || facade.isChatLoading || _sending) return;
     final coach = widget.context;
-    // Trước đây context chỉ được hiển thị ở banner, nhưng không đi vào
-    // request nên mở từ tab Hiểu rồi hỏi lại sẽ bị xử lý như chat Home.
-    // Đưa snapshot văn bản (không audio/đường dẫn) vào prompt để cả model
-    // local lẫn remote dùng cùng ngữ cảnh.
-    final text = coach == null
-        ? question
-        : '''Ngữ cảnh trợ lý hiểu bài:
+    // PSRC-264: ngữ cảnh đi MỘT LẦN qua `oneShotContext` (lưu RIÊNG khỏi text
+    // hiển thị) — bubble chỉ hiện câu hỏi người dùng gõ, và engine KHÔNG tái
+    // đính block này vào các lượt sau (lịch sử hội thoại giữ prompt thuần).
+    final attachCoach = coach != null && !_coachContextSent;
+    final oneShot = attachCoach
+        ? '''Ngữ cảnh trợ lý hiểu bài:
 Bài: ${coach.sourceTitle ?? 'Không rõ'}
 Câu trọng tâm: ${coach.selectedText ?? 'Chưa chọn câu'}
 Các câu xung quanh: ${coach.surroundingText ?? 'Không có'}
-Đoạn vừa nghe: ${coach.recentText ?? 'Không có'}
-
-Câu hỏi của người học: $question''';
+Đoạn vừa nghe: ${coach.recentText ?? 'Không có'}'''
+        : null;
     _controller.clear();
     // The composer blocks a second send without clearing its draft. The
     // facade queue remains intact for callers outside this screen.
     _sending = true;
     try {
-      await facade.sendMessage(text);
+      await facade.sendMessage(question, oneShotContext: oneShot);
+      // Chỉ đánh dấu đã gửi khi lượt chạy xong mà không ném lỗi.
+      if (attachCoach) _coachContextSent = true;
     } finally {
       _sending = false;
     }

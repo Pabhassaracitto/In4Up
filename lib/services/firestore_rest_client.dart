@@ -22,7 +22,12 @@ import 'firebase_rest_auth.dart';
 class FirestoreRestDoc {
   final String id;
   final Map<String, dynamic> data;
-  const FirestoreRestDoc(this.id, this.data);
+
+  /// Firestore REST có thể trả `readTime` trong mỗi phần tử của
+  /// `documents:runQuery` — dùng làm con trỏ phân trang `startAt`.
+  final DateTime? readTime;
+
+  const FirestoreRestDoc(this.id, this.data, {this.readTime});
 }
 
 class FirestoreRestException implements Exception {
@@ -137,18 +142,80 @@ class FirestoreRestClient {
     return result;
   }
 
+  /// Dung lượng mỗi lần gọi `runQuery`. Giới hạn mềm để MỘT trang không quá
+  /// nặng; việc lấy ĐỦ dữ liệu nằm ở vòng lặp phân trang (startAt) bên dưới,
+  /// KHÔNG phải nhờ con số này — tăng nó chỉ giảm số request, không "vá" mất
+  /// dữ liệu.
+  static const int _runQueryPageSize = 1000;
+
+  /// Số trang tối đa cho một lần query — chỉ là cầu an toàn chống vòng lặp
+  /// vô hạn khi server trả con trỏ không tiến. 100 trang × 1000 = 100.000
+  /// document, xa trên mọi kho từ thực tế.
+  static const int _runQueryMaxPages = 100;
+
   /// Query collection con của [parentPath] (vd 'users/{uid}'),
   /// lọc field > [filterAfter] (vd '_syncedAt' > checkpoint).
+  ///
+  /// PSRC-262 — PHÂN TRANG ĐẦY ĐỦ. Trước đây hàm chỉ bắn MỘT request rồi
+  /// dừng: Firestore trả về theo TỪNG TRANG, nên khi kho đồng bộ lớn
+  /// (vài nghìn từ), mọi document sau trang đầu bị BỎ SÓT âm thầm → Worklist
+  /// trên Linux/desktop thiếu hàng loạt từ, kể cả từ mới lưu. Giờ vòng lặp
+  /// đi theo con trỏ `startAt(readTime của doc cuối trang trước)` cho tới
+  /// khi server trả ít hơn một trang (hết dữ liệu).
   Future<List<FirestoreRestDoc>> runQuery({
     required String parentPath,
     required String collectionId,
     String? filterField,
     Object? filterAfter,
   }) async {
+    final result = <FirestoreRestDoc>[];
+    final seen = <String>{};
+    DateTime? cursor;
+    for (var page = 0; page < _runQueryMaxPages; page++) {
+      final pageDocs = await _runQueryPage(
+        parentPath: parentPath,
+        collectionId: collectionId,
+        filterField: filterField,
+        filterAfter: filterAfter,
+        startAfter: cursor,
+      );
+      if (pageDocs.isEmpty) break;
+
+      var progressed = false;
+      for (final doc in pageDocs) {
+        if (seen.add(doc.id)) result.add(doc);
+        final rt = doc.readTime;
+        if (rt != null && (cursor == null || rt.isAfter(cursor))) {
+          cursor = rt;
+          progressed = true;
+        }
+      }
+
+      // Điều kiện dừng:
+      //  - Server trả ÍT HƠN một trang → đã hết dữ liệu.
+      //  - Không còn con trỏ để tiến (server không trả readTime, hoặc toàn
+      //    doc trùng) → tránh vòng lặp vô hạn; coi như đã đọc hết.
+      if (pageDocs.length < _runQueryPageSize) break;
+      if (!progressed) break;
+    }
+    return result;
+  }
+
+  /// Một trang `runQuery`. Khi [startAfter] (readTime của doc cuối trang
+  /// trước) được cung cấp, thêm `startAt` để lấy trang KẾ TIẾP — đây là cơ
+  /// chế phân trang chuẩn của Firestore REST cho `structuredQuery`.
+  Future<List<FirestoreRestDoc>> _runQueryPage({
+    required String parentPath,
+    required String collectionId,
+    String? filterField,
+    Object? filterAfter,
+    DateTime? startAfter,
+  }) async {
     final structured = <String, dynamic>{
       'from': [
         {'collectionId': collectionId}
       ],
+      'limit': _runQueryPageSize,
     };
     if (filterField != null && filterAfter != null) {
       structured['where'] = {
@@ -164,6 +231,16 @@ class FirestoreRestClient {
           'direction': 'ASCENDING',
         }
       ];
+    }
+    if (startAfter != null) {
+      // Con trỏ phân trang: bắt đầu SAU readTime của trang trước. readTime
+      // tăng dần theo thứ tự trả về nên luôn tiến được, không sót/trùng.
+      structured['startAt'] = {
+        'values': [
+          {'readTime': startAfter.toUtc().toIso8601String()}
+        ],
+        'before': false,
+      };
     }
 
     final resp = await _post('$_documentsBaseUrl:runQuery', {
@@ -188,7 +265,8 @@ class FirestoreRestClient {
     if (name == null) return null;
     final id = name.split('/').last;
     final fields = decodeFields(docMap['fields'] as Map<String, dynamic>?);
-    return FirestoreRestDoc(id, fields);
+    final readTime = DateTime.tryParse('${docMap['readTime'] ?? ''}');
+    return FirestoreRestDoc(id, fields, readTime: readTime);
   }
 
   // ═════════════════════════════════════════════════════════════

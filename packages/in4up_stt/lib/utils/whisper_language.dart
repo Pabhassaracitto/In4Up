@@ -337,4 +337,242 @@ class WhisperLanguage {
     }
     return true;
   }
+
+  /// PSRC-266 — mã Whisper của các ngôn ngữ được CHÀO SẴN ở đầu bộ chọn
+  /// (phần còn lại nằm trong nhóm "Xem thêm" cuộn được). Đặt 'auto' đầu
+  /// tiên; các ngôn ngữ phổ biến của app theo sau.
+  static const List<String> featuredOptionCodes = <String>[
+    auto, 'vi', 'en', 'zh', 'ja', 'ko', 'th', 'hi', 'pi',
+  ];
+
+  /// Một entry "Tự động (Whisper tự nhận diện)" luôn nằm đầu danh sách.
+  static const WhisperLanguageOption autoOption = WhisperLanguageOption(
+    code: auto,
+    labelEn: 'Auto (detect)',
+    labelVi: 'Tự động (tự nhận diện)',
+  );
+
+  /// PSRC-266 — DANH SÁCH ĐẦY ĐỦ các ngôn ngữ Whisper transcribe được,
+  /// được phát sinh TỪ CHÍNH [supported] (khớp `g_lang` của whisper.cpp),
+  /// KHÔNG phải một danh sách cứng chung chung. 'auto' không nằm ở đây —
+  /// thêm bằng [allOptions].
+  ///
+  /// Nhãn bằng TÊN TỰ GỌI (endonym) để người dùng đọc ngôn ngữ đó nhận ra
+  /// ngay; đó là lựa chọn trung lập, không phụ thuộc ngôn ngữ UI của app.
+  static List<WhisperLanguageOption> languageOptions() {
+    final codes = supported.toList()..sort();
+    return [for (final c in codes) WhisperLanguageOption.forCode(c)];
+  }
+
+  /// [autoOption] + toàn bộ [languageOptions] — một danh sách duy nhất cho
+  /// bộ chọn ngôn ngữ của "Tạo lời".
+  static List<WhisperLanguageOption> allOptions() =>
+      <WhisperLanguageOption>[autoOption, ...languageOptions()];
+
+  /// Danh sách ngắn hiển thị ban đầu: [featuredOptionCodes] có mặt trong
+  /// [supported] (hoặc 'auto'), theo đúng thứ tự ưu tiên. Pali ('pi') KHÔNG
+  /// nằm trong [supported] nhưng được đưa vào có nhãn rõ "không có model
+  /// riêng" để không còn trông như một lựa chọn transcribe trực tiếp.
+  static List<WhisperLanguageOption> featuredOptions() {
+    final out = <WhisperLanguageOption>[];
+    for (final code in featuredOptionCodes) {
+      if (code == auto) {
+        out.add(autoOption);
+      } else if (code == 'pi') {
+        out.add(WhisperLanguageOption.pali);
+      } else if (supported.contains(code)) {
+        out.add(WhisperLanguageOption.forCode(code));
+      }
+    }
+    return out;
+  }
+
+  /// Nhóm "Xem thêm ngôn ngữ" = toàn bộ ngôn ngữ hỗ trợ TRỪ các mã đã nằm
+  /// trong [featuredOptions] (không trùng, không sót). 'auto' không lặp lại.
+  static List<WhisperLanguageOption> moreOptions() {
+    final featuredCodes = <String>{for (final o in featuredOptions()) o.code};
+    return [for (final o in languageOptions()) if (!featuredCodes.contains(o.code)) o];
+  }
+}
+
+/// Một lựa chọn ngôn ngữ trong bộ chọn "Tạo lời" (PSRC-266).
+///
+/// Gắn CHẶT nhãn hiển thị với mã whisper.cpp, để nhãn nào hiện ra thì đúng
+/// mã đó được đưa vào engine — không còn tình trạng chip "Pali" nhưng lại
+/// lén gửi mã khác, hay một mã không tồn tại làm hỏng cả job.
+class WhisperLanguageOption {
+  /// Mã đưa thẳng vào whisper.cpp — luôn là một trong [WhisperLanguage.supported]
+  /// hoặc [WhisperLanguage.auto], hoặc một mã "ngoài model" có [resolvesToAuto]
+  /// (chỉ dùng để hiển thị thành thật, ví dụ Pali).
+  final String code;
+
+  /// Nhãn tiếng Anh (dùng khi UI không phải tiếng Việt).
+  final String labelEn;
+
+  /// Nhãn tiếng Việt (mặc định hiển thị).
+  final String labelVi;
+
+  /// Tên tự gọi (endonym) — giúp người đọc ngôn ngữ đó nhận ra ngay.
+  final String endonym;
+
+  /// Ngôn ngữ này KHÔNG có model whisper.cpp riêng → engine sẽ rơi về 'auto'.
+  /// UI phải ghi rõ để người dùng không tưởng có model chuyên biệt.
+  final bool resolvesToAuto;
+
+  const WhisperLanguageOption({
+    required this.code,
+    required this.labelEn,
+    required this.labelVi,
+    this.endonym = '',
+    this.resolvesToAuto = false,
+  });
+
+  /// Pali — Tipiṭaka. whisper.cpp KHÔNG có mã 'pi'; chọn mục này sẽ chạy
+  /// chế độ tự nhận diện ('auto') thay vì lỗi "unknown language = pi".
+  static const WhisperLanguageOption pali = WhisperLanguageOption(
+    code: 'pi',
+    labelEn: 'Pali',
+    labelVi: 'Pali',
+    endonym: 'Pāḷi',
+    resolvesToAuto: true,
+  );
+
+  /// Nhãn chính theo locale UI: tiếng Việt ưu tiên [labelVi], ngôn ngữ khác
+  /// dùng [labelEn]; kèm endonym khi khác nhãn chính để dễ nhận diện.
+  String displayLabel({required bool vietnamese}) {
+    final base = vietnamese ? labelVi : labelEn;
+    if (endonym.isEmpty || endonym == labelEn) return base;
+    return '$base · $endonym';
+  }
+
+  /// Mã THẬT sẽ gửi xuống engine. Với [resolvesToAuto] đây là 'auto'
+  /// (an toàn), KHÔNG phải [code] gốc — nhờ đó "Pali" không còn ném lỗi.
+  String get engineCode =>
+      resolvesToAuto ? WhisperLanguage.auto : WhisperLanguage.code(code);
+
+  /// Một [WhisperLanguageOption] cho [code] — phải nằm trong
+  /// [WhisperLanguage.supported]. Nhãn lấy từ bảng bên dưới; mã không có
+  /// trong bảng rơi về dạng `code (code)`.
+  factory WhisperLanguageOption.forCode(String code) {
+    final meta = _labels[code];
+    if (meta == null) {
+      return WhisperLanguageOption(
+        code: code,
+        labelEn: code,
+        labelVi: code,
+      );
+    }
+    return WhisperLanguageOption(
+      code: code,
+      labelEn: meta.$1,
+      labelVi: meta.$2,
+      endonym: meta.$3,
+    );
+  }
+
+  /// Bảng nhãn cho từng mã Whisper: (English, tiếng Việt, endonym).
+  /// Nguồn: tên ngôn ngữ ISO 639 + tên tự gọi phổ biến. Chỉ cần phủ các mã
+  /// trong [WhisperLanguage.supported]; mã nào thiếu sẽ tự rơi về `code`.
+  static const Map<String, (String, String, String)> _labels = {
+    'af': ('Afrikaans', 'Tiếng Afrikaans', 'Afrikaans'),
+    'am': ('Amharic', 'Tiếng Amharic', 'አማርኛ'),
+    'ar': ('Arabic', 'Tiếng Ả Rập', 'العربية'),
+    'as': ('Assamese', 'Tiếng Assam', 'অসমীয়া'),
+    'az': ('Azerbaijani', 'Tiếng Azerbaijan', 'Azərbaycanca'),
+    'ba': ('Bashkir', 'Tiếng Bashkir', 'Башҡорт'),
+    'be': ('Belarusian', 'Tiếng Belarus', 'Беларуская'),
+    'bg': ('Bulgarian', 'Tiếng Bulgaria', 'Български'),
+    'bn': ('Bengali', 'Tiếng Bengal', 'বাংলা'),
+    'bo': ('Tibetan', 'Tiếng Tây Tạng', 'བོད་ཡིག'),
+    'br': ('Breton', 'Tiếng Breton', 'Brezhoneg'),
+    'bs': ('Bosnian', 'Tiếng Bosnia', 'Bosanski'),
+    'ca': ('Catalan', 'Tiếng Catalan', 'Català'),
+    'cs': ('Czech', 'Tiếng Séc', 'Čeština'),
+    'cy': ('Welsh', 'Tiếng Wales', 'Cymraeg'),
+    'da': ('Danish', 'Tiếng Đan Mạch', 'Dansk'),
+    'de': ('German', 'Tiếng Đức', 'Deutsch'),
+    'el': ('Greek', 'Tiếng Hy Lạp', 'Ελληνικά'),
+    'en': ('English', 'Tiếng Anh', 'English'),
+    'es': ('Spanish', 'Tiếng Tây Ban Nha', 'Español'),
+    'et': ('Estonian', 'Tiếng Estonia', 'Eesti'),
+    'eu': ('Basque', 'Tiếng Basque', 'Euskara'),
+    'fa': ('Persian', 'Tiếng Ba Tư', 'فارسی'),
+    'fi': ('Finnish', 'Tiếng Phần Lan', 'Suomi'),
+    'fo': ('Faroese', 'Tiếng Faroe', 'Føroyskt'),
+    'fr': ('French', 'Tiếng Pháp', 'Français'),
+    'gl': ('Galician', 'Tiếng Galicia', 'Galego'),
+    'gu': ('Gujarati', 'Tiếng Gujarat', 'ગુજરાતી'),
+    'ha': ('Hausa', 'Tiếng Hausa', 'Hausa'),
+    'haw': ('Hawaiian', 'Tiếng Hawaii', 'ʻŌlelo Hawaiʻi'),
+    'he': ('Hebrew', 'Tiếng Do Thái', 'עברית'),
+    'hi': ('Hindi', 'Tiếng Hindi', 'हिन्दी'),
+    'hr': ('Croatian', 'Tiếng Croatia', 'Hrvatski'),
+    'ht': ('Haitian Creole', 'Tiếng Haiti (Creole)', 'Kreyòl ayisyen'),
+    'hu': ('Hungarian', 'Tiếng Hungary', 'Magyar'),
+    'hy': ('Armenian', 'Tiếng Armenia', 'Հայերեն'),
+    'id': ('Indonesian', 'Tiếng Indonesia', 'Bahasa Indonesia'),
+    'is': ('Icelandic', 'Tiếng Iceland', 'Íslenska'),
+    'it': ('Italian', 'Tiếng Ý', 'Italiano'),
+    'ja': ('Japanese', 'Tiếng Nhật', '日本語'),
+    'jw': ('Javanese', 'Tiếng Java', 'Basa Jawa'),
+    'ka': ('Georgian', 'Tiếng Gruzia', 'ქართული'),
+    'kk': ('Kazakh', 'Tiếng Kazakh', 'Қазақша'),
+    'km': ('Khmer', 'Tiếng Khmer', 'ខ្មែរ'),
+    'kn': ('Kannada', 'Tiếng Kannada', 'ಕನ್ನಡ'),
+    'ko': ('Korean', 'Tiếng Hàn', '한국어'),
+    'la': ('Latin', 'Tiếng Latin', 'Latina'),
+    'lb': ('Luxembourgish', 'Tiếng Luxembourg', 'Lëtzebuergesch'),
+    'ln': ('Lingala', 'Tiếng Lingala', 'Lingála'),
+    'lo': ('Lao', 'Tiếng Lào', 'ລາວ'),
+    'lt': ('Lithuanian', 'Tiếng Litva', 'Lietuvių'),
+    'lv': ('Latvian', 'Tiếng Latvia', 'Latviešu'),
+    'mg': ('Malagasy', 'Tiếng Malagasy', 'Malagasy'),
+    'mi': ('Maori', 'Tiếng Maori', 'Māori'),
+    'mk': ('Macedonian', 'Tiếng Macedonia', 'Македонски'),
+    'ml': ('Malayalam', 'Tiếng Malayalam', 'മലയാളം'),
+    'mn': ('Mongolian', 'Tiếng Mông Cổ', 'Монгол'),
+    'mr': ('Marathi', 'Tiếng Marathi', 'मराठी'),
+    'ms': ('Malay', 'Tiếng Mã Lai', 'Bahasa Melayu'),
+    'mt': ('Maltese', 'Tiếng Malta', 'Malti'),
+    'my': ('Burmese', 'Tiếng Miến Điện', 'မြန်မာ'),
+    'ne': ('Nepali', 'Tiếng Nepal', 'नेपाली'),
+    'nl': ('Dutch', 'Tiếng Hà Lan', 'Nederlands'),
+    'nn': ('Norwegian Nynorsk', 'Tiếng Na Uy (Nynorsk)', 'Nynorsk'),
+    'no': ('Norwegian', 'Tiếng Na Uy', 'Norsk'),
+    'oc': ('Occitan', 'Tiếng Occitan', 'Occitan'),
+    'pa': ('Punjabi', 'Tiếng Punjab', 'ਪੰਜਾਬੀ'),
+    'pl': ('Polish', 'Tiếng Ba Lan', 'Polski'),
+    'ps': ('Pashto', 'Tiếng Pashto', 'پښتو'),
+    'pt': ('Portuguese', 'Tiếng Bồ Đào Nha', 'Português'),
+    'ro': ('Romanian', 'Tiếng Romania', 'Română'),
+    'ru': ('Russian', 'Tiếng Nga', 'Русский'),
+    'sa': ('Sanskrit', 'Tiếng Phạn', 'संस्कृतम्'),
+    'sd': ('Sindhi', 'Tiếng Sindhi', 'سنڌي'),
+    'si': ('Sinhala', 'Tiếng Sinhala', 'සිංහල'),
+    'sk': ('Slovak', 'Tiếng Slovakia', 'Slovenčina'),
+    'sl': ('Slovenian', 'Tiếng Slovenia', 'Slovenščina'),
+    'sn': ('Shona', 'Tiếng Shona', 'ChiShona'),
+    'so': ('Somali', 'Tiếng Somali', 'Soomaali'),
+    'sq': ('Albanian', 'Tiếng Albania', 'Shqip'),
+    'sr': ('Serbian', 'Tiếng Serbia', 'Српски'),
+    'su': ('Sundanese', 'Tiếng Sunda', 'Basa Sunda'),
+    'sv': ('Swedish', 'Tiếng Thụy Điển', 'Svenska'),
+    'sw': ('Swahili', 'Tiếng Swahili', 'Kiswahili'),
+    'ta': ('Tamil', 'Tiếng Tamil', 'தமிழ்'),
+    'te': ('Telugu', 'Tiếng Telugu', 'తెలుగు'),
+    'tg': ('Tajik', 'Tiếng Tajik', 'Тоҷикӣ'),
+    'th': ('Thai', 'Tiếng Thái', 'ไทย'),
+    'tk': ('Turkmen', 'Tiếng Turkmen', 'Türkmen'),
+    'tl': ('Tagalog', 'Tiếng Tagalog', 'Tagalog'),
+    'tr': ('Turkish', 'Tiếng Thổ Nhĩ Kỳ', 'Türkçe'),
+    'tt': ('Tatar', 'Tiếng Tatar', 'Татар'),
+    'uk': ('Ukrainian', 'Tiếng Ukraina', 'Українська'),
+    'ur': ('Urdu', 'Tiếng Urdu', 'اردو'),
+    'uz': ('Uzbek', 'Tiếng Uzbek', 'Oʻzbek'),
+    'vi': ('Vietnamese', 'Tiếng Việt', 'Tiếng Việt'),
+    'yi': ('Yiddish', 'Tiếng Yiddish', 'ייִדיש'),
+    'yo': ('Yoruba', 'Tiếng Yoruba', 'Yorùbá'),
+    'zh': ('Chinese', 'Tiếng Trung', '中文'),
+    'yue': ('Cantonese', 'Tiếng Quảng Đông', '粵語'),
+  };
 }

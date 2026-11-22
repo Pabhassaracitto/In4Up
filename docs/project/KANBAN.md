@@ -248,6 +248,14 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
+| GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | 🔨 doing (code + test thuần xong; chờ CI) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0031 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
+| GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | 🔨 doing (code + test thuần xong; chờ CI) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
+| GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | 📋 proposed | PLAN-049, ADR-0031 D2/D5 |
+| GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | 📋 proposed | PLAN-049 §GLIB-004; rule vàng #5 (T2 đủ hi/zh/zh_TW/si) |
+| GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | 📋 proposed | PLAN-049; tái dùng audio_import/vocab/vocab_image, không chạm SM-2 |
+| GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
+| GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
+| GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | 📋 proposed | PLAN-049, ideation §9.3 (D2 LOCKED) |
 
 
 ## Card chi tiết
@@ -9856,3 +9864,131 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-09 | proposed→doing | agent arena/7ab6408e-in4up | CI 43753848333 xanh trên `991ef56` (test synthetic/mock); PR #188; chưa QA thiết bị.
   - 2026-11-09 | doing→doing | agent arena/f8c9973c-in4up | nối metadata MDD vào import/link/relink và DictionaryService theo ADR-0030; test synthetic/mock, chờ CI và QA, chưa UI/media.
   - 2026-11-09 | doing→doing | agent arena/f8c9973c-in4up | CI 43757560968 xanh trên `77cb486`; PR #189; còn worker/cache, CSS/media UI và QA LAAD3.
+
+### GLIB-001 — Thư Viện Chung: Pack core (model + builder/parser/validator `.i4upack`) — P0
+
+- **Trạng thái:** doing — code + test thuần xong, chờ CI + review.
+- **Nguồn:** owner (2026-11-15) qua agent arena/a04e4405-in4up — PLAN-049, ADR-0031 D1.
+- **Nội dung:** `lib/features/great_library/models/pack_manifest.dart`
+  (`PackManifest`, `PackType {vocab, audio, image}` append-only, validate schema/
+  license/kích thước) + `services/pack_file.dart` (build/đọc ZIP `.i4upack`,
+  `sha256` toàn gói, trích manifest không giải nén media; ZIP qua `archive`
+  pure-Dart — kiểm tra pubspec trước khi thêm).
+- **Đã làm (2026-11-15):** 2 file lib trên (dùng `archive ^4.0.9` + `crypto`
+  sẵn có trong pubspec — KHÔNG thêm dependency); checksum 2 tầng
+  (`payloadSha256` trong manifest, `fileSha256` ở catalog); chống zip-slip,
+  quota 50 MB mặc định / trần cứng 200 MB; test
+  `test/great_library/pack_manifest_test.dart` + `pack_file_test.dart`.
+- **Còn lại:** chờ CI xanh + review.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
+
+### GLIB-002 — Thư Viện Chung: `PackStorageBackend` + DownloadManager — P0
+
+- **Trạng thái:** doing — code + test thuần xong, chờ CI + review.
+- **Nguồn:** PLAN-049, ADR-0031 D3/D5.
+- **Nội dung:** interface `PackStorageBackend` (put/get/downloadUrl/byteRange) +
+  impl Firebase (wrap `lib/services/storage_service.dart`) + stub Supabase;
+  `pack_download_manager.dart` (hàng đợi, resume byte-range, retry backoff,
+  verify sha256, index file đã tải). Tải public pack không cần auth (D5).
+- **Đã làm (2026-11-15):** `pack_storage_backend.dart` (interface +
+  `PackStorageErrorCode` retryable), `pack_storage_firebase.dart` (REST thuần
+  `/v0/b/{bucket}/o`, Bearer tuỳ chọn khi download — public D5, bắt buộc khi
+  upload; bucket từ `firebase_options.dart`, inject được cho test),
+  `pack_storage_supabase.dart` (stub khóa interface), `pack_download_manager.dart`
+  (hàng đợi tuần tự, resume byte-range, xử lý server bỏ qua Range, short-body →
+  partial + retry, checksum sai → xoá partial, cancel token); test
+  `test/great_library/pack_download_manager_test.dart` (11 ca fake backend).
+- **Còn lại:** impl file store bằng path_provider nối ở GLIB-004/005; chờ CI.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
+
+### GLIB-003 — Thư Viện Chung: Catalog service + Firestore schema/rules + cache — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049, ADR-0031 D2.
+- **Nội dung:** `gl_catalog_service.dart` trên `FirestoreRestClient` (list/
+  search/filter trên cache TTL, `getPack`, `getVersions`); collections
+  `gl_packs`/`gl_pack_versions`/`gl_contributions`/`gl_config/admins`; block
+  rules `gl_*` (read public khi `published`; create contribution cần auth);
+  `docs/great_library_firestore_schema.md` mô tả schema + rule mẫu.
+- **AT:** parse document→model; filter/search thuần trên cache; rules cho phép/
+  chặn đúng vai trò (kiểm REST tay trước P1).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-004 — Thư Viện Chung: UI browse · preview · tải — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-004.
+- **Nội dung:** `great_library_screen.dart` (Nổi bật/Mới/Tải nhiều + hàng chủ
+  đề), search/filter (loại · ngôn ngữ · CEFR · tag), `pack_detail_screen.dart`
+  (metadata + license + nút Tải), preview theo loại (Vocab lướt 20 thẻ + nghe
+  thử; Audio nghe 60s + xem LRC; Image lướt ảnh + caption); entry từ Home.
+  i18n đủ 26 locale theo rule vàng #5 (T2 dịch đủ cùng PR); tên/mô tả pack là
+  user content → giữ nguyên nguồn.
+- **AT:** widget test list/detail/empty/error với fake catalog; AT6 của PLAN-049
+  (locale `en` không còn chữ Việt trong chrome).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-005 — Thư Viện Chung: `PackImportService` (pack → Studio) — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-005.
+- **Nội dung:** route theo `PackType`: Vocab → tạo WordEntry qua đường vocab
+  hiện có (audio/ảnh vào `vocab_image`); Audio → `audio_import_service.dart` +
+  LRC (`lrc_time_parser.dart`); ImageSet → kho ảnh flashcard. Lưu
+  `installedPack {packId, version}`; version mới → chip "Có bản mới", update
+  additive không ghi đè tiến độ SM-2 (không đụng ADR-0001).
+- **AT:** test thuần mapping manifest→tham số import; update additive trên mock
+  store; AT1/AT2 của PLAN-049 (nghiệm thu thiết bị).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-006 — Thư Viện Chung: wizard đóng góp (+ AI gợi ý BYOK) — P1
+
+- **Trạng thái:** proposed (chưa code; mở sau P0).
+- **Nguồn:** PLAN-049 §GLIB-006, ADR-0031 D6.
+- **Nội dung:** wizard 3 bước (nguồn: export-as-pack từ vocab/playlist của mình
+  hoặc soạn mới → metadata với nút "Gợi ý bằng AI" opt-in BYOK qua
+  `AiEngineRemote`, mặc định TẮT → cam kết bản quyền + license → build + upload
+  → `gl_contributions` pending). VocabPack chạy TTS bulk on-device trước upload.
+  Màn "Đóng góp của tôi" theo dõi pending/published/rejected + lý do. Quota
+  client: 50 MB/pack, 10 pack/tháng (con số cuối owner duyệt — ideation §6.2).
+- **AT:** AI tắt → không request mạng (fake engine pin); quota counter; build
+  pack từ vocab store giả; AT4 PLAN-049 end-to-end khi P1.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-007 — Thư Viện Chung: màn admin moderation in-app — P1
+
+- **Trạng thái:** proposed (chưa code; mở sau P0).
+- **Nguồn:** PLAN-049 §GLIB-007, ADR-0031 D4 (owner chọn in-app, gate tài khoản
+  `be.you8778@gmail.com`).
+- **Nội dung:** gate uid ∈ `gl_config/admins` (owner tạo doc 1 lần) → hiện entry
+  "Duyệt pack"; hàng chờ pending → xem trước (tái dùng preview GLIB-004) →
+  Duyệt/Từ chối kèm lý do/Ẩn; cảnh báo Storage 80%. Rules siết: chỉ admin đổi
+  `status`, đọc contributions, xoá nội dung vi phạm.
+- **AT:** test thuần gate + state machine; AT3 PLAN-049 (tài khoản thường bị
+  chặn cả UI lẫn rules).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-008 — Thư Viện Chung: seed pipeline P0 (~22 pack EN→VI) — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-008; ideation §9.3 + D2 LOCKED (trộn 3 nguồn,
+  EN→VI trước).
+- **Nội dung:** `tool/great_library_seed/` — build VocabPack từ NGSL/NAWL +
+  nghĩa VI từ điển bundle + audio TTS bulk (chạy lúc soạn) + ảnh CC0; AudioPack
+  từ LibriVox (public domain) + pháp thoại app ship sẵn; câu ví dụ Tatoeba
+  (CC-BY, ghi credit); script publish nội bộ (thay màn admin ở P0). Danh sách 22
+  pack: ideation §9.3.
+- **AT:** mọi pack seed parse pass validator GLIB-001; license/attribution đầy
+  đủ; mở app P0 thấy ≥ 20 pack (AT1 PLAN-049).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+

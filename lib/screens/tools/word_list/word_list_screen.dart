@@ -2807,6 +2807,11 @@ class _SettingsSheetState extends State<_SettingsSheet> {
             const SizedBox(height: 12),
             const SyncStatusBadge(),
             const SizedBox(height: 12),
+            // PSRC-262 — đối chiếu số lượng: "đã lưu trên cloud" vs "đang có
+            // trên máy" vs "đang hiển thị", để người dùng thấy rõ khi nào
+            // danh sách bị thiếu và có nút kéo TOÀN BỘ về.
+            const _VocabSyncDiagnosticRow(),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -2846,6 +2851,159 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
         ]),
       );
+}
+
+// ══════════════════════════════════════════════════════════
+// PSRC-262 — DIAGNOSTIC ROW: đã lưu (cloud) vs đã có vs đang hiển thị
+// ══════════════════════════════════════════════════════════
+
+/// Hiển thị 3 con số để người dùng phân biệt rõ:
+///   • "Trên máy"   = tổng từ ĐÃ LƯU cục bộ (`VocabularyProvider.total`).
+///   • "Đang hiển thị" = sau lọc/tìm (`displayedCount`) — nhỏ hơn không có
+///     nghĩa là mất, chỉ là đang lọc.
+///   • "Trên cloud" = số document đã lưu trên tài khoản (best-effort); khi
+///     lớn hơn "Trên máy" → dấu hiệu danh sách thiếu, kèm nút kéo TOÀN BỘ về.
+class _VocabSyncDiagnosticRow extends StatefulWidget {
+  const _VocabSyncDiagnosticRow();
+
+  @override
+  State<_VocabSyncDiagnosticRow> createState() =>
+      _VocabSyncDiagnosticRowState();
+}
+
+class _VocabSyncDiagnosticRowState extends State<_VocabSyncDiagnosticRow> {
+  bool _loading = false;
+  bool _resyncing = false;
+  int? _cloudCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final diag = await context.read<VocabularyProvider>().inspectSyncCounts();
+      if (mounted) setState(() => _cloudCount = diag.cloudCount);
+    } catch (_) {
+      // Best-effort: không đọc được cloud → để null (phân biệt với "rỗng").
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resyncAll() async {
+    if (_resyncing) return;
+    setState(() => _resyncing = true);
+    try {
+      await context.read<VocabularyProvider>().syncNow(forceAll: true);
+    } finally {
+      if (mounted) {
+        setState(() => _resyncing = false);
+        _refresh();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<VocabularyProvider>();
+    final saved = provider.total;
+    final shown = provider.displayedCount;
+    final cloud = _cloudCount;
+    final cloudHasMore = cloud != null && cloud > saved;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _diagStat('Trên máy', '$saved', const Color(0xFF6C63FF)),
+              _diagStat('Đang hiển thị', '$shown', const Color(0xFF42A5F5)),
+              _diagStat(
+                'Trên cloud',
+                _loading ? '…' : (cloud == null ? '—' : '$cloud'),
+                const Color(0xFF4CAF50),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.uiText(
+              cloud == null
+                  ? 'Không đọc được cloud (offline/chưa đăng nhập). Số "Đang hiển thị" nhỏ hơn "Trên máy" chỉ do đang lọc/tìm.'
+                  : cloudHasMore
+                      ? 'Cloud có $cloud từ nhưng máy chỉ có $saved — danh sách đang thiếu. Hãy kéo toàn bộ về.'
+                      : 'Cloud và máy khớp nhau. "Đang hiển thị" nhỏ hơn "Trên máy" chỉ do lọc/tìm.',
+            ),
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: cloudHasMore
+                  ? const Color(0xFFFFB300)
+                  : Colors.grey[500],
+            ),
+          ),
+          if (cloudHasMore) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _resyncing ? null : _resyncAll,
+                icon: _resyncing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_download_outlined, size: 16),
+                label: Text(
+                  context.uiText(
+                    _resyncing
+                        ? 'Đang kéo toàn bộ từ cloud…'
+                        : 'Kéo toàn bộ $cloud từ về máy',
+                  ),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4CAF50),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _diagStat(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: TextStyle(
+                color: color, fontSize: 16, fontWeight: FontWeight.w800)),
+        Text(context.uiText(label),
+            style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+      ],
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════

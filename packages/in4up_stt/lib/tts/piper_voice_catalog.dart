@@ -434,4 +434,36 @@ class PiperVoiceCatalog {
     }
     return null;
   }
+
+  static String _norm(String code) =>
+      code.trim().toLowerCase().replaceAll('-', '_');
+
+  /// Khớp linh hoạt: `si_LK` == `si_LK`, và mã ngắn `si` khớp `si_LK`.
+  static bool _codeMatches(String catalogCode, String query) {
+    final o = _norm(catalogCode);
+    final w = _norm(query);
+    if (w.isEmpty) return false;
+    if (o == w) return true;
+    return o.split('_').first == w.split('_').first;
+  }
+
+  /// [languageCode] có giọng bản xứ TẢI ĐƯỢC trong catalog không.
+  ///
+  /// PSRC-260 — một cửa kiểm tra duy nhất để UI KHÔNG dựng một "lựa chọn"
+  /// cho ngôn ngữ không có model tải thật. Chấp nhận cả `si_LK`, `si-LK`
+  /// lẫn mã ngắn `si`.
+  static bool hasNativeVoice(String languageCode) {
+    if (languageCode.trim().isEmpty) return false;
+    return all.any((v) => _codeMatches(v.languageCode, languageCode));
+  }
+
+  /// [languageCode] đã được xác nhận là Piper CHƯA có giọng bản xứ (khảo sát
+  /// voices.json 2026-11). Đây là sự kiện TĨNH của catalog — KHÁC với "một
+  /// giọng hợp lệ tải lỗi tạm thời do mạng": một giọng có thật trong [all]
+  /// không bao giờ bị coi là unavailable chỉ vì một lần tải lỗi.
+  static bool isUnavailable(String languageCode) {
+    if (languageCode.trim().isEmpty) return false;
+    return unavailableLanguages
+        .any((u) => _codeMatches(u.languageCode, languageCode));
+  }
 }

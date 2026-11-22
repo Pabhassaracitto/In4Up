@@ -498,19 +498,26 @@ class AiServiceFacade extends ChangeNotifier {
 
   /// Gửi một tin nhắn chat.
   ///
+  /// [oneShotContext] (PSRC-264): ngữ cảnh MỘT LẦN của lượt này (vd snapshot
+  /// tab Hiểu / video YouTube). Nó được lưu RIÊNG khỏi `text` hiển thị và chỉ
+  /// được đưa vào prompt của ĐÚNG lượt này — các lượt sau KHÔNG tái đính, nên
+  /// hỏi tiếp một chuyện khác không còn bị "dính" prompt của tab Hiểu nữa.
+  ///
   /// Tin thứ hai gửi trong lúc tin thứ nhất đang generate KHÔNG bị bỏ: nó vào
   /// hàng đợi (`chatQueueLength`) và tự chạy sau khi tin trước xong — isolate
   /// native vốn xử lý tuần tự nên đây chính là hành vi đúng (DoD AI-CHAT-01 #3:
   /// "hai tin liên tiếp được queue đúng, không trả 'engine not ready' giả").
-  Future<void> sendMessage(String message) async {
+  Future<void> sendMessage(String message, {String? oneShotContext}) async {
     final text = message.trim();
-    if (text.isEmpty) return;
+    final contextText = (oneShotContext ?? '').trim();
+    if (text.isEmpty && contextText.isEmpty) return;
 
     final item = _PendingChat(
       message: ChatMessage(
         id: 'user-${DateTime.now().microsecondsSinceEpoch}',
         role: ChatRole.user,
         text: text,
+        oneShotContext: contextText.isEmpty ? null : contextText,
       ),
       epoch: _chatEpoch,
     );
@@ -599,13 +606,24 @@ class AiServiceFacade extends ChangeNotifier {
     }
   }
 
+  /// Nội dung user đưa vào prompt của RIÊNG lượt này = ngữ cảnh một lần (nếu
+  /// có) + câu hỏi, đã clip trong ngân sách. Lịch sử (`prior`) vẫn chỉ chứa
+  /// `text` thuần của các tin trước ⇒ ngữ cảnh một lần KHÔNG bị lặp lại ở các
+  /// lượt sau (PSRC-264).
+  String _composeUserPrompt(_PendingChat item) {
+    final text = item.message.text.trim();
+    final contextText = (item.message.oneShotContext ?? '').trim();
+    final combined =
+        contextText.isEmpty ? text : '$contextText\n\nCâu hỏi: $text';
+    return _chatContext.clipQuestion(combined);
+  }
+
   /// Xử lý 1 tin bằng engine LOCAL (Gemma thật hoặc mock — giữ nguyên toàn bộ
   /// semantics AI-CHAT-01/02). Trả về:
   /// * null — đã có kết cục (câu trả lời đã add, hoặc tin bị bỏ vì epoch).
   /// * failure text — local thất bại; caller quyết định fallback remote hay
   ///   add bubble lỗi.
   Future<String?> _processChatLocal(_PendingChat item) async {
-    final text = item.message.text.trim();
     final engine = _engine;
 
     if (engine == null) {
@@ -638,9 +656,9 @@ class AiServiceFacade extends ChangeNotifier {
     final prior =
         index > 0 ? _chatMessages.sublist(0, index) : const <ChatMessage>[];
     final context = _chatContext.build(prior);
-    // Câu hỏi dán dài (cả đoạn văn) cũng phải nằm trong ngân sách context —
-    // prompt dài hơn n_ctx 2048 ⇒ llama_decode fail ⇒ trả lời rỗng.
-    final promptText = _chatContext.clipQuestion(text);
+    // Câu hỏi (kèm ngữ cảnh MỘT LẦN của lượt này nếu có) phải nằm trong ngân
+    // sách context — prompt dài hơn n_ctx 2048 ⇒ llama_decode fail ⇒ rỗng.
+    final promptText = _composeUserPrompt(item);
     final maxTokens = _chatContext.resolveMaxTokens(
       promptChars:
           context.length + promptText.length + _chatPromptOverheadChars,
@@ -763,7 +781,6 @@ class AiServiceFacade extends ChangeNotifier {
     if (_disposed) return true;
     if (item.epoch != _chatEpoch) return true; // phiên chat đã bị xoá.
 
-    final text = item.message.text.trim();
     final index = _chatMessages.indexOf(item.message);
     final prior =
         index > 0 ? _chatMessages.sublist(0, index) : const <ChatMessage>[];
@@ -791,7 +808,7 @@ class AiServiceFacade extends ChangeNotifier {
       final messages = <AiChatMessage>[
         const AiChatMessage('system', _remoteChatSystemPrompt),
         for (final m in history) AiChatMessage(m.role.name, m.text),
-        AiChatMessage('user', _chatContext.clipQuestion(text)),
+        AiChatMessage('user', _composeUserPrompt(item)),
       ];
       await for (final chunk in remote.chatStream(
         messages: messages,

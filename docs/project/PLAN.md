@@ -1521,3 +1521,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
     `arena/a04e4405-in4up` | GLIB-001 (pack_manifest + pack_file) + GLIB-002
     (backend interface + Firebase REST + DownloadManager) code + 3 file test
     thuần + bước CI `GLIB tests` trong app_analyze.yml. Chờ CI.
+  - 2026-11-15 | doing — CI 🟢 | agent `arena/a04e4405-in4up` | run
+    45074714897: analyze + GLIB tests xanh (run đầu 45073927840 đỏ 2 analyzer
+    ERROR: `storageBucket` String? + const-interpolation → sửa, verify() bắt
+    thêm ArchiveException khi giải nén vùng hỏng). GLIB-001/002 ✅ done.

@@ -253,9 +253,14 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
-| CABIN-SYS-001 | Live Cabin: âm thanh hệ thống Android + Windows, bong bóng toàn hệ thống | 🔨 doing — CI xanh, cần review và nghiệm thu thiết bị | [App CI 45683528981](https://github.com/Pabhassaracitto/In4Up/actions/runs/45683528981); [QA thiết bị](../ci/cabin-system-audio-manual-qa.md) |
-| DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 CI xanh, chờ nghiệm thu máy | `e12820f` + fix `a7a57b1` (hide `ProcessTextAction` trùng Flutter services); [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 |
-| AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 CI xanh, chờ nghiệm thu máy | `a3859da` + `a7a57b1`; [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 (step `PLAN-049 P1 tests` success) |
+| GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | 🔨 doing (code + test thuần xong; chờ CI) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0031 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
+| GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | 🔨 doing (code + test thuần xong; chờ CI) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
+| GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | 📋 proposed | PLAN-049, ADR-0031 D2/D5 |
+| GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | 📋 proposed | PLAN-049 §GLIB-004; rule vàng #5 (T2 đủ hi/zh/zh_TW/si) |
+| GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | 📋 proposed | PLAN-049; tái dùng audio_import/vocab/vocab_image, không chạm SM-2 |
+| GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
+| GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
+| GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | 📋 proposed | PLAN-049, ideation §9.3 (D2 LOCKED) |
 
 
 ## Card chi tiết
@@ -9952,201 +9957,131 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-09 | proposed→doing | agent arena/7ab6408e-in4up | CI 43753848333 xanh trên `991ef56` (test synthetic/mock); PR #188; chưa QA thiết bị.
   - 2026-11-09 | doing→doing | agent arena/f8c9973c-in4up | nối metadata MDD vào import/link/relink và DictionaryService theo ADR-0030; test synthetic/mock, chờ CI và QA, chưa UI/media.
   - 2026-11-09 | doing→doing | agent arena/f8c9973c-in4up | CI 43757560968 xanh trên `77cb486`; PR #189; còn worker/cache, CSS/media UI và QA LAAD3.
-  - 2026-11-09 | doing→doing | agent arena/e15b13fa-in4up | worker MDD và huỷ có đóng nguồn theo ADR-0031, test synthetic/mock; chờ CI và QA thiết bị, chưa media UI.
-  - 2026-11-09 | doing→doing | agent arena/e15b13fa-in4up | CI 43760882725 xanh trên `e208d4c`; PR #192; còn cache, CSS/media UI và QA LAAD3/SAF thật.
-  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | tối ưu MDD theo lô giới hạn ADR-0032, index mỗi phần một lần trong tác vụ, chờ CI/QA.
-  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | thử hiển thị ảnh MDD theo yêu cầu, PNG/JPEG giới hạn + huỷ theo ADR-0033; chờ CI/review/QA thiết bị, CSS/audio chưa có.
-  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | CI 43799648679 xanh trên `d8c0196`; PR #195. Ảnh MDD thử nghiệm theo yêu cầu, chưa CSS/audio, còn QA LAAD3/SAF thật.
-  - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | đồng bộ 251e `7cd8f82`; số ADR trong hai dòng trước được đổi: MDD theo lô 0032→0033, ảnh 0033→0034 để tránh trùng ADR-0032 của tab Đọc; chờ CI sau đồng bộ.
-  - 2026-11-24 | 22:58 UTC | doing→doing | agent arena/1168b461-in4up | PR #195 đã merge; checklist nghiệm thu LAAD3/SAF và đo cold/warm/RAM tại `docs/dictionary/DICT_DEVICE_ACCEPTANCE.md`; chưa có bộ/thiết bị thật, chưa có số đo.
 
-### BETA-1.29.0 — (2026-11-12) Beta hub v1.29.0: tổng hợp 9 lane audit 1.28.0 trước khi vào 251e
-- **Trạng thái:** 🔨 doing — hub mở, **chưa có nhánh con nào**; chưa có code mới trên nhánh này
-- **Nguồn:** owner 2026-11-12 — *"I4U - Beta For v1.29.0 … nhánh này làm quản lý tên Beta. Nơi tổng hợp, kiểm thử, 9 agent sẽ là các nhánh con làm xong sẽ merge rebase vô đây để chạy thử, nếu ok thì mới rebase vô nhánh cha là nhánh 251e."*
-- **Nhánh / nền:** `arena/60e35d65-in4up`, base `d23341a` = tip 251e ngay sau card `REL-1.28.0`; bản phát hành gần nhất **1.28.0** (`db51dd38`).
-- **Phạm vi:** 30 issue Linear `PSRC-199…228` (audit v1.28.0) chia **9 lane**: L1 cabin (199/200/201/223) · L2 âm thanh–video (202/203/205/219/220) · L3 Đọc+PDF/OCR (206/207/208/209/210) · L4 bong bóng dịch (211) · L5 Web/YouTube Linux (212/213) · L6 VieNeu (214–218) · L7 tệp & "Mở bằng" (204/222) · L8 TTS hệ thống Android (221) · L9 Shadowing + UI Nói/Hiểu (224–228). `PSRC-8` đã done, chỉ dùng làm mốc hồi quy.
-- **Phiếu việc (2026-11-13):** [`beta-1.29.0/README.md`](beta-1.29.0/README.md) (luật chung + **luật commit để rebase tuyến tính**) · [`PROMPTS.md`](beta-1.29.0/PROMPTS.md) (một câu nhắn/agent) · `L1-…` … `L11-…` (issue, hướng điều tra, file chạm, nghiệm thu, mẫu commit). Hai lane mới: **L10** PDF/Web reader (229/231/232 — tách khỏi L3) và **L11** chốt In Review (PSRC-6, PSRC-14) + phân loại backlog cũ ≤ `PSRC-196` (**ngoài cổng beta**). Tổng trong cổng: **35 issue** `PSRC-199…233`, mỗi issue đúng một lane; đợt 2 cũ (172/174/178/179/180/193/194/195/196) đã gán lane nhưng không thuộc cổng.
-- **Luật lịch sử:** một issue = một commit, tiêu đề `fix(PSRC-###): … [Ln]`; cấm merge commit/`git pull` trên nhánh con; agent rebase lên tip beta trước khi push ⇒ hub land bằng `git rebase`/`--ff-only` ⇒ lịch sử beta một đường thẳng, cuối cùng rebase nguyên khối sang 251e.
-- **Hợp đồng land (agent con):** [`BETA-1.29.0.md`](BETA-1.29.0.md) §3 — PR base = nhánh beta; **cấm** sửa `KANBAN.md`/`PLAN.md`, cấm bump `pubspec` version, cấm tag/release trên nhánh con; hub giữ độc quyền các file nối đuôi (`KANBAN`, ARB, `priority_native_pack`, workflow) để tránh xung đột 9 phía.
-- **Hạ tầng dựng cùng card:**
-  - `deploy-web.yml`: **loại nhánh beta** khỏi auto-deploy khi push (tránh publish bản chưa kiểm lên Pages); deploy thủ công bằng `workflow_dispatch` khi cần xem web.
-  - `build_final_complete.yml`: 4 bước release tự đặt `prerelease` khi tag/version có chữ `beta` ⇒ tag `1.29.0-beta.N` **không chiếm nhãn "Latest"**.
-  - `scripts/beta/beta_board.sh`: bảng trạng thái (tip beta + CI tip + PR đang mở vào beta + check).
-- **Cổng:** G0 agent tự kiểm · G1 hub rà diff/i18n/test · G2 CI chéo lane trên beta tip · G3 owner nghiệm thu máy · G4 bump `1.29.0+29` + tag beta + build 4 nền tảng · G5 PR sang 251e. **Không tag/build trước G4** (pubspec còn 1.28.0+28 ⇒ APK mang sai version).
-- **Chưa kiểm:** toàn bộ — chưa có code của lane nào; nhánh này hiện chỉ khác 251e ở tài liệu + workflow + script.
-- **Lịch sử:**
-  - 2026-11-12 | created→doing | agent `arena/60e35d65-in4up` | owner giao vai trò Beta hub cho v1.29.0 (9 lane/30 issue) ⇒ dựng `docs/project/BETA-1.29.0.md` (lane, chồng lấn, prompt chung, thứ tự land, cổng G0–G5, chính sách version/tag), card này, PLAN-049; sửa `deploy-web.yml` + `build_final_complete.yml`; thêm `scripts/beta/beta_board.sh`. Chưa có nhánh con.
-  - 2026-11-12 | doing→doing | agent `arena/60e35d65-in4up` | hub dựng xong: commit `74488d5` (tài liệu + `scripts/beta/beta_board.sh`) + `e4f67c2` (workflow). Baseline CI trên `e4f67c2`: `app_analyze` [**43296883675** 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/43296883675) 4/4 job (analyze · knowledge-regressions · vocabulary-tools · web-build-validation); `deploy-web` không chạy khi push (đúng luật loại trừ). `pubspec` vẫn `1.28.0+28`, chưa có nhánh con nào.
-  - 2026-11-13 | doing→doing | agent `arena/60e35d65-in4up` | tách toàn bộ nội dung kỹ thuật của lane ra `docs/project/beta-1.29.0/` (README + PROMPTS + 11 phiếu) để owner chỉ nhắn một câu/agent; lập lane L10 (PDF/Web reader 229/231/232) + L11 (chốt In Review, phân loại backlog cũ); gán 224–233 vào L3/L9/L10; chốt luật một-issue-một-commit + chỉ rebase để land tuyến tính vào 251e. Không đổi code.
-  - 2026-11-14 | doing→doing | agent `arena/60e35d65-in4up` | land 2 lane đầu, lịch sử tuyến tính: `3e3ca64` → **L8** `d3819528`+`fe0832ac` (giọng đọc hệ thống Android; engine build 43495420785 🟢) → **L4** `5ed57656` (PSRC-211, chọn `arena/33cb5b7a-in4up` thay vì `arena/defa5264-in4up`; xem `docs/project/beta-1.29.0/L4-hub-tra-loi.md` §7). Push chạm Kotlin nên `vieneu_engine_build` tự chạy — đóng lỗ hổng "Kotlin không có oracle". Còn nợ L4 vòng 2: chip thu gọn, pending 32 khối, cutout/insets, lọc rác trước hạn mức. CI tip `5ed57656`: `app_analyze` [43575629305 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/43575629305), `listen_queue_tests` [43575629308 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/43575629308), `vieneu_engine_build` [43575629299 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/43575629299).
-  - 2026-11-14 | doing→doing | agent `arena/60e35d65-in4up` | land **L2** (`arena/377f5fa5-in4up`, 6 commit rebase → `bc8392ac`…`558e1587`, không merge): 202/203/205/219/220 — backend media_kit cho Linux, tạo lời `.m4a` + audio dài, chia sẻ sau A–B, mở file vừa tách. Xung đột với L7 ở `media_export_follow_up.dart` đã hợp nhất giữ cả hai (giữ nút "Mở thư mục" + luồng kiểm file bị dời). Quyết định: **không nhúng libmpv** (media_kit_libs_linux trên Linux đặt `bundled_libraries` rỗng ⇒ libmpv phải có trên máy; thêm nữa repo là Source-Available, mpv là GPL). Nợ G4: **`pubspec.lock` chưa cập nhật** — phải chạy `flutter pub get` rồi commit lock + pin `media_kit_libs_linux`. CI `558e1587`: `app_analyze` [43588064106 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/43588064106), `listen_queue_tests` [43588064123 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/43588064123). Chi tiết: `docs/project/beta-1.29.0/L2-hub-nghiem-thu.md`.
-  - 2026-11-14 | doing→doing | agent `arena/60e35d65-in4up` | **land đủ 11/11 lane** trên tip `0f71657b` (43 commit, 0 merge commit): L1 199/200/201/223 · L3 206–210/230/233 · L5 212/213 · L6 214–218 · L9 225–228 · L10 229/231/232 · L11 PSRC-6/PSRC-14 + phân loại backlog. Bịt 2 lỗ do L11 chỉ ra: (a) **PSRC-224** — nút "Shadowing" ở phần tạo lời thực ra là mic trực tiếp (`startConversation`, chỗ duy nhất gọi hàm này toàn app) ⇒ giữ chức năng, đổi nhãn "Mic trực tiếp"/"Dừng mic" + i18n 8 locale (`18fe1711`); (b) **deploy-web** — publish gh-pages nay chỉ từ `main` + `concurrency` theo ref nên nhánh lane không đè site thật và không huỷ run của nhau (`16a93f9f`). Còn lại: G3 nghiệm thu máy (owner) → G4 bump `1.29.0+29` + tag beta.
-  - 2026-11-14 | doing→doing | agent `arena/60e35d65-in4up` | owner build thử `1.29.0-Beta` trên tip `d7255451` (run **43628417444**): **4/4 nền tảng đỏ**. Ba lỗi hạ tầng, một lỗi dependency: (a) **Linux** — `media_kit_video` cần `PkgConfig::mpv`, runner thiếu `libmpv-dev`/`libepoxy-dev` (`d3b7c86`); (b) **Android** — bước build SEA-G2P hard-code NDK 28.2 trong khi runner chỉ có 27.3 và bước cài NDK nằm sau ⇒ `cargo-ndk` chết, nay lấy NDK đang có thật (`d3b7c86`); (c) **Windows 2 Errors + iOS BUILD FAILED + analyze đỏ** cùng một gốc: lock `d7255451` nâng `pdfrx 2.4.8`/`pdfrx_engine 0.4.7` nhưng `pdfium_dart` bị ghim 0.1.2 + `pdfium_flutter` là path dep ⇒ `getPdfium(modulePath:)` không tồn tại; ghim `pdfrx: 2.2.24` + trả lock về `2.2.24`/`0.3.9` (`4db1a40`). Cũng đã làm **đọc được lỗi từ xa**: 3 job build `tee` log rồi phát annotation, script `emit_failure_annotation.py` bắt thêm `Error:`/MSVC/Xcode/`Failed to load` (`d3b7c86`, `2bcac0b`) — log Actions nằm ở blob storage mà sandbox bị chặn egress. `app_analyze` trên `4db1a40` = run **43631309682** 🟢 4/4. **Build 4 nền tảng phải chạy lại** (token sandbox 403 ở `workflow_dispatch` nên owner bấm *Run workflow*). **Đã chạy lại trên tip `86f7e35`: run [**43632940769** 🟢 4/4 job](https://github.com/Pabhassaracitto/In4Up/actions/runs/43632940769) — Android · Windows · iOS · Linux đều xanh, bước `Build SEA-G2P (C ABI) cho arm64-v8a` 🟢 (engine phoneme nằm trong APK); asset của prerelease `1.29.0-Beta` được cập nhật đủ 4 tệp (APK 204 MB · IPA 95 MB · ZIP 54 MB · tar.gz 51 MB). Còn nợ G4: `pubspec` vẫn `1.28.0+28` ⇒ version nội bộ của APK/IPA vẫn là 1.28.0 (28), phải bump `1.29.0+29` rồi build lần cuối.
-  - 2026-11-15 | doing→doing | agent `arena/60e35d65-in4up` | owner nghiệm thu bản Beta, báo **PSRC-205 vòng 2** (Linear): `.m4a` 7 phút / `.mp3` 17 phút — lặp "Đang chuẩn bị → chunk 1/1", mỗi lượt một dòng, rất lâu, **thiếu đầu câu**, **Hủy không dừng**. Gốc: (1) VAD ngưỡng lặng 100 ms ⇒ cắt giữa TỪ, mỗi mảnh là một lượt `transcribeFile`; (2) `speechPadMs` 30 ms và đường sherpa không pad ⇒ cụt phụ âm đầu; (3) UI chỉ hủy facade trong khi pipeline tự lặp và mỗi lượt reset cờ hủy. Sửa (`04cfdfc`): hàm thuần `mergeSpeechSegments` (gộp cụm khoảng lặng ≤0,45 s, chia đều ≤14 s — không sinh mẩu đuôi), ngưỡng lặng 100→500 ms, pad 30→300 ms cho cả sherpa, pipeline gộp trước khi transcribe, `progressContext` cho UI ("Đoạn 5/23 · …"), hủy cả `_vadIntegration`. Guard test `test/vad/psrc_205_segment_merger_test.dart` + step CI mới ⇒ run **43698277447** 🟢. **Chưa kiểm máy thật** — cần build lại để owner thử đúng 2 tệp đó.
+### GLIB-001 — Thư Viện Chung: Pack core (model + builder/parser/validator `.i4upack`) — P0
 
-### REL-1.29.1 — (2026-11-20) Release 1.29.1 đủ 4 nền tảng
-- **Trạng thái:** ✅ done (build 4/4 🟢) — **chờ nghiệm thu máy thật**
-- **Nguồn:** owner 2026-11-20 — *"Tốt hãy tạo release tag với version v1.29.1 tại nhánh 251e này."*
-- **Tag/commit:** `1.29.1` → **`c4853244`** (bump version), trên tip `ff17903b`.
-- **⚠️ Tag đặt là `1.29.1` KHÔNG có tiền tố `v`** dù owner ghi "v1.29.1". Lý do (đã có ghi chú trong `build_final_complete.yml`):
-  * `build.yml` (workflow CŨ) chỉ nghe `v*` và build **universal** — không `--target-platform android-arm64`, **không gate verify chữ ký**, không `--dart-define=OPENROUTER_API_KEY`.
-  * Cả 2 workflow dùng **cùng script rename** ⇒ **cùng tên file** `in4up-Android-arm64-v8a-<tag>-<sha>.apk`, kèm `allowUpdates: true` ⇒ chạy cùng lúc sẽ tranh nhau và **bản legacy có thể ĐÈ bản đúng**.
-  * Tag dạng `1.x.y` (bắt đầu bằng chữ số) chỉ kích hoạt `build_final_complete.yml`. **Đã kiểm chứng:** push tag `1.29.1` chỉ sinh **1** run (`44640183109`) — không có run `build.yml` nào.
-- **Vì sao PATCH (không minor):** 43 commit sau `1.29.0` (tag `1b2f772a`) **toàn sửa lỗi + i18n + test + docs**, không có nhóm tính năng mới:
-  * **Bộ chạy Whisper desktop tự cài**: tìm + soi `whisper.cpp` thay vì đoán tên file (`cf9cc3e7`), app tự cài (`4372f0d3`), Windows đóng gói **cả bộ** thôi tạo DLL rỗng (`b512a49c`), máy bắt chạy được trên Linux (`e59da21c`), chặn đường dẫn tuyệt đối + nêu bộ 6 file ở **mọi** nhánh lỗi (`08b3d3ee`).
-  * **Sửa lỗi biên dịch/analyzer**: literal `Set` dùng làm `Map` + bỏ getter chết (`a9b8170d`), import `visibleForTesting` + bỏ `dart:async` không dùng (`57e7e7b0`), `blockingReason` là `String` — bỏ `.message` (`5655f705`).
-  * **VieNeu / Piper / STT**: variant fallback + quét giọng TXT đệ quy + copy `sea_g2p` + mẫu mở rộng được (`f0c07411`); hộp thoại chặn tải model quá nặng + `context.mounted` (`6279d037`, `8124cacd`); **profile AI local theo RAM đo được** (`a3bf6b84`, `693562dd`); **catalog giọng Piper bản xứ** (`46620ab3`, `64bcbb91`); kéo thả ưu tiên provider + fallback có giới hạn (`735f22ea`); thu gọn tab Nhớ (`baa399ee`); ghi công nguồn Tipiṭaka (`d8e6790a`, `2ca2cbda`).
-  * **Tab Đọc / sentence IPA**: gắn IPA vào từ gốc + giữ gesture tra từ (`088a0a90`), double-tap khi lần chạm đầu mở IPA (`c081bd85`), render IPA không phụ thuộc provider (`87050690`), route giọng đọc qua override đã lưu (`2756e6f5`), lộ kết quả phát trên thanh điều khiển (`de51c52e`), i18n 5 locale (`1052a333`).
-  * PSRC-226/227 (`dbe55bde`, `be81f990`) · wordlist play-all (`c3ab685a`, `a48e44f5`) · TIPI-PERF-01 (`121ee79e`) · MDD ảnh theo yêu cầu (`b449067c`) · Audit 1.29.0 §6 (`a6aa879e`) · lyrics mở rộng sau khi tạo lời (`9e3c692f`).
-  * **i18n**: ADR-0029 + 12 chuỗi 8-locale (`fcd17b85`), ADR-0035 + 133 chuỗi 8-locale (`ff17903b`), 2 nhãn thẻ Whisper (`b4fce8f5`).
-- **`versionCode 29 → 30`** ⇒ Android cài đè được bản 1.29.0, dữ liệu giữ nguyên.
-- **Một job đỏ đã xác định là FLAKE, không phải lỗi code:** `VieNeu engine build (Android arm64)` đỏ ở run `44637015635` trên `ff17903b` với lỗi `Error resolving plugin [id: 'dev.flutter.flutter-plugin-loader', version: '1.0.0']` (resolve plugin Gradle). Bằng chứng không phải lỗi commit:
-  * `git diff 5655f705 ff17903b -- native/ third_party/ android/ pubspec.yaml` = **RỖNG** (commit xanh `5655f705` có cùng cây Android/native).
-  * Cùng workflow **xanh** ở `5655f705` (22:15) và `6cbebccd`, đỏ ở `ff17903b` (23:21).
-  * Không `rerun`/`dispatch` được (GitHub App token 403 `Resource not accessible by integration`), nên đã kiểm bằng cách push commit bump — các workflow chạy lại trên `c4853244` **đều xanh**.
-  * Nếu lỗi quay lại thật thì bước build APK của `build_final_complete.yml` (biên dịch thật native) sẽ đỏ — nó **xanh**.
-- **CI trên `c4853244`:** `App Analyze + Locale` **44638190203** 🟢 · `Listen queue` **44638189976** 🟢 · `Read translation regression` **44638190178** 🟢 · `Deploy web` **44638189937** 🟢.
-- **Bằng chứng build:** `build_final_complete.yml` run **44640183109** — **4/4 job success** (iOS ✅ · Windows ✅ · Android ✅ · Linux ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.29.1
-  - `in4up-Android-arm64-v8a-1.29.1-c4853.apk` — 204.641.557 B — sha256 `d6b69211e8cfeade8f547fe258c9f631c7899fe186f83f905a0fa865e9b7f476`
-  - `in4up-iOS-1.29.1.ipa` — 94.976.978 B — sha256 `91b3fe4c0fd68e16321995144b5e8ebe4c38828cd3c704ac5de21321ca726bc9`
-  - `in4up-Linux-1.29.1.tar.gz` — 51.518.015 B — sha256 `91021954d61ff9329fe0b61db7331a952c456fcdf3485d0da7017e37c951224d`
-  - `in4up-Windows-1.29.1.zip` — 54.150.128 B — sha256 `e1267006c47def6510a9ee40ef767c40812feb979c43672b209e12e1e735741d`
-  - ⚠️ APK tăng 199,2 MB → **204,6 MB** (+5,4 MB) — do bộ chạy Whisper được đóng gói **đầy đủ** thay vì DLL rỗng (`b512a49c`).
-- **Chưa kiểm (máy thật):** cài đè 1.29.0 → 1.29.1 · app tự cài bộ chạy Whisper trên desktop · VieNeu variant fallback + quét giọng TXT đệ quy · profile AI theo RAM · catalog giọng Piper bản xứ · IPA gắn từ gốc + double-tap · kéo thả ưu tiên provider · tab Nhớ thu gọn.
+- **Trạng thái:** doing — code + test thuần xong, chờ CI + review.
+- **Nguồn:** owner (2026-11-15) qua agent arena/a04e4405-in4up — PLAN-049, ADR-0031 D1.
+- **Nội dung:** `lib/features/great_library/models/pack_manifest.dart`
+  (`PackManifest`, `PackType {vocab, audio, image}` append-only, validate schema/
+  license/kích thước) + `services/pack_file.dart` (build/đọc ZIP `.i4upack`,
+  `sha256` toàn gói, trích manifest không giải nén media; ZIP qua `archive`
+  pure-Dart — kiểm tra pubspec trước khi thêm).
+- **Đã làm (2026-11-15):** 2 file lib trên (dùng `archive ^4.0.9` + `crypto`
+  sẵn có trong pubspec — KHÔNG thêm dependency); checksum 2 tầng
+  (`payloadSha256` trong manifest, `fileSha256` ở catalog); chống zip-slip,
+  quota 50 MB mặc định / trần cứng 200 MB; test
+  `test/great_library/pack_manifest_test.dart` + `pack_file_test.dart`.
+- **Còn lại:** chờ CI xanh + review.
 - **Lịch sử:**
-  - 2026-11-20 | created→done | agent `arena/01a0251e-in4up` | tip `ff17903b` (43 commit, 0 merge) → bump `1.29.1+30` (`c4853244`) → CI 🟢 4 workflow → tag `1.29.1` → build **44640183109** 🟢 4/4
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
 
-### REL-1.29.2 — (2026-11-23) Release 1.29.2 đủ 4 nền tảng (gộp 5 fix từ nhánh 60e35d65)
-- **Trạng thái:** ⚠️ build 4/4 🟢 nhưng **1 job CI đỏ** (`analyze-and-locale-test`) — đã sửa bằng `71d53978`, chờ CI xác nhận
-- **Nguồn:** owner yêu cầu so sánh 251e vs 60e35d65 → phát hiện 251e thiếu 5 commit → owner cho phép lấy sang.
-- **Tag/commit:** `1.29.2` → **`b360f699`** (= `d078091b`, bump `1.29.2+31`).
-- **Cách land:** cherry-pick từng commit (0 merge commit), rồi bump trong **cùng commit** với tag:
-  * `a217420e` ← PSRC-260 chặn ngôn ngữ Piper không có giọng bản xứ
-  * `00f37efe` ← PSRC-266 picker "Tạo lời" suy ra từ mã engine Whisper
-  * `c96f7286` ← PSRC-262 phân trang Firestore `runQuery` (chống mất wordlist âm thầm)
-  * `d14a5a4d` ← PSRC-263 render markdown cho trợ lý chat
-  * `ba40b469` ← PSRC-264 gắn context coach/YouTube 1 lần thay vì mỗi lần gửi
-  * `d078091b` ← bump `1.29.0+29` → `1.29.2+31`
-- **Vì sao PATCH (không minor):** cả 5 đều là sửa lỗi, không thêm nhóm tính năng mới.
-- **`versionCode 29 → 31`** (nhảy 30 vì 1.29.1 đã dùng 30) ⇒ Android cài đè được, dữ liệu giữ nguyên.
-- **Bằng chứng build:** `build_final_complete.yml` run **45106326071** — 4/4 job success (Android ✅ · iOS ✅ · Windows ✅ · Linux ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.29.2
-  - `in4up-Android-arm64-v8a-1.29.2-b360f.apk` — 204.667.989 B
-  - `in4up-iOS-1.29.2.ipa` — 94.982.667 B
-  - `in4up-Linux-1.29.2.tar.gz` — 51.525.230 B
-  - `in4up-Windows-1.29.2.zip` — 54.148.076 B
-- **❌ Lỗi CI phát hiện sau khi tag (đã sửa):** `App Analyze + Locale` run **45106319926** đỏ ở `test/stt_model_settings_i18n_coverage_test.dart`:
-  * Nhãn mới của PSRC-260 `'Ngôn ngữ Piper chưa có giọng bản xứ'` chưa có key dịch ⇒ sẽ hiện nguyên tiếng Việt ở en/hi/zh/si (**vi phạm rule #5**).
-  * Sửa tay (`71d53978`, KHÔNG chạy `tool/generate_legacy_ui_fallbacks.py`): `priority_ui_overrides.dart` (T2 đủ 5 locale) + `generated_legacy_ui_fallbacks.dart` (fallback en) + `tool/legacy_ui_english_overrides.json`.
-  * ⚠️ **Bài học:** khi cherry-pick commit có nhãn UI mới, phải chạy luôn bước i18n trong cùng đợt — `app_analyze` chỉ báo sau khi tag đã đẩy.
-- **Chưa kiểm (máy thật):** cài đè 1.29.1 → 1.29.2 · chặn ngôn ngữ Piper không có giọng bản xứ · picker ngôn ngữ "Tạo lời" · sync wordlist > 1 trang Firestore · markdown trong chat · context coach/YouTube chỉ gắn 1 lần.
-- **Lịch sử:**
-  - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | cherry-pick 5 commit từ `arena/60e35d65-in4up` (0 merge) → bump `1.29.2+31` (`d078091b`) → CI 4/5 workflow 🟢, `app_analyze` 🔴 → tag `1.29.2` → build **45106326071** 🟢 4/4 → sửa i18n `71d53978`
-  - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **xác nhận CI xanh sau khi sửa i18n:** `App Analyze + Locale` run **45246030183** 🟢 · `Read translation regression` **45246030197** 🟢 · `Deploy web` **45246141130** 🟢 trên tip `88445a49`. Cả 3 workflow đỏ/treo trên `b360f699` nay đã xanh → 1.29.2 đủ điều kiện nghiệm thu máy thật.
+### GLIB-002 — Thư Viện Chung: `PackStorageBackend` + DownloadManager — P0
 
-### PSRC-275 — (2026-11-23) "Lặp câu tiếp" canh đúng mốc câu / đúng độ dài A–B
-- **Trạng thái:** ✅ done (CI 🟢) — **chờ nghiệm thu máy thật**
-- **Nguồn:** owner 2026-11-23 — *"khi chọn lặp AB thì nhấn lặp câu tiếp theo thì nó đã không canh đúng khoảng thời gian đúng… Ví dụ AB ở giây 10 - 20 thì khi nhấn lặp câu tiếp theo thì phải chuyển tới đoạn 20 - 30."*
-- **Commit:** `8a79e572`.
-- **Hai lỗi tìm thấy trong `_advanceToNextSentence` (`lib/widgets/ab_loop_controls.dart`):**
-  1. **Chưa có lời** — độ dài đoạn mới hard-code **10 giây**, không phải `B − A`. A–B 10–20 ra 20–30 chỉ vì tình cờ trùng 10 s; A–B 5–8 thì ra 8–18 (**sai 3 s**).
-  2. **Đã có lời** — chọn dòng bằng `timestamp <= b` nên khi owner đặt A/B **đúng ranh giới câu** (bấm vào dòng lời để lấy mốc) thì dòng B bị coi là "dòng chứa B" ⇒ app nhảy **thêm một câu nữa**: lời 10/20/30 với A–B 10–20 nhảy tới **30–40**, bỏ hẳn câu 20–30.
-- **Sửa:** tách phép tính ra hàm THUẦN `computeNextLoopRegion` (`lib/models/loop_advance.dart`) — test được ở host VM, không cần Flutter:
-  * có lời: mốc xuất phát = dòng **cuối** bắt đầu **nghiêm ngặt** trước B (`< b`); vùng mới = câu kế tiếp ⇒ 10–20 → **20–30**;
-  * chưa có lời: giữ đúng `B − A`, bắt đầu tại B ⇒ 10–20 → **20–30**;
-  * câu cuối bài / đã chạm cuối file: `reachedEnd` ⇒ snackbar, **không bịa** đoạn 10 giây lệch mốc;
-  * chặn vùng 0 ms khi mốc câu sát nhau (karaoke), kẹp theo độ dài file, span tối thiểu 400 ms.
-- **Test:** `test/models/loop_advance_test.dart` — 16 case, gồm đúng ví dụ owner nêu và 2 case biên do mô phỏng Python phát hiện (vùng sát cuối file; mốc karaoke sát nhau).
-- **i18n (rule #5):** chuỗi snackbar mới đăng ký ở `priority_ui_overrides.dart` (đủ 5 locale) + `generated_legacy_ui_fallbacks.dart` + `tool/legacy_ui_english_overrides.json` — **làm ngay trong commit**, không lặp lại lỗi của REL-1.29.2.
-- **CI trên `8a79e572`:** `App Analyze + Locale` **45874527320** 🟢 · `Read translation regression` 🟢 · `Deploy web` 🟢.
-- **Chưa kiểm (máy thật):** bấm "Lặp câu tiếp" với file **đã tạo lời** (phải nhảy đúng từng câu) và với file **chưa có lời** (phải đúng `B − A`); hành vi ở câu cuối bài (snackbar).
+- **Trạng thái:** doing — code + test thuần xong, chờ CI + review.
+- **Nguồn:** PLAN-049, ADR-0031 D3/D5.
+- **Nội dung:** interface `PackStorageBackend` (put/get/downloadUrl/byteRange) +
+  impl Firebase (wrap `lib/services/storage_service.dart`) + stub Supabase;
+  `pack_download_manager.dart` (hàng đợi, resume byte-range, retry backoff,
+  verify sha256, index file đã tải). Tải public pack không cần auth (D5).
+- **Đã làm (2026-11-15):** `pack_storage_backend.dart` (interface +
+  `PackStorageErrorCode` retryable), `pack_storage_firebase.dart` (REST thuần
+  `/v0/b/{bucket}/o`, Bearer tuỳ chọn khi download — public D5, bắt buộc khi
+  upload; bucket từ `firebase_options.dart`, inject được cho test),
+  `pack_storage_supabase.dart` (stub khóa interface), `pack_download_manager.dart`
+  (hàng đợi tuần tự, resume byte-range, xử lý server bỏ qua Range, short-body →
+  partial + retry, checksum sai → xoá partial, cancel token); test
+  `test/great_library/pack_download_manager_test.dart` (11 ca fake backend).
+- **Còn lại:** impl file store bằng path_provider nối ở GLIB-004/005; chờ CI.
 - **Lịch sử:**
-  - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | `8a79e572` → CI 🟢 **45874527320**
-  - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **owner làm rõ hợp đồng (lần 2) và bản `8a79e572` hoá ra SAI vế 2** ⇒ sửa lại `240132f8`. Hợp đồng đúng: ① chưa có lời (hoặc A–B **không khớp** mốc dòng) ⇒ trượt theo khoảng thời gian, giữ nguyên `B − A` (5–8 → 8–11 → 11–14 · 15–40 → 40–65); ② có lời **và** mốc thời gian mỗi dòng **khớp** với vùng A–B ⇒ nhảy xuống đúng dòng câu kế tiếp. Bản trước hễ có lời là **luôn** nhảy theo dòng, nên A–B 13–18 (lệch mốc 0/10/20) nhảy về 20–30 thay vì 18–23. Thêm `kLineMatchTolerance = 50 ms` cho LRC sinh từ STT, và nhãn nút đổi sang `nextRepeatLabelFor(hasLyrics, alignsWithLines)` — "Lặp câu tiếp" chỉ khi có lời **và** khớp mốc. Test viết lại theo đúng 4 ví dụ owner nêu. CI `App Analyze` **45877390470** 🟢.
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
 
-### DICT-PROCESS-001 — (2026-11-24) ACTION_PROCESS_TEXT: chọn chữ ngoài app → Từ điển hoặc Dịch
-- **Trạng thái:** 🔨 code + test thuần (21 test), chờ CI 🟢 + nghiệm thu máy.
-- **Nguồn:** owner 2026-11-24 qua `ask_user` — *"tôi muốn có thêm lựa chọn"* +
-  chốt **smart split**: 1 từ ⇒ `DictionaryScreen.open`; cụm/câu ⇒
-  `TranslationService` qua sheet dịch (không cần mở app trước).
-- **Nội dung (commit `e12820f`):**
-  - `lib/features/dictionary/services/process_text_route.dart` (thuần):
-    `routeProcessText` — trim→null; có whitespace HOẶC >64 rune ⇒ dịch;
-    còn lại ⇒ từ điển (`kProcessTextMaxWordLength=64`).
-  - `lib/features/dictionary/services/process_text_router.dart`: channel
-    Dart `in4up/process_text`, idempotent `start()`, dedupe 3s,
-    `resetForTest`; mở `DictionaryScreen.route(query:, source:'process_text')`
-    hoặc `ReadSelectionTranslateSheet.show(text:, targetCode:
-    TranslationService().targetLang)` qua overlay context.
-  - Android: `AndroidManifest.xml` filter `PROCESS_TEXT` (minSdk < 24 vẫn
-    khai báo được — không crash); `MainActivity.kt` consume-once
-    (đọc queued/fromIntent **trước** `removeExtra` — lần 1 viết ngược
-    thứ tự nên luôn null, đã sửa) + push `onProcessText`.
-  - `lib/main.dart`: `unattended(ProcessTextRouter.instance.start())`.
-  - Test `test/dictionary/process_text_route_test.dart` — 21 test thuần
-    (URL ≤64 ⇒ từ điển vì one-token; bài học: 1 test mâu thuẫn đã xoá).
-  - CI: nối vào DICT list `app_analyze.yml:362–381`.
-- **Lưu ý CI:** `android/**` KHÔNG nằm trong path filter `app_analyze` ⇒
-  commit Kotlin-only sẽ không chạy analyze; đã ghép chung với `lib/**`.
-  MainActivity.kt không được kotlinc step compile-check (chỉ 2 file kia).
-- **Chưa kiểm (máy thật):** chọn chữ trong Chrome/Docs → menu "Dịch"/"Từ
-  điển" hiện đúng; sheet dịch ra tiếng Anh; dedupe 3s không nuốt chọn khác.
-- **Lịch sử:**
-  - 2026-11-24 | created→doing | agent `arena/7ba1e7b3-in4up` | commit `e12820f` (7 file, +487) → push
+### GLIB-003 — Thư Viện Chung: Catalog service + Firestore schema/rules + cache — P0
 
-### AI-CHAT-P1-001 — (2026-11-24) AI Chat P1: copy-answer + chip gợi ý + xác nhận xoá (PLAN-049)
-- **Trạng thái:** 🔨 code + test source-scan, chờ CI 🟢 + nghiệm thu máy.
-- **Nguồn:** owner 2026-11-24 qua `ask_user` — chốt **`plan_plus_p1`**:
-  *"lên kế hoạch làm cho AI Chat đầy hơn + implement các P1 dễ đầu tiên
-  (chat history, prompt suggestions, copy-answer…)"*. Kế hoạch đầy đủ:
-  **`docs/plans/PLAN-049-ai-chat-pho-bien.md`** (P2: regenerate, thao tác
-  theo tin, cap lịch sử, nối 3 test chưa chạy; P3: đính kèm, mic, cite).
-- **Nội dung:**
-  - **P1-1 copy-answer** (`ai_chat_screen.dart` `_MessageBubble`): nút copy
-    16px góc dưới bubble trợ lý (kể cả bubble lỗi) → `Clipboard.setData`
-    đúng chuỗi hiển thị + snackbar. i18n **sẵn**: `'Sao chép'`/`'Đã sao chép'`.
-    Bubble user giữ nguyên (Text thường chọn được bằng gesture).
-  - **P1-2 prompt suggestions** (`_EmptyChat` + callback `onPick`): 4 chip
-    `'Giải thích ngữ pháp cho mình'` / `'Đặt 3 ví dụ với từ mới'` /
-    `'Tóm tắt giúp mình một đoạn văn'` / `'Sửa lỗi câu tiếng Anh của mình'`
-    — bấm = **điền vào ô nhập**, KHÔNG tự gửi (cùng triết lý
-    `initialDraft`).
-  - **P1-3 confirm xoá**: AppBar `clearChat()` nay qua `AlertDialog`
-    (`'Xóa cuộc trò chuyện'`/`'Hủy'`/`'Xóa'` — 3 chuỗi đã đăng ký, không
-    sinh mới) + `context.mounted` trước khi xoá. Lịch sử persist vốn đã có
-    (`in4up_ai_chat_history_v1`) — P1 chỉ chặn mất oan.
-  - **i18n 4 chuỗi mới** (quy trình rule #5, cùng PR): `legacy_ui_english_overrides.json`
-    (en) + `generated_legacy_ui_fallbacks.dart` (thêm tay theo tiền lệ
-    `71d53978` — generator legacy fail sẵn `898 unused` trên base) +
-    `priority_native_pack.json` (đủ 8 locale) rồi
-    `generate_priority_native_pack.py` → **3814 entry × 8**.
-  - **Test** `test/ai_chat/chat_p1_copy_suggest_test.dart` — thuần
-    source-scan + đọc JSON (không widget/plugin — bài học run 40575300780);
-    máy bắt: nút copy, 4 chip + `onPick`, `showDialog` đứng TRƯỚC
-    `clearChat()`, i18n 8 locale sạch ký tự Việt. Mô phỏng Python: ALL PASS.
-  - **CI**: step mới `PLAN-049 P1 tests` trong `app_analyze.yml` (cạnh
-    PSRC-19/23), có gate file-missing như các step khác.
-- **Chưa kiểm (máy thật):** chip điền chữ vào ô nhập; copy ra clipboard;
-    dialog hỏi trước khi xoá;4 chip hiển thị đúng ở locale en/zh.
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049, ADR-0031 D2.
+- **Nội dung:** `gl_catalog_service.dart` trên `FirestoreRestClient` (list/
+  search/filter trên cache TTL, `getPack`, `getVersions`); collections
+  `gl_packs`/`gl_pack_versions`/`gl_contributions`/`gl_config/admins`; block
+  rules `gl_*` (read public khi `published`; create contribution cần auth);
+  `docs/great_library_firestore_schema.md` mô tả schema + rule mẫu.
+- **AT:** parse document→model; filter/search thuần trên cache; rules cho phép/
+  chặn đúng vai trò (kiểm REST tay trước P1).
 - **Lịch sử:**
-  - 2026-11-24 | created→doing | agent `arena/7ba1e7b3-in4up` | PLAN-049 + P1 code + i18n 4 chuỗi + test + CI step
-  - 2026-11-24 | doing→doing | agent `arena/7ba1e7b3-in4up` | **CI xanh** run **45532454816** 🟢 trên `a7a57b1` (analyze 0 error, Rule 5, DICT, PLAN-049 P1 — 92 step success); fix `a7a57b1` hide `ProcessTextAction` (trùng class Flutter services ⇒ ambiguous_import làm đỏ 2 run trước)
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
 
-### CABIN-SYS-001 — Live Cabin: âm thanh hệ thống + bong bóng
-- **Trạng thái:** 🔨 doing; chưa có chức năng thu âm hệ thống hoặc overlay.
-- **Phạm vi:** Android AudioPlaybackCapture + MediaProjection và overlay toàn
-  hệ thống; Windows WASAPI loopback; ASR offline và dịch/đọc bản dịch.
-- **Đã làm:** `786c306` thêm bộ chuyển float PCM interleaved thành PCM16 mono
-  16 kHz với đồng hồ liên tục qua các packet và unit test. Chưa nối vào pipeline.
-  Nội suy tuyến tính chưa lọc chống alias; cần đánh giá chất lượng/lọc trước
-  khi dùng cho nguồn có năng lượng trên 8 kHz.
-- **Còn lại:** native capture + lifecycle/quyền/consent, overlay, nối pipeline
-  và UI/i18n, test CI, build và nghiệm thu trên Android + Windows. Android có
-  thể không thu được âm thanh từ ứng dụng không cho phép playback capture.
+### GLIB-004 — Thư Viện Chung: UI browse · preview · tải — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-004.
+- **Nội dung:** `great_library_screen.dart` (Nổi bật/Mới/Tải nhiều + hàng chủ
+  đề), search/filter (loại · ngôn ngữ · CEFR · tag), `pack_detail_screen.dart`
+  (metadata + license + nút Tải), preview theo loại (Vocab lướt 20 thẻ + nghe
+  thử; Audio nghe 60s + xem LRC; Image lướt ảnh + caption); entry từ Home.
+  i18n đủ 26 locale theo rule vàng #5 (T2 dịch đủ cùng PR); tên/mô tả pack là
+  user content → giữ nguyên nguồn.
+- **AT:** widget test list/detail/empty/error với fake catalog; AT6 của PLAN-049
+  (locale `en` không còn chữ Việt trong chrome).
 - **Lịch sử:**
-  - 2026-11-24 | created→doing | agent | Nền PCM và test; CI chưa xác nhận.
-  - 2026-11-24 | doing→doing | agent | `dea5113`: backend WASAPI + build/copy DLL, Windows ABI CI [45667333134](https://github.com/Pabhassaracitto/In4Up/actions/runs/45667333134) xanh; `58495d0`: adapter Dart/stream + test; `9377c04` + `6e025f2`: nền Android MediaProjection + AudioPlaybackCapture, Kotlin compile CI [45667858972](https://github.com/Pabhassaracitto/In4Up/actions/runs/45667858972) xanh. CI compile/ABI không chứng minh thu âm hoạt động thực tế. Chưa có MethodChannel/EventChannel, overlay, chọn nguồn, nối ASR/dịch hoặc nghiệm thu. Cần xử lý vòng phản hồi khi đọc bản dịch TTS, backpressure, pause/resume và token projection chỉ dùng một lần trước khi bật UI. CI app còn chạy.
-  - 2026-11-24 | doing→doing | agent | App Analyze + Locale [45667751691](https://github.com/Pabhassaracitto/In4Up/actions/runs/45667751691) xanh, gồm `flutter test test/cabin/` và analyze; vẫn cần tích hợp và kiểm thử trên máy Android/Windows thật.
-  - 2026-11-24 | doing→doing | agent | `1f81501`, `51a8f1c`, `212b3ad`: Android channel, stream adapter, overlay, bản địa hoá notification và ADR-0039; Android Kotlin [45671195422](https://github.com/Pabhassaracitto/In4Up/actions/runs/45671195422) xanh. `ba144c7`–`03f0551`: nền overlay Win32 topmost + adapter; Windows native [45672059926](https://github.com/Pabhassaracitto/In4Up/actions/runs/45672059926) xanh sau fix Unicode. Vẫn **chưa nối** các backend/overlay vào STT, dịch, ghi âm, TTS, giao diện hay điều khiển phiên; chưa nghiệm thu thiết bị, cần review. CI app ở tip đang chạy.
-  - 2026-11-24 | doing→doing | agent | App Analyze + Locale [45672107666](https://github.com/Pabhassaracitto/In4Up/actions/runs/45672107666) xanh trên `03f0551` (analyze + Cabin tests), không thay thế nghiệm thu chức năng thật.
-  - 2026-11-24 | doing→doing | agent | `bfc8197`–`39ecb41` nối PCM Android/Windows → Sherpa + recorder, overlay 2 nền tảng, source picker/quyền/i18n, TTS gate (âm nguồn/WAV im lặng lúc đọc, UI cảnh báo), start/stop/consent. [App CI 45682675610](https://github.com/Pabhassaracitto/In4Up/actions/runs/45682675610) xanh trên `72ac9b2`; CI mới hơn đang chạy. Chưa được test máy thật hoặc review; Windows resample chưa lọc alias, capture ứng dụng khác phụ thuộc chính sách. QA: `docs/ci/cabin-system-audio-manual-qa.md`.
-  - 2026-11-24 | doing→doing | agent | App Analyze + Locale [45683528981](https://github.com/Pabhassaracitto/In4Up/actions/runs/45683528981) xanh trên `39ecb41`, gồm analyzer và `test/cabin/`; không phải build ứng dụng đầy đủ hay nghiệm thu phần cứng. Vẫn cần QA Android/Windows, code review và đánh giá aliasing Windows.
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-005 — Thư Viện Chung: `PackImportService` (pack → Studio) — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-005.
+- **Nội dung:** route theo `PackType`: Vocab → tạo WordEntry qua đường vocab
+  hiện có (audio/ảnh vào `vocab_image`); Audio → `audio_import_service.dart` +
+  LRC (`lrc_time_parser.dart`); ImageSet → kho ảnh flashcard. Lưu
+  `installedPack {packId, version}`; version mới → chip "Có bản mới", update
+  additive không ghi đè tiến độ SM-2 (không đụng ADR-0001).
+- **AT:** test thuần mapping manifest→tham số import; update additive trên mock
+  store; AT1/AT2 của PLAN-049 (nghiệm thu thiết bị).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-006 — Thư Viện Chung: wizard đóng góp (+ AI gợi ý BYOK) — P1
+
+- **Trạng thái:** proposed (chưa code; mở sau P0).
+- **Nguồn:** PLAN-049 §GLIB-006, ADR-0031 D6.
+- **Nội dung:** wizard 3 bước (nguồn: export-as-pack từ vocab/playlist của mình
+  hoặc soạn mới → metadata với nút "Gợi ý bằng AI" opt-in BYOK qua
+  `AiEngineRemote`, mặc định TẮT → cam kết bản quyền + license → build + upload
+  → `gl_contributions` pending). VocabPack chạy TTS bulk on-device trước upload.
+  Màn "Đóng góp của tôi" theo dõi pending/published/rejected + lý do. Quota
+  client: 50 MB/pack, 10 pack/tháng (con số cuối owner duyệt — ideation §6.2).
+- **AT:** AI tắt → không request mạng (fake engine pin); quota counter; build
+  pack từ vocab store giả; AT4 PLAN-049 end-to-end khi P1.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-007 — Thư Viện Chung: màn admin moderation in-app — P1
+
+- **Trạng thái:** proposed (chưa code; mở sau P0).
+- **Nguồn:** PLAN-049 §GLIB-007, ADR-0031 D4 (owner chọn in-app, gate tài khoản
+  `be.you8778@gmail.com`).
+- **Nội dung:** gate uid ∈ `gl_config/admins` (owner tạo doc 1 lần) → hiện entry
+  "Duyệt pack"; hàng chờ pending → xem trước (tái dùng preview GLIB-004) →
+  Duyệt/Từ chối kèm lý do/Ẩn; cảnh báo Storage 80%. Rules siết: chỉ admin đổi
+  `status`, đọc contributions, xoá nội dung vi phạm.
+- **AT:** test thuần gate + state machine; AT3 PLAN-049 (tài khoản thường bị
+  chặn cả UI lẫn rules).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+
+### GLIB-008 — Thư Viện Chung: seed pipeline P0 (~22 pack EN→VI) — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-008; ideation §9.3 + D2 LOCKED (trộn 3 nguồn,
+  EN→VI trước).
+- **Nội dung:** `tool/great_library_seed/` — build VocabPack từ NGSL/NAWL +
+  nghĩa VI từ điển bundle + audio TTS bulk (chạy lúc soạn) + ảnh CC0; AudioPack
+  từ LibriVox (public domain) + pháp thoại app ship sẵn; câu ví dụ Tatoeba
+  (CC-BY, ghi credit); script publish nội bộ (thay màn admin ở P0). Danh sách 22
+  pack: ideation §9.3.
+- **AT:** mọi pack seed parse pass validator GLIB-001; license/attribution đầy
+  đủ; mở app P0 thấy ≥ 20 pack (AT1 PLAN-049).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+

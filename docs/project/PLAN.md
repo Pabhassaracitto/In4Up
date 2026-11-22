@@ -1499,19 +1499,25 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-09 | 20:26 UTC | doing→doing | agent session `arena/afaff427-in4up` | nối follow-up export sang `PlayerProvider.loadSong` và Tab Nghe; title giữ video + timestamp clip; thêm wiring test, Flutter CI pending.
   - 2026-11-09 | 20:36 UTC | doing→doing | agent session `arena/afaff427-in4up` | Flutter analyze/locale + video/A-B/media tests xanh tại run `42693444830`; QA Android/iOS vẫn pending.
 
-### PLAN-049 — Beta 1.29.0: hub tổng hợp & kiểm thử 9 lane audit v1.28.0
-- Nguồn: người sở hữu (2026-11-12, qua agent `arena/60e35d65-in4up`).
-- Trạng thái: doing — hub mở, chờ 9 nhánh agent land.
-- Milestone đề xuất: M2 — ổn định bản phát hành 1.29.0.
-- Chi tiết: [`BETA-1.29.0.md`](BETA-1.29.0.md) + card `BETA-1.29.0` trong `KANBAN.md`.
-  - 9 lane / 30 issue Linear `PSRC-199…228` (audit v1.28.0): cabin · âm thanh–video ·
-    Đọc+PDF/OCR · bong bóng dịch · Web/YouTube Linux · VieNeu · tệp & "Mở bằng" ·
-    TTS hệ thống Android · Shadowing + UI Nói/Hiểu.
-  - Luồng: nhánh agent → **land vào `arena/60e35d65-in4up`** → CI + nghiệm thu máy →
-    chỉ khi xanh mới sang nhánh cha `arena/01a0251e-in4up` (251e) để phát hành 1.29.0.
-  - Cổng G0–G5 trong `BETA-1.29.0.md` §5; version giữ `1.28.0+28` tới G4 rồi bump một lần
-    `1.29.0+29`; tag beta `1.29.0-beta.N` là **prerelease**.
+### PLAN-049 — Thư Viện Chung I4U (Great Library): thư viện cộng đồng audio · hình ảnh · từ vựng (GLIB-001..008)
+- Nguồn: người sở hữu (2026-11-15, qua agent `arena/a04e4405-in4up`) — ideation
+  [`docs/great_library_ideation_v1.md`](../great_library_ideation_v1.md) v1.2,
+  **6/6 quyết định D1–D6 LOCKED**.
+- Trạng thái: 🔨 **doing** (owner duyệt 2026-11-15; GLIB-001/002 code + test thuần, chờ CI).
+- Milestone đề xuất: nhánh milestone mới «Cộng đồng / Thư Viện Chung» — owner xếp khi duyệt.
+- Chi tiết: [`plans/PLAN-049-thu-vien-chung-i4u.md`](../plans/PLAN-049-thu-vien-chung-i4u.md);
+  kiến trúc: [ADR-0031](../adr/0031-thu-vien-chung-pack-storage-moderation.md)
+  (gói `.i4upack`, catalog Firestore REST, `PackStorageBackend` pluggable
+  Firebase→Supabase, moderation pending-first, admin in-app gate uid owner).
+- Tóm tắt: màn **Thư Viện Chung I4U** — duyệt/xem trước/tải pack **không cần
+  đăng nhập**, import thẳng vào Studio (Vocab→Vườn nhớ, Audio→Tab Nghe, Ảnh→
+  flashcard); P0 = khung pack + catalog + UI + import + **~22 pack seed EN→VI
+  do team soạn** (NGSL/NAWL + TTS bulk + LibriVox/Tatoeba/CC0); P1 = wizard
+  đóng góp (AI gợi ý metadata opt-in BYOK) + màn admin moderation.
 - Lịch sử:
-  - 2026-11-12 | created→doing | agent `arena/60e35d65-in4up` | dựng hợp đồng land cho
-    9 agent, sửa `deploy-web.yml` (không auto-publish beta) + `build_final_complete.yml`
-    (tag beta ⇒ prerelease), thêm `scripts/beta/beta_board.sh`.
+  - 2026-11-15 | created (proposed) | agent `arena/a04e4405-in4up` | PLAN-049 +
+    ADR-0031 + 8 card GLIB-001..008; chưa code, chờ owner duyệt.
+  - 2026-11-15 | proposed→doing | owner duyệt («Duyệt, hãy tiến hành»); agent
+    `arena/a04e4405-in4up` | GLIB-001 (pack_manifest + pack_file) + GLIB-002
+    (backend interface + Firebase REST + DownloadManager) code + 3 file test
+    thuần + bước CI `GLIB tests` trong app_analyze.yml. Chờ CI.

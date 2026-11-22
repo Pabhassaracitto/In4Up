@@ -253,8 +253,8 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
-| GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | 🔨 doing (code + test thuần xong; chờ CI) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0031 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
-| GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | 🔨 doing (code + test thuần xong; chờ CI) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
+| GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | ✅ done (code + 2 file test thuần + **CI 🟢 run 45074714897**; logic thuần — không cần nghiệm thu máy) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0031 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
+| GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | ✅ done (code + 11 test thuần + **CI 🟢 run 45074714897**; file store path_provider nối ở GLIB-004/005) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
 | GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | 📋 proposed | PLAN-049, ADR-0031 D2/D5 |
 | GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | 📋 proposed | PLAN-049 §GLIB-004; rule vàng #5 (T2 đủ hi/zh/zh_TW/si) |
 | GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | 📋 proposed | PLAN-049; tái dùng audio_import/vocab/vocab_image, không chạm SM-2 |
@@ -9960,7 +9960,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 ### GLIB-001 — Thư Viện Chung: Pack core (model + builder/parser/validator `.i4upack`) — P0
 
-- **Trạng thái:** doing — code + test thuần xong, chờ CI + review.
+- **Trạng thái:** done — CI 🟢 run 45074714897 (analyze + test/great_library); logic thuần, không cần nghiệm thu máy.
 - **Nguồn:** owner (2026-11-15) qua agent arena/a04e4405-in4up — PLAN-049, ADR-0031 D1.
 - **Nội dung:** `lib/features/great_library/models/pack_manifest.dart`
   (`PackManifest`, `PackType {vocab, audio, image}` append-only, validate schema/
@@ -9972,14 +9972,15 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   (`payloadSha256` trong manifest, `fileSha256` ở catalog); chống zip-slip,
   quota 50 MB mặc định / trần cứng 200 MB; test
   `test/great_library/pack_manifest_test.dart` + `pack_file_test.dart`.
-- **Còn lại:** chờ CI xanh + review.
+- **Còn lại:** không — hoàn tất P0 core.
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
   - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
+  - 2026-11-15 | doing→done | CI 🟢 run 45074714897 (sau 1 vòng sửa 2 analyzer ERROR).
 
 ### GLIB-002 — Thư Viện Chung: `PackStorageBackend` + DownloadManager — P0
 
-- **Trạng thái:** doing — code + test thuần xong, chờ CI + review.
+- **Trạng thái:** done — CI 🟢 run 45074714897; file store thật (path_provider) nối ở GLIB-004/005.
 - **Nguồn:** PLAN-049, ADR-0031 D3/D5.
 - **Nội dung:** interface `PackStorageBackend` (put/get/downloadUrl/byteRange) +
   impl Firebase (wrap `lib/services/storage_service.dart`) + stub Supabase;
@@ -9993,10 +9994,11 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   (hàng đợi tuần tự, resume byte-range, xử lý server bỏ qua Range, short-body →
   partial + retry, checksum sai → xoá partial, cancel token); test
   `test/great_library/pack_download_manager_test.dart` (11 ca fake backend).
-- **Còn lại:** impl file store bằng path_provider nối ở GLIB-004/005; chờ CI.
+- **Còn lại:** impl file store bằng path_provider nối ở GLIB-004/005.
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
   - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
+  - 2026-11-15 | doing→done | CI 🟢 run 45074714897 (11 ca test fake backend xanh).
 
 ### GLIB-003 — Thư Viện Chung: Catalog service + Firestore schema/rules + cache — P0
 

@@ -683,4 +683,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "Nhập thất bại",
   "glUpdateAvailable": "Có bản mới"
+,
+  "glPreview": "Xem trước nội dung",
+  "glPreviewUnavailable": "Chưa xem trước được pack này",
+  "glListenSample": "Nghe thử"
 }

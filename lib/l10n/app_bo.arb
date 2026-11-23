@@ -595,4 +595,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "Import failed",
   "glUpdateAvailable": "New version available"
+,
+  "glPreview": "Content preview",
+  "glPreviewUnavailable": "Preview unavailable for this pack",
+  "glListenSample": "Listen"
 }

@@ -595,4 +595,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "သွင်းရန် မအောင်မြင်ပါ",
   "glUpdateAvailable": "ဗားရှင်းအသစ် ရှိပါသည်"
+,
+  "glPreview": "အကြောင်းအရာ အကြိုကြည့်ရန်",
+  "glPreviewUnavailable": "ဤပက်ခ်ျကို အကြိုကြည့်နိုင်ခြင်း မရှိပါ",
+  "glListenSample": "နားစမ်းပါ"
 }

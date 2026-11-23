@@ -6,12 +6,17 @@
 // GLIB-005: sau khi tải xong → nút "Nhập vào Studio" (route theo loại pack qua
 // PackImportService; web stub tắt → hiện ghi chú).
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
+import '../../../services/lrc_time_parser.dart';
+import '../../tts/tts_service.dart';
 import '../great_library_controller.dart';
 import '../models/gl_pack_entry.dart';
 import '../models/pack_manifest.dart';
+import '../services/pack_content.dart';
 import '../services/pack_download_manager.dart';
 
 class PackDetailScreen extends StatelessWidget {
@@ -53,6 +58,11 @@ class PackDetailScreen extends StatelessWidget {
               if (manifest.tags.isNotEmpty) _buildTags(manifest),
               const SizedBox(height: 24),
               _buildDownloadArea(context, progress, downloaded),
+              // GLIB-004b — xem trước nội dung sau khi đã tải.
+              if (downloaded) ...[
+                const SizedBox(height: 24),
+                _buildPreviewSection(context),
+              ],
             ],
           );
         },
@@ -170,6 +180,169 @@ class PackDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8),
             child: Text(l10n.glDownloadFailed),
           ),
+      ],
+    );
+  }
+
+  // ───────────────────── GLIB-004b: xem trước nội dung ─────────────────────
+
+  Widget _buildPreviewSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.glPreview,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        FutureBuilder<PackPreview?>(
+          future: controller.previewDownloaded(entry.packId),
+          builder: (context, snapshot) {
+            final preview = snapshot.data;
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.all(8),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (preview == null) {
+              return Text(l10n.glPreviewUnavailable);
+            }
+            return switch (preview.plan) {
+              VocabPackPlan vocab => _vocabPreview(context, vocab),
+              AudioPackPlan audio => _audioPreview(context, audio, preview),
+              ImagePackPlan image => _imagePreview(context, image, preview),
+            };
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Vocab: lướt tối đa 20 thẻ đầu (word + phonetic + meaning + example) +
+  /// nút nghe thử qua TTS on-device.
+  Widget _vocabPreview(BuildContext context, VocabPackPlan plan) {
+    final items = plan.items.take(20).toList();
+    final lang = plan.manifest.srcLang.isEmpty ? 'en' : plan.manifest.srcLang;
+    return SizedBox(
+      height: 150,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          return SizedBox(
+            width: 180,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(item.word,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip:
+                              AppLocalizations.of(context)!.glListenSample,
+                          icon: const Icon(Icons.volume_up_rounded, size: 18),
+                          onPressed: () =>
+                              TtsService().speak(item.word, language: lang),
+                        ),
+                      ],
+                    ),
+                    if (item.phonetic != null)
+                      Text(item.phonetic!,
+                          style: const TextStyle(
+                              fontSize: 12, fontStyle: FontStyle.italic),
+                          overflow: TextOverflow.ellipsis),
+                    Text(item.meaning,
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Audio: danh sách track + vài dòng LRC đầu của track đầu tiên có LRC.
+  Widget _audioPreview(
+      BuildContext context, AudioPackPlan plan, PackPreview preview) {
+    final tracks = plan.tracks.take(10).toList();
+    final withLrcList = tracks.where((t) => t.lrcName != null);
+    final withLrc = withLrcList.isEmpty ? null : withLrcList.first;
+    List<LrcLine> lrcLines = const [];
+    if (withLrc != null) {
+      final raw = preview.dataFiles[withLrc.lrcName!];
+      if (raw != null) {
+        lrcLines = parseLrcContent(utf8.decode(raw)).take(6).toList();
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final t in tracks)
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.headphones_rounded, size: 20),
+            title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: t.durationSec != null
+                ? Text('${t.durationSec! ~/ 60}′${t.durationSec! % 60}″')
+                : null,
+          ),
+        if (lrcLines.isNotEmpty) ...[
+          const Divider(),
+          for (final line in lrcLines)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1),
+              child: Text(line.text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13)),
+            ),
+        ],
+      ],
+    );
+  }
+
+  /// Image: lưới tối đa 12 ảnh đầu (bytes trong pack) + caption.
+  Widget _imagePreview(
+      BuildContext context, ImagePackPlan plan, PackPreview preview) {
+    final items = plan.items.take(12).toList();
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 6,
+      crossAxisSpacing: 6,
+      children: [
+        for (final item in items)
+          if (preview.media.bytes(item.imageName) != null)
+            Column(
+              children: [
+                Expanded(
+                  child: Image.memory(
+                    preview.media.bytes(item.imageName)!,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                if (item.caption.isNotEmpty)
+                  Text(item.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11)),
+              ],
+            ),
       ],
     );
   }

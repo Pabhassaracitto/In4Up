@@ -252,7 +252,7 @@
 | GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | ✅ done (code + 11 test thuần + **CI 🟢 run 45074714897**; file store path_provider nối ở GLIB-004/005) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
 | GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | ✅ done (code + 13 test thuần + **CI 🟢 run 45079525127**; còn owner deploy rules theo checklist) | PLAN-049, ADR-0031 D2/D5 — `gl_catalog_service.dart` (TTL cache + offline fallback) + `gl_catalog_transport_firestore.dart` (public read, không cần token) + `docs/great_library_firestore_schema.md` (rules để owner dán) |
 | GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | ✅ done (code + 14 test + **CI 🟢 run 45114987418**; preview theo loại (audio/LRC/ảnh) + persist catalog cache ra file = GLIB-004b) | PLAN-049 §GLIB-004 — `great_library_screen.dart` + `pack_detail_screen.dart` + `great_library_controller.dart` + wiring io/stub + 19 key gl* ARB ×26 locale (T2 hi/zh/zh_TW/si native) + entry home/remember |
-| GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | 🔨 doing | PLAN-049; `pack_content.dart` (schema data/) + `pack_import_service.dart` (sinks thuần) + `pack_import_sinks_io.dart` (production) + installed store + chip Có bản mới |
+| GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | ✅ done (code + 23 test + **CI 🟢 run 45182347010**) | PLAN-049 — `pack_content.dart` + `pack_import_service.dart` (sinks thuần) + `pack_import_sinks_io.dart` + installed store + chip Có bản mới; merge additive không đụng SM-2 |
 | GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
 | GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
 | GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | 📋 proposed | PLAN-049, ideation §9.3 (D2 LOCKED) |
@@ -9963,7 +9963,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 ### GLIB-005 — Thư Viện Chung: `PackImportService` (pack → Studio) — P0
 
-- **Trạng thái:** proposed (chưa code).
+- **Trạng thái:** ✅ done — CI 🟢 run 45182347010 (analyze + GLIB tests + rule
+  #5 locale xanh).
 - **Nguồn:** PLAN-049 §GLIB-005.
 - **Nội dung:** route theo `PackType`: Vocab → tạo WordEntry qua đường vocab
   hiện có (audio/ảnh vào `vocab_image`); Audio → `audio_import_service.dart` +
@@ -9974,6 +9975,13 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   store; AT1/AT2 của PLAN-049 (nghiệm thu thiết bị).
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | proposed→doing | owner («Làm tiếp nhé») | agent
+    `arena/a04e4405-in4up` | schema data/ (entries/tracks/items.json) +
+    PackImportService (sinks) + sinks io (vocab/audio/ảnh) + installed store +
+    UI nút Nhập vào Studio + chip Có bản mới + 5 key i18n.
+  - 2026-11-23 | doing — CI 🟢 run 45182347010 | agent `arena/a04e4405-in4up` |
+    analyze + GLIB tests (23) + locale xanh; fix CI: kImportPack thiếu author
+    (author-name-empty). GLIB-005 ✅ done.
 
 ### GLIB-006 — Thư Viện Chung: wizard đóng góp (+ AI gợi ý BYOK) — P1
 

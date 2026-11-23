@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/great_library/great_library_controller.dart';
 import 'package:in4up/features/great_library/models/gl_pack_entry.dart';
 import 'package:in4up/features/great_library/models/pack_manifest.dart';
+import 'package:in4up/features/great_library/services/admin_gate.dart';
 import 'package:in4up/features/great_library/services/gl_catalog_service.dart';
 import 'package:in4up/features/great_library/services/pack_content.dart';
 import 'package:in4up/features/great_library/services/pack_download_manager.dart';
@@ -158,12 +159,21 @@ GreatLibraryController _controller(
   );
 }
 
+class _NeverAdminFetcher implements AdminGateFetcher {
+  @override
+  Future<Set<String>?> fetchAdminUids() async => <String>{};
+}
+
 Widget _app(GreatLibraryController controller) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('vi'),
-    home: GreatLibraryScreen(controller: controller),
+    // GLIB-007: inject gate giả — test màn thư viện không chạm Firebase/Hive.
+    home: GreatLibraryScreen(
+      controller: controller,
+      adminGate: AdminGate(fetcher: _NeverAdminFetcher(), currentUid: 'u'),
+    ),
   );
 }
 

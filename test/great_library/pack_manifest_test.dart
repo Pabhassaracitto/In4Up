@@ -103,6 +103,7 @@ void main() {
       print('DEBUG long title: parsed.len=${parsed.title.length} '
           'max=$kMaxPackTitleLength errors=$longErrors');
       expect(longErrors, contains('title-too-long'));
+      print('DEBUG reached end of title test');
     });
 
     test('version < 1 và size âm bị bắt', () {

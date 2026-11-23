@@ -91,11 +91,14 @@ void main() {
 
     test('title rỗng / quá dài', () {
       final json = validManifest().toJson()..['title'] = '  ';
-      expect(PackManifest.fromJson(json).validate(), contains('title-empty'));
+      final shortErrors = PackManifest.fromJson(json).validate();
+      expect(shortErrors, contains('title-empty'),
+          reason: 'short title errors: $shortErrors');
       final longJson = validManifest().toJson()
         ..['title'] = 'a' * (kMaxPackTitleLength + 1);
-      expect(
-          PackManifest.fromJson(longJson).validate(), contains('title-too-long'));
+      final longErrors = PackManifest.fromJson(longJson).validate();
+      expect(longErrors, contains('title-too-long'),
+          reason: 'long title errors: $longErrors');
     });
 
     test('version < 1 và size âm bị bắt', () {

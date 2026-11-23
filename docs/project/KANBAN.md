@@ -256,7 +256,7 @@
 | GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | ✅ done (code + 2 file test thuần + **CI 🟢 run 45074714897**; logic thuần — không cần nghiệm thu máy) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0031 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
 | GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | ✅ done (code + 11 test thuần + **CI 🟢 run 45074714897**; file store path_provider nối ở GLIB-004/005) | PLAN-049, ADR-0031 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
 | GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | ✅ done (code + 13 test thuần + **CI 🟢 run 45079525127**; còn owner deploy rules theo checklist) | PLAN-049, ADR-0031 D2/D5 — `gl_catalog_service.dart` (TTL cache + offline fallback) + `gl_catalog_transport_firestore.dart` (public read, không cần token) + `docs/great_library_firestore_schema.md` (rules để owner dán) |
-| GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | 📋 proposed | PLAN-049 §GLIB-004; rule vàng #5 (T2 đủ hi/zh/zh_TW/si) |
+| GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | ✅ done (code + 14 test + **CI 🟢 run 45114987418**; preview theo loại (audio/LRC/ảnh) + persist catalog cache ra file = GLIB-004b) | PLAN-049 §GLIB-004 — `great_library_screen.dart` + `pack_detail_screen.dart` + `great_library_controller.dart` + wiring io/stub + 19 key gl* ARB ×26 locale (T2 hi/zh/zh_TW/si native) + entry home/remember |
 | GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | 📋 proposed | PLAN-049; tái dùng audio_import/vocab/vocab_image, không chạm SM-2 |
 | GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
 | GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
@@ -10030,7 +10030,9 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 ### GLIB-004 — Thư Viện Chung: UI browse · preview · tải — P0
 
-- **Trạng thái:** proposed (chưa code).
+- **Trạng thái:** ✅ done — CI 🟢 run 45114987418 (analyze + GLIB tests + rule
+  #5 locale xanh). Preview theo loại (audio nghe thử/LRC/ảnh) + persist catalog
+  cache ra file (hiện MemoryCache theo session) dời GLIB-004b.
 - **Nguồn:** PLAN-049 §GLIB-004.
 - **Nội dung:** `great_library_screen.dart` (Nổi bật/Mới/Tải nhiều + hàng chủ
   đề), search/filter (loại · ngôn ngữ · CEFR · tag), `pack_detail_screen.dart`
@@ -10042,6 +10044,15 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   (locale `en` không còn chữ Việt trong chrome).
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | proposed→doing | owner duyệt (rules-deploy defer); agent
+    `arena/a04e4405-in4up` | UI browse/search/lọc/sắp xếp + pack detail + tải
+    progress + entry Home/Quick Actions + i18n ARB ×26 (T2 native).
+  - 2026-11-23 | doing — CI 🟢 run 45114987418 | agent `arena/a04e4405-in4up` |
+    analyze + GLIB tests (14) + rule #5 locale xanh. Sửa CI phát hiện:
+    `GlCatalogQuery.apply` sort trên unmodifiable → copy mutable; controller
+    ghi downloadStates khi thiếu storage ref; filter Row→Wrap (tràn 800px);
+    import AppLocalizations từ package:in4up/l10n; workflow annotation gom
+    thêm ::notice quanh EXCEPTION (blob log chặn). GLIB-004 ✅ done.
 
 ### GLIB-005 — Thư Viện Chung: `PackImportService` (pack → Studio) — P0
 

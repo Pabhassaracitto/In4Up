@@ -6,7 +6,7 @@
 // P0: sau khi tải xong hiện ghi chú — nhập vào Studio = GLIB-005.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
 import '../great_library_controller.dart';
 import '../models/gl_pack_entry.dart';

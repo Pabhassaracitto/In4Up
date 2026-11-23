@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'models/gl_pack_entry.dart';
 import 'services/gl_catalog_service.dart';
 import 'services/pack_download_manager.dart';
+import 'services/pack_storage_backend.dart';
 
 class GreatLibraryController extends ChangeNotifier {
   GreatLibraryController({

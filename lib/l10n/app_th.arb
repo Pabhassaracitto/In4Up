@@ -625,4 +625,15 @@
   "glStatusPending": "รอตรวจสอบ",
   "glStatusPublished": "เผยแพร่แล้ว",
   "glStatusRejected": "ถูกปฏิเสธ"
+,
+  "glModerationTitle": "ตรวจสอบแพ็ก",
+  "glModerationEmpty": "ไม่มีการสนับสนุนที่รอตรวจสอบ",
+  "glApprove": "อนุมัติ",
+  "glReject": "ปฏิเสธ",
+  "glHide": "ซ่อน",
+  "glRejectReason": "เหตุผลที่ปฏิเสธ",
+  "glHideReason": "เหตุผลที่ซ่อน",
+  "glReasonHint": "ใส่เหตุผล (ผู้สนับสนุนจะเห็น)",
+  "glModerationDone": "เสร็จแล้ว",
+  "glModerationFailed": "การดำเนินการล้มเหลว"
 }

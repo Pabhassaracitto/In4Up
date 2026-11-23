@@ -713,4 +713,15 @@
   "glStatusPending": "Chờ duyệt",
   "glStatusPublished": "Đã duyệt",
   "glStatusRejected": "Bị từ chối"
+,
+  "glModerationTitle": "Duyệt pack",
+  "glModerationEmpty": "Không có đóng góp chờ duyệt",
+  "glApprove": "Duyệt",
+  "glReject": "Từ chối",
+  "glHide": "Ẩn",
+  "glRejectReason": "Lý do từ chối",
+  "glHideReason": "Lý do ẩn",
+  "glReasonHint": "Nhập lý do (người đóng góp sẽ thấy)",
+  "glModerationDone": "Đã xử lý",
+  "glModerationFailed": "Xử lý thất bại"
 }

@@ -679,4 +679,15 @@
   "glStatusPending": "待審核",
   "glStatusPublished": "已發布",
   "glStatusRejected": "已拒絕"
+,
+  "glModerationTitle": "審核資源包",
+  "glModerationEmpty": "沒有待審核的貢獻",
+  "glApprove": "批准",
+  "glReject": "拒絕",
+  "glHide": "隱藏",
+  "glRejectReason": "拒絕原因",
+  "glHideReason": "隱藏原因",
+  "glReasonHint": "輸入原因（貢獻者可見）",
+  "glModerationDone": "已完成",
+  "glModerationFailed": "操作失敗"
 }

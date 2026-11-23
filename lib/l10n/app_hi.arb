@@ -679,4 +679,15 @@
   "glStatusPending": "लंबित",
   "glStatusPublished": "प्रकाशित",
   "glStatusRejected": "अस्वीकृत"
+,
+  "glModerationTitle": "पैक मॉडरेशन",
+  "glModerationEmpty": "कोई लंबित योगदान नहीं",
+  "glApprove": "स्वीकृत करें",
+  "glReject": "अस्वीकार करें",
+  "glHide": "छिपाएं",
+  "glRejectReason": "अस्वीकृति का कारण",
+  "glHideReason": "छिपाने का कारण",
+  "glReasonHint": "कारण लिखें (योगदानकर्ता देखेगा)",
+  "glModerationDone": "पूर्ण",
+  "glModerationFailed": "कार्रवाई विफल"
 }

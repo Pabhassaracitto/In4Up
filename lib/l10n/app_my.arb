@@ -625,4 +625,15 @@
   "glStatusPending": "စောင့်ဆိုင်းဆဲ",
   "glStatusPublished": "ထုတ်ဝေပြီး",
   "glStatusRejected": "ငြင်းပယ်ခံရသည်"
+,
+  "glModerationTitle": "ပက်ခ်ျ အ moderated",
+  "glModerationEmpty": "စောင့်ဆိုင်းနေသော ပံ့ပိုးမှု မရှိပါ",
+  "glApprove": "အတည်ပြု",
+  "glReject": "ငြင်းပယ်",
+  "glHide": "ဖျောက်",
+  "glRejectReason": "ငြင်းပယ်ရသည့်အကြောင်းရင်း",
+  "glHideReason": "ဖျောက်ရသည့်အကြောင်းရင်း",
+  "glReasonHint": "အကြောင်းရင်း ရိုက်ထည့်ပါ (ပံ့ပိုးသူ မြင်နိုင်သည်)",
+  "glModerationDone": "ပြီးပါပြီ",
+  "glModerationFailed": "လုပ်ဆောင်ချက် မအောင်မြင်ပါ"
 }

@@ -625,4 +625,15 @@
   "glStatusPending": "Pending",
   "glStatusPublished": "Published",
   "glStatusRejected": "Rejected"
+,
+  "glModerationTitle": "Pack moderation",
+  "glModerationEmpty": "No pending contributions",
+  "glApprove": "Approve",
+  "glReject": "Reject",
+  "glHide": "Hide",
+  "glRejectReason": "Reason for rejection",
+  "glHideReason": "Reason for hiding",
+  "glReasonHint": "Enter a reason (shown to the contributor)",
+  "glModerationDone": "Done",
+  "glModerationFailed": "Action failed"
 }

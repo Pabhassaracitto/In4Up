@@ -178,7 +178,17 @@
     "glNoContributions",
     "glStatusPending",
     "glStatusPublished",
-    "glStatusRejected"
+    "glStatusRejected",
+    "glModerationTitle",
+    "glModerationEmpty",
+    "glApprove",
+    "glReject",
+    "glHide",
+    "glRejectReason",
+    "glHideReason",
+    "glReasonHint",
+    "glModerationDone",
+    "glModerationFailed"
   ],
   "keepEnglishByLocale": {
     "hi": [

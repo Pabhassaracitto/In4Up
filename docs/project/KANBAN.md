@@ -254,7 +254,7 @@
 | GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | ✅ done (code + 14 test + **CI 🟢 run 45114987418**; 004b: preview theo loại + persist cache — **CI 🟢 run 45226505832**) | PLAN-049 §GLIB-004 — `great_library_screen.dart` + `pack_detail_screen.dart` + `great_library_controller.dart` + wiring io/stub + 19 key gl* ARB ×26 locale (T2 hi/zh/zh_TW/si native) + entry home/remember |
 | GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | ✅ done (code + 23 test + **CI 🟢 run 45182347010**) | PLAN-049 — `pack_content.dart` + `pack_import_service.dart` (sinks thuần) + `pack_import_sinks_io.dart` + installed store + chip Có bản mới; merge additive không đụng SM-2 |
 | GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | ✅ done (code + 8 test service/AI + 1 widget smoke + **CI 🟢 run 45251116597**) | PLAN-049, ADR-0031 D6 — `pack_contribution_service.dart` + `contribution_ai_suggest.dart` + wizard 3 bước + màn Đóng góp của tôi + 30 key ARB ×26 locale |
-| GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
+| GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | ✅ done (code + 10 test thuần + **CI 🟢 run 45257255992**) | PLAN-049, ADR-0031 D4 — `admin_gate.dart` (uid ∈ gl_config/admins) + `admin_moderation_service.dart` + `AdminModerationScreen` + entry AppBar gate |
 | GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | ✅ done (pipeline + 22/22 pack pass validator + 3 test schema + **CI 🟢 run 45231501777**; v1 nội dung tự soạn CC0, audio/ảnh placeholder chờ soạn máy chủ — xem README) | PLAN-049, ideation §9.3 (D2 LOCKED) — `tool/great_library_seed/` + `seed_publish.py` |
 
 
@@ -10045,4 +10045,10 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   đủ; mở app P0 thấy ≥ 20 pack (AT1 PLAN-049).
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | ✅ done — CI 🟢 run 45257255992 | agent `arena/a04e4405-in4up` |
+    AdminGate (uid ∈ gl_config/admins, cache phiên, lỗi→ẩn entry AT3) +
+    state machine pending→published (ghi gl_packs) / rejected (bắt buộc lý do)
+    / hidden + AdminModerationScreen (hàng chờ card + dialog lý do) + entry
+    AppBar gate FutureBuilder + 10 key ARB. Test thuần: gate theo uid (5) +
+    state machine (5).
 

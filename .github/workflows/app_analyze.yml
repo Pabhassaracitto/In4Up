@@ -164,6 +164,11 @@ jobs:
           if [ "$code" -ne 0 ]; then
             tailmsg=$(tail -n 18 glib_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\\n/%0A/g')
             echo "::error title=GLIB test exit $code::${tailmsg:-No test output}"
+            # Annotation chỉ gom vài dòng cuối → thêm "tail" dạng grep để thấy
+            # cả tên test fail (dòng "... [E]") + EXPECTED/ACTUAL trong stack.
+            grep -E "\[E\]|Expected|Actual|Which:|EXCEPTION" glib_test.log | tail -n 12 | while IFS= read -r line; do
+              echo "::error title=GLIB::$(echo "$line" | head -c 300)"
+            done
           fi
           exit $code
 

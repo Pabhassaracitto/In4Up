@@ -94,20 +94,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 mục'), findsOneWidget);
 
-    await tester.tap(find.text('Tiếp'));
+    await tester.tap(find.text('Tiếp').last);
     await tester.pumpAndSettle();
 
     // Bước 2: metadata — nhập tên.
     await tester.enterText(
         find.widgetWithText(TextField, 'Tên pack').first, 'Pack thử');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tiếp'));
+    await tester.tap(find.text('Tiếp').last);
     await tester.pumpAndSettle();
 
     // Bước 3: chưa tick cam kết → nút gửi disabled.
     await tester.tap(find.text('Tôi cam kết có quyền chia sẻ nội dung này'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Gửi duyệt'));
+    await tester.tap(find.text('Gửi duyệt').last);
     await tester.pumpAndSettle();
 
     expect(submitted, isTrue);

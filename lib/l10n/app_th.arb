@@ -595,4 +595,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "นำเข้าล้มเหลว",
   "glUpdateAvailable": "มีเวอร์ชันใหม่"
+,
+  "glPreview": "ดูตัวอย่างเนื้อหา",
+  "glPreviewUnavailable": "ไม่สามารถแสดงตัวอย่างแพ็กนี้",
+  "glListenSample": "ลองฟัง"
 }

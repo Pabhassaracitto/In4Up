@@ -649,4 +649,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "ආයාතය අසාර්ථකයි",
   "glUpdateAvailable": "නව අනුවාදයක් තිබේ"
+,
+  "glPreview": "අන්තර්ගතය පෙරදසුන",
+  "glPreviewUnavailable": "මෙම පැකේජය පෙරදසුන් කළ නොහැක",
+  "glListenSample": "අහා බලන්න"
 }

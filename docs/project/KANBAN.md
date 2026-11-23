@@ -258,7 +258,7 @@
 | GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | ✅ done (code + 13 test thuần + **CI 🟢 run 45079525127**; còn owner deploy rules theo checklist) | PLAN-049, ADR-0031 D2/D5 — `gl_catalog_service.dart` (TTL cache + offline fallback) + `gl_catalog_transport_firestore.dart` (public read, không cần token) + `docs/great_library_firestore_schema.md` (rules để owner dán) |
 | GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | ✅ done (code + 14 test + **CI 🟢 run 45114987418**; 004b: preview theo loại + persist cache — **CI 🟢 run 45226505832**) | PLAN-049 §GLIB-004 — `great_library_screen.dart` + `pack_detail_screen.dart` + `great_library_controller.dart` + wiring io/stub + 19 key gl* ARB ×26 locale (T2 hi/zh/zh_TW/si native) + entry home/remember |
 | GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | ✅ done (code + 23 test + **CI 🟢 run 45182347010**) | PLAN-049 — `pack_content.dart` + `pack_import_service.dart` (sinks thuần) + `pack_import_sinks_io.dart` + installed store + chip Có bản mới; merge additive không đụng SM-2 |
-| GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
+| GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | ✅ done (code + 8 test service/AI + 1 widget smoke + **CI 🟢 run 45251116597**) | PLAN-049, ADR-0031 D6 — `pack_contribution_service.dart` + `contribution_ai_suggest.dart` + wizard 3 bước + màn Đóng góp của tôi + 30 key ARB ×26 locale |
 | GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
 | GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | ✅ done (pipeline + 22/22 pack pass validator + 3 test schema + **CI 🟢 run 45231501777**; v1 nội dung tự soạn CC0, audio/ảnh placeholder chờ soạn máy chủ — xem README) | PLAN-049, ideation §9.3 (D2 LOCKED) — `tool/great_library_seed/` + `seed_publish.py` |
 
@@ -10109,6 +10109,13 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   chặn cả UI lẫn rules).
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | ✅ done — CI 🟢 run 45251116597 | agent `arena/a04e4405-in4up` |
+    wizard 3 bước (nguồn: Vườn nhớ / soạn tay → metadata + AI gợi ý BYOK opt-in
+    → cam kết bản quyền + license → build + upload + gl_contributions pending).
+    Quota 10/tháng + 50 MB/pack. AI tắt → 0 network (test pin). Widget test
+    wizard = smoke navigation; luồng submit pin ở contribution_service_test
+    (Stepper + fake zone bất ổn). TTS bulk on-device: trừ ra (manifest giữ
+    audio ref, TTS thêm lúc build sau — tối ưu v2).
 
 ### GLIB-008 — Thư Viện Chung: seed pipeline P0 (~22 pack EN→VI) — P0
 

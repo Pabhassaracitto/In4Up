@@ -1540,6 +1540,10 @@ Package: `video_player: ^2.8.0` (Flutter official)
     GLIB-004b ✅: preview nội dung theo loại (Vocab 20 thẻ + nghe thử TTS;
     Audio tracks + LRC; Image grid) + GlCatalogFileCache persist catalog
     snapshot ra đĩa (offline mở app vẫn có catalog cũ).
+  - 2026-11-23 | done — CI 🟢 run 45251116597 | agent `arena/a04e4405-in4up` |
+    GLIB-006 ✅ (P1): wizard đóng góp 3 bước + AI gợi ý metadata BYOK opt-in +
+    quota 10/tháng + màn Đóng góp của tôi (pending/published/rejected + lý do).
+    Luồng submit pin bằng service test (fake backend/transport).
   - 2026-11-23 | done — CI 🟢 run 45231501777 | agent `arena/a04e4405-in4up` |
     GLIB-008 ✅: seed pipeline `tool/great_library_seed/` — 22 pack .i4upack
     theo ideation §9.3, đúng schema GLIB-001/005, validator 22/22 pass; v1

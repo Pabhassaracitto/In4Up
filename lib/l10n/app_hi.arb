@@ -642,4 +642,11 @@
   "glLicenseLabel": "लाइसेंस",
   "glImportNextUpdate": "स्टूडियो में आयात अगले अपडेट में आएगा",
   "glDownloadFailed": "डाउनलोड विफल"
+,
+  "glImport": "स्टूडियो में आयात करें",
+  "glImporting": "आयात हो रहा है…",
+  "glImportedCount": "{count} आइटम आयात किए गए",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "आयात विफल",
+  "glUpdateAvailable": "नया संस्करण उपलब्ध"
 }

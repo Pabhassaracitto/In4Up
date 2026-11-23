@@ -588,4 +588,11 @@
   "glLicenseLabel": "လိုင်စင်",
   "glImportNextUpdate": "Studio သို့သွင်းရန် နောက်ဗားရှင်းတွင် ရပါမည်",
   "glDownloadFailed": "ဒေါင်းလုဒ် မအောင်မြင်ပါ"
+,
+  "glImport": "Studio သို့ သွင်းပါ",
+  "glImporting": "သွင်းနေသည်…",
+  "glImportedCount": "{count} ခု သွင်းပြီး",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "သွင်းရန် မအောင်မြင်ပါ",
+  "glUpdateAvailable": "ဗားရှင်းအသစ် ရှိပါသည်"
 }

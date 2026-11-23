@@ -140,7 +140,12 @@
     "glDownloaded",
     "glLicenseLabel",
     "glImportNextUpdate",
-    "glDownloadFailed"
+    "glDownloadFailed",
+    "glImport",
+    "glImporting",
+    "glImportedCount",
+    "glImportFailed",
+    "glUpdateAvailable"
   ],
   "keepEnglishByLocale": {
     "hi": [

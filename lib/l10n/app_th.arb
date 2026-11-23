@@ -588,4 +588,11 @@
   "glLicenseLabel": "สัญญาอนุญาต",
   "glImportNextUpdate": "การนำเข้าสู่ Studio จะมาในอัปเดตถัดไป",
   "glDownloadFailed": "ดาวน์โหลดล้มเหลว"
+,
+  "glImport": "นำเข้าสู่ Studio",
+  "glImporting": "กำลังนำเข้า…",
+  "glImportedCount": "นำเข้าแล้ว {count} รายการ",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "นำเข้าล้มเหลว",
+  "glUpdateAvailable": "มีเวอร์ชันใหม่"
 }

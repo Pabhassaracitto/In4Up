@@ -25,8 +25,8 @@ from pathlib import Path
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--service-account', help='đường dẫn JSON service account')
-    ap.add_argument('--bucket', default='in4up-seed',
-                    help='Firebase Storage bucket')
+    ap.add_argument('--bucket', default='vipsound-df903.firebasestorage.app',
+                    help='Firebase Storage bucket (mặc định = bucket app)')
     ap.add_argument('--dist', default='tool/great_library_seed/dist')
     args = ap.parse_args()
 
@@ -59,9 +59,7 @@ def main() -> int:
     db = firestore.client()
     for doc in catalog:
         pack_path = dist / f"{doc['id']}.i4upack"
-        blob = bucket.blob(doc['storagePath'].split('/', 3)[-1]
-                           if doc['storagePath'].startswith('gs://')
-                           else doc['storagePath'])
+        blob = bucket.blob(doc['storage']['path'])
         blob.upload_from_filename(str(pack_path))
         db.collection('gl_packs').document(doc['id']).set(doc)
         print(f"  ✓ {doc['id']}")

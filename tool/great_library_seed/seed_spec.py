@@ -26,6 +26,8 @@ class PackSpec:
     version: int = 1
     # storage: seed P0 để local asset — owner upload lên Storage sau (path
     # này là gợi ý; catalog doc gl_packs/<id> trỏ tới).
+    # Storage path upload: khớp rules §3 (match /packs/{allPaths=**}) —
+    # seed_publish.py bóc 'packs/…' khỏi gs:// URL khi upload.
     storage_path: str = ''
 
 

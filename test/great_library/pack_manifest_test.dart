@@ -90,20 +90,19 @@ void main() {
     });
 
     test('title rỗng / quá dài', () {
-      // DEBUG CI: in độ dài + điểm mã để truy nguyên qua annotation (log blob bị chặn).
-      final aTitle = 'a' * (kMaxPackTitleLength + 1);
-      print('DEBUG len=${aTitle.length} max=$kMaxPackTitleLength '
-          'first=${aTitle.codeUnitAt(0)} last=${aTitle.codeUnitAt(aTitle.length - 1)}');
-
+      // CI chặn blob log → in errors thẳng ra stdout để annotation gom được.
       final json = validManifest().toJson()..['title'] = '  ';
       final shortErrors = PackManifest.fromJson(json).validate();
-      expect(shortErrors, contains('title-empty'),
-          reason: 'short title errors: $shortErrors');
+      print('DEBUG short title: parsed="${PackManifest.fromJson(json).title}" '
+          'errors=$shortErrors');
+      expect(shortErrors, contains('title-empty'));
       final longJson = validManifest().toJson()
         ..['title'] = 'a' * (kMaxPackTitleLength + 1);
-      final longErrors = PackManifest.fromJson(longJson).validate();
-      expect(longErrors, contains('title-too-long'),
-          reason: 'long title errors: $longErrors');
+      final parsed = PackManifest.fromJson(longJson);
+      final longErrors = parsed.validate();
+      print('DEBUG long title: parsed.len=${parsed.title.length} '
+          'max=$kMaxPackTitleLength errors=$longErrors');
+      expect(longErrors, contains('title-too-long'));
     });
 
     test('version < 1 và size âm bị bắt', () {

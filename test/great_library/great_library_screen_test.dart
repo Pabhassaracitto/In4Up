@@ -7,7 +7,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/great_library/great_library_controller.dart';
 import 'package:in4up/features/great_library/models/gl_pack_entry.dart';

@@ -14,17 +14,30 @@ import 'package:flutter/foundation.dart';
 import 'models/gl_pack_entry.dart';
 import 'services/gl_catalog_service.dart';
 import 'services/pack_download_manager.dart';
+import 'services/pack_file.dart';
+import 'services/pack_import_service.dart';
 import 'services/pack_storage_backend.dart';
 
 class GreatLibraryController extends ChangeNotifier {
   GreatLibraryController({
     required GlCatalogService catalog,
     required PackDownloadManager downloads,
+    PackDownloadStore? downloadStore,
+    PackImportService? importService,
+    InstalledPackStore? installedStore,
   })  : _catalog = catalog,
-        _downloads = downloads;
+        _downloads = downloads,
+        _downloadStore = downloadStore,
+        _importService = importService,
+        _installedStore = installedStore;
 
   final GlCatalogService _catalog;
   final PackDownloadManager _downloads;
+
+  /// GLIB-005 — đọc pack đã tải để import; null (web stub) → import tắt.
+  final PackDownloadStore? _downloadStore;
+  final PackImportService? _importService;
+  final InstalledPackStore? _installedStore;
 
   bool _loading = false;
   String? _errorMessage;
@@ -37,6 +50,26 @@ class GreatLibraryController extends ChangeNotifier {
 
   /// packId đã tải xong trong phiên (verify checksum pass).
   final Set<String> downloadedIds = <String>{};
+
+  /// GLIB-005 — packId đang import (progress UI).
+  final Set<String> importingIds = <String>{};
+
+  /// GLIB-005 — kết quả import gần nhất theo packId.
+  final Map<String, PackImportResult> importResults =
+      <String, PackImportResult>{};
+
+  /// GLIB-005 — packId → version đã cài (nạp từ InstalledPackStore lúc load).
+  Map<String, int> _installed = <String, int>{};
+
+  bool get canImport => _importService != null && _downloadStore != null;
+
+  /// Đã cài pack này vào Studio chưa.
+  bool isInstalled(String packId) => _installed.containsKey(packId);
+
+  /// Catalog có bản mới hơn bản đã cài (chip "Có bản mới").
+  bool hasUpdate(GlPackEntry entry) => PackImportService.needsUpdate(
+      installedVersion: _installed[entry.packId],
+      catalogVersion: entry.manifest.version);
 
   bool get isLoading => _loading;
   String? get errorMessage => _errorMessage;
@@ -52,6 +85,8 @@ class GreatLibraryController extends ChangeNotifier {
     notifyListeners();
     try {
       _entries = await _catalog.getCatalog(forceRefresh: forceRefresh);
+      final store = _installedStore;
+      if (store != null) _installed = await store.readAll();
     } on GlCatalogException catch (e) {
       _errorMessage = e.message;
     }
@@ -90,5 +125,48 @@ class GreatLibraryController extends ChangeNotifier {
     if (result.isSuccess) downloadedIds.add(packId);
     notifyListeners();
     return result;
+  }
+
+  /// GLIB-005 — nhập pack đã tải vào Studio (route theo loại qua
+  /// [PackImportService]). Trả null khi chưa tải xong hoặc import tắt (web).
+  Future<PackImportResult?> importDownloaded(String packId) async {
+    final importService = _importService;
+    final store = _downloadStore;
+    final installedStore = _installedStore;
+    if (importService == null || store == null || installedStore == null) {
+      return null;
+    }
+    importingIds.add(packId);
+    notifyListeners();
+    try {
+      final bytes = await store.readFinal(packId);
+      if (bytes == null) {
+        final result = PackImportResult.failed('pack-not-downloaded');
+        importResults[packId] = result;
+        return result;
+      }
+      final PackContents contents;
+      try {
+        contents = PackFile.extract(bytes);
+      } on FormatException catch (e) {
+        final result = PackImportResult.failed(e.message);
+        importResults[packId] = result;
+        return result;
+      } on Object catch (e) {
+        // ArchiveException & lỗi giải nén khác từ package:archive.
+        final result = PackImportResult.failed('$e');
+        importResults[packId] = result;
+        return result;
+      }
+      final result = await importService.importPack(contents);
+      importResults[packId] = result;
+      if (result.isSuccess) {
+        _installed = await installedStore.readAll();
+      }
+      return result;
+    } finally {
+      importingIds.remove(packId);
+      notifyListeners();
+    }
   }
 }

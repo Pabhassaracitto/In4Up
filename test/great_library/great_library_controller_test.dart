@@ -5,6 +5,7 @@
 // và downloadedIds phản ánh đúng kết quả verify checksum.
 
 import 'dart:convert';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -13,8 +14,11 @@ import 'package:in4up/features/great_library/great_library_controller.dart';
 import 'package:in4up/features/great_library/models/gl_pack_entry.dart';
 import 'package:in4up/features/great_library/models/pack_manifest.dart';
 import 'package:in4up/features/great_library/services/gl_catalog_service.dart';
+import 'package:in4up/features/great_library/services/pack_content.dart';
 import 'package:in4up/features/great_library/services/pack_download_manager.dart';
 import 'package:in4up/features/great_library/services/pack_download_store_memory.dart';
+import 'package:in4up/features/great_library/services/pack_file.dart';
+import 'package:in4up/features/great_library/services/pack_import_service.dart';
 import 'package:in4up/features/great_library/services/pack_storage_backend.dart';
 
 final Uint8List kPayload = Uint8List.fromList(List<int>.filled(128, 7));
@@ -28,6 +32,7 @@ GlPackEntry _entry(
   DateTime? publishedAt,
   bool withStorage = true,
   String? fileSha256,
+  int? fileBytes,
 }) {
   final published = publishedAt ?? DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true);
   return GlPackEntry(
@@ -51,7 +56,7 @@ GlPackEntry _entry(
       tags: const ['test'],
     ),
     fileSha256: fileSha256 ?? kPayloadSha,
-    fileBytes: kPayload.length,
+    fileBytes: fileBytes ?? kPayload.length,
     publishedAt: published,
   );
 }
@@ -80,8 +85,9 @@ class _FakeTransport implements GlCatalogTransport {
 }
 
 class _FakeStorageBackend implements PackStorageBackend {
-  _FakeStorageBackend({this.fail = false});
+  _FakeStorageBackend({this.fail = false, this.payload});
   final bool fail;
+  final Uint8List? payload;
 
   @override
   String get backendId => 'firebase';
@@ -92,7 +98,7 @@ class _FakeStorageBackend implements PackStorageBackend {
       throw const PackStorageException(
           PackStorageErrorCode.network, 'boom', statusCode: 500);
     }
-    return kPayload;
+    return payload ?? kPayload;
   }
 
   @override
@@ -212,4 +218,120 @@ void main() {
     await c.download(c.visibleEntries.single);
     expect(await store.readFinal('p1'), kPayload);
   });
+
+  // ─────────────────────── GLIB-005: import vào Studio ──────────────────────
+
+  test('importDownloaded: pack đã tải → imported + isInstalled', () async {
+    final store = MemoryPackDownloadStore();
+    final installed = MemoryInstalledPackStore();
+    final vocabSink = _RecordingVocabSink();
+    final entry = _entry('p1',
+        fileSha256: kImportPack.fileSha256, fileBytes: kImportPack.bytes.length);
+    final c = GreatLibraryController(
+      catalog: GlCatalogService(
+        transport: _FakeTransport(entries: [entry]),
+        cache: GlCatalogMemoryCache(),
+      ),
+      downloads: PackDownloadManager(
+        backend: _FakeStorageBackend(payload: kImportPack.bytes),
+        store: store,
+        sleeper: (_) async {},
+      ),
+      downloadStore: store,
+      importService: PackImportService(
+        vocabSink: vocabSink,
+        audioSink: _NoopAudioSink(),
+        imageSink: _NoopImageSink(),
+        installedStore: installed,
+      ),
+      installedStore: installed,
+    );
+    await c.load();
+    expect(c.isInstalled('p1'), isFalse);
+    await c.download(c.visibleEntries.single);
+    final result = await c.importDownloaded('p1');
+    expect(result?.status, PackImportStatus.imported);
+    expect(result?.added, 2);
+    expect(c.isInstalled('p1'), isTrue);
+    expect(vocabSink.totalAdded, 2);
+
+    // Cùng version → alreadyInstalled, sink không bị gọi thêm.
+    final again = await c.importDownloaded('p1');
+    expect(again?.status, PackImportStatus.alreadyInstalled);
+    expect(vocabSink.totalAdded, 2);
+  });
+
+  test('hasUpdate: catalog version mới hơn bản đã cài', () async {
+    final installed = MemoryInstalledPackStore({'p1': 2});
+    final base = _entry('p1');
+    final newer = GlPackEntry(
+      manifest: base.manifest.copyWith(version: 3),
+      fileSha256: base.fileSha256,
+      fileBytes: base.fileBytes,
+      publishedAt: base.publishedAt,
+    );
+    final c = GreatLibraryController(
+      catalog: GlCatalogService(
+        transport: _FakeTransport(entries: [base, newer]),
+        cache: GlCatalogMemoryCache(),
+      ),
+      downloads: PackDownloadManager(
+        backend: _FakeStorageBackend(),
+        store: MemoryPackDownloadStore(),
+        sleeper: (_) async {},
+      ),
+      installedStore: installed,
+    );
+    await c.load();
+    // Cùng id 'p1': entry v1 (≤ installed 2) → không update; entry v3 → update.
+    expect(c.hasUpdate(base), isFalse);
+    expect(c.hasUpdate(newer), isTrue);
+    expect(c.isInstalled('p1'), isTrue);
+    expect(c.isInstalled('chua-cai'), isFalse);
+  });
+}
+
+// ─────────────────────── GLIB-005 helpers (top-level) ───────────────────────
+
+/// Pack zip THẬT (2 mục vocab) để controller giải nén khi import.
+final PackBuildResult kImportPack = PackFile.build(
+  manifest: PackManifest(
+    id: 'p1',
+    type: PackType.vocab,
+    title: 'Pack p1',
+    srcLang: 'en',
+    dstLang: 'vi',
+    license: PackLicense.ccBy,
+  ),
+  dataFiles: {
+    'entries.json': utf8.encode(jsonEncode([
+      {'word': 'apple', 'meaning': 'quả táo'},
+      {'word': 'run', 'meaning': 'chạy'},
+    ])),
+  },
+);
+
+class _RecordingVocabSink implements PackVocabSink {
+  int totalAdded = 0;
+  @override
+  Future<PackSinkResult> importVocab(VocabPackPlan plan, PackMediaLookup media,
+      {required bool isUpdate}) async {
+    totalAdded += plan.items.length;
+    return PackSinkResult(added: plan.items.length);
+  }
+}
+
+class _NoopAudioSink implements PackAudioSink {
+  @override
+  Future<PackSinkResult> importAudio(AudioPackPlan plan, PackMediaLookup media,
+          Map<String, Uint8List> dataFiles,
+          {required bool isUpdate}) async =>
+      const PackSinkResult();
+}
+
+class _NoopImageSink implements PackImageSink {
+  @override
+  Future<PackSinkResult> importImages(ImagePackPlan plan, PackMediaLookup media,
+          {required bool isUpdate}) async =>
+      const PackSinkResult();
 }

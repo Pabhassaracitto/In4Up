@@ -30,10 +30,14 @@ import 'my_contributions_screen.dart';
 import 'pack_detail_screen.dart';
 
 class GreatLibraryScreen extends StatefulWidget {
-  const GreatLibraryScreen({super.key, this.controller});
+  const GreatLibraryScreen({super.key, this.controller, this.adminGate});
 
   /// Inject trong test; null → dựng mặc định qua wiring (async).
   final GreatLibraryController? controller;
+
+  /// GLIB-007: gate admin (inject trong test — tránh FirebaseRestAuth/Hive).
+  /// Null → dựng gate thật (Firestore + FirebaseRestAuth).
+  final AdminGate? adminGate;
 
   @override
   State<GreatLibraryScreen> createState() => _GreatLibraryScreenState();
@@ -47,16 +51,20 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
   @override
   void initState() {
     super.initState();
-    // GLIB-007: gate admin — đọc gl_config/admins 1 lần (cache trong phiên).
-    _adminGateFuture = () async {
-      final auth = FirebaseRestAuth();
-      await auth.restoreSession();
-      final uid = auth.currentUser?.uid ?? '';
-      return AdminGate(
-        fetcher: FirestoreAdminGateFetcher(),
-        currentUid: uid,
-      ).isAdmin();
-    }();
+    // GLIB-007: gate admin — inject test hoặc đọc gl_config/admins 1 lần
+    // (cache trong phiên).
+    final injectedGate = widget.adminGate;
+    _adminGateFuture = injectedGate != null
+        ? injectedGate.isAdmin()
+        : () async {
+            final auth = FirebaseRestAuth();
+            await auth.restoreSession();
+            final uid = auth.currentUser?.uid ?? '';
+            return AdminGate(
+              fetcher: FirestoreAdminGateFetcher(),
+              currentUid: uid,
+            ).isAdmin();
+          }();
     final injected = widget.controller;
     if (injected != null) {
       _controller = injected;

@@ -144,6 +144,8 @@ void main() {
     final c = _controller(error: const GlCatalogException('offline'));
     await tester.pumpWidget(_app(c));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Không tải được thư viện'));
+    await tester.pumpAndSettle();
     expect(find.text('Không tải được thư viện'), findsOneWidget);
     expect(find.text('Thử lại'), findsOneWidget);
   });

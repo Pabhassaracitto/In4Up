@@ -108,6 +108,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('gl_wizard_continue_2')));
     await tester.pumpAndSettle();
 
+    if (!submitted || store.all().isEmpty) {
+      final texts = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((w) => (w.data ?? '').replaceAll('\n', ' '))
+          .where((t) => t.trim().isNotEmpty)
+          .toList();
+      assert(false, 'GLIBDBG submitted=$submitted records=${store.all().length} texts=$texts');
+    }
     expect(submitted, isTrue);
     expect(store.all().length, 1);
     expect(store.all().single.status, 'pending');

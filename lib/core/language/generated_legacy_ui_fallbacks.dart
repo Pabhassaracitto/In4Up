@@ -2349,6 +2349,8 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   // PSRC-252 — Piper voice picker
   'Chọn ngôn ngữ trước, sau đó mở ra để chọn giọng. Dung lượng tính theo file model, không phải RAM cần để chạy.': 'Choose a language first, then expand to see voices. Size is the model file size, not the RAM needed to run it.',
   'Nguồn model: HuggingFace rhasspy/piper-voices (k2-fsa bundle trước, HuggingFace sau).': 'Model source: HuggingFace rhasspy/piper-voices (k2-fsa bundle first, HuggingFace second).',
+  // PSRC-260 — ghi chú ngôn ngữ Piper không có giọng bản xứ (sheet tải giọng)
+  'Ngôn ngữ Piper chưa có giọng bản xứ': 'Piper has no native voice for these languages',
   'Piper chưa có giọng bản xứ cho ngôn ngữ này. Dùng Edge TTS/giọng hệ thống, hoặc tự import model tương thích — đừng tải nhầm giọng tiếng khác.': 'Piper has no native voice for this language. Use Edge TTS/a system voice, or import a compatible model yourself — do not download a voice in another language by mistake.',
   'Sri Lanka là quốc gia, không phải tên ngôn ngữ. Hãy chọn cụ thể: Sinhala, Tamil hoặc English.': 'Sri Lanka is a country, not a language. Choose one specifically: Sinhala, Tamil or English.',
   'Sri Lanka — chọn ngôn ngữ cụ thể': 'Sri Lanka — choose a specific language',

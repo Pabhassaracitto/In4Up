@@ -589,4 +589,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "インポートに失敗しました",
   "glUpdateAvailable": "新しいバージョンがあります"
+,
+  "glPreview": "内容をプレビュー",
+  "glPreviewUnavailable": "このパックはプレビューできません",
+  "glListenSample": "試聴"
 }

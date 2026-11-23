@@ -643,4 +643,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "匯入失敗",
   "glUpdateAvailable": "有新版本"
+,
+  "glPreview": "內容預覽",
+  "glPreviewUnavailable": "無法預覽此資源包",
+  "glListenSample": "試聽"
 }

@@ -643,4 +643,8 @@
   "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
   "glImportFailed": "आयात विफल",
   "glUpdateAvailable": "नया संस्करण उपलब्ध"
+,
+  "glPreview": "सामग्री पूर्वावलोकन",
+  "glPreviewUnavailable": "इस पैक का पूर्वावलोकन उपलब्ध नहीं",
+  "glListenSample": "सुनकर देखें"
 }

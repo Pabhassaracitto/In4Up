@@ -145,7 +145,10 @@
     "glImporting",
     "glImportedCount",
     "glImportFailed",
-    "glUpdateAvailable"
+    "glUpdateAvailable",
+    "glPreview",
+    "glPreviewUnavailable",
+    "glListenSample"
   ],
   "keepEnglishByLocale": {
     "hi": [

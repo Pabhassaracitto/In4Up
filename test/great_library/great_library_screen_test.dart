@@ -249,4 +249,20 @@ void main() {
     expect(find.text('Đã nhập 2 mục'), findsOneWidget);
     expect(c.isInstalled('p1'), isTrue);
   });
+
+  testWidgets('GLIB-004b: sau tải → hiện Xem trước nội dung + thẻ từ',
+      (tester) async {
+    final c = _controller(
+        entries: [_entry('p1', title: 'NGSL 1200')], withImport: true);
+    await tester.pumpWidget(_app(c));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('NGSL 1200'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tải về'));
+    await tester.pumpAndSettle();
+    expect(find.text('Xem trước nội dung'), findsOneWidget);
+    // Thẻ từ đầu tiên trong data/entries.json của pack thật.
+    expect(find.text('apple'), findsOneWidget);
+    expect(find.text('quả táo'), findsOneWidget);
+  });
 }

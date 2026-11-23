@@ -9,14 +9,31 @@
 // Import vào Studio (Vườn nhớ / Tab Nghe / flashcard) = GLIB-005 — controller
 // giữ sẵn bytes đã tải trong store để import sau.
 
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import 'models/gl_pack_entry.dart';
 import 'services/gl_catalog_service.dart';
+import 'services/pack_content.dart';
 import 'services/pack_download_manager.dart';
 import 'services/pack_file.dart';
 import 'services/pack_import_service.dart';
 import 'services/pack_storage_backend.dart';
+
+/// GLIB-004b — gói xem trước nội dung pack đã tải (plan + media + data để UI
+/// render: thẻ từ / danh sách track + LRC / lưới ảnh).
+class PackPreview {
+  const PackPreview({
+    required this.plan,
+    required this.media,
+    required this.dataFiles,
+  });
+
+  final PackContentPlan plan;
+  final PackMediaLookup media;
+  final Map<String, Uint8List> dataFiles;
+}
 
 class GreatLibraryController extends ChangeNotifier {
   GreatLibraryController({
@@ -60,6 +77,9 @@ class GreatLibraryController extends ChangeNotifier {
 
   /// GLIB-005 — packId → version đã cài (nạp từ InstalledPackStore lúc load).
   Map<String, int> _installed = <String, int>{};
+
+  /// GLIB-004b — cache preview trong phiên (khỏi giải nén lại mỗi lần mở).
+  final Map<String, PackPreview> _previews = <String, PackPreview>{};
 
   bool get canImport => _importService != null && _downloadStore != null;
 
@@ -125,6 +145,30 @@ class GreatLibraryController extends ChangeNotifier {
     if (result.isSuccess) downloadedIds.add(packId);
     notifyListeners();
     return result;
+  }
+
+  /// GLIB-004b — giải nén pack đã tải để xem trước. Trả null khi chưa tải
+  /// xong / pack lỗi. Kết quả cache trong phiên theo packId.
+  Future<PackPreview?> previewDownloaded(String packId) async {
+    final cached = _previews[packId];
+    if (cached != null) return cached;
+    final store = _downloadStore;
+    if (store == null) return null;
+    final bytes = await store.readFinal(packId);
+    if (bytes == null) return null;
+    try {
+      final contents = PackFile.extract(bytes);
+      final plan = PackContent.parse(contents);
+      final preview = PackPreview(
+        plan: plan,
+        media: PackMediaLookup(contents.mediaFiles),
+        dataFiles: contents.dataFiles,
+      );
+      _previews[packId] = preview;
+      return preview;
+    } on Object {
+      return null; // pack hỏi — UI ẩn khu xem trước
+    }
   }
 
   /// GLIB-005 — nhập pack đã tải vào Studio (route theo loại qua

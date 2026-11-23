@@ -1536,6 +1536,10 @@ Package: `video_player: ^2.8.0` (Flutter official)
     VocabularyProvider fill-empty, Audio→audio_imports+LRC bind, Image→kho
     vocabulary_images) + installed store (prefs) + nút Nhập vào Studio + chip
     Có bản mới. Owner vẫn nợ deploy rules (§4 schema doc).
+  - 2026-11-23 | doing — CI 🟢 run 45226505832 | agent `arena/a04e4405-in4up` |
+    GLIB-004b ✅: preview nội dung theo loại (Vocab 20 thẻ + nghe thử TTS;
+    Audio tracks + LRC; Image grid) + GlCatalogFileCache persist catalog
+    snapshot ra đĩa (offline mở app vẫn có catalog cũ).
   - 2026-11-23 | doing — CI 🟢 run 45114987418 | agent `arena/a04e4405-in4up` |
     GLIB-004 ✅: UI browse/search/lọc/sắp xếp + chi tiết pack + tải với
     progress + entry Home/Quick Actions; i18n 19 key gl* qua ARB ×26 locale

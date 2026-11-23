@@ -25,6 +25,7 @@ import '../features/video/services/video_library_service.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../features/media_tools/screens/media_tools_screen.dart';
+import '../features/great_library/ui/great_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
@@ -848,6 +849,14 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.cloud_download_outlined,
         color: const Color(0xFF4DD0E1),
       ),
+      // GLIB-004 (PLAN-049): Thư Viện Chung I4U — thư viện cộng đồng.
+      'great_library': tools.ToolItem(
+        id: 'great_library',
+        title: l10n.glLibraryTitle,
+        subtitle: l10n.glLibrarySubtitle,
+        icon: Icons.local_library_rounded,
+        color: const Color(0xFFF4C95D),
+      ),
       'speak_mode': tools.ToolItem(
         id: 'speak_mode',
         title: context.uiText('Nói'),
@@ -963,6 +972,7 @@ class _MainShellState extends State<MainShell> {
     final openContent = switch (_currentTab) {
       _PrimaryTab.home => take([
           'shell_ui_settings',
+          'great_library',
           'tipitaka',
           'youtube_downloader',
           'web_reader',
@@ -998,6 +1008,7 @@ class _MainShellState extends State<MainShell> {
       _PrimaryTab.remember => take([
           'word_list',
           'learn_by_heart',
+          'great_library',
           'shell_ui_settings',
         ]),
     };
@@ -1357,6 +1368,12 @@ class _MainShellState extends State<MainShell> {
       case 'dict_packs':
         nav.push(
           MaterialPageRoute(builder: (_) => const DictPackScreen()),
+        );
+        return;
+      // GLIB-004 (PLAN-049): Thư Viện Chung I4U — pack cộng đồng.
+      case 'great_library':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const GreatLibraryScreen()),
         );
         return;
       case 'video_library':

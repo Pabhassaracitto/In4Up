@@ -111,10 +111,13 @@ void main() {
     await tester.pumpAndSettle();
 
     if (!submitted) {
+      final texts = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((w) => w.data ?? '')
+          .where((t) => t.isNotEmpty)
+          .toList();
       // ignore: avoid_print
-      print('GLIBDBG records=${store.all().length}');
-      // ignore: avoid_print
-      print('GLIBDBG textWidgets=${tester.allTextWidgets.map((w) => w.data).toList()}');
+      print('GLIBDBG records=${store.all().length} texts=$texts');
     }
     expect(submitted, isTrue);
     expect(store.all().length, 1);

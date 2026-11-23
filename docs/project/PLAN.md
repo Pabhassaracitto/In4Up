@@ -1529,6 +1529,13 @@ Package: `video_player: ^2.8.0` (Flutter official)
     GLIB-003 ✅ (code): catalog service (TTL cache + offline fallback) +
     transport public (không cần token — D5) + schema/rules doc; owner deploy
     rules theo `docs/great_library_firestore_schema.md` §4.
+  - 2026-11-23 | doing — CI 🟢 run 45182347010 | agent `arena/a04e4405-in4up` |
+    GLIB-005 ✅: PackImportService pack→Studio — schema data/ (vocab entries,
+    audio tracks+LRC, image items) + sinks thuần (route theo loại, chặn import
+    lặp cùng version, update additive giữ SM-2) + sinks production (Vocab→
+    VocabularyProvider fill-empty, Audio→audio_imports+LRC bind, Image→kho
+    vocabulary_images) + installed store (prefs) + nút Nhập vào Studio + chip
+    Có bản mới. Owner vẫn nợ deploy rules (§4 schema doc).
   - 2026-11-23 | doing — CI 🟢 run 45114987418 | agent `arena/a04e4405-in4up` |
     GLIB-004 ✅: UI browse/search/lọc/sắp xếp + chi tiết pack + tải với
     progress + entry Home/Quick Actions; i18n 19 key gl* qua ARB ×26 locale

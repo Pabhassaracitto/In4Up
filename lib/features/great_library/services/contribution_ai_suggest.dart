@@ -9,7 +9,8 @@ import 'dart:convert';
 
 import 'package:in4up_ai/in4up_ai.dart';
 
-import '../../translation/engines/llm_mt_engine.dart' show LlmMtBackend;
+import '../../translation/engines/llm_mt_engine.dart'
+    show LlmMtBackend, OpenAiCompatChatBackend;
 import '../models/pack_manifest.dart';
 import 'pack_contribution_service.dart';
 

@@ -3,6 +3,7 @@
 // GLIB-004 — widget test màn Thư Viện Chung với controller giả:
 // hiển thị danh sách, tìm kiếm, empty state, lỗi + retry, điều hướng detail.
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -13,13 +14,59 @@ import 'package:in4up/features/great_library/great_library_controller.dart';
 import 'package:in4up/features/great_library/models/gl_pack_entry.dart';
 import 'package:in4up/features/great_library/models/pack_manifest.dart';
 import 'package:in4up/features/great_library/services/gl_catalog_service.dart';
+import 'package:in4up/features/great_library/services/pack_content.dart';
 import 'package:in4up/features/great_library/services/pack_download_manager.dart';
 import 'package:in4up/features/great_library/services/pack_download_store_memory.dart';
+import 'package:in4up/features/great_library/services/pack_file.dart';
+import 'package:in4up/features/great_library/services/pack_import_service.dart';
 import 'package:in4up/features/great_library/services/pack_storage_backend.dart';
 import 'package:in4up/features/great_library/ui/great_library_screen.dart';
 
-final Uint8List kPayload = Uint8List.fromList(List<int>.filled(64, 3));
-final String kPayloadSha = sha256.convert(kPayload).toString();
+/// Pack thật (zip) để luồng import giải nén được — build 1 lần cho cả file test.
+final PackBuildResult kRealPack = PackFile.build(
+  manifest: PackManifest(
+    id: 'p1',
+    type: PackType.vocab,
+    title: 'NGSL 1200',
+    srcLang: 'en',
+    dstLang: 'vi',
+    level: 'A2',
+    author: const PackAuthor(uid: 'u1', displayName: 'Tester'),
+    license: PackLicense.ccBy,
+    storage: const PackStorageRef(backend: 'firebase', path: 'packs/p1.i4upack'),
+  ),
+  dataFiles: {
+    'entries.json': utf8.encode(jsonEncode([
+      {'word': 'apple', 'meaning': 'quả táo'},
+      {'word': 'run', 'meaning': 'chạy'},
+    ])),
+  },
+);
+
+final Uint8List kPayload = kRealPack.bytes;
+final String kPayloadSha = kRealPack.fileSha256;
+
+class _CountingVocabSink implements PackVocabSink {
+  @override
+  Future<PackSinkResult> importVocab(VocabPackPlan plan, PackMediaLookup media,
+          {required bool isUpdate}) async =>
+      PackSinkResult(added: plan.items.length);
+}
+
+class _NoopAudioSink implements PackAudioSink {
+  @override
+  Future<PackSinkResult> importAudio(AudioPackPlan plan, PackMediaLookup media,
+          Map<String, Uint8List> dataFiles,
+          {required bool isUpdate}) async =>
+      const PackSinkResult();
+}
+
+class _NoopImageSink implements PackImageSink {
+  @override
+  Future<PackSinkResult> importImages(ImagePackPlan plan, PackMediaLookup media,
+          {required bool isUpdate}) async =>
+      const PackSinkResult();
+}
 
 GlPackEntry _entry(String id,
     {PackType type = PackType.vocab, String title = 'Pack'}) {
@@ -83,8 +130,11 @@ class _FakeStorageBackend implements PackStorageBackend {
 }
 
 GreatLibraryController _controller(
-    {List<GlPackEntry> entries = const [], Object? error}) {
+    {List<GlPackEntry> entries = const [],
+    Object? error,
+    bool withImport = false}) {
   final store = MemoryPackDownloadStore();
+  final installed = MemoryInstalledPackStore();
   return GreatLibraryController(
     catalog: GlCatalogService(
       transport: _FakeTransport(entries: entries, error: error),
@@ -95,6 +145,16 @@ GreatLibraryController _controller(
       store: store,
       sleeper: (_) async {},
     ),
+    downloadStore: store,
+    importService: withImport
+        ? PackImportService(
+            vocabSink: _CountingVocabSink(),
+            audioSink: _NoopAudioSink(),
+            imageSink: _NoopImageSink(),
+            installedStore: installed,
+          )
+        : null,
+    installedStore: installed,
   );
 }
 
@@ -171,5 +231,22 @@ void main() {
     await tester.tap(find.text('Tải về'));
     await tester.pumpAndSettle();
     expect(find.text('Đã tải về máy'), findsOneWidget);
+  });
+
+  testWidgets('GLIB-005: sau tải → Nhập vào Studio → Đã nhập 2 mục',
+      (tester) async {
+    final c = _controller(
+        entries: [_entry('p1', title: 'NGSL 1200')], withImport: true);
+    await tester.pumpWidget(_app(c));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('NGSL 1200'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tải về'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nhập vào Studio'), findsOneWidget);
+    await tester.tap(find.text('Nhập vào Studio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đã nhập 2 mục'), findsOneWidget);
+    expect(c.isInstalled('p1'), isTrue);
   });
 }

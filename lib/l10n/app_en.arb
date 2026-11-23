@@ -676,4 +676,11 @@
   "glLicenseLabel": "License",
   "glImportNextUpdate": "Import into Studio comes in the next update",
   "glDownloadFailed": "Download failed"
+,
+  "glImport": "Import into Studio",
+  "glImporting": "Importing…",
+  "glImportedCount": "Imported {count} items",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "Import failed",
+  "glUpdateAvailable": "New version available"
 }

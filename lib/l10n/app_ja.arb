@@ -588,4 +588,11 @@
   "glLicenseLabel": "ライセンス",
   "glImportNextUpdate": "Studioへのインポートは次のアップデートで",
   "glDownloadFailed": "ダウンロードに失敗しました"
+,
+  "glImport": "Studioへインポート",
+  "glImporting": "インポート中…",
+  "glImportedCount": "{count} 件をインポートしました",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "インポートに失敗しました",
+  "glUpdateAvailable": "新しいバージョンがあります"
 }

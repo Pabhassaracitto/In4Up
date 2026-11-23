@@ -202,6 +202,7 @@ class _ContributeWizardScreenState extends State<ContributeWizardScreen> {
           child: Row(
             children: [
               FilledButton(
+                key: ValueKey('gl_wizard_continue_$_step'),
                 onPressed: details.onStepContinue,
                 child: Text(_step == 2
                     ? l10n.glContributeSubmit

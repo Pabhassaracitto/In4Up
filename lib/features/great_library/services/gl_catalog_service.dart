@@ -84,7 +84,9 @@ class GlCatalogQuery {
       (text == null || text!.trim().isEmpty);
 
   List<GlPackEntry> apply(List<GlPackEntry> entries) {
-    var result = entries;
+    // Copy ra list mutable: `_entries` trong controller/cache có thể là
+    // unmodifiable (toList(growable:false)) — sort in-place sẽ ném.
+    var result = entries.toList();
     final t = type;
     if (t != null) {
       result = result.where((e) => e.manifest.type == t).toList();

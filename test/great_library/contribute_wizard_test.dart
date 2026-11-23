@@ -1,0 +1,100 @@
+// test/great_library/contribute_wizard_test.dart
+//
+// GLIB-006 — widget test wizard: 3 bước, nguồn thủ công thêm từ, cam kết
+// bản quyền bắt buộc, gửi thành công → snackbar + pop.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/l10n/app_localizations.dart';
+import 'package:in4up/features/great_library/services/contribution_store.dart';
+import 'package:in4up/features/great_library/services/pack_contribution_service.dart';
+import 'package:in4up/features/great_library/services/pack_storage_backend.dart';
+import 'package:in4up/features/great_library/ui/contribute_wizard_screen.dart';
+import 'dart:typed_data';
+
+import 'package:in4up/features/great_library/models/pack_manifest.dart';
+
+class _FakeStorage implements PackStorageBackend {
+  @override
+  String get backendId => 'firebase';
+  @override
+  Future<Uint8List> download(PackStorageRef ref, {int? start, int? end}) =>
+      throw UnimplementedError();
+  @override
+  Future<int> contentLength(PackStorageRef ref) => throw UnimplementedError();
+  @override
+  Future<void> upload(PackStorageRef ref, List<int> bytes,
+      {void Function(int, int)? onProgress}) async {}
+  @override
+  Uri publicUrl(PackStorageRef ref) => Uri.parse('https://x/${ref.path}');
+}
+
+class _FakeTransport implements ContributionTransport {
+  @override
+  Future<String> submitContribution({
+    required String packId,
+    required Map<String, dynamic> manifestJson,
+    required String storageBackend,
+    required String storagePath,
+    required int zipBytes,
+    required String sha256,
+  }) async =>
+      'contrib_$packId';
+}
+
+PackContributionService _service(MemoryContributionStore store) =>
+    PackContributionService(
+      store: store,
+      storage: _FakeStorage(),
+      transport: _FakeTransport(),
+      authorUid: 'u1',
+      authorName: 'Tester',
+    );
+
+void main() {
+  testWidgets('wizard 3 bước: soạn tay → metadata → cam kết → gửi thành công',
+      (tester) async {
+    final store = MemoryContributionStore();
+    var submitted = false;
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('vi'),
+      home: ContributeWizardScreen(
+        service: _service(store),
+        onSubmitted: () => submitted = true,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Bước 1: chọn "Soạn mới thủ công" + thêm 1 từ.
+    await tester.tap(find.text('Soạn mới thủ công'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Từ').first, 'apple');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Nghĩa').first, 'quả táo');
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('1 mục'), findsOneWidget);
+
+    await tester.tap(find.text('Tiếp'));
+    await tester.pumpAndSettle();
+
+    // Bước 2: metadata — nhập tên.
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Tên pack').first, 'Pack thử');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tiếp'));
+    await tester.pumpAndSettle();
+
+    // Bước 3: chưa tick cam kết → nút gửi disabled.
+    await tester.tap(find.text('Tôi cam kết có quyền chia sẻ nội dung này'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gửi duyệt'));
+    await tester.pumpAndSettle();
+
+    expect(submitted, isTrue);
+    expect(store.all().single.status, 'pending');
+  });
+}

@@ -121,7 +121,26 @@
     "sound_9",
     "ttsEngineVieneuName",
     "youglish",
-    "youtube"
+    "youtube",
+    "glLibraryTitle",
+    "glLibrarySubtitle",
+    "glSearchHint",
+    "glFilterAll",
+    "glFilterVocab",
+    "glFilterAudio",
+    "glFilterImage",
+    "glSortNewest",
+    "glSortMostDownloaded",
+    "glSortTopRated",
+    "glEmpty",
+    "glErrorLoading",
+    "glRetry",
+    "glDownload",
+    "glDownloading",
+    "glDownloaded",
+    "glLicenseLabel",
+    "glImportNextUpdate",
+    "glDownloadFailed"
   ],
   "keepEnglishByLocale": {
     "hi": [

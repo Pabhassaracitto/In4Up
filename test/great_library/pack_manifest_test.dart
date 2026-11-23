@@ -90,6 +90,11 @@ void main() {
     });
 
     test('title rỗng / quá dài', () {
+      // DEBUG CI: in độ dài + điểm mã để truy nguyên qua annotation (log blob bị chặn).
+      final aTitle = 'a' * (kMaxPackTitleLength + 1);
+      print('DEBUG len=${aTitle.length} max=$kMaxPackTitleLength '
+          'first=${aTitle.codeUnitAt(0)} last=${aTitle.codeUnitAt(aTitle.length - 1)}');
+
       final json = validManifest().toJson()..['title'] = '  ';
       final shortErrors = PackManifest.fromJson(json).validate();
       expect(shortErrors, contains('title-empty'),

@@ -17,6 +17,7 @@ import '../../../providers/vocabulary_provider.dart';
 import '../models/pack_manifest.dart';
 import '../services/contribution_ai_suggest.dart';
 import '../services/pack_contribution_service.dart';
+import '../services/pack_file.dart';
 
 class ContributeWizardScreen extends StatefulWidget {
   const ContributeWizardScreen({
@@ -142,34 +143,42 @@ class _ContributeWizardScreenState extends State<ContributeWizardScreen> {
       level: _level,
       license: _license,
     );
+    // Build pack ĐỒNG BỘ trước để lỗi format/quota hiện ngay trên UI.
+    final String packId;
+    final PackBuildResult pack;
     try {
-      final result = await widget.service.buildAndSubmitVocab(
+      packId = PackContributionService.newPackId(
+          meta.title, DateTime.now());
+      pack = widget.service.buildVocabPack(
+        packId: packId,
         meta: meta,
         items: _collectItems(context),
       );
-      if (!mounted) return;
-      if (result.status == ContributionStatus.submitted) {
-        widget.onSubmitted?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.glContributeSuccess)),
-        );
-        Navigator.of(context).pop();
-      } else {
-        setState(() {
-          _submitting = false;
-          _submitError = result.errorCode ?? l10n.glContributeFailed;
-        });
-      }
     } on ContributionException catch (e) {
-      if (!mounted) return;
       setState(() {
         _submitting = false;
         _submitError = switch (e.code) {
           'quota-exceeded' => l10n.glQuotaExceeded,
           'no-valid-items' => l10n.glNoValidItems,
           'payload-over-quota' => l10n.glPackTooLarge,
-          _ => '${l10n.glContributeFailed} (${e.code})',
+          _ => '${l10n.glContributeFailed} (${e.code} ${e.detail})',
         };
+      });
+      return;
+    }
+    final result = await widget.service
+        .submit(pack: pack, title: meta.title);
+    if (!mounted) return;
+    if (result.status == ContributionStatus.submitted) {
+      widget.onSubmitted?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.glContributeSuccess)),
+      );
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _submitting = false;
+        _submitError = result.errorCode ?? l10n.glContributeFailed;
       });
     }
   }

@@ -3,7 +3,8 @@
 // GLIB-004 — Thư Viện Chung I4U (PLAN-049).
 // Chi tiết pack: metadata đầy đủ (tác giả, trình độ, ngôn ngữ, giấy phép,
 // version, dung lượng, lượt tải) + nút Tải về với progress + trạng thái đã tải.
-// P0: sau khi tải xong hiện ghi chú — nhập vào Studio = GLIB-005.
+// GLIB-005: sau khi tải xong → nút "Nhập vào Studio" (route theo loại pack qua
+// PackImportService; web stub tắt → hiện ghi chú).
 
 import 'package:flutter/material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
@@ -94,7 +95,10 @@ class PackDetailScreen extends StatelessWidget {
 
   Widget _buildDownloadArea(
       BuildContext context, PackDownloadProgress? progress, bool downloaded) {
+    final l10n = AppLocalizations.of(context)!;
     if (downloaded) {
+      final importing = controller.importingIds.contains(entry.packId);
+      final result = controller.importResults[entry.packId];
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -102,11 +106,39 @@ class PackDetailScreen extends StatelessWidget {
             children: [
               const Icon(Icons.check_circle_rounded, color: Colors.green),
               const SizedBox(width: 8),
-              Text(AppLocalizations.of(context)!.glDownloaded),
+              Text(l10n.glDownloaded),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(AppLocalizations.of(context)!.glImportNextUpdate),
+          if (controller.hasUpdate(entry)) ...[
+            const SizedBox(height: 8),
+            Chip(
+              avatar: const Icon(Icons.system_update_alt_rounded, size: 18),
+              label: Text(l10n.glUpdateAvailable),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+          const SizedBox(height: 12),
+          // GLIB-005: nhập pack vào Studio (vocab/audio/ảnh). Web stub tắt.
+          if (controller.canImport) ...[
+            FilledButton.icon(
+              onPressed: importing
+                  ? null
+                  : () => controller.importDownloaded(entry.packId),
+              icon: const Icon(Icons.input_rounded),
+              label: Text(importing ? l10n.glImporting : l10n.glImport),
+            ),
+            if (result != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                result.isSuccess
+                    ? l10n.glImportedCount(result.affected)
+                    : l10n.glImportFailed,
+              ),
+            ],
+          ] else ...[
+            const SizedBox(height: 8),
+            Text(l10n.glImportNextUpdate),
+          ],
         ],
       );
     }
@@ -120,7 +152,7 @@ class PackDetailScreen extends StatelessWidget {
         children: [
           LinearProgressIndicator(value: progress.fraction),
           const SizedBox(height: 8),
-          Text(AppLocalizations.of(context)!.glDownloading),
+          Text(l10n.glDownloading),
         ],
       );
     }
@@ -131,12 +163,12 @@ class PackDetailScreen extends StatelessWidget {
         FilledButton.icon(
           onPressed: canDownload ? () => controller.download(entry) : null,
           icon: const Icon(Icons.download_rounded),
-          label: Text(AppLocalizations.of(context)!.glDownload),
+          label: Text(l10n.glDownload),
         ),
         if (progress != null && progress.state == PackDownloadState.failed)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(AppLocalizations.of(context)!.glDownloadFailed),
+            child: Text(l10n.glDownloadFailed),
           ),
       ],
     );

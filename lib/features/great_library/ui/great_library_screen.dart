@@ -9,7 +9,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 
+import '../../../providers/vocabulary_provider.dart';
 import '../great_library_controller.dart';
 import '../great_library_wiring.dart';
 import '../models/gl_pack_entry.dart';
@@ -38,7 +40,10 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
       _controller = injected;
       _controller!.load();
     } else {
-      createGreatLibraryController().then((controller) {
+      // Truyền provider app-wide để import vocab ghi vào đúng instance (GLIB-005).
+      createGreatLibraryController(
+              vocabulary: context.read<VocabularyProvider>())
+          .then((controller) {
         if (!mounted) return;
         setState(() => _controller = controller);
         controller.load();
@@ -225,7 +230,9 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
   Widget _buildPackCard(BuildContext context,
       GreatLibraryController controller, GlPackEntry entry) {
     final manifest = entry.manifest;
-    final downloaded = controller.downloadedIds.contains(entry.packId);
+    final downloaded = controller.downloadedIds.contains(entry.packId) ||
+        controller.isInstalled(entry.packId);
+    final hasUpdate = controller.hasUpdate(entry);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ListTile(
@@ -239,9 +246,16 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: downloaded
-            ? const Icon(Icons.check_circle_rounded, color: Colors.green)
-            : const Icon(Icons.download_rounded),
+        trailing: hasUpdate
+            ? Tooltip(
+                message:
+                    AppLocalizations.of(context)!.glUpdateAvailable,
+                child: const Icon(Icons.system_update_alt_rounded,
+                    color: Colors.amber),
+              )
+            : downloaded
+                ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                : const Icon(Icons.download_rounded),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => PackDetailScreen(

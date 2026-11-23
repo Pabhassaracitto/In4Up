@@ -636,4 +636,11 @@
   "glLicenseLabel": "බලපත්‍රය",
   "glImportNextUpdate": "Studio එකට ආයාත කිරීම මීළඟ යාවත්කාලීනයෙන් එයි",
   "glDownloadFailed": "බාගැනීම අසාර්ථකයි"
+,
+  "glImport": "Studio වෙත ආයාත කරන්න",
+  "glImporting": "ආයාත වෙමින්…",
+  "glImportedCount": "අයිතම {count} ආයාත කළා",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "ආයාතය අසාර්ථකයි",
+  "glUpdateAvailable": "නව අනුවාදයක් තිබේ"
 }

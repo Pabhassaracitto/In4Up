@@ -636,4 +636,11 @@
   "glLicenseLabel": "授權條款",
   "glImportNextUpdate": "匯入 Studio 將於下個版本提供",
   "glDownloadFailed": "下載失敗"
+,
+  "glImport": "匯入 Studio",
+  "glImporting": "匯入中…",
+  "glImportedCount": "已匯入 {count} 項",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "匯入失敗",
+  "glUpdateAvailable": "有新版本"
 }

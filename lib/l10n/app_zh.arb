@@ -636,4 +636,11 @@
   "glLicenseLabel": "许可证",
   "glImportNextUpdate": "导入工作室功能将在下个版本提供",
   "glDownloadFailed": "下载失败"
+,
+  "glImport": "导入到工作室",
+  "glImporting": "导入中…",
+  "glImportedCount": "已导入 {count} 项",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "导入失败",
+  "glUpdateAvailable": "有新版本"
 }

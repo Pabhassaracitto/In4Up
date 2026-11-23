@@ -670,4 +670,11 @@
   "glLicenseLabel": "Giấy phép",
   "glImportNextUpdate": "Nhập vào Studio sẽ có ở bản kế tiếp",
   "glDownloadFailed": "Tải pack thất bại"
+,
+  "glImport": "Nhập vào Studio",
+  "glImporting": "Đang nhập…",
+  "glImportedCount": "Đã nhập {count} mục",
+  "@glImportedCount": {"placeholders": {"count": {"type": "int"}}},
+  "glImportFailed": "Nhập thất bại",
+  "glUpdateAvailable": "Có bản mới"
 }

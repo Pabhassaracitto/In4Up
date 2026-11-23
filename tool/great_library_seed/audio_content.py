@@ -12,32 +12,10 @@ lúc soạn trên máy chủ (xem PHAP_THOAI_NOTES.md + README).
 
 from __future__ import annotations
 
-import math
-import struct
-import wave
-import io
-
 from seed_spec import PackSpec, slugify
+from build_seed_packs import _tone_wav
 
 _STORAGE = 'gs://in4up-seed/great_library'
-
-
-def _tone_wav(freq: float, seconds: float = 4.0, rate: int = 8000) -> bytes:
-    """WAV tone nhỏ (8kHz mono 16-bit) — placeholder audio rõ ràng."""
-    n = int(seconds * rate)
-    buf = io.BytesIO()
-    with wave.open(buf, 'wb') as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(rate)
-        frames = bytearray()
-        for i in range(n):
-            # Fade in/out để không "click".
-            env = min(1.0, i / (rate * 0.3), (n - i) / (rate * 0.5))
-            sample = int(12000 * env * math.sin(2 * math.pi * freq * i / rate))
-            frames += struct.pack('<h', sample)
-        w.writeframes(bytes(frames))
-    return buf.getvalue()
 
 
 def _lrc(lines: list[tuple[int, str]], title: str) -> str:

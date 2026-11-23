@@ -6,12 +6,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:in4up/providers/vocabulary_provider.dart';
 import 'package:in4up/features/great_library/services/contribution_store.dart';
 import 'package:in4up/features/great_library/services/pack_contribution_service.dart';
 import 'package:in4up/features/great_library/services/pack_storage_backend.dart';
 import 'package:in4up/features/great_library/ui/contribute_wizard_screen.dart';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:hive/hive.dart';
 import 'package:in4up/features/great_library/models/pack_manifest.dart';
 
 class _FakeStorage implements PackStorageBackend {
@@ -52,6 +56,15 @@ PackContributionService _service(MemoryContributionStore store) =>
     );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory directory;
+
+  setUpAll(() async {
+    directory = await Directory.systemTemp.createTemp('in4up_glib006_test');
+    Hive.init(directory.path);
+    await VocabularyProvider.ensureBoxOpen();
+  });
+
   testWidgets('wizard 3 bước: soạn tay → metadata → cam kết → gửi thành công',
       (tester) async {
     final store = MemoryContributionStore();
@@ -60,9 +73,12 @@ void main() {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('vi'),
-      home: ContributeWizardScreen(
-        service: _service(store),
-        onSubmitted: () => submitted = true,
+      home: ChangeNotifierProvider<VocabularyProvider>(
+        create: (_) => VocabularyProvider(),
+        child: ContributeWizardScreen(
+          service: _service(store),
+          onSubmitted: () => submitted = true,
+        ),
       ),
     ));
     await tester.pumpAndSettle();

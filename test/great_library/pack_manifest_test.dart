@@ -94,9 +94,8 @@ void main() {
       expect(PackManifest.fromJson(json).validate(), contains('title-empty'));
       final longJson = validManifest().toJson()
         ..['title'] = 'a' * (kMaxPackTitleLength + 1);
-      final errors = PackManifest.fromJson(longJson).validate();
-      print('TITLE-TEST errors=$errors'); // CI chặn blob log — đọc qua annotation
-      expect(errors, contains('title-too-long'));
+      expect(PackManifest.fromJson(longJson).validate(),
+          contains('title-too-long'));
     });
 
     test('version < 1 và size âm bị bắt', () {

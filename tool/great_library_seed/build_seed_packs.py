@@ -12,6 +12,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from seed_spec import PackSpec, slugify
 
+import math
+import struct
+import wave
+import io as _io
+
+
+def _tone_wav(freq: float, seconds: float = 4.0, rate: int = 8000) -> bytes:
+    """WAV tone nhỏ (8kHz mono 16-bit) — placeholder audio rõ ràng cho
+    seed v1; TTS bulk / LibriVox thật thay lúc soạn trên máy chủ."""
+    n = int(seconds * rate)
+    buf = _io.BytesIO()
+    with wave.open(buf, 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        frames = bytearray()
+        for i in range(n):
+            env = min(1.0, i / (rate * 0.3), (n - i) / (rate * 0.5))
+            sample = int(12000 * env * math.sin(2 * math.pi * freq * i / rate))
+            frames += struct.pack('<h', sample)
+        w.writeframes(bytes(frames))
+    return buf.getvalue()
+
+
+
 SCHEMA_NOTE = (
     'data/ schema khớp GLIB-005 pack_content.dart v1 — đừng đổi mà không '
     'bump PackContent.currentDataSchemaVersion.'
@@ -109,14 +134,23 @@ def _solid_png(w: int, h: int, hue: int) -> bytes:
 
 
 def build_vocab_pack(spec: PackSpec, entries: list[dict]) -> dict[str, bytes]:
-    """files: manifest.json + data/entries.json. Audio/image per-word tham
-    chiếu media/ (TTS bulk chạy sau — pipeline app, GLIB-008)."""
+    """files: manifest.json + data/entries.json + media/<word>.mp3.
+
+    GLIB-005 parser bắt buộc mọi media ref tồn tại trong zip → v1 ship tone
+    WAV placeholder cho mỗi từ (TTS bulk thật chạy lúc soạn trên máy chủ, ghi
+    đè cùng tên file)."""
     files: dict[str, bytes] = {}
     data = {'schema': 'vocab-v1', 'entries': entries}
     files['data/entries.json'] = json.dumps(
         data, ensure_ascii=False, indent=1
     ).encode()
     payload_size = len(files['data/entries.json'])
+    for i, e in enumerate(entries):
+        ref = e.get('audio')
+        if ref:
+            blob = _tone_wav(330.0 + (i % 24) * 12.0, seconds=1.2)
+            files[f'media/{ref}'] = blob
+            payload_size += len(blob)
     files['manifest.json'] = json.dumps(
         build_manifest(spec, len(entries), payload_size), ensure_ascii=False,
         indent=1,
@@ -247,16 +281,14 @@ def validate_pack(path: Path) -> list[str]:
                 for req in DATA_REQUIRED[ptype]:
                     if not str(it.get(req, '')).strip():
                         errors.append(f'{df}[{i}]: {req} trống')
-                # media refs phải tồn tại trong zip — TRỪ vocab.audio: file
-                # TTS bulk sinh lúc soạn trên máy chủ (GLIB-008, README),
-                # nên chỉ cảnh báo, không fail.
+                # Mọi media ref PHẢI tồn tại trong zip — khớp chặt
+                # PackContent.parse (_requireMedia ném FormatException).
+                # VocabPack v1 buộc ship media/<word>.mp3 placeholder (tone
+                # WAV) vì seed pipeline chưa chạy TTS bulk; thay thật lúc soạn.
                 for ref_key in ('audio', 'image', 'file'):
                     ref = it.get(ref_key)
                     if ref and f'media/{ref}' not in names:
-                        if ptype == 'vocab' and ref_key == 'audio':
-                            pass  # TTS pending — seed v1 tham chiếu trước
-                        else:
-                            errors.append(f'{df}[{i}]: media/{ref} missing')
+                        errors.append(f'{df}[{i}]: media/{ref} missing')
             # entry vocab không nên bắt đầu bằng cụm thừa "CỘT V1 — " nếu
             # dùng lại bảng bất quy tắc (regex guard).
             if ptype == 'vocab':

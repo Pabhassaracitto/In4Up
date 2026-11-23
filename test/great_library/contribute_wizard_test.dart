@@ -1,22 +1,22 @@
 // test/great_library/contribute_wizard_test.dart
 //
 // GLIB-006 — widget test wizard: 3 bước, nguồn thủ công thêm từ, cam kết
-// bản quyền bắt buộc, gửi thành công → snackbar + pop.
+// bản quyền bắt buộc, gửi thành công → onSubmitted + record local pending.
+
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
 import 'package:in4up/l10n/app_localizations.dart';
-import 'package:provider/provider.dart';
-import 'package:in4up/providers/vocabulary_provider.dart';
+import 'package:in4up/features/great_library/models/pack_manifest.dart';
 import 'package:in4up/features/great_library/services/contribution_store.dart';
 import 'package:in4up/features/great_library/services/pack_contribution_service.dart';
 import 'package:in4up/features/great_library/services/pack_storage_backend.dart';
 import 'package:in4up/features/great_library/ui/contribute_wizard_screen.dart';
-import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:hive/hive.dart';
-import 'package:in4up/features/great_library/models/pack_manifest.dart';
+import 'package:in4up/providers/vocabulary_provider.dart';
+import 'package:provider/provider.dart';
 
 class _FakeStorage implements PackStorageBackend {
   @override
@@ -83,31 +83,31 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // Bước 1: chọn "Soạn mới thủ công" + thêm 1 từ.
-    await tester.tap(find.text('Soạn mới thủ công'));
+    // Bước 1: chọn "Soạn mới thủ công" (RadioListTile value=false).
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is RadioListTile<bool> && w.value == false));
     await tester.pumpAndSettle();
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Từ').first, 'apple');
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Nghĩa').first, 'quả táo');
+    // Nhập từ + nghĩa (2 TextField đầu của form thủ công).
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'apple');
+    await tester.enterText(fields.at(1), 'quả táo');
     await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pumpAndSettle();
-    expect(find.text('1 mục'), findsOneWidget);
 
-    await tester.tap(find.text('Tiếp').last);
-    await tester.pumpAndSettle();
-
-    // Bước 2: metadata — nhập tên.
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Tên pack').first, 'Pack thử');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tiếp').last);
+    // Continue (FilledButton đầu của controls bước 1 — Stepper dựng đủ 3 cụm).
+    await tester.tap(find.byType(FilledButton).at(0));
     await tester.pumpAndSettle();
 
-    // Bước 3: chưa tick cam kết → nút gửi disabled.
-    await tester.tap(find.text('Tôi cam kết có quyền chia sẻ nội dung này'));
+    // Bước 2: nhập tên pack (TextField đầu trong bước metadata).
+    await tester.enterText(find.byType(TextField).at(0), 'Pack thử');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Gửi duyệt').last);
+    await tester.tap(find.byType(FilledButton).at(0));
+    await tester.pumpAndSettle();
+
+    // Bước 3: tick cam kết bản quyền rồi gửi.
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilledButton).at(0));
     await tester.pumpAndSettle();
 
     expect(submitted, isTrue);

@@ -139,13 +139,15 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
             )),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _filterChip(context, controller, null),
               _filterChip(context, controller, PackType.vocab),
               _filterChip(context, controller, PackType.audio),
               _filterChip(context, controller, PackType.image),
-              const Spacer(),
               PopupMenuButton<GlPackSort>(
                 icon: const Icon(Icons.sort_rounded),
                 initialValue: query.sort,
@@ -183,24 +185,21 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
   Widget _filterChip(BuildContext context, GreatLibraryController controller,
       PackType? type) {
     final selected = controller.query.type == type;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        label: Text(_typeLabel(context, type)),
-        selected: selected,
-        onSelected: (_) {
-          final query = controller.query;
-          controller.setQuery(GlCatalogQuery(
-            type: type,
-            srcLang: query.srcLang,
-            dstLang: query.dstLang,
-            level: query.level,
-            tag: query.tag,
-            text: query.text,
-            sort: query.sort,
-          ));
-        },
-      ),
+    return ChoiceChip(
+      label: Text(_typeLabel(context, type)),
+      selected: selected,
+      onSelected: (_) {
+        final query = controller.query;
+        controller.setQuery(GlCatalogQuery(
+          type: type,
+          srcLang: query.srcLang,
+          dstLang: query.dstLang,
+          level: query.level,
+          tag: query.tag,
+          text: query.text,
+          sort: query.sort,
+        ));
+      },
     );
   }
 

@@ -6547,6 +6547,14 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     "zh_TW": "長檔案轉寫更快，介面不卡",
     "si": "දිගු ගොනු සඳහා වේගවත් පෙළ, UI අවහිර නොවේ",
   },
+  // PSRC-260 — tiêu đề ghi chú trong sheet tải giọng Piper.
+  "Ngôn ngữ Piper chưa có giọng bản xứ": {
+    "en": "Piper has no native voice for these languages",
+    "hi": "इन भाषाओं के लिए Piper का मूल स्वर नहीं है",
+    "zh": "Piper 暂无这些语言的母语语音",
+    "zh_TW": "Piper 暫無這些語言的母語語音",
+    "si": "මෙම භාෂා සඳහා Piper ස්වදේශීය හඬක් නැත",
+  },
   "Piper TTS — đọc chữ offline": {
     "en": "Piper TTS — offline reading voice",
     "hi": "Piper TTS — ऑफ़लाइन पढ़ने की आवाज़",

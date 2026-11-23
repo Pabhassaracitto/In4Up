@@ -110,7 +110,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('gl_wizard_continue_2')));
     await tester.pumpAndSettle();
 
-    expect(submitted, isTrue, reason: 'records=${store.all().length}');
+    // ignore: avoid_print
+    print('GLIBDBG records=${store.all().length} submitted=$submitted '
+        'textFields=${find.byType(TextField).evaluate().length} '
+        'errVisible=${find.byType(LinearProgressIndicator).evaluate().length}');
+    expect(submitted, isTrue);
     expect(store.all().length, 1);
     expect(store.all().single.status, 'pending');
   });

@@ -72,6 +72,9 @@ class GreatLibraryController extends ChangeNotifier {
     if (storage == null || storage.backend.isEmpty) {
       final result = PackDownloadResult.failed(
           PackStorageErrorCode.invalidRef, 'pack thiếu storage ref');
+      downloadStates[packId] = const PackDownloadProgress(
+          state: PackDownloadState.failed, receivedBytes: 0, totalBytes: 0);
+      notifyListeners();
       return result;
     }
     final result = await _downloads.downloadPack(

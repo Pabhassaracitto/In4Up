@@ -90,20 +90,13 @@ void main() {
     });
 
     test('title rỗng / quá dài', () {
-      // CI chặn blob log → in errors thẳng ra stdout để annotation gom được.
       final json = validManifest().toJson()..['title'] = '  ';
-      final shortErrors = PackManifest.fromJson(json).validate();
-      print('DEBUG short title: parsed="${PackManifest.fromJson(json).title}" '
-          'errors=$shortErrors');
-      expect(shortErrors, contains('title-empty'));
+      expect(PackManifest.fromJson(json).validate(), contains('title-empty'));
       final longJson = validManifest().toJson()
         ..['title'] = 'a' * (kMaxPackTitleLength + 1);
-      final parsed = PackManifest.fromJson(longJson);
-      final longErrors = parsed.validate();
-      print('DEBUG long title: parsed.len=${parsed.title.length} '
-          'max=$kMaxPackTitleLength errors=$longErrors');
-      expect(longErrors, contains('title-too-long'));
-      print('DEBUG reached end of title test');
+      final errors = PackManifest.fromJson(longJson).validate();
+      print('TITLE-TEST errors=$errors'); // CI chặn blob log — đọc qua annotation
+      expect(errors, contains('title-too-long'));
     });
 
     test('version < 1 và size âm bị bắt', () {

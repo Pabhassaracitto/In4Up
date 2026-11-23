@@ -202,7 +202,9 @@ class _ContributeWizardScreenState extends State<ContributeWizardScreen> {
           child: Row(
             children: [
               FilledButton(
-                key: ValueKey('gl_wizard_continue_$_step'),
+                // Key theo BƯỚC của controls (không phải currentStep) —
+                // Stepper dựng đủ 3 cụm nên key phải khác nhau mỗi cụm.
+                key: ValueKey('gl_wizard_continue_${details.stepIndex}'),
                 onPressed: details.onStepContinue,
                 child: Text(_step == 2
                     ? l10n.glContributeSubmit

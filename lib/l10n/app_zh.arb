@@ -685,4 +685,15 @@
   "glStatusPending": "待审核",
   "glStatusPublished": "已发布",
   "glStatusRejected": "已拒绝"
+,
+  "glModerationTitle": "审核资源包",
+  "glModerationEmpty": "没有待审核的贡献",
+  "glApprove": "批准",
+  "glReject": "拒绝",
+  "glHide": "隐藏",
+  "glRejectReason": "拒绝原因",
+  "glHideReason": "隐藏原因",
+  "glReasonHint": "输入原因（贡献者可见）",
+  "glModerationDone": "已完成",
+  "glModerationFailed": "操作失败"
 }

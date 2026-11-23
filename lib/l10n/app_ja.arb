@@ -631,4 +631,15 @@
   "glStatusPending": "審査待ち",
   "glStatusPublished": "公開済み",
   "glStatusRejected": "却下"
+,
+  "glModerationTitle": "パックの審査",
+  "glModerationEmpty": "保留中の投稿はありません",
+  "glApprove": "承認",
+  "glReject": "却下",
+  "glHide": "非表示",
+  "glRejectReason": "却下の理由",
+  "glHideReason": "非表示の理由",
+  "glReasonHint": "理由を入力（投稿者に表示されます）",
+  "glModerationDone": "完了",
+  "glModerationFailed": "操作に失敗しました"
 }

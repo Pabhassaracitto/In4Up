@@ -260,7 +260,7 @@
 | GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | ✅ done (code + 23 test + **CI 🟢 run 45182347010**) | PLAN-049 — `pack_content.dart` + `pack_import_service.dart` (sinks thuần) + `pack_import_sinks_io.dart` + installed store + chip Có bản mới; merge additive không đụng SM-2 |
 | GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | 📋 proposed | PLAN-049, ADR-0031 D6 |
 | GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | 📋 proposed | PLAN-049, ADR-0031 D4 (`be.you8778@gmail.com` → uid ∈ `gl_config/admins`) |
-| GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | 📋 proposed | PLAN-049, ideation §9.3 (D2 LOCKED) |
+| GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | ✅ done (pipeline + 22/22 pack pass validator + 3 test schema + **CI 🟢 run 45231501777**; v1 nội dung tự soạn CC0, audio/ảnh placeholder chờ soạn máy chủ — xem README) | PLAN-049, ideation §9.3 (D2 LOCKED) — `tool/great_library_seed/` + `seed_publish.py` |
 
 
 ## Card chi tiết
@@ -10087,6 +10087,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   pack từ vocab store giả; AT4 PLAN-049 end-to-end khi P1.
 - **Lịch sử:**
   - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | ✅ done — CI 🟢 run 45231501777 | agent `arena/a04e4405-in4up` |
+    `tool/great_library_seed/` build 22 pack .i4upack (10 vocab + 8 audio + 4
+    image) đúng manifest GLIB-001 + data/ GLIB-005; validator khắc parser
+    (22/22 pass). Sandbox không network → v1 tự soạn CC0 (118 động từ, 111 bất
+    quy tắc, 60 phrasal, 4×40 NGSL chủ đề, 61 tính/trạng, 50 collocations, 61
+    học thuật; truyện cổ + LRC thật; 24 câu song ngữ); audio/ảnh placeholder
+    chờ TTS bulk/LibriVox/OpenClipart lúc soạn. seed_publish.py = publish nội
+    bộ thay màn admin. Owner vẫn nợ deploy rules §4.
 
 ### GLIB-007 — Thư Viện Chung: màn admin moderation in-app — P1
 

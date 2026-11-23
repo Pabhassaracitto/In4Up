@@ -32,7 +32,10 @@ PackManifest _seedManifest(String id, PackType type, int itemCount,
       sizeBytes: payloadBytes,
       entryCount: itemCount,
       status: PackStatus.published,
-      storage: const PackStorageRef(backend: 'firebase', path: 'in4up-seed/x'),
+      storage:
+          // Path thuần trong bucket (không gs://) — download dùng
+          // /v0/b/{bucket}/o/{path}; khớp rules §3 match /packs/{allPaths=**}.
+          const PackStorageRef(backend: 'firebase', path: 'packs/seed/x'),
       createdAt: DateTime.utc(2026, 11, 23),
       updatedAt: DateTime.utc(2026, 11, 23),
     );

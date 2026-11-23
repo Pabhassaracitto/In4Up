@@ -301,6 +301,7 @@ final PackBuildResult kImportPack = PackFile.build(
     title: 'Pack p1',
     srcLang: 'en',
     dstLang: 'vi',
+    author: const PackAuthor(uid: 'u1', displayName: 'Tester'),
     license: PackLicense.ccBy,
   ),
   dataFiles: {

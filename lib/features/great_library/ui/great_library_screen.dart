@@ -9,14 +9,19 @@
 
 import 'package:flutter/material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/vocabulary_provider.dart';
+import '../contribution_wiring.dart';
 import '../great_library_controller.dart';
 import '../great_library_wiring.dart';
 import '../models/gl_pack_entry.dart';
 import '../models/pack_manifest.dart';
+import '../services/contribution_ai_suggest.dart';
 import '../services/gl_catalog_service.dart';
+import 'contribute_wizard_screen.dart';
+import 'my_contributions_screen.dart';
 import 'pack_detail_screen.dart';
 
 class GreatLibraryScreen extends StatefulWidget {
@@ -74,7 +79,49 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
   Widget build(BuildContext context) {
     final controller = _controller;
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context)!.glLibraryTitle)),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context)!.glLibraryTitle),
+        actions: [
+          // GLIB-006 — wizard đóng góp (P1).
+          IconButton(
+            tooltip: AppLocalizations.of(context)!.glContribute,
+            icon: const Icon(Icons.upload_file_rounded),
+            onPressed: () async {
+              final bundle = await createContributionBundle();
+              if (!context.mounted) return;
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ContributeWizardScreen(
+                    service: bundle.service,
+                    aiSuggest: ContributionAiSuggest(
+                      providerResolver: () async {
+                        final store = AiProviderStore.instance;
+                        await store.ensureLoaded();
+                        return store
+                            .resolveProvider(AiRouteCapability.chat);
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: AppLocalizations.of(context)!.glMyContributions,
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () async {
+              final bundle = await createContributionBundle();
+              if (!context.mounted) return;
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      MyContributionsScreen(store: bundle.store),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: controller == null
           ? const Center(child: CircularProgressIndicator())
           : AnimatedBuilder(

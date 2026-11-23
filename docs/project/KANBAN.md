@@ -10200,3 +10200,29 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** cài đè 1.29.0 → 1.29.1 · app tự cài bộ chạy Whisper trên desktop · VieNeu variant fallback + quét giọng TXT đệ quy · profile AI theo RAM · catalog giọng Piper bản xứ · IPA gắn từ gốc + double-tap · kéo thả ưu tiên provider · tab Nhớ thu gọn.
 - **Lịch sử:**
   - 2026-11-20 | created→done | agent `arena/01a0251e-in4up` | tip `ff17903b` (43 commit, 0 merge) → bump `1.29.1+30` (`c4853244`) → CI 🟢 4 workflow → tag `1.29.1` → build **44640183109** 🟢 4/4
+
+### REL-1.29.2 — (2026-11-23) Release 1.29.2 đủ 4 nền tảng (gộp 5 fix từ nhánh 60e35d65)
+- **Trạng thái:** ⚠️ build 4/4 🟢 nhưng **1 job CI đỏ** (`analyze-and-locale-test`) — đã sửa bằng `71d53978`, chờ CI xác nhận
+- **Nguồn:** owner yêu cầu so sánh 251e vs 60e35d65 → phát hiện 251e thiếu 5 commit → owner cho phép lấy sang.
+- **Tag/commit:** `1.29.2` → **`b360f699`** (= `d078091b`, bump `1.29.2+31`).
+- **Cách land:** cherry-pick từng commit (0 merge commit), rồi bump trong **cùng commit** với tag:
+  * `a217420e` ← PSRC-260 chặn ngôn ngữ Piper không có giọng bản xứ
+  * `00f37efe` ← PSRC-266 picker "Tạo lời" suy ra từ mã engine Whisper
+  * `c96f7286` ← PSRC-262 phân trang Firestore `runQuery` (chống mất wordlist âm thầm)
+  * `d14a5a4d` ← PSRC-263 render markdown cho trợ lý chat
+  * `ba40b469` ← PSRC-264 gắn context coach/YouTube 1 lần thay vì mỗi lần gửi
+  * `d078091b` ← bump `1.29.0+29` → `1.29.2+31`
+- **Vì sao PATCH (không minor):** cả 5 đều là sửa lỗi, không thêm nhóm tính năng mới.
+- **`versionCode 29 → 31`** (nhảy 30 vì 1.29.1 đã dùng 30) ⇒ Android cài đè được, dữ liệu giữ nguyên.
+- **Bằng chứng build:** `build_final_complete.yml` run **45106326071** — 4/4 job success (Android ✅ · iOS ✅ · Windows ✅ · Linux ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.29.2
+  - `in4up-Android-arm64-v8a-1.29.2-b360f.apk` — 204.667.989 B
+  - `in4up-iOS-1.29.2.ipa` — 94.982.667 B
+  - `in4up-Linux-1.29.2.tar.gz` — 51.525.230 B
+  - `in4up-Windows-1.29.2.zip` — 54.148.076 B
+- **❌ Lỗi CI phát hiện sau khi tag (đã sửa):** `App Analyze + Locale` run **45106319926** đỏ ở `test/stt_model_settings_i18n_coverage_test.dart`:
+  * Nhãn mới của PSRC-260 `'Ngôn ngữ Piper chưa có giọng bản xứ'` chưa có key dịch ⇒ sẽ hiện nguyên tiếng Việt ở en/hi/zh/si (**vi phạm rule #5**).
+  * Sửa tay (`71d53978`, KHÔNG chạy `tool/generate_legacy_ui_fallbacks.py`): `priority_ui_overrides.dart` (T2 đủ 5 locale) + `generated_legacy_ui_fallbacks.dart` (fallback en) + `tool/legacy_ui_english_overrides.json`.
+  * ⚠️ **Bài học:** khi cherry-pick commit có nhãn UI mới, phải chạy luôn bước i18n trong cùng đợt — `app_analyze` chỉ báo sau khi tag đã đẩy.
+- **Chưa kiểm (máy thật):** cài đè 1.29.1 → 1.29.2 · chặn ngôn ngữ Piper không có giọng bản xứ · picker ngôn ngữ "Tạo lời" · sync wordlist > 1 trang Firestore · markdown trong chat · context coach/YouTube chỉ gắn 1 lần.
+- **Lịch sử:**
+  - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | cherry-pick 5 commit từ `arena/60e35d65-in4up` (0 merge) → bump `1.29.2+31` (`d078091b`) → CI 4/5 workflow 🟢, `app_analyze` 🔴 → tag `1.29.2` → build **45106326071** 🟢 4/4 → sửa i18n `71d53978`

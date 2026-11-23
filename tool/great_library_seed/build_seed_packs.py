@@ -307,26 +307,17 @@ def validate_pack(path: Path) -> list[str]:
 
 def catalog_entry(spec: PackSpec, path: Path) -> dict:
     """Doc gợi ý cho gl_packs/<id> (owner/seed-publish upload)."""
+    data_files = zipfile.ZipFile(path).namelist()
+    import json as _json
+    m = _json.loads(zipfile.ZipFile(path).read('manifest.json'))
+    # Doc gl_packs khớp §1 schema doc (trải phẳng PackManifest + 3 field file).
     return {
-        'id': spec.pack_id,
-        'type': spec.pack_type,
-        'title': spec.title,
-        'subtitle': spec.subtitle,
-        'description': spec.description,
-        'srcLang': spec.language,
-        'dstLang': spec.target_language,
-        'level': spec.level,
-        'tags': spec.tags,
-        'version': spec.version,
-        'license': spec.license_name,
-        'downloads': 0,
-        'rating': 0.0,
-        'status': 'published',
+        **m,  # toàn bộ manifest (status đã published)
+        'authorUid': 'seed-in4up',
+        'fileBytes': path.stat().st_size,
+        'fileSha256': hashlib.sha256(path.read_bytes()).hexdigest(),
         'attribution': spec.attribution,
-        'storagePath': spec.storage_path,
-        'zipBytes': path.stat().st_size,
-        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
-        'updatedAt': '2026-11-23T00:00:00Z',
+        '_files': len(data_files),
     }
 
 

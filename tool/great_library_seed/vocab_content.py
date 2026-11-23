@@ -15,7 +15,9 @@ from __future__ import annotations
 from seed_spec import PackSpec, slugify
 
 # Cơ sở storage gợi ý cho catalog doc (owner upload pack lên đây).
-_STORAGE = 'gs://in4up-seed/great_library'
+# Path THUẦN trong bucket vipsound-df903.firebasestorage.app
+# (download = /v0/b/{bucket}/o/{path}?alt=media) — khớp rules §3.
+_STORAGE = 'packs/seed'
 
 
 def _entry(word: str, meaning: str, phonetic: str = '', example: str = ''):

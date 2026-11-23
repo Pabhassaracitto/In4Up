@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../providers/vocabulary_provider.dart';
 import 'great_library_controller.dart';
+import 'services/gl_catalog_file_cache.dart';
 import 'services/gl_catalog_service.dart';
 import 'services/gl_catalog_transport_firestore.dart';
 import 'services/pack_download_manager.dart';
@@ -27,7 +28,8 @@ Future<GreatLibraryController> createGreatLibraryControllerImpl({
   final transport = FirestoreGlCatalogTransport();
   final catalog = GlCatalogService(
     transport: transport,
-    cache: GlCatalogMemoryCache(), // TODO(GLIB-004b): persist snapshot ra file
+    // GLIB-004b: persist snapshot ra đĩa — mở app offline vẫn thấy catalog cũ.
+    cache: GlCatalogFileCache(Directory('${supportDir.path}/great_library')),
   );
   final downloads = PackDownloadManager(
     backend: FirebasePackStorage(),

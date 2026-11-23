@@ -8,7 +8,7 @@
 // Entry: Quick Actions (main_shell _handleTool 'great_library').
 
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
 import '../great_library_controller.dart';
 import '../great_library_wiring.dart';

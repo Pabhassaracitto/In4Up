@@ -18,8 +18,13 @@ import '../great_library_controller.dart';
 import '../great_library_wiring.dart';
 import '../models/gl_pack_entry.dart';
 import '../models/pack_manifest.dart';
+import '../../../services/firebase_rest_auth.dart';
+import '../services/admin_gate.dart';
+import '../services/admin_moderation_service.dart';
 import '../services/contribution_ai_suggest.dart';
 import '../services/gl_catalog_service.dart';
+import '../services/moderation_transport_firestore.dart';
+import 'admin_moderation_screen.dart';
 import 'contribute_wizard_screen.dart';
 import 'my_contributions_screen.dart';
 import 'pack_detail_screen.dart';
@@ -37,9 +42,21 @@ class GreatLibraryScreen extends StatefulWidget {
 class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
   GreatLibraryController? _controller;
 
+  Future<bool>? _adminGateFuture;
+
   @override
   void initState() {
     super.initState();
+    // GLIB-007: gate admin — đọc gl_config/admins 1 lần (cache trong phiên).
+    _adminGateFuture = () async {
+      final auth = FirebaseRestAuth();
+      await auth.restoreSession();
+      final uid = auth.currentUser?.uid ?? '';
+      return AdminGate(
+        fetcher: FirestoreAdminGateFetcher(),
+        currentUid: uid,
+      ).isAdmin();
+    }();
     final injected = widget.controller;
     if (injected != null) {
       _controller = injected;
@@ -117,6 +134,29 @@ class _GreatLibraryScreenState extends State<GreatLibraryScreen> {
                   builder: (_) =>
                       MyContributionsScreen(store: bundle.store),
                 ),
+              );
+            },
+          ),
+          // GLIB-007 — entry "Duyệt pack": chỉ hiện khi uid ∈ gl_config/admins
+          // (AT3: tài khoản thường không thấy entry, rules vẫn chặn server).
+          FutureBuilder<bool>(
+            future: _adminGateFuture,
+            builder: (context, snap) {
+              if (snap.data != true) return const SizedBox.shrink();
+              return IconButton(
+                tooltip: AppLocalizations.of(context)!.glModerationTitle,
+                icon: const Icon(Icons.admin_panel_settings_rounded),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AdminModerationScreen(
+                        service: AdminModerationService(
+                          transport: FirestoreModerationTransport(),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),

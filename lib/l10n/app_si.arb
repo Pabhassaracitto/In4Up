@@ -685,4 +685,15 @@
   "glStatusPending": "පොරොත්තුවේ",
   "glStatusPublished": "ප්‍රකාශිත",
   "glStatusRejected": "ප්‍රතික්ෂේපිත"
+,
+  "glModerationTitle": "පැකේජ සමාලෝචනය",
+  "glModerationEmpty": "පොරොත්තු දායකත්වයන් නැත",
+  "glApprove": "අනුමත කරන්න",
+  "glReject": "ප්‍රතික්ෂේප කරන්න",
+  "glHide": "සඟවන්න",
+  "glRejectReason": "ප්‍රතික්ෂේප හේතුව",
+  "glHideReason": "සැඟවීමේ හේතුව",
+  "glReasonHint": "හේතුව ඇතුළත් කරන්න (දායකයා දකිනු ඇත)",
+  "glModerationDone": "සම්පූර්ණයි",
+  "glModerationFailed": "ක්‍රියාව අසාර්ථකයි"
 }

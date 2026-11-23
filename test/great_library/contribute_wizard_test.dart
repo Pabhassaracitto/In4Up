@@ -94,23 +94,24 @@ void main() {
     await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pumpAndSettle();
 
-    // Continue (FilledButton đầu của controls bước 1 — Stepper dựng đủ 3 cụm).
-    await tester.tap(find.byType(FilledButton).at(0));
+    // Continue từng bước qua key (Stepper dựng đủ 3 cụm controls).
+    await tester.tap(find.byKey(const ValueKey('gl_wizard_continue_0')));
     await tester.pumpAndSettle();
 
     // Bước 2: nhập tên pack (TextField đầu trong bước metadata).
     await tester.enterText(find.byType(TextField).at(0), 'Pack thử');
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(FilledButton).at(0));
+    await tester.tap(find.byKey(const ValueKey('gl_wizard_continue_1')));
     await tester.pumpAndSettle();
 
     // Bước 3: tick cam kết bản quyền rồi gửi.
     await tester.tap(find.byType(CheckboxListTile));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(FilledButton).at(0));
+    await tester.tap(find.byKey(const ValueKey('gl_wizard_continue_2')));
     await tester.pumpAndSettle();
 
-    expect(submitted, isTrue);
+    expect(submitted, isTrue, reason: 'records=${store.all().length}');
+    expect(store.all().length, 1);
     expect(store.all().single.status, 'pending');
   });
 }

@@ -42,7 +42,7 @@ class FirestoreContributionTransport implements ContributionTransport {
     required int zipBytes,
     required String sha256,
   }) async {
-    final String? token;
+    String? token;
     try {
       token = await (_idTokenProvider != null
           ? _idTokenProvider!()

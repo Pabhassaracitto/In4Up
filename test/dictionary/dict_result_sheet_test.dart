@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // DICT-001 §8 — Widget test: DictResultSheet (hiển thị kết quả tra từ).
 //
 // DICT-CLEAN-001: sheet nay là một "trang từ điển" — nhiều bộ từ điển cho cùng
@@ -6,6 +8,9 @@
 import 'package:flutter/material.dart' as material;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_entry.dart';
+import 'package:in4up/features/dictionary/models/dict_info.dart';
+import 'package:in4up/features/dictionary/widgets/dictionary_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in4up/features/dictionary/services/dictionary_service.dart';
 import 'package:in4up/features/dictionary/widgets/dict_result_sheet.dart';
 
@@ -119,6 +124,33 @@ void main() {
     )));
     expect(find.text('broken dictionary'), findsOneWidget);
     expect(find.text('"hello" not found'), findsNothing);
+  });
+
+  testWidgets('late lookup cannot overwrite the newer word', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final first = Completer<DictLookupReport>();
+    final second = Completer<DictLookupReport>();
+    final dict = DictInfo(id: 'd', name: 'test', entryCount: 2, dbPath: '',
+      importedAt: DateTime(2026));
+    await tester.pumpWidget(material.MaterialApp(home: DictionaryScreen(
+      initialQuery: 'first',
+      loadDictionariesForTest: () async => [dict],
+      lookupForTest: (word, _) => word == 'first' ? first.future : second.future,
+    )));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(find.byType(material.TextField), 'second');
+    await tester.testTextInput.receiveAction(material.TextInputAction.search);
+    await tester.pump();
+    second.complete(DictLookupReport(entries: [entry(word: 'second', definition: 'new meaning')]));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('second'), findsOneWidget);
+    first.complete(DictLookupReport(entries: [entry(word: 'first', definition: 'old meaning')]));
+    await tester.pump();
+    expect(find.text('second'), findsOneWidget);
+    expect(find.text('first'), findsNothing);
+    expect(find.textContaining('old meaning'), findsNothing);
   });
 
 }

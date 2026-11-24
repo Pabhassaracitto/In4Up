@@ -365,7 +365,7 @@ class _ImportCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: TextStyle(color: Colors.grey[600], fontSize: 9),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
               textAlign: TextAlign.center,
             ),
           ],

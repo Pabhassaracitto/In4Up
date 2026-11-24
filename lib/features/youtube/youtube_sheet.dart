@@ -229,7 +229,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
               ),
             ),
             IconButton(
-              tooltip: 'Khám phá kênh',
+              tooltip: context.uiText('Khám phá kênh'),
               icon: const Icon(Icons.explore_outlined,
                   color: Colors.grey, size: 20),
               onPressed: () {
@@ -241,13 +241,13 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                 );
               },
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.grey, size: 20),
               onPressed: () => Navigator.pop(context),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
             ),
           ],
         ),
@@ -290,7 +290,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                               ? null
                               : context.uiText(_urlError!),
                           errorStyle:
-                              const TextStyle(color: Colors.red, fontSize: 10),
+                              const TextStyle(color: Colors.red, fontSize: 11),
                         ),
                         onSubmitted: (_) => _fetchVideo(),
                       ),
@@ -308,7 +308,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                       },
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                          const BoxConstraints(minWidth: 42, minHeight: 42),
                     ),
                   ],
                 ),

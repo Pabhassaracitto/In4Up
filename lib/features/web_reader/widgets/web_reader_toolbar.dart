@@ -478,7 +478,7 @@ class _ColorModeButton extends StatelessWidget {
                 context.uiText(controller.colorMode.label),
                 style: const TextStyle(
                   color: Color(0xFF2196F3),
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -495,7 +495,7 @@ class _ColorModeButton extends StatelessWidget {
                   controller.activeGrammarPreset.name,
                   style: const TextStyle(
                     color: Color(0xFFB8B5FF),
-                    fontSize: 9.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

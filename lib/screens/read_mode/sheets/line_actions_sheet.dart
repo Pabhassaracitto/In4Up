@@ -23,12 +23,14 @@ class LineActionsSheet {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.all(16),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -170,6 +172,7 @@ class LineActionsSheet {
           ],
         ),
       ),
+    ),
     );
   }
 

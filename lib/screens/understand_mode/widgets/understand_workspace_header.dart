@@ -94,7 +94,7 @@ class UnderstandWorkspaceHeader extends StatelessWidget {
                   context.uiText(expanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               onPressed: onToggleExpanded,
               icon: Icon(
                 expanded ? Icons.expand_less : Icons.expand_more,

@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/models/word_entry.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
@@ -1025,7 +1026,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                 ),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 icon: Icon(
                   settings.legendCollapsed
                       ? Icons.expand_more_rounded
@@ -1072,7 +1073,7 @@ class _StoryWordlistPanel extends StatelessWidget {
 
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF080B1A),
+            color: AppColors.bgBase,
             border: Border(
               left: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
@@ -1113,7 +1114,7 @@ class _StoryWordlistPanel extends StatelessWidget {
                               'Chưa lưu từ nào\ntừ story này',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Colors.grey[700], fontSize: 10),
+                                  color: Colors.grey[700], fontSize: 11),
                             ),
                           ],
                         ),
@@ -1136,19 +1137,21 @@ class _StoryWordlistPanel extends StatelessWidget {
                                 Row(
                                   children: [
                                     Container(
-                                      width: 14,
-                                      height: 14,
+                                      constraints: const BoxConstraints(
+                                          minWidth: 18, minHeight: 18),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 3),
                                       decoration: BoxDecoration(
                                         color: w.vocabType.color
                                             .withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(3),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                       alignment: Alignment.center,
                                       child: Text(
                                         w.vocabType.badge,
                                         style: TextStyle(
                                           color: w.vocabType.color,
-                                          fontSize: 7,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
@@ -1178,7 +1181,7 @@ class _StoryWordlistPanel extends StatelessWidget {
                                   Text(
                                     w.meaning,
                                     style: TextStyle(
-                                        color: Colors.grey[600], fontSize: 9),
+                                        color: Colors.grey[600], fontSize: 11),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),

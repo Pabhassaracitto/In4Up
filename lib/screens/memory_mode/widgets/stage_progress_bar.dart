@@ -42,7 +42,7 @@ class StageProgressBar extends StatelessWidget {
           children: [
             Text(
               context.uiText('${stats.totalItems} từ'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 10),
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
             ),
             Row(
               children: [
@@ -82,7 +82,7 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           context.uiText(label),
-          style: TextStyle(color: Colors.grey[500], fontSize: 10),
+          style: TextStyle(color: Colors.grey[500], fontSize: 11),
         ),
       ],
     );

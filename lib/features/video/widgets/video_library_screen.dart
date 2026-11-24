@@ -704,7 +704,7 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
       children: [
         Icon(Icons.movie_outlined, color: widget.accent, size: 25),
         Text(extension.isEmpty ? 'VIDEO' : extension,
-            style: TextStyle(color: widget.accent, fontSize: 9, fontWeight: FontWeight.w800)),
+            style: TextStyle(color: widget.accent, fontSize: 11, fontWeight: FontWeight.w800)),
       ],
     );
   }

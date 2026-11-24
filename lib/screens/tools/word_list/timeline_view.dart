@@ -193,7 +193,7 @@ class _DateGroup extends StatelessWidget {
                   Text(sources.join(' · '),
                       style: TextStyle(
                           color: Colors.grey[600],
-                          fontSize: 10,
+                          fontSize: 11,
                           fontStyle: FontStyle.italic),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
@@ -271,7 +271,7 @@ class _TimelineEntry extends StatelessWidget {
                       Text(context.uiText('(${entry.vocabType.label(context)})'),
                           style: TextStyle(
                               color: typeColor.withValues(alpha: 0.6),
-                              fontSize: 9)),
+                              fontSize: 11)),
                     ],
                   ],
                 ),
@@ -294,7 +294,7 @@ class _TimelineEntry extends StatelessWidget {
               child: Text(context.uiText('Gặp lần $encounterCount!'),
                   style: const TextStyle(
                       color: Color(0xFFFFB300),
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600)),
             ),
         ],

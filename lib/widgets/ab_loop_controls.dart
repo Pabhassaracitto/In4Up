@@ -1026,7 +1026,7 @@ class _LoopButton extends StatelessWidget {
                 _formatTime(time!),
                 style: const TextStyle(
                   color: Colors.white70,
-                  fontSize: 9,
+                  fontSize: 11,
                 ),
               ),
           ],
@@ -1193,7 +1193,7 @@ class _CompactPoint extends StatelessWidget {
           label,
           style: TextStyle(
             color: isActive ? Colors.white : Colors.grey,
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.bold,
           ),
         ),

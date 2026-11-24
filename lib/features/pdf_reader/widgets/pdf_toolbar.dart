@@ -206,7 +206,7 @@ class PdfToolbar extends StatelessWidget {
                   const Expanded(
                     child: Text(
                       'Nguồn cho Viết · chọn một đoạn để viết lại hoặc dùng toàn bộ PDF để tóm tắt.',
-                      style: TextStyle(color: Colors.white70, fontSize: 10.5),
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -284,7 +284,7 @@ class _ColorModeButton extends StatelessWidget {
             Text(
               context.uiText(controller.colorMode.label),
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: isActive ? const Color(0xFF2196F3) : Colors.grey,
                 fontWeight: FontWeight.w500,
               ),
@@ -301,7 +301,7 @@ class _ColorModeButton extends StatelessWidget {
                   controller.activeGrammarPreset.name,
                   style: const TextStyle(
                     color: Color(0xFFB8B5FF),
-                    fontSize: 9.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

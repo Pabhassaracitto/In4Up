@@ -84,10 +84,10 @@ class WordBubble extends StatelessWidget {
                 ),
                 child: Text(
                   word.daysUntilDue < 0
-                      ? '${-word.daysUntilDue}d overdue'
-                      : 'Due',
+                      ? context.uiText('${-word.daysUntilDue} ngày quá hạn')
+                      : context.uiText('Đến hạn'),
                   style: const TextStyle(
-                    fontSize: 8,
+                    fontSize: 11,
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),

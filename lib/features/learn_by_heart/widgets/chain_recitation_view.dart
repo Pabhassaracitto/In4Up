@@ -122,7 +122,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                           context.uiText('CÂU MỒI DẪN DẮT (DÒNG ${stepIdx + 1})'),
                           style: const TextStyle(
                             color: Color(0xFFB388FF),
-                            fontSize: 9.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
                           ),
@@ -181,7 +181,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                           context.uiText('CÂU CẦN ĐỌC TIẾP (DÒNG ${stepIdx + 2})'),
                           style: TextStyle(
                             color: isRevealed ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
-                            fontSize: 9.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
                           ),

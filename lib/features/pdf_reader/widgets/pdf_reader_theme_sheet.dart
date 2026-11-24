@@ -118,7 +118,7 @@ class PdfReaderThemeSheet extends StatelessWidget {
                   context.uiText('Tối'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.35),
-                    fontSize: 10.5,
+                    fontSize: 11,
                   ),
                 ),
                 const Spacer(),
@@ -126,7 +126,7 @@ class PdfReaderThemeSheet extends StatelessWidget {
                   context.uiText('Sáng'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.35),
-                    fontSize: 10.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -223,7 +223,7 @@ class _ThemeCard extends StatelessWidget {
                     color: selected
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.6),
-                    fontSize: 10.5,
+                    fontSize: 11,
                     height: 1.25,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),

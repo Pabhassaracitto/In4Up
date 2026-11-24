@@ -848,7 +848,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   ),
                   Text(
                     context.uiText('Đã phân loại $_selectedClassifiedCount / $_selectedCount'),
-                    style: const TextStyle(color: Colors.white38, fontSize: 10.5),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 ],
               ),
@@ -1039,7 +1039,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                         context.uiText('Độ khó'),
                                         style: const TextStyle(
                                           color: Colors.white54,
-                                          fontSize: 10.5,
+                                          fontSize: 11,
                                         ),
                                       ),
                                     ),

@@ -140,7 +140,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                               'VĂN BẢN MỤC TIÊU CẦN ĐỌC',
                               style: TextStyle(
                                 color: Colors.grey[400],
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.0,
                               ),

@@ -197,9 +197,9 @@ class _LineRepeatChip extends StatelessWidget {
       ),
       onLongPress: onReset,
       child: Container(
-        // Vùng chạm lớn hơn mắt thấy (min 44×32) — dễ bấm trên điện thoại.
-        constraints: const BoxConstraints(minWidth: 44, minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        // Vùng chạm lớn hơn mắt thấy (min 44×40) — dễ bấm trên điện thoại.
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: active
               ? const Color(0xFFFFB300).withValues(alpha: 0.16)

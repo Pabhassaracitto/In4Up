@@ -475,7 +475,7 @@ class _ToolCardState extends State<_ToolCard> {
                       color: isAvailable
                           ? tool.color.withValues(alpha: 0.7)
                           : Colors.grey[700],
-                      fontSize: 10,
+                      fontSize: 11,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -497,7 +497,7 @@ class _ToolCardState extends State<_ToolCard> {
                       'SOON',
                       style: TextStyle(
                         color: Colors.grey[500],
-                        fontSize: 8,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
@@ -616,7 +616,7 @@ class _PuzzleNavButtonState extends State<PuzzleNavButton>
                 'Tools',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),

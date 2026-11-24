@@ -110,7 +110,7 @@ class _YtMyChannelsSheetState extends State<_YtMyChannelsSheet> {
     // `tool/legacy_ui_english_overrides.json`.
     _snack(
       isNew
-          ? 'Đã thêm kênh "{value0}"'
+          ? context.uiText('Đã thêm kênh "{value0}"')
               .replaceAll('{value0}', channel.displayTitle)
           : 'Kênh này đã có trong danh sách',
       color: isNew ? const Color(0xFF2E7D32) : null,
@@ -163,9 +163,9 @@ class _YtMyChannelsSheetState extends State<_YtMyChannelsSheet> {
       await _reload();
       _snack(
         added == 0
-            ? 'Cả {value0} kênh trong file đều đã có trong danh sách'
+            ? context.uiText('Cả {value0} kênh trong file đều đã có trong danh sách')
                 .replaceAll('{value0}', '${parsed.length}')
-            : 'Đã thêm {value0} kênh từ file (mới: {value1})'
+            : context.uiText('Đã thêm {value0} kênh từ file (mới: {value1})')
                 .replaceAll('{value0}', '${parsed.length}')
                 .replaceAll('{value1}', '$added'),
         color: const Color(0xFF2E7D32),
@@ -252,7 +252,7 @@ class _YtMyChannelsSheetState extends State<_YtMyChannelsSheet> {
                   context.uiText(
                       'Không cần đăng nhập Google. Dán @handle hoặc link kênh, app lưu ở máy và lấy video mới bằng đường không cần API key.'),
                   style: TextStyle(
-                      color: Colors.grey[500], fontSize: 10.5, height: 1.35),
+                      color: Colors.grey[500], fontSize: 11, height: 1.35),
                 ),
               ),
               const SizedBox(height: 10),
@@ -367,7 +367,7 @@ class _YtMyChannelsSheetState extends State<_YtMyChannelsSheet> {
             c.handle ?? c.id,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+            style: TextStyle(color: Colors.grey[500], fontSize: 11),
           ),
           onTap: () => _openChannel(c),
           trailing: IconButton(
@@ -523,7 +523,7 @@ class _ChannelVideosSheetState extends State<_ChannelVideosSheet> {
               ? null
               : Text(
                   '${h.duration!.inMinutes}m${(h.duration!.inSeconds % 60).toString().padLeft(2, '0')}s',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
                 ),
           onTap: () {
             Navigator.pop(context);

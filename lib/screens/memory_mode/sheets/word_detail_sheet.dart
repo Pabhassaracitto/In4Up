@@ -34,11 +34,14 @@ class WordDetailSheet extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => WordDetailSheet(
-        item: item,
-        onDelete: onDelete,
-        onPlayAudio: onPlayAudio,
-        onUpdate: onUpdate,
+      builder: (_) => SafeArea(
+        top: false,
+        child: WordDetailSheet(
+          item: item,
+          onDelete: onDelete,
+          onPlayAudio: onPlayAudio,
+          onUpdate: onUpdate,
+        ),
       ),
     );
   }
@@ -478,7 +481,7 @@ class WordDetailSheet extends StatelessWidget {
                   stage.label,
                   style: TextStyle(
                     color: stage.primaryColor,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -584,7 +587,7 @@ class _TagChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -623,7 +626,7 @@ class _StatCell extends StatelessWidget {
           ),
           Text(
             label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 10),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
           ),
         ],
       ),

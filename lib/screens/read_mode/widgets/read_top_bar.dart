@@ -61,7 +61,7 @@ class ReadTopBar extends StatelessWidget {
                       tp.activeGrammarPreset.name,
                       style: const TextStyle(
                         color: Color(0xFFB8B5FF),
-                        fontSize: 9.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -432,7 +432,7 @@ class _TitleButton extends StatelessWidget {
                 child: Text(
                   controller.readingProgressText,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: Colors.grey[500],
                     fontFamily: 'monospace',
                   ),

@@ -93,7 +93,7 @@ class _SoundListScreenState extends State<SoundListScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Làm mới',
+            tooltip: context.uiText('Làm mới'),
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () async {
               await soundlist.reload();
@@ -128,7 +128,9 @@ class _SoundListScreenState extends State<SoundListScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 14),
               onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
               decoration: InputDecoration(
-                hintText: '🔍  Tìm tên file, nhãn, ghi chú, tag…',
+                prefixIcon: const Icon(Icons.search_rounded,
+                    size: 18, color: Colors.white38),
+                hintText: context.uiText('Tìm tên file, nhãn, ghi chú, tag…'),
                 hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
                 filled: true,
                 fillColor: const Color(0xFF232841),
@@ -561,9 +563,9 @@ class _FileContents extends StatelessWidget {
           controller: controller,
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: const InputDecoration(
-            hintText: 'Tên chương/mục',
-            hintStyle: TextStyle(color: Colors.white30),
+          decoration: InputDecoration(
+            hintText: context.uiText('Tên chương/mục'),
+            hintStyle: const TextStyle(color: Colors.white30),
           ),
         ),
         actions: [

@@ -225,7 +225,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                               context.uiText('[${_formatDuration(_lines![index].timestamp)}] '),
                               style: TextStyle(
                                 color: Colors.grey[400],
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontFamily: 'monospace',
                               ),
                             ),

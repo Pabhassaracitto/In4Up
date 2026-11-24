@@ -50,6 +50,7 @@ abstract final class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.surfaceModal,
         surfaceTintColor: Colors.transparent,
+        showDragHandle: false,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.sheetTopBorder,
         ),

@@ -151,7 +151,7 @@ class _RememberWorkspaceHeaderState extends State<RememberWorkspaceHeader> {
                 child: Text(
                   context.uiText('${widget.dueCount}'),
                   style: const TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -225,7 +225,7 @@ class _RememberWorkspaceHeaderState extends State<RememberWorkspaceHeader> {
             color: Colors.white70,
           ),
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           onPressed: () =>
               setState(() => _detailsExpanded = !_detailsExpanded),
         ),

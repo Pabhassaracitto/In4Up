@@ -299,7 +299,7 @@ class _WebPageTranslateSheetState extends State<WebPageTranslateSheet> {
                   padding: const EdgeInsets.fromLTRB(16, 7, 16, 0),
                   child: Text(
                     context.uiText(_stopRequested ? 'Đã dừng dịch' : 'Đã dịch xong'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10.5),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),
               ),

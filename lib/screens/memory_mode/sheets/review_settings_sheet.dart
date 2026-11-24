@@ -31,11 +31,14 @@ class ReviewSettingsSheet extends StatefulWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => ReviewSettingsSheet(
-        totalDue: totalDue,
-        totalItems: totalItems,
-        stageDistribution: stageDistribution,
-        onStart: onStart,
+      builder: (_) => SafeArea(
+        top: false,
+        child: ReviewSettingsSheet(
+          totalDue: totalDue,
+          totalItems: totalItems,
+          stageDistribution: stageDistribution,
+          onStart: onStart,
+        ),
       ),
     );
   }
@@ -321,7 +324,7 @@ class _ModeChip extends StatelessWidget {
                 ),
                 Text(
                   context.uiText(desc),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
                 ),
               ],
             ),

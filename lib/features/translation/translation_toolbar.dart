@@ -129,7 +129,7 @@ class TranslationToolbar extends StatelessWidget {
                         color: Colors.grey[500],
                         tooltip: context.uiText('Cài đặt engine dịch'),
                         constraints:
-                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
                         padding: EdgeInsets.zero,
                       ),
                     );
@@ -242,7 +242,7 @@ class TranslationToolbar extends StatelessWidget {
                           context.uiText(
                               'Đang dịch bằng Hy-MT offline, có thể chậm'),
                           style: const TextStyle(
-                              fontSize: 10, color: Colors.white70),
+                              fontSize: 11, color: Colors.white70),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1307,7 +1307,7 @@ class _TranslationEngineSettingsSheetState
                   online
                       ? context.uiText('Online')
                       : context.uiText('Chỉ offline'),
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 11),
                 ),
                 visualDensity: VisualDensity.compact,
                 backgroundColor:
@@ -1553,7 +1553,7 @@ class _TranslationEngineSettingsSheetState
               icon: const Icon(Icons.delete_outline, size: 16),
               tooltip: context.uiText('Xóa gói'),
               color: Colors.grey,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               padding: EdgeInsets.zero,
             ),
         ],
@@ -1718,7 +1718,7 @@ class _ModeChip extends StatelessWidget {
             const SizedBox(width: 3),
             Text(label,
                 style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: isSelected ? color : Colors.grey,
                     fontWeight:
                         isSelected ? FontWeight.bold : FontWeight.normal)),
@@ -1887,7 +1887,7 @@ class _TranslationTextState extends State<_TranslationText> {
             hidden ? ExcludeSemantics(child: content) : content,
             Text(context.uiText(hidden
                 ? 'Bấm để hiện bản dịch.' : 'Bấm để làm mờ bản dịch.'),
-                style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                style: const TextStyle(color: Colors.white38, fontSize: 11)),
           ],
         ),
       ),
@@ -1915,7 +1915,7 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 10.5),
+        style: TextStyle(color: color, fontSize: 11),
       ),
     );
   }

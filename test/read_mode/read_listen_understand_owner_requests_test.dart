@@ -148,6 +148,66 @@ void main() {
     expect(wordListScreen, isNot(contains('fontSize: 9')));
   });
 
+  test('Sprint 4 repo-wide >=11sp floor, >=40pt icon targets, SafeArea sheets & localized tooltips/hints', () {
+    final fontRe = RegExp(r'fontSize:\s*([0-9]+(?:\.[0-9]+)?)\b');
+    final boxRe = RegExp(
+      r'BoxConstraints\(\s*minWidth:\s*(\d+)\s*,\s*minHeight:\s*(\d+)\s*\)',
+    );
+    final viRe = RegExp(
+      r'[ăâđêôơưáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵĂÂĐÊÔƠƯÁÀẢÃẠ]',
+    );
+
+    final subElevenFonts = <String>[];
+    final tinyBoxes = <String>[];
+    final unwrappedProps = <String>[];
+
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final content = entity.readAsStringSync();
+
+      for (final m in fontRe.allMatches(content)) {
+        final v = double.parse(m.group(1)!);
+        if (v < 11.0) {
+          subElevenFonts.add('${entity.path}: ${m.group(0)}');
+        }
+      }
+
+      for (final m in boxRe.allMatches(content)) {
+        final w = int.parse(m.group(1)!);
+        final h = int.parse(m.group(2)!);
+        if ((w < 40 || h < 40) && !(w <= 22 && h <= 22)) {
+          tinyBoxes.add('${entity.path}: ${w}x$h');
+        }
+      }
+
+      for (final prop in const ['tooltip', 'labelText', 'hintText']) {
+        final propRe = RegExp("\\b$prop:\\s*(['\"][^'\"\\n]+['\"])");
+        for (final m in propRe.allMatches(content)) {
+          if (viRe.hasMatch(m.group(1)!)) {
+            unwrappedProps.add('${entity.path}: $prop: ${m.group(1)}');
+          }
+        }
+      }
+    }
+
+    expect(subElevenFonts, isEmpty,
+        reason: 'Repo-wide typography floor must stay >= 11sp');
+    expect(tinyBoxes, isEmpty,
+        reason: 'Interactive BoxConstraints must not shrink below 40pt');
+    expect(unwrappedProps, isEmpty,
+        reason: 'Vietnamese tooltip/labelText/hintText must use context.uiText');
+
+    // AppColors surface tokens wired across MainShell, HomeScreen, Read & Understand.
+    final homeScreen = File('lib/screens/home/home_screen.dart').readAsStringSync();
+    final understandScreen =
+        File('lib/screens/understand_mode/understand_mode_screen.dart')
+            .readAsStringSync();
+    expect(shell, contains('AppColors.bgBase'));
+    expect(shell, contains('AppColors.surfaceElevated'));
+    expect(homeScreen, contains('AppColors.bgBase'));
+    expect(understandScreen, contains('AppColors.surfaceElevated'));
+  });
+
   test('Read full library ẩn header nguồn, nhưng giữ affordance Công cụ đọc', () {
     expect(shell, contains('readLibraryFull'));
     expect(shell, contains('if (!readLibraryFull && _readModeIndex == 0)'));

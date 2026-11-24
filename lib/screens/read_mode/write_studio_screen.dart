@@ -1172,7 +1172,7 @@ Hãy trả về JSON hợp lệ với:
                   tooltip: context.uiText('Trước'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                   onPressed: _lineIndex > 0
                       ? () => _changeLine(textProvider, _lineIndex - 1)
                       : null,
@@ -1198,7 +1198,7 @@ Hãy trả về JSON hợp lệ với:
                   tooltip: context.uiText('Sau'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                   onPressed: _lineIndex < totalLines - 1
                       ? () => _changeLine(textProvider, _lineIndex + 1)
                       : null,
@@ -1208,7 +1208,7 @@ Hãy trả về JSON hợp lệ với:
                   tooltip: context.uiText('Ngẫu nhiên'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                   onPressed: totalLines > 1
                       ? () =>
                           _changeLine(textProvider, _random.nextInt(totalLines))
@@ -1239,7 +1239,7 @@ Hãy trả về JSON hợp lệ với:
                   ),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                   onPressed: onJumpToActive,
                   icon: const Icon(
                     Icons.sync_alt_rounded,
@@ -1401,7 +1401,7 @@ Hãy trả về JSON hợp lệ với:
             tooltip: 'Web Reader',
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             onPressed: widget.onOpenWebReader,
             icon: const Icon(
               Icons.language_rounded,
@@ -1413,7 +1413,7 @@ Hãy trả về JSON hợp lệ với:
             tooltip: 'PDF Reader',
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             onPressed: widget.onOpenPdfReader,
             icon: const Icon(
               Icons.picture_as_pdf_rounded,

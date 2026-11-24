@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
+import '../../core/theme/app_colors.dart';
 import '../settings/stt_model_settings_screen.dart';
 import '../../services/auth_service.dart';
 import 'quick_capture/quick_capture_sheet.dart';
@@ -48,15 +49,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF080B1A),
+      color: AppColors.bgBase,
       child: Stack(
         children: [
           const _AnimatedBackground(),
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {},
-              backgroundColor: const Color(0xFF1A1A2E),
-              color: const Color(0xFF6C63FF),
+              backgroundColor: AppColors.surfaceElevated,
+              color: AppColors.accentPrimary,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final horizontalPadding =
@@ -540,7 +541,7 @@ class _FirebaseAuthButton extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return IconButton(
-            tooltip: 'Đăng nhập',
+            tooltip: context.uiText('Đăng nhập'),
             icon: const Icon(Icons.account_circle_outlined,
                 color: Colors.white, size: 28),
             onPressed: () => _handleSignIn(context),

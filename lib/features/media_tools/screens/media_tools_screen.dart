@@ -270,7 +270,7 @@ class _MediaToolsScreenState extends State<MediaToolsScreen> {
                   report.binaryPath!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white30, fontSize: 10),
+                  style: const TextStyle(color: Colors.white30, fontSize: 11),
                 ),
               ],
               if (!report.available) ...[
@@ -303,14 +303,14 @@ class _MediaToolsScreenState extends State<MediaToolsScreen> {
                 Text(
                   report.selfTestDetail!,
                   style:
-                      const TextStyle(color: Color(0xFFEF5350), fontSize: 10),
+                      const TextStyle(color: Color(0xFFEF5350), fontSize: 11),
                 ),
               ],
               if (report.platformNote != null) ...[
                 const Divider(color: Colors.white12, height: 16),
                 Text(
                   context.uiText(report.platformNote!),
-                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ],
@@ -331,7 +331,7 @@ class _MediaToolsScreenState extends State<MediaToolsScreen> {
           context.uiText(key),
           style: TextStyle(
             color: ok ? const Color(0xFF00E676) : const Color(0xFFEF5350),
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
         ),

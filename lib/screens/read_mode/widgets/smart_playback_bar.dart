@@ -154,17 +154,20 @@ void showPlaybackPresetSheet(BuildContext context) {
   final tp = context.read<TextProvider>();
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: const Color(0xFF0D1520),
+    backgroundColor: const Color(0xFF1C2436),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => ChangeNotifierProvider.value(
-      value: controller,
-      child: _PresetSheet(
-        currentRecipe: controller.recipe,
-        sourceLanguage: tp.translationSourceLanguage,
-        targetLanguage: tp.translationTargetLanguage,
-        onApplySpeed: (speed) => unawaited(setReadSpeed(context, speed)),
+    builder: (_) => SafeArea(
+      top: false,
+      child: ChangeNotifierProvider.value(
+        value: controller,
+        child: _PresetSheet(
+          currentRecipe: controller.recipe,
+          sourceLanguage: tp.translationSourceLanguage,
+          targetLanguage: tp.translationTargetLanguage,
+          onApplySpeed: (speed) => unawaited(setReadSpeed(context, speed)),
+        ),
       ),
     ),
   );
@@ -274,16 +277,16 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.redAccent,
-                      fontSize: 10,
+                      fontSize: 11,
                     ),
                   ),
                 ),
                 IconButton(
                   onPressed: controller.clearError,
                   icon: const Icon(Icons.close,
-                      color: Colors.white38, size: 15),
+                      color: Colors.white38, size: 16),
                   constraints:
-                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
                   padding: EdgeInsets.zero,
                 ),
               ],
@@ -1003,7 +1006,7 @@ class _LiveStatusBar extends StatelessWidget {
                   child: Text(
                     snapshot.activeLanguage.compactLabel,
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: snapshot.isSource
                           ? const Color(0xFF60A5FA)
@@ -1015,7 +1018,7 @@ class _LiveStatusBar extends StatelessWidget {
                 Expanded(
                   child: Text(
                     context.uiText(snapshot.statusText),
-                    style: const TextStyle(color: Colors.grey, fontSize: 10),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1038,7 +1041,7 @@ class _LiveStatusBar extends StatelessWidget {
                     child: Text(
                       context.uiText('${speed.toStringAsFixed(2)}x'),
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: (speed - 1.0).abs() > 0.01
                             ? const Color(0xFFA5B4FC)
@@ -1160,7 +1163,7 @@ class _PresetSheet extends StatelessWidget {
                 ),
                 child: const Text(
                   'Giữ 🔄 để tuỳ chỉnh',
-                  style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10),
+                  style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 11),
                 ),
               ),
             ],
@@ -1444,7 +1447,7 @@ class _SpeedSliderRow extends StatelessWidget {
       child: Row(
         children: [
           const Text('0.5x',
-              style: TextStyle(color: Colors.grey, fontSize: 9)),
+              style: TextStyle(color: Colors.grey, fontSize: 11)),
           const SizedBox(width: 4),
           Expanded(
             child: SliderTheme(
@@ -1466,7 +1469,7 @@ class _SpeedSliderRow extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           const Text('2.0x',
-              style: TextStyle(color: Colors.grey, fontSize: 9)),
+              style: TextStyle(color: Colors.grey, fontSize: 11)),
           const SizedBox(width: 2),
           GestureDetector(
             onTap: onClose,
@@ -1584,7 +1587,7 @@ class _Stepper extends StatelessWidget {
             padding: const EdgeInsets.only(left: 3),
             child: Text(
               suffix,
-              style: TextStyle(color: Colors.grey[500], fontSize: 10),
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
             ),
           ),
       ],

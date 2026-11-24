@@ -23,9 +23,9 @@
 > chặn mọi ghi trái phép (AT3).
 
 1. **Firestore Database → Rules**.
-2. **Thêm** block sau vào cuối (giữ nguyên mọi `match` hiện có của app), thay
-   `<UID_OWNER>` bằng UID ở Bước 0… — lưu ý: block này **không cần UID**, UID
-   chỉ dùng ở bước 2 & 3:
+2. **Thêm** block sau vào cuối (giữ nguyên mọi `match` hiện có của app).
+   Block Firestore **không chứa UID** (quyền admin đọc từ doc `gl_config/
+   admins` ở Bước 2) — dán nguyên văn:
 
 ```
     // ===== Thư Viện Chung I4U (GLIB-003) =====
@@ -85,20 +85,21 @@
 > của chính mình khi đóng góp (GLIB-006).
 
 1. **Storage → Rules**.
-2. Dán block sau (thay `<UID_OWNER>` bằng UID ở Bước 0), giữ nguyên rules cũ:
+2. Dán block sau (UID của bạn **đã điền sẵn** — dán nguyên văn), giữ nguyên
+   rules cũ:
 
 ```
     // ===== Thư Viện Chung I4U =====
     match /packs/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.auth.uid == "<UID_OWNER>"
+        && request.auth.uid == "xCOoQZ6KX0OscU4X6EqWteHq8rZ2"
         && request.resource.size < 210 * 1024 * 1024;
     }
 
     match /gl_uploads/{uid}/{file} {
       allow read: if request.auth != null
-        && (request.auth.uid == uid || request.auth.uid == "<UID_OWNER>");
+        && (request.auth.uid == uid || request.auth.uid == "xCOoQZ6KX0OscU4X6EqWteHq8rZ2");
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 210 * 1024 * 1024;

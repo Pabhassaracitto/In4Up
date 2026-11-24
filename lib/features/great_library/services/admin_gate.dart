@@ -1,6 +1,6 @@
 // lib/features/great_library/services/admin_gate.dart
 //
-// GLIB-007 — cổng admin Thư Viện Chung (PLAN-049 §GLIB-007, ADR-0031 D4).
+// GLIB-007 — cổng admin Thư Viện Chung (PLAN-049 §GLIB-007, ADR-0036 D4).
 //
 // Gate: đăng nhập → uid ∈ `gl_config/admins.uids` → hiện entry "Duyệt pack".
 // Fetcher pluggable (Firestore thật / fake test) → logic thuần test được.

@@ -1,6 +1,6 @@
 // lib/features/great_library/services/pack_storage_backend.dart
 //
-// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D3).
+// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D3).
 // Interface trừu tượng cho storage pluggable: backend đầu là Firebase Storage
 // (firebase_pack_storage.dart); khi Firebase hết quota thêm Supabase
 // (supabase_pack_storage.dart) mà không đụng code UI/catalog.

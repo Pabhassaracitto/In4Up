@@ -1,6 +1,6 @@
 // lib/features/great_library/services/contribution_ai_suggest.dart
 //
-// GLIB-006 — nút "Gợi ý bằng AI" (opt-in, mặc định TẮT — ADR-0031 D6).
+// GLIB-006 — nút "Gợi ý bằng AI" (opt-in, mặc định TẮT — ADR-0036 D6).
 // Backend pluggable (OpenAiCompatChatBackend thật tái dùng tầng BYOK
 // in4up_ai; fake trong test) → khi tắt/chưa cấu hình provider: KHÔNG gọi
 // network, trả null ngay.

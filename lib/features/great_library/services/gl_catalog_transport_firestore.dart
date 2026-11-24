@@ -1,6 +1,6 @@
 // lib/features/great_library/services/gl_catalog_transport_firestore.dart
 //
-// GLIB-003 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D2/D5).
+// GLIB-003 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D2/D5).
 // Transport thật: đọc `gl_packs` (status=published) qua Firestore REST
 // **không bắt buộc đăng nhập** (D5) — rules cho read public pack published;
 // token chỉ đính khi sẵn có (để admin còn đọc được cả pack ẩn sau này).

@@ -1506,7 +1506,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Trạng thái: 🔨 **doing** (owner duyệt 2026-11-15; GLIB-001/002 code + test thuần, chờ CI).
 - Milestone đề xuất: nhánh milestone mới «Cộng đồng / Thư Viện Chung» — owner xếp khi duyệt.
 - Chi tiết: [`plans/PLAN-049-thu-vien-chung-i4u.md`](../plans/PLAN-049-thu-vien-chung-i4u.md);
-  kiến trúc: [ADR-0031](../adr/0031-thu-vien-chung-pack-storage-moderation.md)
+  kiến trúc: [ADR-0036](../adr/0036-thu-vien-chung-pack-storage-moderation.md)
   (gói `.i4upack`, catalog Firestore REST, `PackStorageBackend` pluggable
   Firebase→Supabase, moderation pending-first, admin in-app gate uid owner).
 - Tóm tắt: màn **Thư Viện Chung I4U** — duyệt/xem trước/tải pack **không cần
@@ -1516,7 +1516,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
   đóng góp (AI gợi ý metadata opt-in BYOK) + màn admin moderation.
 - Lịch sử:
   - 2026-11-15 | created (proposed) | agent `arena/a04e4405-in4up` | PLAN-049 +
-    ADR-0031 + 8 card GLIB-001..008; chưa code, chờ owner duyệt.
+    ADR-0036 + 8 card GLIB-001..008; chưa code, chờ owner duyệt.
   - 2026-11-15 | proposed→doing | owner duyệt («Duyệt, hãy tiến hành»); agent
     `arena/a04e4405-in4up` | GLIB-001 (pack_manifest + pack_file) + GLIB-002
     (backend interface + Firebase REST + DownloadManager) code + 3 file test
@@ -1560,7 +1560,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
     (T2 hi/zh/zh_TW/si dịch native cùng PR); download store file (native) /
     memory (web) pluggable; 14 test (controller + widget). Preview theo loại +
     persist cache = GLIB-004b. Owner vẫn nợ deploy rules (§4 schema doc).
-### PLAN-049 — Beta 1.29.0: hub tổng hợp & kiểm thử 9 lane audit v1.28.0
+### PLAN-050 — Beta 1.29.0: hub tổng hợp & kiểm thử 9 lane audit v1.28.0
 - Nguồn: người sở hữu (2026-11-12, qua agent `arena/60e35d65-in4up`).
 - Trạng thái: doing — hub mở, chờ 9 nhánh agent land.
 - Milestone đề xuất: M2 — ổn định bản phát hành 1.29.0.
@@ -1576,3 +1576,16 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-12 | created→doing | agent `arena/60e35d65-in4up` | dựng hợp đồng land cho
     9 agent, sửa `deploy-web.yml` (không auto-publish beta) + `build_final_complete.yml`
     (tag beta ⇒ prerelease), thêm `scripts/beta/beta_board.sh`.
+
+### PLAN-051 — Beta 1.30.0: hợp nhất GLIB (Thư Viện Chung) vào dòng 1.29.2 và phát hành beta
+- Nguồn: người sở hữu (2026-11-24, qua agent `arena/395208ef-in4up`).
+- Trạng thái: doing — rebase tuyến tính xong, chờ CI + build 4 nền tảng.
+- Milestone: M2 — ổn định bản phát hành 1.30.0.
+- Chi tiết: card `REL-1.30.0-Beta` trong [`KANBAN.md`](KANBAN.md).
+  - Nhánh `arena/a04e4405-in4up` (GLIB-001…008b) được rebase **tuyến tính**
+    (0 merge commit) lên dòng 1.29.x; `pubspec` `1.29.2+31` → `1.30.0+32`.
+  - Trùng số tài liệu sau hợp nhất đã xử: ADR Thư Viện Chung `0031` → `0036`,
+    card Beta 1.29.0 `PLAN-049` → `PLAN-050` (card Thư Viện Chung giữ `PLAN-049`).
+- Lịch sử:
+  - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit,
+    gộp KANBAN/PLAN giữ cả hai phía, bump `1.30.0+32`, thêm pattern tag beta.

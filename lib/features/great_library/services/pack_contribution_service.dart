@@ -1,6 +1,6 @@
 // lib/features/great_library/services/pack_contribution_service.dart
 //
-// GLIB-006 — wizard đóng góp pack (PLAN-049, ADR-0031 D6).
+// GLIB-006 — wizard đóng góp pack (PLAN-049, ADR-0036 D6).
 //
 // Service thuần (test được, không plugin): build `.i4upack` từ nguồn user
 // chọn (export-as-pack từ vocab của mình, hoặc soạn mới tay), kiểm quota

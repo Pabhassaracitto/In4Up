@@ -1,6 +1,6 @@
 // lib/features/great_library/ui/great_library_screen.dart
 //
-// GLIB-004 — Thư Viện Chung I4U (PLAN-049, ADR-0031).
+// GLIB-004 — Thư Viện Chung I4U (PLAN-049, ADR-0036).
 // Màn chính: tìm kiếm + lọc loại + sắp xếp + danh sách pack (pull-to-refresh).
 // Chuỗi chrome qua AppLocalizations (rule vàng #5, ARB ×26 locale);
 // TÊN/mô tả pack là nội dung cộng đồng → giữ nguyên nguồn, không dịch.

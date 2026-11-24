@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_info.dart';
 import 'package:in4up/features/dictionary/services/dictionary_service.dart';
 import 'package:in4up/features/dictionary/services/dict_device_channel.dart';
+import 'package:in4up/features/dictionary/services/dict_db_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'mdx_test_builder.dart';
@@ -271,6 +272,40 @@ void main() {
     expect(outcome.imported.single.missingResources, contains('partial.1.mdd'));
     expect(outcome.missingParts, contains('partial.1.mdd'));
     expect(await DictionaryService.instance.lookup('hello'), hasLength(1));
+  });
+
+  test('lookup report distinguishes missing, partial DB error, and truncation', () async {
+    final a = await writeMdx('report-a.mdx', {'hello': 'original'});
+    final b = await writeMdx('report-b.mdx', {'hello': 'other'});
+    final first = (await DictionaryService.instance.importDictionaryBundle(
+      absoluteFilePaths: [a], rootPath: '', mode: DictStorageMode.linked)).imported.single;
+    final second = (await DictionaryService.instance.importDictionaryBundle(
+      absoluteFilePaths: [b], rootPath: '', mode: DictStorageMode.linked)).imported.single;
+    await DictDbService.insertBatch(first.dbPath, [
+      for (var i = 0; i < 10; i++)
+        {'headword': 'hello', 'definition': 'extra $i', 'dict_id': first.id},
+    ]);
+    var report = await DictionaryService.instance.lookupWithReport('hello');
+    expect(report.entries, hasLength(11)); // 10 from first, 1 from second
+    expect(report.truncatedSources, [first.name]);
+    expect(report.failedSources, isEmpty);
+    report = await DictionaryService.instance.lookupWithReport('absent');
+    expect(report.entries, isEmpty);
+    expect(report.failedSources, isEmpty);
+    expect(report.truncatedSources, isEmpty);
+
+    // A real SQLite schema failure, not a simulated missing word.
+    final db = await openDatabase(second.dbPath);
+    await db.execute('DROP TABLE dict_entries');
+    await db.close();
+    report = await DictionaryService.instance.lookupWithReport('hello');
+    expect(report.entries, hasLength(10));
+    expect(report.failedSources, [second.name]);
+    expect(report.truncatedSources, [first.name]);
+    expect((await DictionaryService.instance.lookup('hello')), hasLength(10));
+    report = await DictionaryService.instance.lookupWithReport('absent', dictId: second.id);
+    expect(report.entries, isEmpty);
+    expect(report.failedSources, [second.name]);
   });
 
 }

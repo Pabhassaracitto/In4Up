@@ -169,6 +169,16 @@ class _ContributeWizardScreenState extends State<ContributeWizardScreen> {
     final result = await widget.service
         .submit(pack: pack, title: meta.title);
     if (!mounted) return;
+    if (result.status == ContributionStatus.failed &&
+        (result.errorCode ?? '').contains('upload-unsupported')) {
+      // Backend HTTPS tĩnh (không Blaze): pack đã build xong — hướng dẫn
+      // chia sẻ file thủ công cho owner (không mất công soạn).
+      setState(() {
+        _submitting = false;
+        _submitError = l10n.glUploadUnsupported;
+      });
+      return;
+    }
     if (result.status == ContributionStatus.submitted) {
       widget.onSubmitted?.call();
       ScaffoldMessenger.of(context).showSnackBar(

@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from seed_spec import PackSpec, slugify
 
-# Path THUẦN trong bucket vipsound-df903.firebasestorage.app
-# (download = /v0/b/{bucket}/o/{path}?alt=media) — khớp rules §3.
-_STORAGE = 'packs/seed'
+# Seed phát hành qua GitHub Release gl-seed-v1 (không cần Firebase Blaze):
+# storage path = tên file trong release.
+_STORAGE = ''
 
 
 def _spec(pid, title, subtitle, desc, tags):
@@ -27,7 +27,7 @@ def _spec(pid, title, subtitle, desc, tags):
         tags=tags,
         attribution='Ảnh minh hoạ tự sinh bởi In4Up Seed (cc0) — '
                     'placeholder chờ thay bằng ảnh CC0/OpenClipart thật.',
-        storage_path=f'{_STORAGE}/{pid}.i4upack',
+        storage_path=f'{pid}.i4upack',
     )
 
 

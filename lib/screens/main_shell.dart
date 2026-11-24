@@ -396,15 +396,34 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return 'In4Up';
       case _PrimaryTab.listen:
-        if (_listenModeIndex == 0) return '🎧 Nghe';
-        if (_listenModeIndex == 1) return '🎙️ Nói';
-        return '📹 Xem';
+        if (_listenModeIndex == 0) return 'Nghe';
+        if (_listenModeIndex == 1) return 'Nói';
+        return 'Xem';
       case _PrimaryTab.read:
-        return _readModeIndex == 0 ? '📖 Đọc' : '✍️ Viết';
+        return _readModeIndex == 0 ? 'Đọc' : 'Viết';
       case _PrimaryTab.understand:
-        return '💡 Hiểu';
+        return 'Hiểu';
       case _PrimaryTab.remember:
-        return '🧠 Nhớ';
+        return 'Nhớ';
+    }
+  }
+
+  IconData? get _titleIcon {
+    switch (_currentTab) {
+      case _PrimaryTab.home:
+        return null;
+      case _PrimaryTab.listen:
+        if (_listenModeIndex == 0) return Icons.headphones_rounded;
+        if (_listenModeIndex == 1) return Icons.mic_rounded;
+        return Icons.smart_display_rounded;
+      case _PrimaryTab.read:
+        return _readModeIndex == 0
+            ? Icons.menu_book_rounded
+            : Icons.edit_note_rounded;
+      case _PrimaryTab.understand:
+        return Icons.lightbulb_outline_rounded;
+      case _PrimaryTab.remember:
+        return Icons.psychology_outlined;
     }
   }
 
@@ -1795,17 +1814,29 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            _titleText,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: _isHome ? 18 : 15,
-              fontWeight: FontWeight.bold,
-              color: _isHome ? Colors.white : _currentAccent,
-              letterSpacing: -0.3,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_titleIcon != null) ...[
+                Icon(_titleIcon, size: 16, color: _currentAccent),
+                const SizedBox(width: 5),
+              ],
+              Flexible(
+                child: Text(
+                  _titleText,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: _isHome ? 18 : 15,
+                    fontWeight: FontWeight.bold,
+                    color: _isHome ? Colors.white : _currentAccent,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+            ],
           ),
           Consumer<PlayerProvider>(
             builder: (_, player, __) {

@@ -593,15 +593,38 @@ class _ToolsPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // READ-ACT-001: feedback bắt buộc — dời xuống dock thì phải dời
-        // theo, nếu không người dùng không biết đang dịch đoạn nào.
-        Text(
-          '${context.uiText('Áp dụng cho')}: $scope — $preview',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white54, fontSize: 10),
-        ),
-        const SizedBox(height: 6),
+        // READ-ACT-001: feedback bắt buộc — chỉ hiện pill ngữ cảnh gọn khi đã
+        // có dòng/đoạn mục tiêu (không hiện dấu gạch ngang rỗng khi chưa mở bài).
+        if (target != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  target.fromSelection
+                      ? Icons.select_all_rounded
+                      : Icons.short_text_rounded,
+                  size: 14,
+                  color: const Color(0xFF80DEEA),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${context.uiText('Áp dụng cho')} $scope: $preview',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
         Wrap(
           spacing: 6,
           runSpacing: 4,

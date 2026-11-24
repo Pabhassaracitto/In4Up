@@ -1850,7 +1850,7 @@ class _MainShellState extends State<MainShell> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: Colors.grey[500],
                   ),
                 ),
@@ -2708,7 +2708,7 @@ class _ModeHintChip extends StatelessWidget {
         '${context.uiText(label)} · ${context.uiText(suffix)}',
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -2748,7 +2748,9 @@ Widget build(BuildContext context) {
     button: true,
     selected: selected,
     label: label,
-    hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
+    hint: onLongPress != null
+        ? context.uiText('Có thao tác nhấn giữ để đổi mode')
+        : null,
     child: ConstrainedBox(
       constraints: const BoxConstraints(
         minWidth: 56,
@@ -2794,7 +2796,7 @@ Widget build(BuildContext context) {
                             badgeText!,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2821,7 +2823,7 @@ Widget build(BuildContext context) {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: activeColor,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),

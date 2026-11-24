@@ -4,6 +4,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/core/theme/app_colors.dart';
+import 'package:in4up/core/theme/app_spacing.dart';
+import 'package:in4up/core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
@@ -38,8 +41,8 @@ class MiniPlayerTheme {
     secondaryColor: Color(0xFFFF8F00),
     accentColor: Color(0xFFFFE082),
     modeIcon: Icons.self_improvement,
-    modeName: 'Phat Phap',
-    modeSubtitle: 'Lang nghe - Suy ngam - Tham nhuan',
+    modeName: 'Phật Pháp',
+    modeSubtitle: 'Lắng nghe · Suy ngẫm · Thấm nhuần',
     gradientColors: [Color(0xFFFFB300), Color(0xFFFF8F00), Color(0xFFE65100)],
   );
 
@@ -48,8 +51,8 @@ class MiniPlayerTheme {
     secondaryColor: Color(0xFF1976D2),
     accentColor: Color(0xFF90CAF9),
     modeIcon: Icons.school,
-    modeName: 'Tieng Anh',
-    modeSubtitle: 'Nghe - Noi - Ghi nho',
+    modeName: 'Tiếng Anh',
+    modeSubtitle: 'Nghe · Nói · Ghi nhớ',
     gradientColors: [Color(0xFF2196F3), Color(0xFF1976D2), Color(0xFF0D47A1)],
   );
 
@@ -58,8 +61,8 @@ class MiniPlayerTheme {
     secondaryColor: Color(0xFF5B52CC),
     accentColor: Color(0xFFB39DDB),
     modeIcon: Icons.music_note,
-    modeName: 'Am Nhac',
-    modeSubtitle: 'Thuong thuc am thanh',
+    modeName: 'Âm Nhạc',
+    modeSubtitle: 'Thưởng thức âm thanh',
     gradientColors: [Color(0xFF6C63FF), Color(0xFF5B52CC), Color(0xFF311B92)],
   );
 
@@ -521,7 +524,7 @@ class _MediumBar extends StatelessWidget {
                   height: 40,
                   child: Row(children: [
                     Expanded(child: material.Text(
-                      player.currentSongTitle ?? 'Unknown',
+                      player.currentSongTitle ?? context.uiText('Chưa rõ tên bài'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontSize: 13,
@@ -586,28 +589,36 @@ class _CycleButton extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: MiniPlayerAnimations.fast,
-            transitionBuilder: (child, anim) => RotationTransition(
-              turns: Tween(begin: 0.25, end: 0.0).animate(anim),
-              child: FadeTransition(opacity: anim, child: child),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: AppSpacing.minTouchTarget,
+              minHeight: 40,
             ),
-            child: Icon(
-              _icon,
-              key: ValueKey(state),
-              color: Colors.white.withValues(alpha: 0.9),
-              size: 18,
+            child: Center(
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: MiniPlayerAnimations.fast,
+                    transitionBuilder: (child, anim) => RotationTransition(
+                      turns: Tween(begin: 0.25, end: 0.0).animate(anim),
+                      child: FadeTransition(opacity: anim, child: child),
+                    ),
+                    child: Icon(
+                      _icon,
+                      key: ValueKey(state),
+                      color: Colors.white.withValues(alpha: 0.9),
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
           ),
         ),
       ),
@@ -641,7 +652,10 @@ class _MicroBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       tooltip: label,
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTouchTarget,
+        minHeight: 40,
+      ),
       padding: EdgeInsets.zero,
       onPressed: onTap == null ? null : () {
         HapticFeedback.lightImpact();
@@ -775,7 +789,7 @@ class _MediumInfo extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center, // ★ Căn giữa Column
       children: [
         material.Text(
-          player.currentSongTitle ?? 'Unknown',
+          player.currentSongTitle ?? context.uiText('Chưa rõ tên bài'),
           textAlign: TextAlign.center, // ★ Căn giữa text khi xuống dòng
           style: const TextStyle(
             color: Colors.white,
@@ -854,14 +868,14 @@ class _Chip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 9, color: color),
+            Icon(icon, size: 11, color: color),
             const SizedBox(width: 2),
           ],
           Text(
             label,
             style: TextStyle(
               color: color,
-              fontSize: 9,
+              fontSize: AppTypography.captionSize,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -953,10 +967,11 @@ class _ProgressBarWidget extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 32,
+          height: AppSpacing.minTouchTarget,
           child: LayoutBuilder(
             builder: (context, constraints) {
               return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onHorizontalDragUpdate: (details) {
                   final percent =
                       (details.localPosition.dx / constraints.maxWidth)
@@ -1056,7 +1071,7 @@ class _ProgressBarWidget extends StatelessWidget {
                   context.uiText('Loop: ${_formatDuration(loopEnd! - loopStart!)}'),
                   style: const TextStyle(
                     color: Color(0xFF4CAF50),
-                    fontSize: 10,
+                    fontSize: AppTypography.captionSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1669,7 +1684,7 @@ class _ModeSelectionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
+        color: AppColors.surfaceModal,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -1686,11 +1701,11 @@ class _ModeSelectionSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Select Mode',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
+            Text(
+              context.uiText('Chọn chế độ nghe'),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: AppTypography.titleSize,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1779,7 +1794,7 @@ class _ModeOption extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    theme.modeName,
+                    context.uiText(theme.modeName),
                     style: TextStyle(
                       color: isSelected ? theme.primaryColor : Colors.white,
                       fontSize: 16,
@@ -1788,7 +1803,7 @@ class _ModeOption extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    theme.modeSubtitle,
+                    context.uiText(theme.modeSubtitle),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,

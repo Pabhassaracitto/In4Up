@@ -601,7 +601,7 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
                 const SizedBox(height: 4),
                 Text(
                   _formatNoteTime(note.createdAt),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
                 ),
               ],
             ),

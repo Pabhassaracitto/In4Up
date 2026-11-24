@@ -92,6 +92,62 @@ void main() {
     expect(shell, isNot(contains("'🎧 Nghe'")));
   });
 
+  test('Sprint 3 Design System, >=11sp typography, >=44pt touch targets & non-destructive bubbles', () {
+    final mainDart = File('lib/main.dart').readAsStringSync();
+    final appColors = File('lib/core/theme/app_colors.dart').readAsStringSync();
+    final appTypography =
+        File('lib/core/theme/app_typography.dart').readAsStringSync();
+    final appSpacing =
+        File('lib/core/theme/app_spacing.dart').readAsStringSync();
+    final collapsibleBar =
+        File('lib/widgets/collapsible_action_bar.dart').readAsStringSync();
+    final actionButton = File(
+            'lib/widgets/workspace_navigation/workspace_action_button.dart')
+        .readAsStringSync();
+    final wordlistBubble = File(
+            'lib/screens/tools/word_list/wordlist_bubble.dart')
+        .readAsStringSync();
+    final liveCaptionBubble =
+        File('lib/features/cabin/widgets/live_caption_bubble.dart')
+            .readAsStringSync();
+    final miniPlayer =
+        File('lib/screens/listen_mode/widgets/mini_player.dart')
+            .readAsStringSync();
+    final wordListScreen =
+        File('lib/screens/tools/word_list/word_list_screen.dart')
+            .readAsStringSync();
+
+    // Design System tokens wired to ThemeData.
+    expect(mainDart, contains('AppTheme.dark()'));
+    expect(appColors, contains('bgBase'));
+    expect(appColors, contains('surfaceElevated'));
+    expect(appColors, contains('surfaceModal'));
+    expect(appTypography, contains('minReadableSize = 11.0'));
+    expect(appSpacing, contains('minTouchTarget = 44.0'));
+
+    // >= 44pt touch targets on shared toolbars & action buttons.
+    expect(collapsibleBar, contains('AppSpacing.minTouchTarget'));
+    expect(actionButton, contains('AppSpacing.minTouchTarget'));
+
+    // WordlistBubble: body tap expands/collapses; explicit 44pt stop button stops playback.
+    expect(wordlistBubble, contains('_handleBodyTap'));
+    expect(wordlistBubble, contains('wordlistBubbleStopButtonKey'));
+    expect(wordlistBubble, contains('AppSpacing.minTouchTarget'));
+    expect(wordlistBubble, isNot(contains('fontSize: 10')));
+
+    // LiveCaptionBubble: localized fallback, >=11sp typography, 44pt close target.
+    expect(liveCaptionBubble, contains("context.uiText('Đang nghe cabin...')"));
+    expect(liveCaptionBubble, contains('AppSpacing.minTouchTarget'));
+    expect(liveCaptionBubble, isNot(contains('fontSize: 9')));
+
+    // MiniPlayer & WordListScreen: cleaned i18n leaks & micro-fonts.
+    expect(miniPlayer, isNot(contains("'Select Mode'")));
+    expect(miniPlayer, isNot(contains("'Phat Phap'")));
+    expect(miniPlayer, isNot(contains('fontSize: 9')));
+    expect(wordListScreen, isNot(contains("_menuItem('settings', Icons.tune, 'Options')")));
+    expect(wordListScreen, isNot(contains('fontSize: 9')));
+  });
+
   test('Read full library ẩn header nguồn, nhưng giữ affordance Công cụ đọc', () {
     expect(shell, contains('readLibraryFull'));
     expect(shell, contains('if (!readLibraryFull && _readModeIndex == 0)'));

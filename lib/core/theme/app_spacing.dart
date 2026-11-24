@@ -1,0 +1,13 @@
+/// 8pt spatial grid & minimum touch target constants (Apple HIG ≥ 44×44pt).
+abstract final class AppSpacing {
+  static const double xxs = 2.0;
+  static const double xs = 4.0;
+  static const double sm = 8.0;
+  static const double md = 12.0;
+  static const double lg = 16.0;
+  static const double xl = 24.0;
+  static const double xxl = 32.0;
+
+  /// Apple HIG minimum interactive hit target (44×44pt).
+  static const double minTouchTarget = 44.0;
+}

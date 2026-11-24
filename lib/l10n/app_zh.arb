@@ -690,4 +690,6 @@
   "glReasonHint": "输入原因（贡献者可见）",
   "glModerationDone": "已完成",
   "glModerationFailed": "操作失败"
+,
+  "glUploadUnsupported": "无法直接上传（无 Firebase Blaze）。资源包已构建——请将 .i4upack 文件发送给应用所有者。"
 }

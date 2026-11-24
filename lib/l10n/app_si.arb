@@ -690,4 +690,6 @@
   "glReasonHint": "හේතුව ඇතුළත් කරන්න (දායකයා දකිනු ඇත)",
   "glModerationDone": "සම්පූර්ණයි",
   "glModerationFailed": "ක්‍රියාව අසාර්ථකයි"
+,
+  "glUploadUnsupported": "සෘජු උඩුගත කිරීම නොහැක (Firebase Blaze නැත). පැකේජය සූදානම් — .i4upack ගොනුව හිමිකරුට එවන්න."
 }

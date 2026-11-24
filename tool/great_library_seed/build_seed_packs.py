@@ -71,7 +71,7 @@ def build_manifest(spec: PackSpec, item_count: int, byte_size: int) -> dict:
         'entryCount': item_count,
         'stats': {'downloads': 0, 'rating': 0, 'ratings': 0},
         'status': 'published',
-        'storage': {'backend': 'firebase', 'path': spec.storage_path},
+        'storage': {'backend': spec.storage_backend, 'path': spec.storage_path},
         'createdAt': '2026-11-23T00:00:00Z',
         'updatedAt': '2026-11-23T00:00:00Z',
     }

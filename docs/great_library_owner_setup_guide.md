@@ -80,11 +80,13 @@
      Bước 0.
 2. **Save**. (Doc này chỉ sửa tay trong Console — rules đã khóa ghi từ app.)
 
-## Bước 3 — Deploy Storage Rules (3 phút)
+## Bước 3 — ~~Deploy Storage Rules~~ ➜ KHÔNG CẦN NỮA (bỏ qua)
 
-> Vì sao: file `.i4upack` nằm trên Firebase Storage; rules cho phép ai cũng
-> đọc pack đã publish (D5), chỉ owner ghi, user upload bản nháp vào thư mục
-> của chính mình khi đóng góp (GLIB-006).
+> **Cập nhật 2026-11-24:** Firebase Storage bắt buộc gói Blaze (thẻ tín dụng)
+> → pack seed được phát hành qua **GitHub Releases** (miễn phí, public) thay
+> thế. App tự định tuyến theo `storage.backend` ('https' → GitHub). Nếu sau
+> này nâng Blaze, block rules cũ vẫn giữ ở `great_library_firestore_schema.md`
+> §3.
 
 1. **Storage → Rules**.
 2. Dán block sau (UID của bạn **đã điền sẵn** — dán nguyên văn), giữ nguyên
@@ -110,27 +112,17 @@
 
 3. Bấm **Publish**.
 
-## Bước 4 — Publish 22 pack seed (10 phút)
+## Bước 4 — Publish 22 pack seed (2 phút, KHÔNG cần thẻ/service account)
 
-> Vì sao: catalog trống → app chưa có gì hiển thị. Script upload 22 file
-> `.i4upack` lên `packs/seed/` và ghi 22 doc `gl_packs` (status `published`).
+> GitHub Actions tự build + upload 22 pack lên Release `gl-seed-v1` (app tải
+> trực tiếp từ đây, không qua Firebase).
 
-Trên máy đã clone repo (cần Python 3):
+1. Vào repo trên GitHub → tab **Actions** → workflow **"Seed Thư Viện Chung
+   lên GitHub Release"** → **Run workflow** (nút bên phải) → đợi ~2 phút xanh.
+2. Xong — catalog đọc từ asset `catalog_seed.json` của release, không cần
+   ghi Firestore.
 
-```bash
-cd In4Up
-pip install firebase-admin
-
-# Lấy service account key: Firebase Console → Project settings →
-# Service accounts → "Generate new private key" → lưu file JSON.
-python3 tool/great_library_seed/build_seed_packs.py   # build 22 pack (nếu chưa)
-python3 tool/great_library_seed/seed_publish.py \
-    --service-account /đường/dẫn/tới/service-account.json
-```
-
-- Script in `✓ seed_vocab_500_verbs` … cho 22 pack → xong.
-- Không cài được `firebase-admin`? Script sẽ in **checklist thủ công** tương
-  đương (upload file + tạo doc qua Console theo `catalog_seed.json`).
+> (Cách cũ bằng `seed_publish.py` + Firebase Storage chỉ dùng khi đã có Blaze.)
 
 > Lưu ý: audio trong pack v1 là placeholder tone (xem
 > `tool/great_library_seed/README.md`); thay bằng TTS/LibriVox thật sau cũng
@@ -152,7 +144,7 @@ python3 tool/great_library_seed/seed_publish.py \
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|
-| Catalog trống, lỗi "Firestore http 403" | Chưa deploy rules (Bước 1) | Dán lại block rules, Publish |
+| Catalog trống | Workflow Bước 4 chưa chạy HOẶC Firestore rules chưa deploy (app đọc được static seed dù chưa có rules) | Kiểm tra release `gl-seed-v1` có 23 asset chưa; dán lại rules nếu cần đóng góp/duyệt |
 | Không thấy biểu tượng khiên admin | UID trong `gl_config/admins` sai/chưa tạo | Kiểm tra lại UID ở Authentication → Users, sửa doc |
 | Đóng góp báo "not-signed-in" | Chưa đăng nhập trong app | Đăng nhập rồi gửi lại |
-| Publish script lỗi 403 upload | Service account thiếu quyền Storage | Project settings → Service accounts → tạo key mới của tài khoản đủ quyền Editor |
+| Workflow seed báo đỏ | Xem log step "Build 22 pack seed" | Chạy lại; nếu vẫn lỗi báo agent |

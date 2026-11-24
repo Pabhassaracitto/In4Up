@@ -724,4 +724,6 @@
   "glReasonHint": "Nhập lý do (người đóng góp sẽ thấy)",
   "glModerationDone": "Đã xử lý",
   "glModerationFailed": "Xử lý thất bại"
+,
+  "glUploadUnsupported": "Chưa upload trực tiếp được (chưa có Firebase Blaze). Pack đã build xong — hãy gửi file .i4upack cho chủ app."
 }

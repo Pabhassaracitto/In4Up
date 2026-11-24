@@ -8,20 +8,27 @@ import '../../providers/vocabulary_provider.dart';
 import 'great_library_controller.dart';
 import 'services/gl_catalog_service.dart';
 import 'services/gl_catalog_transport_firestore.dart';
+import 'services/gl_catalog_transport_static.dart';
 import 'services/pack_download_manager.dart';
 import 'services/pack_download_store_memory.dart';
 import 'services/pack_storage_firebase.dart';
+import 'services/pack_storage_http.dart';
 
 Future<GreatLibraryController> createGreatLibraryControllerImpl({
   VocabularyProvider? vocabulary,
 }) async {
-  final transport = FirestoreGlCatalogTransport();
   final catalog = GlCatalogService(
-    transport: transport,
+    transport: CompositeGlCatalogTransport([
+      StaticGlCatalogTransport(),
+      FirestoreGlCatalogTransport(),
+    ]),
     cache: GlCatalogMemoryCache(),
   );
   final downloads = PackDownloadManager(
-    backend: FirebasePackStorage(),
+    backend: RoutingPackStorage(backends: {
+      'https': HttpPackStorage(),
+      'firebase': FirebasePackStorage(),
+    }),
     store: MemoryPackDownloadStore(),
   );
   return GreatLibraryController(catalog: catalog, downloads: downloads);

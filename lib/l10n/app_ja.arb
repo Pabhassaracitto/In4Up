@@ -636,4 +636,6 @@
   "glReasonHint": "理由を入力（投稿者に表示されます）",
   "glModerationDone": "完了",
   "glModerationFailed": "操作に失敗しました"
+,
+  "glUploadUnsupported": "直接アップロードできません（Firebase Blaze なし）。パックは作成済みです — .i4upack ファイルをオーナーに共有してください。"
 }

@@ -636,4 +636,6 @@
   "glReasonHint": "ใส่เหตุผล (ผู้สนับสนุนจะเห็น)",
   "glModerationDone": "เสร็จแล้ว",
   "glModerationFailed": "การดำเนินการล้มเหลว"
+,
+  "glUploadUnsupported": "อัปโหลดโดยตรงไม่ได้ (ไม่มี Firebase Blaze) แพ็กสร้างเสร็จแล้ว — โปรดส่งไฟล์ .i4upack ให้เจ้าของแอป"
 }

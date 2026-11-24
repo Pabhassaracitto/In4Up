@@ -64,10 +64,11 @@ class ShadowingSentencePicker extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 140,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 164),
             child: Scrollbar(
               child: ListView.builder(
+                shrinkWrap: true,
                 itemCount: suggestions.length,
                 itemBuilder: (context, i) {
                   final s = suggestions[i];
@@ -87,9 +88,11 @@ class ShadowingSentencePicker extends StatelessWidget {
                       child: Row(
                         children: [
                           SizedBox(
-                            width: 42,
+                            width: 48,
                             child: Text(
                               _formatDuration(s.start),
+                              maxLines: 1,
+                              softWrap: false,
                               style: TextStyle(
                                 color: selected ? const Color(0xFF64B5F6) : Colors.grey[500],
                                 fontSize: 11,

@@ -156,6 +156,7 @@ class WordInsightService {
   static Future<String?> Function(String word)? offlineIpaOverride;
   static String? Function()? targetLanguageOverride;
   static Map<String, String> Function()? dictionaryNamesOverride;
+  static int Function()? dictionaryRevisionOverride;
 
   /// Xoá seam + cache (test).
   static void resetForTest() {
@@ -166,6 +167,8 @@ class WordInsightService {
     offlineIpaOverride = null;
     targetLanguageOverride = null;
     dictionaryNamesOverride = null;
+    dictionaryRevisionOverride = null;
+    _instance._dictionaryRevision = null;
     _instance._cache.clear();
     _instance._localCache.clear();
   }
@@ -175,6 +178,18 @@ class WordInsightService {
 
   /// Kết quả cục bộ (MDX + offline) — hiện NGAY khi mở sheet, không chờ mạng.
   final Map<String, WordInsight> _localCache = <String, WordInsight>{};
+
+  int? _dictionaryRevision;
+
+  int _syncDictionaryRevision() {
+    final revision = dictionaryRevisionOverride?.call() ??
+        DictionaryService.instance.resourceRevision.value;
+    if (_dictionaryRevision != revision) {
+      clearCache();
+      _dictionaryRevision = revision;
+    }
+    return revision;
+  }
 
   static const int _cacheMax = 80;
 
@@ -198,6 +213,7 @@ class WordInsightService {
     final word = normalizeWord(rawWord);
     if (word.isEmpty) return WordInsight(word: rawWord.trim());
 
+    final revision = _syncDictionaryRevision();
     final cached = _localCache[word];
     if (cached != null) return cached.copyWith(fromCache: true);
 
@@ -208,6 +224,7 @@ class WordInsightService {
       debugPrint('[WordInsight] resolveLocal "$word" lỗi: $error');
       insight = WordInsight(word: word);
     }
+    if (_syncDictionaryRevision() != revision) return WordInsight(word: word);
     if (_localCache.length >= _cacheMax) _localCache.clear();
     _localCache[word] = insight;
     return insight;
@@ -226,6 +243,7 @@ class WordInsightService {
       return WordInsight(word: rawWord.trim());
     }
 
+    final revision = _syncDictionaryRevision();
     final cached = _cache[word];
     if (cached != null) return cached.copyWith(fromCache: true);
 
@@ -237,6 +255,7 @@ class WordInsightService {
       insight = WordInsight(word: word);
     }
 
+    if (_syncDictionaryRevision() != revision) return WordInsight(word: word);
     final local = _localCache[word];
     if (local != null) insight = insight.withDictionaryFallback(local);
     if (_cache.length >= _cacheMax) _cache.clear();

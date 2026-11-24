@@ -1,0 +1,36 @@
+# GLIB-008b — Build + publish 22 pack seed lên GitHub Releases (MIỄN PHÍ,
+# không cần Firebase Blaze/thẻ tín dụng). Owner chỉ cần: Actions →
+# "Seed Thư Viện Chung lên GitHub Release" → Run workflow (chạy 1 lần, hoặc
+# chạy lại khi build_seed_packs.py thay đổi nội dung — upload --clobber ghi đè).
+name: Seed Thư Viện Chung lên GitHub Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # tạo release + upload asset
+
+jobs:
+  seed-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build 22 pack seed
+        run: python3 tool/great_library_seed/build_seed_packs.py
+
+      - name: Tạo/cập nhật release gl-seed-v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release view gl-seed-v1 > /dev/null 2>&1 \
+            || gh release create gl-seed-v1 \
+                 --title "Thư Viện Chung — seed packs v1" \
+                 --notes "22 pack seed (GLIB-008). App tải qua URL public của release này."
+          cd tool/great_library_seed/dist
+          for f in *.i4upack catalog_seed.json; do
+            gh release upload gl-seed-v1 "$f" --clobber
+          done
+          echo "✓ 22 pack + catalog_seed.json đã lên release gl-seed-v1"

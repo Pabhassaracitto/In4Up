@@ -188,7 +188,8 @@
     "glHideReason",
     "glReasonHint",
     "glModerationDone",
-    "glModerationFailed"
+    "glModerationFailed",
+    "glUploadUnsupported"
   ],
   "keepEnglishByLocale": {
     "hi": [

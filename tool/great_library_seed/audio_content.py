@@ -15,9 +15,9 @@ from __future__ import annotations
 from seed_spec import PackSpec, slugify
 from build_seed_packs import _tone_wav
 
-# Path THUẦN trong bucket vipsound-df903.firebasestorage.app
-# (download = /v0/b/{bucket}/o/{path}?alt=media) — khớp rules §3.
-_STORAGE = 'packs/seed'
+# Seed phát hành qua GitHub Release gl-seed-v1 (không cần Firebase Blaze):
+# storage path = tên file trong release.
+_STORAGE = ''
 
 
 def _lrc(lines: list[tuple[int, str]], title: str) -> str:
@@ -43,7 +43,7 @@ def _spec(pid, title, subtitle, desc, tags, attribution, license_name='cc0',
         license_name=license_name,
         license_url=license_url,
         attribution=attribution,
-        storage_path=f'{_STORAGE}/{pid}.i4upack',
+        storage_path=f'{pid}.i4upack',
     )
 
 

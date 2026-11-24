@@ -13,11 +13,13 @@ import 'great_library_controller.dart';
 import 'services/gl_catalog_file_cache.dart';
 import 'services/gl_catalog_service.dart';
 import 'services/gl_catalog_transport_firestore.dart';
+import 'services/gl_catalog_transport_static.dart';
 import 'services/pack_download_manager.dart';
 import 'services/pack_download_store_file.dart';
 import 'services/pack_import_service.dart';
 import 'services/pack_import_sinks_io.dart';
 import 'services/pack_storage_firebase.dart';
+import 'services/pack_storage_http.dart';
 
 Future<GreatLibraryController> createGreatLibraryControllerImpl({
   VocabularyProvider? vocabulary,
@@ -25,14 +27,23 @@ Future<GreatLibraryController> createGreatLibraryControllerImpl({
   final supportDir = await getApplicationSupportDirectory();
   final store =
       FilePackDownloadStore(Directory('${supportDir.path}/great_library'));
-  final transport = FirestoreGlCatalogTransport();
+  // GLIB-008b: catalog = static seed (GitHub Release, không cần billing)
+  // + Firestore (khi owner deploy rules) — nguồn nào sống dùng nguồn đó.
   final catalog = GlCatalogService(
-    transport: transport,
+    transport: CompositeGlCatalogTransport([
+      StaticGlCatalogTransport(),
+      FirestoreGlCatalogTransport(),
+    ]),
     // GLIB-004b: persist snapshot ra đĩa — mở app offline vẫn thấy catalog cũ.
     cache: GlCatalogFileCache(Directory('${supportDir.path}/great_library')),
   );
+  // GLIB-008b: định tuyến theo manifest.storage.backend — seed trên GitHub
+  // Releases ('https'), pack Firebase ('firebase') vẫn hoạt động nếu có Blaze.
   final downloads = PackDownloadManager(
-    backend: FirebasePackStorage(),
+    backend: RoutingPackStorage(backends: {
+      'https': HttpPackStorage(),
+      'firebase': FirebasePackStorage(),
+    }),
     store: store,
   );
   final installedStore = PrefsInstalledPackStore();

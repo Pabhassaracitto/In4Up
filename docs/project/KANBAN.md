@@ -10229,7 +10229,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **xác nhận CI xanh sau khi sửa i18n:** `App Analyze + Locale` run **45246030183** 🟢 · `Read translation regression` **45246030197** 🟢 · `Deploy web` **45246141130** 🟢 trên tip `88445a49`. Cả 3 workflow đỏ/treo trên `b360f699` nay đã xanh → 1.29.2 đủ điều kiện nghiệm thu máy thật.
 
 ### REL-1.30.0-Beta — (2026-11-24) Beta 1.30.0: hợp nhất tuyến tính GLIB (a04e4405) vào dòng 1.29.2
-- **Trạng thái:** 🔨 doing — rebase tuyến tính xong + bump `1.30.0+32`; chờ CI và build 4 nền tảng
+- **Trạng thái:** ✅ done — build **4/4 nền tảng 🟢** (run 45458996963); **chờ nghiệm thu máy thật**
+- **Tag/commit:** `1.30.0-Beta` → **`61ae19c7`** (bump `1.30.0+32`), prerelease (không chiếm nhãn Latest — `1.29.2` vẫn Latest)
 - **Nguồn:** owner 2026-11-24 — *"Beta 1.30.0 hãy rebase hay làm gì đó, đảm bảo tuyến tính để nhánh này có đầy đủ commit của e4405 tuyến tính, không lỗi, không xung đột và tạo release beta v1.30.0 tại nhánh này."*
 - **Nhánh phát hành:** `arena/395208ef-in4up` (base `9d6af01` = tip `arena/59b6e40a-in4up`); nguồn hợp nhất: `arena/a04e4405-in4up` (GLIB-001…008b, 51 commit).
 - **Cách land — rebase, KHÔNG merge:** `git rebase --onto arena/a04e4405-in4up 8ed86e1e arena/395208ef-in4up` ⇒ **166 commit** dòng 1.29.x (4 sprint UI + 1.29.0/1.29.1/1.29.2) phát lại **trên tip GLIB**; **0 merge commit** phát sinh, **0 xung đột** còn lại.
@@ -10242,6 +10243,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   * **Trùng số PLAN-049** (2 card): card Beta hub 1.29.0 đổi thành **PLAN-050**; card Thư Viện Chung giữ `PLAN-049`; thêm `PLAN-051` cho đợt này.
 - **Bump:** `1.29.2+31` → **`1.30.0+32`** (`versionCode` 31→32 ⇒ Android cài đè được, dữ liệu giữ nguyên). **MINOR** vì có nhóm tính năng mới: Thư Viện Chung (GLIB-001…008b).
 - **Workflow:** `build_final_complete.yml` khai báo thêm tag `[0-9]*-Beta` / `[0-9]*-beta*`; `prerelease` tự bật khi tên tag chứa `beta`; `build.yml` (legacy, chỉ nghe `v*`) **không** chạy ⇒ không tranh asset.
+- **CI trên `61ae19c7` (5/5 workflow 🟢):** `App Analyze + Locale Test` **45451069984** · `Listen queue` **45451070337** · `Read translation regression` **45451070579** · `Deploy web` **45451070262** · `VieNeu engine build` **45451070022**.
+- **Bằng chứng build:** `build_final_complete.yml` run **45458996963** — **4/4 job success** (Android ✅ · Windows ✅ · Linux ✅ · iOS ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.30.0-Beta
+  - `in4up-Android-arm64-v8a-1.30.0-Beta-61ae1.apk` — 204.961.841 B — sha256 `cfdd2cc11b5810e0b0b96760442daf3e511441a9f77d5b57ee102ccb9bb2935c`
+  - `in4up-iOS-1.30.0-Beta.ipa` — 95.309.770 B — sha256 `2105e6886525e65219dd1e57eea2224fb5535e839c65cac704c8cae153bc7f47`
+  - `in4up-Linux-1.30.0-Beta.tar.gz` — 51.844.025 B — sha256 `d632e9d7d88a1208de701e0935fe36bcf504631d7c6072d831a3063bc399360d`
+  - `in4up-Windows-1.30.0-Beta.zip` — 54.469.523 B — sha256 `885cac2a443351684c824ebc491dd27098ca5d7516e4bf8db248ca892a06b87e`
+- **⚠️ Sự cố build lần 1 (hạ tầng, không phải code):** run **45454736384** — Linux/Windows/Android 🟢 ngay, **iOS bị `cancelled`** với annotation *"The job was not acquired by Runner of type hosted…"* (GitHub hết máy macOS arm64). Token sandbox **không có quyền `rerun`** (`403 Resource not accessible by integration`) ⇒ gỡ tag rồi push lại `1.30.0-Beta` **cùng commit** `61ae19c7` để chạy lại; **lưu ý:** xoá tag làm GitHub **xoá luôn release** cũ, và workflow lần 2 tự tạo lại release với body rỗng ⇒ phải `gh release edit --notes-file` để gắn lại ghi chú. Lần sau: ưu tiên `workflow_dispatch` (có `version_name`) để không phải di chuyển tag.
 - **Chưa kiểm (máy thật):** cài đè 1.29.2 → 1.30.0-Beta · toàn bộ Thư Viện Chung (tải/góp ý/duyệt) · bộ typography ≥11sp của 4 sprint UI.
 - **Lịch sử:**
   - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit dòng 1.29.x lên tip GLIB `62d47e87` (0 merge, 0 xung đột) → kiểm lossless KANBAN/PLAN + parity ARB 27/27 → bump `1.30.0+32`; chờ CI
+  - 2026-11-24 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 trên `61ae19c7` (analyze **45451069984**) → tag `1.30.0-Beta` → build **45458996963** 🟢 **4/4** (Android · iOS · Windows · Linux) → release prerelease đủ 4 asset, `1.29.2` vẫn Latest. Chờ nghiệm thu máy.

@@ -3,7 +3,7 @@
 // Quick Actions / Tools Overlay:
 // - Mở mượt trong 220ms, đóng tức thì (≤ 100ms khi đóng thường, 0ms khi chọn tool)
 //   thay vì chờ reverse tuần tự ~800ms.
-// - Thay WillPopScope (deprecated) bằng PopScope.
+// - Dùng PopScope chuẩn mới.
 // - Tích hợp ô tìm kiếm tức thời để lọc nhanh danh sách công cụ.
 
 import 'dart:async';

@@ -30,10 +30,7 @@ class ReadSettingsSheet {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => const SafeArea(
-        top: false,
-        child: _SettingsContent(),
-      ),
+      builder: (context) => const _SettingsContent(),
     ).then((_) {
       // AUDIT-2026-10-20 (mục 1): sheet đóng ⇒ cấu hình vừa đổi (ví dụ vị
       // trí phần TIÊU ĐỀ khi ở chế độ Focus) phải có hiệu lực NGAY, không
@@ -117,9 +114,11 @@ class _SettingsContentState extends State<_SettingsContent> {
             final alignLabel = context.uiText(
               tp.textAlign == TextAlign.center ? 'Giữa' : 'Trái',
             );
-            return SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(20),
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -289,6 +288,7 @@ class _SettingsContentState extends State<_SettingsContent> {
 
                   const SizedBox(height: 24),
                 ],
+              ),
               ),
             );
           },

@@ -65,6 +65,33 @@ void main() {
     expect(shellSettings, isNot(contains('Ưu tiên cho người dùng nâng cao')));
   });
 
+  test('Sprint 2 UI — Calm Bento Home, thanh bài tập Viết 1 hàng & Quick Actions đóng tức thì', () {
+    final homeScreen =
+        File('lib/screens/home/home_screen.dart').readAsStringSync();
+    final writeScreen =
+        File('lib/screens/read_mode/write_studio_screen.dart').readAsStringSync();
+    final toolsOverlay =
+        File('lib/screens/tools/tools_overlay_v2.dart').readAsStringSync();
+
+    // Home bỏ HebbianInputCard trùng Mic với FAB, giữ I4U AI Chat + Studio submodes.
+    expect(homeScreen, isNot(contains('HebbianInputCard(')));
+    expect(homeScreen, contains("'I4U AI Chat'"));
+    expect(homeScreen, contains('_StudioPillTile('));
+
+    // WriteStudio dùng thanh cuộn ngang có icon thay cho lưới Wrap 2 cột.
+    expect(writeScreen, isNot(contains('Widget _buildLineNavigator')));
+    expect(writeScreen, contains('final IconData icon;'));
+
+    // ToolsOverlayV2 dùng PopScope + tìm kiếm + đóng nhanh không chờ stagger.
+    expect(toolsOverlay, isNot(contains('WillPopScope')));
+    expect(toolsOverlay, contains('PopScope('));
+    expect(toolsOverlay, contains('_buildSearchBar()'));
+
+    // MainShell dùng vector _titleIcon thay cho chuỗi emoji tiêu đề.
+    expect(shell, contains('IconData? get _titleIcon'));
+    expect(shell, isNot(contains("'🎧 Nghe'")));
+  });
+
   test('Read full library ẩn header nguồn, nhưng giữ affordance Công cụ đọc', () {
     expect(shell, contains('readLibraryFull'));
     expect(shell, contains('if (!readLibraryFull && _readModeIndex == 0)'));

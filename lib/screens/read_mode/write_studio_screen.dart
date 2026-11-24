@@ -1011,10 +1011,26 @@ Hãy trả về JSON hợp lệ với:
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    success
-                        ? '✅ AI local đã sẵn sàng'
-                        : '❌ Import model thất bại',
+                  content: Row(
+                    children: [
+                      Icon(
+                        success
+                            ? Icons.check_circle_outline
+                            : Icons.error_outline,
+                        size: 18,
+                        color: success
+                            ? const Color(0xFF81C784)
+                            : Colors.redAccent,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          success
+                              ? 'AI local đã sẵn sàng'
+                              : 'Import model thất bại',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -1047,74 +1063,47 @@ Hãy trả về JSON hợp lệ với:
           final activeLineIndex = textProvider.currentLineIndex;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
+            padding: const EdgeInsets.fromLTRB(0, 12, 0, 24),
             child: ResponsiveContentFrame(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HeroCard(
-                    hasText: hasText,
-                    source: source,
-                    lineCount: textProvider.lines.length,
-                  ),
-                  if (hasText && writingRequest != null) ...[
-                    const SizedBox(height: 12),
-                    _WritingSourceHandoffCard(request: writingRequest),
-                  ],
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _QuickActionChip(
-                        icon: Icons.language,
-                        label: 'Web Reader',
-                        color: const Color(0xFF26A69A),
-                        onTap: widget.onOpenWebReader,
-                      ),
-                      _QuickActionChip(
-                        icon: Icons.picture_as_pdf,
-                        label: 'PDF Reader',
-                        color: const Color(0xFFEF5350),
-                        onTap: widget.onOpenPdfReader,
-                      ),
-                      _QuickActionChip(
-                        icon: Icons.auto_awesome,
-                        label: 'Công cụ nhanh',
-                        color: const Color(0xFF26C6DA),
-                        onTap: widget.onOpenQuickActions,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  if (!hasText)
+                  if (!hasText) ...[
+                    _HeroCard(
+                      hasText: hasText,
+                      source: source,
+                      lineCount: textProvider.lines.length,
+                    ),
+                    const SizedBox(height: 16),
                     _EmptyTextCard(
                       onOpenWebReader: widget.onOpenWebReader,
                       onOpenPdfReader: widget.onOpenPdfReader,
-                    )
-                  else ...[
+                    ),
+                  ] else ...[
+                    if (writingRequest != null) ...[
+                      _WritingSourceHandoffCard(request: writingRequest),
+                      const SizedBox(height: 10),
+                    ],
+                    // Thanh chọn dạng bài tập 1 hàng ngang 38pt đưa lên đầu.
+                    _buildExerciseSelector(textProvider),
+                    const SizedBox(height: 10),
                     // hasText=true ⇒ _assignment đã auto-create
                     // (_ensureExerciseState) ⇒ an toàn dùng !
                     _buildContextCard(
                       assignment: assignment!,
                       totalLines: textProvider.lines.length,
                       activeLineIndex: activeLineIndex,
+                      textProvider: textProvider,
                       onJumpToActive:
                           assignment!.showLineNavigator && activeLineIndex >= 0
                               ? () => _jumpToCurrentLine(textProvider)
                               : null,
                     ),
-                    const SizedBox(height: 16),
-                    _buildExerciseSelector(textProvider),
-                    if (assignment!.showLineNavigator) ...[
-                      const SizedBox(height: 16),
-                      _buildLineNavigator(textProvider),
-                    ],
                     if (assignment!.needsContextPreview) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildReferenceContextCard(assignment!),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     if (_exerciseType == _WriteExerciseType.dictation)
                       _buildDictationCard(textProvider, currentLine!)
                     else if (_exerciseType == _WriteExerciseType.rewrite)
@@ -1137,10 +1126,11 @@ Hãy trả về JSON hợp lệ với:
     required WritingAssignment assignment,
     required int totalLines,
     required int activeLineIndex,
+    required TextProvider textProvider,
     VoidCallback? onJumpToActive,
   }) {
     final scopeLabel = switch (assignment.origin) {
-      AssignmentOrigin.perLine => 'Dòng ${_lineIndex + 1}/$totalLines',
+      AssignmentOrigin.perLine => '${_lineIndex + 1}/$totalLines',
       AssignmentOrigin.excerpt => 'Đoạn trích',
       AssignmentOrigin.fullDocument =>
         'Toàn bài · ${assignment.sourceWordCount} từ',
@@ -1148,10 +1138,10 @@ Hãy trả về JSON hợp lệ với:
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
@@ -1159,8 +1149,12 @@ Hãy trả về JSON hợp lệ với:
         children: [
           Row(
             children: [
-              const Icon(Icons.article_outlined, color: Color(0xFF80DEEA)),
-              const SizedBox(width: 8),
+              const Icon(
+                Icons.article_outlined,
+                color: Color(0xFF80DEEA),
+                size: 16,
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   context.uiText(assignment.sourceTitle),
@@ -1168,57 +1162,112 @@ Hãy trả về JSON hợp lệ với:
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF26C6DA).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
+              if (assignment.showLineNavigator) ...[
+                IconButton(
+                  tooltip: context.uiText('Trước'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  onPressed: _lineIndex > 0
+                      ? () => _changeLine(textProvider, _lineIndex - 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_left, size: 18),
                 ),
-                child: Text(
-                  context.uiText(scopeLabel),
-                  style: const TextStyle(
-                    color: Color(0xFF26C6DA),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF26C6DA).withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    scopeLabel,
+                    style: const TextStyle(
+                      color: Color(0xFF26C6DA),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
+                IconButton(
+                  tooltip: context.uiText('Sau'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  onPressed: _lineIndex < totalLines - 1
+                      ? () => _changeLine(textProvider, _lineIndex + 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_right, size: 18),
+                ),
+                IconButton(
+                  tooltip: context.uiText('Ngẫu nhiên'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  onPressed: totalLines > 1
+                      ? () =>
+                          _changeLine(textProvider, _random.nextInt(totalLines))
+                      : null,
+                  icon: const Icon(Icons.shuffle_rounded, size: 16),
+                ),
+              ] else
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF26C6DA).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    context.uiText(scopeLabel),
+                    style: const TextStyle(
+                      color: Color(0xFF26C6DA),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              if (onJumpToActive != null && activeLineIndex != _lineIndex)
+                IconButton(
+                  tooltip: context.uiText(
+                    'Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})',
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  onPressed: onJumpToActive,
+                  icon: const Icon(
+                    Icons.sync_alt_rounded,
+                    size: 16,
+                    color: Color(0xFF80DEEA),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             assignment.sourceText,
             maxLines:
-                assignment.origin == AssignmentOrigin.fullDocument ? 10 : null,
+                assignment.origin == AssignmentOrigin.fullDocument ? 5 : null,
             overflow: assignment.origin == AssignmentOrigin.fullDocument
                 ? TextOverflow.ellipsis
                 : null,
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 13,
-              height: 1.45,
+              height: 1.4,
             ),
           ),
           if (assignment.scoringProfile == ScoringProfile.documentSignals) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             const Text(
               'Bài dài: phản hồi offline chỉ hiển thị tín hiệu quan sát, không gán điểm hiểu nghĩa.',
               style: TextStyle(color: Color(0xFFFFD180), fontSize: 11),
-            ),
-          ],
-          if (onJumpToActive != null && activeLineIndex != _lineIndex) ...[
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: onJumpToActive,
-              icon: const Icon(Icons.sync_alt, size: 18),
-              label: Text(
-                  context.uiText('Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})')),
             ),
           ],
         ],
@@ -1288,26 +1337,31 @@ Hãy trả về JSON hợp lệ với:
   Widget _buildExerciseSelector(TextProvider textProvider) {
     final items = [
       (
+        icon: Icons.keyboard_alt_outlined,
         label: 'Chép',
         type: _WriteExerciseType.dictation,
         color: const Color(0xFF26C6DA),
       ),
       (
+        icon: Icons.space_bar_rounded,
         label: 'Điền từ',
         type: _WriteExerciseType.clozeInput,
         color: const Color(0xFFFFB300),
       ),
       (
+        icon: Icons.checklist_rtl_rounded,
         label: 'Chọn đáp án',
         type: _WriteExerciseType.clozeChoice,
         color: const Color(0xFFAB47BC),
       ),
       (
+        icon: Icons.autorenew_rounded,
         label: 'Viết lại ý',
         type: _WriteExerciseType.rewrite,
         color: const Color(0xFF4CAF50),
       ),
       (
+        icon: Icons.short_text_rounded,
         label: 'Tóm tắt ngắn',
         type: _WriteExerciseType.summary,
         color: const Color(0xFF81C784),
@@ -1315,90 +1369,57 @@ Hãy trả về JSON hợp lệ với:
     ];
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = (constraints.maxWidth - 8) / 2;
-          return Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: items
-                .map(
-                  (item) => SizedBox(
-                    width: itemWidth,
-                    child: _ExerciseSelectorChip(
-                      label: item.label,
-                      selected: _exerciseType == item.type,
-                      color: item.color,
-                      onTap: () => _cycleExercise(textProvider, item.type),
-                    ),
-                  ),
-                )
-                .toList(),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildLineNavigator(TextProvider textProvider) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121827),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            'Bộ điều hướng bài tập',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    _ExerciseSelectorChip(
+                      icon: items[i].icon,
+                      label: items[i].label,
+                      selected: _exerciseType == items[i].type,
+                      color: items[i].color,
+                      onTap: () => _cycleExercise(textProvider, items[i].type),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _lineIndex > 0
-                      ? () => _changeLine(textProvider, _lineIndex - 1)
-                      : null,
-                  icon: const Icon(Icons.chevron_left),
-                  label: const Text('Trước'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: textProvider.lines.length > 1
-                      ? () => _changeLine(textProvider,
-                          _random.nextInt(textProvider.lines.length))
-                      : null,
-                  icon: const Icon(Icons.shuffle),
-                  label: const Text('Ngẫu nhiên'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _lineIndex < textProvider.lines.length - 1
-                      ? () => _changeLine(textProvider, _lineIndex + 1)
-                      : null,
-                  icon: const Icon(Icons.chevron_right),
-                  label: const Text('Sau'),
-                ),
-              ),
-            ],
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Web Reader',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: widget.onOpenWebReader,
+            icon: const Icon(
+              Icons.language_rounded,
+              size: 17,
+              color: Color(0xFF26A69A),
+            ),
+          ),
+          IconButton(
+            tooltip: 'PDF Reader',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: widget.onOpenPdfReader,
+            icon: const Icon(
+              Icons.picture_as_pdf_rounded,
+              size: 17,
+              color: Color(0xFFEF5350),
+            ),
           ),
         ],
       ),
@@ -2963,12 +2984,14 @@ class _EmptyTextCard extends StatelessWidget {
 }
 
 class _ExerciseSelectorChip extends StatelessWidget {
+  final IconData icon;
   final String label;
   final bool selected;
   final Color color;
   final VoidCallback onTap;
 
   const _ExerciseSelectorChip({
+    required this.icon,
     required this.label,
     required this.selected,
     required this.color,
@@ -2979,71 +3002,37 @@ class _ExerciseSelectorChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        duration: const Duration(milliseconds: 160),
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: selected
               ? color.withValues(alpha: 0.18)
               : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected
                 ? color.withValues(alpha: 0.35)
                 : Colors.white.withValues(alpha: 0.06),
           ),
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? color : Colors.grey[400],
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickActionChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.26)),
-        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 8),
+            Icon(
+              icon,
+              size: 15,
+              color: selected ? color : Colors.grey[400],
+            ),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: color,
+                color: selected ? color : Colors.grey[400],
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],

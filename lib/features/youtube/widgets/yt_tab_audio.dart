@@ -250,7 +250,13 @@ class _YtTabAudioState extends State<YtTabAudio>
       children: [
         Row(
           children: [
-            const Text('📥 Tải Audio',
+            const Icon(
+              Icons.download_for_offline_outlined,
+              size: 17,
+              color: Color(0xFF81C784),
+            ),
+            const SizedBox(width: 6),
+            const Text('Tải Audio',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,

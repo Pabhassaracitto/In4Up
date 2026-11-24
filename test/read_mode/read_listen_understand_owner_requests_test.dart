@@ -30,6 +30,41 @@ void main() {
     expect(shell, contains('if (!listenLibraryFull)'));
   });
 
+  test('Sprint 1 UI compact — bỏ chồng thanh đáy, thống nhất MiniPlayer & bỏ prose thừa', () {
+    final memoryScreen =
+        File('lib/screens/memory_mode/memory_mode_screen.dart').readAsStringSync();
+    final memoryTopBar =
+        File('lib/screens/memory_mode/widgets/memory_top_bar.dart').readAsStringSync();
+    final homeScreen =
+        File('lib/screens/home/home_screen.dart').readAsStringSync();
+    final writeScreen =
+        File('lib/screens/read_mode/write_studio_screen.dart').readAsStringSync();
+    final listenScreen =
+        File('lib/screens/listen_mode/listen_mode_screen.dart').readAsStringSync();
+    final shellSettings =
+        File('lib/screens/settings/shell_ui_settings_screen.dart').readAsStringSync();
+
+    // Không chồng MemoryBottomBar lên trên BottomNav của MainShell;
+    // 3 chế độ ôn (SRS / Nhồi / Khó) nằm gọn trong MemoryTopBar.
+    expect(memoryScreen, isNot(contains('MemoryBottomBar')));
+    expect(memoryTopBar, contains('ReviewMode.spaced'));
+    expect(memoryTopBar, contains('ReviewMode.cram'));
+    expect(memoryTopBar, contains('ReviewMode.difficult'));
+
+    // Thống nhất 1 MiniPlayer duy nhất ở MainShell, bỏ _GlobalMiniPlayer riêng ở Home.
+    expect(homeScreen, isNot(contains('_GlobalMiniPlayer')));
+    expect(shell, contains('if (_currentTab == _PrimaryTab.listen && _listenModeIndex == 0)'));
+
+    // Tab Hiểu không render chồng 2 header (MainShell + UnderstandWorkspaceHeader).
+    expect(shell, contains('showWorkspaceHeader: false'));
+    expect(understandHeader, isNot(contains('Comprehension Workspace')));
+
+    // Bỏ các câu hướng dẫn văn xuôi chiếm diện tích cố định.
+    expect(listenScreen, isNot(contains('Kéo để')));
+    expect(writeScreen, isNot(contains('_TipCard(')));
+    expect(shellSettings, isNot(contains('Ưu tiên cho người dùng nâng cao')));
+  });
+
   test('Read full library ẩn header nguồn, nhưng giữ affordance Công cụ đọc', () {
     expect(shell, contains('readLibraryFull'));
     expect(shell, contains('if (!readLibraryFull && _readModeIndex == 0)'));

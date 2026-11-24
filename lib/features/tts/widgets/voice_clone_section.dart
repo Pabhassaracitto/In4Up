@@ -677,7 +677,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                     const SizedBox(height: 4),
                     Text(
                       '${_recordingSeconds}s / ${_maxSampleSeconds}s',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF9E9E9E)),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
                     ),
                   ],
                 ),
@@ -692,7 +692,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                     tooltip: l10n.ttsCloneVoiceStopRecording,
                   ),
                   const SizedBox(height: 4),
-                  Text(l10n.ttsCloneVoiceStop, style: TextStyle(fontSize: 9, color: Colors.red[300])),
+                  Text(l10n.ttsCloneVoiceStop, style: TextStyle(fontSize: 11, color: Colors.red[300])),
                 ],
               ),
           ],
@@ -702,13 +702,13 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               recordingError,
-              style: TextStyle(fontSize: 10, color: Colors.red[300]),
+              style: TextStyle(fontSize: 11, color: Colors.red[300]),
             ),
           ),
         const SizedBox(height: 4),
         Text(
           l10n.ttsCloneVoiceSamplesCount(_sampleCount),
-          style: TextStyle(fontSize: 9.5, color: Colors.grey[500]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
         ),
         if (_tempSamples.isNotEmpty) ...[
           const SizedBox(height: 4),
@@ -735,7 +735,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: Colors.grey[300],
                           ),
                         ),
@@ -743,7 +743,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                       Text(
                         _formatSampleSize(file),
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 11,
                           color: Colors.grey[600],
                         ),
                       ),
@@ -781,7 +781,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
         Text(
           context.uiText(
               'Chọn thư mục chứa file WAV (hoặc nhiều file) để thêm vào danh sách mẫu.'),
-          style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
         const SizedBox(height: 8),
 
@@ -848,7 +848,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                     child: material.Text(
                       cloneStatus,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: cloneIsError
                             ? Colors.red[200]
                             : Colors.green[200],
@@ -1008,7 +1008,7 @@ class _ClonedVoiceTileState extends State<_ClonedVoiceTile> {
             ),
             subtitle: Text(
               '${l10n.ttsCloneVoiceSamplesCount(voice.sampleCount)} · $embeddingStatus',
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1049,7 +1049,7 @@ class _ClonedVoiceTileState extends State<_ClonedVoiceTile> {
                             child: material.Text(
                               '• ${p.basename(f.path)} (${(f.lengthSync() / 1024).toStringAsFixed(0)} KB)',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 11,
                                 color: Colors.grey[400],
                               ),
                             ),

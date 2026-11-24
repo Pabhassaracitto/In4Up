@@ -421,7 +421,7 @@ class WebWordTapSheet extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             level.label,
-                            style: TextStyle(color: level.color, fontSize: 9),
+                            style: TextStyle(color: level.color, fontSize: 11),
                           ),
                         ],
                       ),

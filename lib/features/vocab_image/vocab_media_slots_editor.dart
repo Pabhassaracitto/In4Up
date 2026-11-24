@@ -339,7 +339,7 @@ class _VocabMediaSlotsEditorState extends State<VocabMediaSlotsEditor> {
                   context.uiText(
                       slot == 1 ? 'Thêm ảnh' : 'Thêm ảnh thứ hai'),
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11,
                     color: scheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
@@ -372,7 +372,7 @@ class _VocabMediaSlotsEditorState extends State<VocabMediaSlotsEditor> {
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
           ),

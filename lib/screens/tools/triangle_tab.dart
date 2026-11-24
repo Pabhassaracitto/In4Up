@@ -197,7 +197,7 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
             Icon(labels[i].$2, size: 11, color: Colors.black87),
             const SizedBox(width: 4),
             Text(context.uiText(labels[i].$1),
-                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 10)),
+                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       ),

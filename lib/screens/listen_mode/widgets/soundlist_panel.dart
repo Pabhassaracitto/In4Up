@@ -613,9 +613,9 @@ class _ChapterTile extends StatelessWidget {
               controller: controller,
               autofocus: true,
               style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: const InputDecoration(
-                hintText: 'Tên mục con',
-                hintStyle: TextStyle(color: Colors.white30),
+              decoration: InputDecoration(
+                hintText: context.uiText('Tên mục con'),
+                hintStyle: const TextStyle(color: Colors.white30),
               ),
             ),
             actions: [

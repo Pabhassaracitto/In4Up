@@ -204,7 +204,7 @@ class WaveformComparisonPainter extends CustomPainter {
     final originalText = TextPainter(
       text: TextSpan(
         text: originalLabel,
-        style: const TextStyle(color: Colors.white54, fontSize: 10),
+        style: const TextStyle(color: Colors.white54, fontSize: 11),
       ),
       textDirection: TextDirection.ltr,
     );
@@ -224,7 +224,7 @@ class WaveformComparisonPainter extends CustomPainter {
     final recordedText = TextPainter(
       text: TextSpan(
         text: recordedLabel,
-        style: const TextStyle(color: Colors.white70, fontSize: 10),
+        style: const TextStyle(color: Colors.white70, fontSize: 11),
       ),
       textDirection: TextDirection.ltr,
     );

@@ -333,7 +333,7 @@ class _MetaTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w600),
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -463,7 +463,7 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
                 const SizedBox(width: 4),
                 Text(
                   context.uiText('từ + ngữ cảnh giữ nguyên'),
-                  style: TextStyle(color: Colors.white24, fontSize: 10),
+                  style: TextStyle(color: Colors.white24, fontSize: 11),
                 ),
               ],
             ),

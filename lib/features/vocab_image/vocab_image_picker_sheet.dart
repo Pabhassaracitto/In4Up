@@ -764,7 +764,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                         'meaning' => context.uiText('Chỉ nghĩa'),
                         _ => context.uiText('Từ + nghĩa'),
                       },
-                      style: const TextStyle(fontSize: 10.5),
+                      style: const TextStyle(fontSize: 11),
                     ),
                     onPressed: () {
                       _query.text = chip.$2 ?? '';
@@ -946,7 +946,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                         image.source,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 8.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -982,14 +982,14 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: scheme.onSurface, fontSize: 10.5),
+                          color: scheme.onSurface, fontSize: 11),
                     ),
                     Text(
                       image.credit,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: scheme.onSurfaceVariant, fontSize: 9),
+                          color: scheme.onSurfaceVariant, fontSize: 11),
                     ),
                   ],
                 ),
@@ -1318,7 +1318,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
             child: Text(
               context.uiText(
                   'Gói 100 khái niệm có sẵn offline · animation gốc In4Up CC0'),
-              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 10.5),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
             ),
           ),
         ),
@@ -1486,7 +1486,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                             'Lottie',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1510,14 +1510,14 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: scheme.onSurface, fontSize: 10.5),
+                          color: scheme.onSurface, fontSize: 11),
                     ),
                     Text(
                       item.credit,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: scheme.onSurfaceVariant, fontSize: 9),
+                          color: scheme.onSurfaceVariant, fontSize: 11),
                     ),
                   ],
                 ),

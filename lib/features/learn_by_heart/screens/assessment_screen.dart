@@ -117,7 +117,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                               'CHẾ ĐỘ KHÔNG GỢI Ý',
                               style: TextStyle(
                                 color: Color(0xFF81C784),
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.0,
                               ),

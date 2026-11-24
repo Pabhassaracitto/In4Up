@@ -761,7 +761,7 @@ class _UnderstandCoachBanner extends StatelessWidget {
             ui('Chỉ gửi đoạn văn bản này — không gửi audio, không tự ghi âm.'),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: Color(0xFF9FDCB4)),
+            style: const TextStyle(fontSize: 11, color: Color(0xFF9FDCB4)),
           ),
         ],
       ),
@@ -834,7 +834,7 @@ class _RemoteRouteBanner extends StatelessWidget {
                         (facade.lastChatModelId != null
                             ? ' · ${facade.lastChatModelId}'
                             : ''),
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF7DD3FC)),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF7DD3FC)),
                   ),
                 ),
             ],
@@ -846,7 +846,7 @@ class _RemoteRouteBanner extends StatelessWidget {
                 context.uiText('${ui('Lỗi API')} (${apiError.code.name}): ${apiError.message}'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: Color(0xFFFFC2CE)),
+                style: const TextStyle(fontSize: 11, color: Color(0xFFFFC2CE)),
               ),
             ),
         ],

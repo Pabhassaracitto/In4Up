@@ -1100,12 +1100,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                       color: Colors.white, size: 18),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  constraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 const Icon(Icons.play_circle_filled,
                     color: Color(0xFFFF0000), size: 20),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 const Text('YouTube',
                     style: TextStyle(
                         color: Colors.white,
@@ -1122,7 +1123,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   onPressed: () => showYtMyChannelsSheet(context),
                   padding: EdgeInsets.zero,
                   constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
                 ),
                 // YT-LR-004: Lịch sử xem — việc của tab Lịch sử ở tầng 1 cũ.
                 IconButton(
@@ -1131,7 +1132,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   onPressed: _showHistory,
                   padding: EdgeInsets.zero,
                   constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
                 ),
                 // Màn hẹp: bộ lọc (cấp độ từ vựng / sắp xếp / kênh) xuống
                 // bottom sheet thay vì chiếm ngang 195px.
@@ -1142,12 +1143,12 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     onPressed: _showFilters,
                     padding: EdgeInsets.zero,
                     constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                        const BoxConstraints(minWidth: 40, minHeight: 40),
                   ),
                 const SizedBox(width: 4),
                 Text(
                   context.uiText(_hasApiKey ? 'Data API' : 'Không cần key'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
                 ),
               ],
             ),
@@ -1187,7 +1188,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     context.uiText('Cấp độ từ vựng'),
                     style: TextStyle(
                         color: Colors.grey[400],
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 4),
@@ -1209,7 +1210,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                                   .replaceAll('{value1}', '$_analyzeTotal')
                               : context.uiText('Đo từ phụ đề trên máy (0 MB)'),
                           style: TextStyle(
-                              color: Colors.grey[600], fontSize: 9),
+                              color: Colors.grey[600], fontSize: 11),
                         ),
                       ),
                       SizedBox(
@@ -1226,7 +1227,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                             _analyzing
                                 ? context.uiText('Đang tải…')
                                 : context.uiText('Phân tích cả trang'),
-                            style: const TextStyle(fontSize: 10),
+                            style: const TextStyle(fontSize: 11),
                           ),
                         ),
                       ),
@@ -1235,7 +1236,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   const SizedBox(height: 8),
                   Text(
                     context.uiText('Sắp xếp theo'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                   const SizedBox(height: 4),
                   Row(children: [
@@ -1257,7 +1258,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     context.uiText('Kênh'),
                     style: TextStyle(
                         color: Colors.grey[400],
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5),
                   ),
@@ -1299,7 +1300,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                             .replaceAll('{value0}', '${_channels.length}'),
                         style: TextStyle(
                             color: Colors.grey[700],
-                            fontSize: 8,
+                            fontSize: 11,
                             letterSpacing: 0.4),
                       ),
                     ),
@@ -1328,7 +1329,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                             context.uiText('Kênh của tôi'),
                             style: TextStyle(
                                 color: Colors.grey[400],
-                                fontSize: 9,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5),
                           ),
@@ -1369,7 +1370,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                               'Chưa có kênh nào. Thêm @handle, dán link kênh hoặc import OPML.'),
                           style: TextStyle(
                               color: Colors.grey[600],
-                              fontSize: 10,
+                              fontSize: 11,
                               height: 1.35),
                         ),
                       ),
@@ -1409,7 +1410,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               label,
               style: TextStyle(
                 color: sel ? Colors.white : Colors.grey[400],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: sel ? FontWeight.w700 : FontWeight.normal,
               ),
             ),
@@ -1461,7 +1462,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               Text(label,
                   style: TextStyle(
                       color: sel ? Colors.white : Colors.grey[500],
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: sel ? FontWeight.w700 : FontWeight.normal)),
             ],
           ),
@@ -1527,7 +1528,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               ),
               if (videoCount != null)
                 Text(context.uiText('$videoCount'),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11)),
               if (onPin != null) ...[
                 const SizedBox(width: 4),
                 GestureDetector(
@@ -1637,7 +1638,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
           const SizedBox(width: 6),
           Expanded(
             child: Text(label,
-                style: const TextStyle(color: Color(0xFF90CAF9), fontSize: 10)),
+                style: const TextStyle(color: Color(0xFF90CAF9), fontSize: 11)),
           ),
           if (_refreshing)
             const SizedBox(
@@ -1650,7 +1651,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               onTap: () => _loadVideos(forceRefresh: true),
               child: Text(context.uiText('Làm mới'),
                   style: const TextStyle(
-                      color: Color(0xFF64B5F6), fontSize: 10)),
+                      color: Color(0xFF64B5F6), fontSize: 11)),
             ),
         ],
       ),
@@ -1725,14 +1726,14 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Expanded(
               child: Text(
                 '${_failureMessage(f)} ${context.uiText('Đang hiện bản lưu trên máy.')}',
-                style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 10),
+                style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 11),
               ),
             ),
             GestureDetector(
               onTap: () => _loadVideos(forceRefresh: true),
               child: Text(context.uiText('Thử lại'),
                   style: const TextStyle(
-                      color: Color(0xFFFFB74D), fontSize: 10)),
+                      color: Color(0xFFFFB74D), fontSize: 11)),
             ),
           ],
         ),
@@ -1809,7 +1810,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   if (c.description != null) ...[
                     const SizedBox(height: 4),
                     Text(c.description!,
-                        style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 11),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                   ],
@@ -1861,7 +1862,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                       child: Text(v.durationLabel,
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold)),
                     ),
                   ),
@@ -1885,7 +1886,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                             TextStyle(color: Colors.grey[500], fontSize: 11)),
                     Text(_dateLabel(v),
                         style:
-                            TextStyle(color: Colors.grey[500], fontSize: 10)),
+                            TextStyle(color: Colors.grey[500], fontSize: 11)),
                     // YT1-08: nhãn trạng thái ngay trên thẻ (đã tải phụ đề /
                     // đã đo cấp độ). Người dùng biết video dùng được offline
                     // TRƯỚC khi bấm vào.
@@ -2114,7 +2115,7 @@ Widget _tag(String label, {VoidCallback? onTap, Color? color}) =>
         child: Text(label,
             style: TextStyle(
                 color: color ?? Colors.grey[400],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: color == null ? FontWeight.normal : FontWeight.w600)),
       ),
     );

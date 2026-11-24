@@ -126,7 +126,7 @@ class _PresetChip extends StatelessWidget {
               displayLabel,
               style: TextStyle(
                 color: isActive ? Colors.white : Colors.grey,
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
               ),
             ),

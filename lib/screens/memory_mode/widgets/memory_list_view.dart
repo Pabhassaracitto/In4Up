@@ -126,7 +126,7 @@ class _MemoryListTile extends StatelessWidget {
                     const Text(
                       'Cần ôn',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: Color(0xFFFF5252),
                         fontWeight: FontWeight.bold,
                       ),
@@ -134,7 +134,7 @@ class _MemoryListTile extends StatelessWidget {
                   else if (item.nextReviewAt != null)
                     Text(
                       _formatNextReview(item.nextReviewAt!),
-                      style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                 ],
               ),

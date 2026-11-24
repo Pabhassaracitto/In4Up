@@ -687,7 +687,7 @@ class _PresetCard extends StatelessWidget {
                     context.uiText(preset.audienceLabel),
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -802,7 +802,7 @@ class _PalettePreviewCard extends StatelessWidget {
                     palette.isDark ? 'Dark' : 'Light',
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1154,7 +1154,7 @@ class _ChoiceChipButton extends StatelessWidget {
                 context.uiText(subtitle!),
                 style: TextStyle(
                   color: Colors.grey[400],
-                  fontSize: 10.5,
+                  fontSize: 11,
                   height: 1.35,
                 ),
               ),

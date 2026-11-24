@@ -249,7 +249,7 @@ Future<_AutoTocSelection?> _showModeDialog(
                   Text(
                     '⬇ Kéo các thanh trượt bên dưới — vạch vàng là nơi file sẽ được cắt. '
                     'Nếu không có vạch nào, app sẽ tự chia đều.',
-                    style: const TextStyle(color: Colors.white38, fontSize: 10.5, height: 1.4),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.4),
                   ),
                   const SizedBox(height: 10),
 

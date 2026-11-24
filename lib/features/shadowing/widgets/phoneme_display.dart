@@ -166,12 +166,14 @@ class PhonemeDisplay extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
+      builder: (context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,9 +236,9 @@ class PhonemeDisplay extends StatelessWidget {
             ),
             if (examples.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text(
-                'Examples:',
-                style: TextStyle(
+              Text(
+                context.uiText('Ví dụ:'),
+                style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
                   fontWeight: FontWeight.w600,
@@ -258,6 +260,7 @@ class PhonemeDisplay extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -346,7 +349,7 @@ class _PhonemeCard extends StatelessWidget {
               child: Text(
                 phonemeScore.grade,
                 style: const TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -382,7 +385,7 @@ class _LegendItem extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             color: color.withValues(alpha: 0.8),
           ),
         ),

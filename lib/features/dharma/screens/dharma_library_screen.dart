@@ -660,7 +660,7 @@ class _EpisodeTile extends StatelessWidget {
             ? null
             : Text(
                 sub,
-                style: const TextStyle(color: Colors.white38, fontSize: 10.5),
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
               ),
         trailing: PopupMenuButton<String>(
           padding: EdgeInsets.zero,

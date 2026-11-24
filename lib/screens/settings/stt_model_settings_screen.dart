@@ -595,7 +595,7 @@ class _ModelCard extends StatelessWidget {
                                   child: Text(
                                     context.uiText('English-only'),
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 11,
                                       color: Colors.lightBlueAccent,
                                     ),
                                   ),
@@ -1572,7 +1572,7 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
                   'Nguồn model: HuggingFace rhasspy/piper-voices '
                   '(k2-fsa bundle trước, HuggingFace sau).',
                 ),
-                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
               // PSRC-260 — ngôn ngữ chưa có giọng tải thật (Sinhala/Tamil/…)
               // chỉ là MỘT ghi chú gập ở CUỐI, không còn là chip nổi bật trên
@@ -1733,7 +1733,7 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
                   context.uiText(
                     '${v.speaker} · ${v.quality} · ~${v.approxSizeMB}MB',
                   ),
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
                 trailing: const Icon(Icons.download, size: 18),
                 onTap: () => Navigator.pop(context, v.id),
@@ -2377,7 +2377,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                               avatar: const Icon(Icons.language, size: 12),
                               label: Text(
                                 language.toUpperCase(),
-                                style: const TextStyle(fontSize: 10),
+                                style: const TextStyle(fontSize: 11),
                               ),
                             ),
                           if (profile.languages.length > 5)
@@ -2395,7 +2395,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                                 _showAllLanguages
                                     ? context.uiText('Thu gọn')
                                     : '+${profile.languages.length - 5}',
-                                style: const TextStyle(fontSize: 10),
+                                style: const TextStyle(fontSize: 11),
                               ),
                               onPressed: () => setState(
                                   () => _showAllLanguages = !_showAllLanguages),

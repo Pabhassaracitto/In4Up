@@ -2230,7 +2230,7 @@ class _CloudEntryTile extends StatelessWidget {
                             entry.category!,
                             style: const TextStyle(
                               color: Color(0xFF9C8FFF),
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -2371,7 +2371,7 @@ class _TabBadge extends StatelessWidget {
       child: Text(
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
-          fontSize: 9,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
           color: Colors.white,
         ),

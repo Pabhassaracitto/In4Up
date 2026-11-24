@@ -422,7 +422,7 @@ class _FrequentSection extends StatelessWidget {
                         child: Text(context.uiText('${w.encounterCount}×'),
                             style: const TextStyle(
                                 color: Color(0xFFFFB300),
-                                fontSize: 9,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700)),
                       ),
                       const SizedBox(width: 10),
@@ -437,7 +437,7 @@ class _FrequentSection extends StatelessWidget {
                                     fontWeight: FontWeight.w600)),
                             Text(w.meaning,
                                 style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 10),
+                                    color: Colors.grey[600], fontSize: 11),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ],
@@ -445,7 +445,7 @@ class _FrequentSection extends StatelessWidget {
                       ),
                       Text(context.uiText('${w.sourceFiles.length} nguồn'),
                           style:
-                              TextStyle(color: Colors.grey[600], fontSize: 10)),
+                              TextStyle(color: Colors.grey[600], fontSize: 11)),
                     ],
                   ),
                 ))
@@ -502,7 +502,7 @@ class _MiniStat extends StatelessWidget {
         const SizedBox(width: 4),
         Text(context.uiText(label),
             style: TextStyle(
-                color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+                color: color, fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );
   }

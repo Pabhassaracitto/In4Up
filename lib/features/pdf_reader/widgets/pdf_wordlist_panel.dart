@@ -124,7 +124,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
                   context.uiText('$count'),
                   style: const TextStyle(
                     color: Color(0xFF9C8FFF),
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -181,7 +181,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
           Text(
             'Tap từ trên PDF\nhoặc bôi đen → 🔖',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[800], fontSize: 10),
+            style: TextStyle(color: Colors.grey[800], fontSize: 11),
           ),
         ],
       ),
@@ -236,8 +236,8 @@ class _MiniWordItem extends StatelessWidget {
             children: [
               // Type badge
               Container(
-                width: 16,
-                height: 16,
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
@@ -247,7 +247,7 @@ class _MiniWordItem extends StatelessWidget {
                   word.vocabType.badge,
                   style: TextStyle(
                     color: color,
-                    fontSize: 8,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -286,7 +286,7 @@ class _MiniWordItem extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               word.meaning,
-              style: TextStyle(color: Colors.grey[600], fontSize: 10),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -341,7 +341,7 @@ class _SortBtn extends StatelessWidget {
             label,
             style: TextStyle(
               color: isSelected ? const Color(0xFF9C8FFF) : Colors.grey[600],
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
             ),
           ),

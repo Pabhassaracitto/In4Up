@@ -237,7 +237,7 @@ class ReadDisplayControlsView extends StatelessWidget {
             ),
             subtitle: Text(
               context.uiText('Tự cuộn theo dòng đang đọc; tắt để cuộn tay.'),
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
             value: sync,
             onChanged: onSync,

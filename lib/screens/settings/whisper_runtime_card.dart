@@ -199,7 +199,7 @@ class _WhisperRuntimeCardState extends State<WhisperRuntimeCard> {
               Text(
                 location!.binaryPath,
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   fontFamily: 'monospace',
                   color: Colors.white70,
                 ),
@@ -225,7 +225,7 @@ class _WhisperRuntimeCardState extends State<WhisperRuntimeCard> {
               for (final note in probe.notes)
                 Text(
                   note,
-                  style: const TextStyle(fontSize: 10, color: Colors.white60),
+                  style: const TextStyle(fontSize: 11, color: Colors.white60),
                 ),
             ],
             if (_progress != null) ...[

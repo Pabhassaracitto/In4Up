@@ -196,7 +196,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                             _syncStatusLabel(l10n, status),
                             style: TextStyle(
                               color: _syncColor(status),
-                              fontSize: 10.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -339,7 +339,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
           _buildSyncButton(l10n),
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF4CAF50)),
-            tooltip: 'Thêm bài kinh mới',
+            tooltip: context.uiText('Thêm bài kinh mới'),
             onPressed: () => _openItemEditor(),
           ),
           PopupMenuButton<String>(
@@ -641,7 +641,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
             backgroundColor: Colors.transparent,
             labelStyle: TextStyle(
               color: selectedState == null ? Colors.white : Colors.grey[400],
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: selectedState == null ? FontWeight.bold : FontWeight.normal,
             ),
             onSelected: (_) => provider.setStateFilter(null),
@@ -657,7 +657,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                 backgroundColor: Colors.transparent,
                 labelStyle: TextStyle(
                   color: isSel ? st.color : Colors.grey[400],
-                  fontSize: 10.5,
+                  fontSize: 11,
                   fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                 ),
                 onSelected: (_) => provider.setStateFilter(st),
@@ -711,7 +711,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                       item.category.displayName,
                       style: TextStyle(
                         color: item.category.color,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -727,7 +727,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                       state.displayName,
                       style: TextStyle(
                         color: state.color,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -747,7 +747,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                           SizedBox(width: 3),
                           Text(
                             'Sẵn sàng test',
-                            style: TextStyle(color: Color(0xFFFFD54F), fontSize: 9.5, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -873,7 +873,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                   else if (item.nextReviewDate != null)
                     Text(
                       context.uiText('Ôn sau ${_formatDaysUntil(item.nextReviewDate!)}'),
-                      style: TextStyle(fontSize: 10.5, color: Colors.grey[400]),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                     ),
                 ],
               ),
@@ -989,7 +989,7 @@ class _MiniStatPill extends StatelessWidget {
         context.uiText('$label: $value'),
         style: TextStyle(
           color: color,
-          fontSize: 10.5,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
       ),

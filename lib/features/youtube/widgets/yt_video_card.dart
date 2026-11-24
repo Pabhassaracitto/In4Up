@@ -190,12 +190,12 @@ class YtHistoryItem extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
         subtitle: Text(video.channel,
-            style: const TextStyle(color: Colors.grey, fontSize: 10)),
+            style: const TextStyle(color: Colors.grey, fontSize: 11)),
         trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 16),
+          icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 18),
           onPressed: onDelete,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         ),
       ),
     );

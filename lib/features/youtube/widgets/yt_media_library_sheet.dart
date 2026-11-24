@@ -320,7 +320,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                       Text(
                         '${context.uiText('Âm thanh')}: ${_size(_audioBytes)}'
                         ' · ${context.uiText('Phụ đề')}: ${_size(_captionBytes)}',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 11),
                       ),
                     const SizedBox(height: 6),
                     Row(
@@ -333,7 +333,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                             _folder,
                             style: TextStyle(
                                 color: Colors.grey[500],
-                                fontSize: 10,
+                                fontSize: 11,
                                 height: 1.3),
                           ),
                         ),
@@ -342,7 +342,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                     const SizedBox(height: 10),
                     Text(
                       context.uiText('Nơi lưu phụ đề và âm thanh đã tải'),
-                      style: TextStyle(color: Colors.grey[500], fontSize: 10.5),
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
                     ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -351,7 +351,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                         ChoiceChip(
                           label: Text(
                             context.uiText('Bộ nhớ riêng của app (an toàn)'),
-                            style: const TextStyle(fontSize: 10.5),
+                            style: const TextStyle(fontSize: 11),
                           ),
                           selected: _location == YtSaveLocation.appPrivate,
                           selectedColor:
@@ -362,7 +362,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                         ChoiceChip(
                           label: Text(
                             context.uiText('Thư mục công khai (dễ tìm)'),
-                            style: const TextStyle(fontSize: 10.5),
+                            style: const TextStyle(fontSize: 11),
                           ),
                           selected:
                               _location == YtSaveLocation.externalDownloads,
@@ -386,7 +386,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                 context.uiText(
                     'Bấm "Nạp vào tab Đọc" để mở phụ đề (kèm âm thanh nếu đã tải) trong tab Đọc, đồng bộ theo mốc thời gian.'),
                 style: TextStyle(
-                    color: Colors.grey[600], fontSize: 10, height: 1.4),
+                    color: Colors.grey[600], fontSize: 11, height: 1.4),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -448,7 +448,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
             '${item.hasCaptions ? context.uiText('phụ đề') : ''}'
             '${item.hasCaptions && item.hasAudio ? ' + ' : ''}'
             '${item.hasAudio ? context.uiText('âm thanh') : ''}',
-            style: TextStyle(color: Colors.grey[500], fontSize: 10.5),
+            style: TextStyle(color: Colors.grey[500], fontSize: 11),
           ),
           trailing: busy
               ? const SizedBox(

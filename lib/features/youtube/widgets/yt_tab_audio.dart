@@ -478,14 +478,14 @@ class _YtTabAudioState extends State<YtTabAudio>
                         if (_savedPath != null) ...[
                           Text(_savedPath!.split('/').last,
                               style: const TextStyle(
-                                  color: Colors.white54, fontSize: 10),
+                                  color: Colors.white54, fontSize: 11),
                               overflow: TextOverflow.ellipsis),
                           // YT-MEDIA-STORE-001: đường dẫn ĐẦY ĐỦ để người dùng
                           // tìm lại được bằng trình quản lý file.
                           Text(
                             _folderOf(_savedPath!),
                             style: const TextStyle(
-                                color: Colors.white38, fontSize: 9),
+                                color: Colors.white38, fontSize: 11),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -746,7 +746,7 @@ class _QualitySheet extends StatelessWidget {
                                     ? '~128kbps – cân bằng chất lượng/dung lượng'
                                     : '~64kbps – nhỏ nhất, phù hợp mạng chậm',
                             style: TextStyle(
-                                color: Colors.grey[600], fontSize: 10),
+                                color: Colors.grey[600], fontSize: 11),
                           ),
                         ],
                       ),

@@ -41,7 +41,7 @@ Một doc = metadata của pack (trải phẳng fields của `PackManifest`) + 3
 ### `gl_config/admins` — cổng admin (D6)
 Doc duy nhất, tạo **thủ công** trong Console:
 ```
-gl_config/admins  →  { "uids": ["<UID của be.you8778@gmail.com>"] }
+gl_config/admins  →  { "uids": ["xCOoQZ6KX0OscU4X6EqWteHq8rZ2"] }
 ```
 Lấy UID: Firebase Console → Authentication → Users → copy UID của email owner.
 
@@ -111,7 +111,7 @@ service firebase.storage {
     match /packs/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.auth.uid == "<UID của be.you8778@gmail.com>"
+        && request.auth.uid == "xCOoQZ6KX0OscU4X6EqWteHq8rZ2"
         && request.resource.size < 210 * 1024 * 1024; // trần 200MB + margin
     }
 
@@ -119,7 +119,7 @@ service firebase.storage {
     match /gl_uploads/{uid}/{file} {
       allow read: if request.auth != null
         && (request.auth.uid == uid
-            || request.auth.uid == "<UID của be.you8778@gmail.com>");
+            || request.auth.uid == "xCOoQZ6KX0OscU4X6EqWteHq8rZ2");
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 210 * 1024 * 1024;
@@ -134,7 +134,7 @@ service firebase.storage {
 2. **Firestore → Data**: tạo collection `gl_config` → doc `admins` → field
    `uids` kiểu **array**, thêm UID vừa copy.
 3. **Firestore → Rules**: dán block `gl_*` (mục 2) → Publish.
-4. **Storage → Rules**: thay `<UID của be.you8778@gmail.com>` → dán mục 3 → Publish.
+4. **Storage → Rules**: dán mục 3 (UID đã điền sẵn) → Publish.
 5. **Kiểm tra nhanh** (Rules Playground hoặc curl):
    - `GET /v1/.../documents:runQuery` không token lọc `status==published` → 200.
    - Ghi thẳng `gl_packs` bằng tài khoản thường → bị chặn (AT3 PLAN-049).

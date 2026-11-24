@@ -26,8 +26,9 @@ class PackSpec:
     version: int = 1
     # storage: seed P0 để local asset — owner upload lên Storage sau (path
     # này là gợi ý; catalog doc gl_packs/<id> trỏ tới).
-    # Storage path upload: khớp rules §3 (match /packs/{allPaths=**}) —
-    # seed_publish.py bóc 'packs/…' khỏi gs:// URL khi upload.
+    # Backend 'https' (GitHub Releases — read-only, không cần billing):
+    # path = TÊN FILE trong release; app ghép base URL (pack_storage_http).
+    storage_backend: str = 'https'
     storage_path: str = ''
 
 

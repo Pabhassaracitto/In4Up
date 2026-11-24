@@ -730,4 +730,6 @@
   "glReasonHint": "Enter a reason (shown to the contributor)",
   "glModerationDone": "Done",
   "glModerationFailed": "Action failed"
+,
+  "glUploadUnsupported": "Direct upload unavailable (no Firebase Blaze). The pack is built — please share the .i4upack file with the owner."
 }

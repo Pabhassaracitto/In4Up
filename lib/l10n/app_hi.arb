@@ -696,4 +696,6 @@
   "glReasonHint": "कारण लिखें (योगदानकर्ता देखेगा)",
   "glModerationDone": "पूर्ण",
   "glModerationFailed": "कार्रवाई विफल"
+,
+  "glUploadUnsupported": "सीधा अपलोड उपलब्ध नहीं (Firebase Blaze नहीं)। पैक बन गया है — .i4upack फ़ाइल मालिक को भेजें।"
 }

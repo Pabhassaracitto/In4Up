@@ -23,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/files/incoming_file_router.dart';
 import 'core/responsive/app_responsive.dart';
+import 'core/theme/app_theme.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/ocr/ocr_service.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
@@ -530,21 +531,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   ThemeData _buildTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF6C63FF),
-        brightness: Brightness.dark,
-        surface: const Color(0xFF080B1A),
-        surfaceTint: const Color(0xFF6C63FF).withValues(alpha: 0.1),
-      ),
-      appBarTheme: const AppBarTheme(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        backgroundColor: Color(0xFF1A1A2E),
-      ),
-    );
+    return AppTheme.dark();
   }
 }
 
@@ -572,54 +559,64 @@ class _AppLoadingScreen extends StatelessWidget {
     return MaterialApp(
       title: 'In4Up',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: AppTheme.dark(),
       builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(
-        backgroundColor: const Color(0xFF080B1A),
+        backgroundColor: AppColors.bgBase,
         body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Brand mark
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Image.asset(
-                    'assets/icons/app_icon.png',
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    semanticLabel: 'In4Up logo',
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'In4Up',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Đang khởi động...',
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                const SizedBox(
-                  width: 200,
-                  child: LinearProgressIndicator(
-                    backgroundColor: Colors.white12,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF53D6BD),
+          child: Builder(
+            builder: (innerContext) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Brand mark
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/icons/app_icon.png',
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      semanticLabel: 'In4Up logo',
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  const Text(
+                    'In4Up',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    innerContext.uiText('Đang khởi động...'),
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  const SizedBox(
+                    width: 200,
+                    child: LinearProgressIndicator(
+                      backgroundColor: Colors.white12,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF53D6BD),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -638,24 +635,34 @@ class _AppErrorScreen extends StatelessWidget {
     return MaterialApp(
       title: 'In4Up',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: AppTheme.dark(),
       builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppColors.surfaceElevated,
         body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 64),
-                  const SizedBox(height: 20),
-                  Text(
-                    context.uiText('Initialization Error:\n$error'),
-                    style: const TextStyle(color: Colors.white),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+          child: Builder(
+            builder: (innerContext) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, color: AppColors.danger, size: 64),
+                    const SizedBox(height: 20),
+                    Text(
+                      '${innerContext.uiText('Lỗi khởi tạo ứng dụng')}:\n$error',
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_typography.dart';
+
 /// A workspace action with a mobile-sized target and optional compact layout.
 ///
 /// READ-ACT-001 adds [dense]: a labelled button that still reads as a button
@@ -37,17 +41,19 @@ class WorkspaceActionButton extends StatelessWidget {
   /// Màu nhấn khi [active].
   final Color? activeColor;
 
-  /// Height of a dense button; still inside Material's comfortable range for
-  /// a secondary toolbar action (the primary targets stay 48 dp).
-  static const double denseHeight = 38;
+  /// Height of a dense button — meets Apple HIG 44pt minimum touch target.
+  static const double denseHeight = AppSpacing.minTouchTarget;
 
   @override
   Widget build(BuildContext context) {
-    final accent = activeColor ?? const Color(0xFF6C63FF);
+    final accent = activeColor ?? AppColors.accentPrimary;
 
     if (compact) {
       return ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
+        constraints: const BoxConstraints(
+          minWidth: AppSpacing.minTouchTarget,
+          minHeight: AppSpacing.minTouchTarget,
+        ),
         child: IconButton.filledTonal(
           onPressed: onPressed,
           icon: Icon(icon, color: active ? accent : null),
@@ -64,26 +70,29 @@ class WorkspaceActionButton extends StatelessWidget {
     if (dense) {
       final button = FilledButton.tonalIcon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 16, color: active ? accent : null),
+        icon: Icon(icon, size: 17, color: active ? accent : null),
         label: Text(
           label,
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
           style: TextStyle(
-            fontSize: 12.5,
+            fontSize: AppTypography.footnoteSize,
             fontWeight: FontWeight.w600,
             color: active ? accent : null,
           ),
         ),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          minimumSize: const Size(0, denseHeight),
+          minimumSize: const Size(AppSpacing.minTouchTarget, denseHeight),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
           backgroundColor: active
               ? accent.withValues(alpha: 0.18)
               : Colors.white.withValues(alpha: 0.08),
-          textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: AppTypography.footnoteSize,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       );
       final wrapped = SizedBox(height: denseHeight, child: button);

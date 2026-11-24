@@ -544,7 +544,7 @@ class _AudioPanel extends StatelessWidget {
             ),
             subtitle: Text(
               context.uiText('Tự cuộn theo dòng đang đọc; tắt để cuộn tay.'),
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
             ),
             value: controller.autoSyncEnabled,
             onChanged: (_) => controller.toggleAutoSync(),
@@ -841,8 +841,8 @@ class _DockIcon extends StatelessWidget {
                     child: Text(
                       badge!,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
+                        color: Colors.black87,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

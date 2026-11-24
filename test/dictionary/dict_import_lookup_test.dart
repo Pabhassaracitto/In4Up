@@ -230,6 +230,12 @@ void main() {
     expect(service.resourceRevision.value, greaterThan(before));
     final id = outcome.imported.single.id;
     var revision = service.resourceRevision.value;
+    await service.toggleDict(id, false);
+    expect(service.resourceRevision.value, greaterThan(revision));
+    revision = service.resourceRevision.value;
+    await service.toggleDict(id, true);
+    expect(service.resourceRevision.value, greaterThan(revision));
+    revision = service.resourceRevision.value;
     expect(await service.relinkSafSource(id, treeUri: 'content://provider/tree/root',
       sourceWasFolder: true, files: [const DictDeviceFile(uri: 'content://provider/mdx',
         name: 'images.mdx', relativePath: 'images.mdx', sizeBytes: 1, extension: 'mdx')]), isTrue);

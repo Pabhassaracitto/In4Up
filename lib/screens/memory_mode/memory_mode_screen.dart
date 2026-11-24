@@ -9,7 +9,6 @@ import 'controllers/memory_controller.dart';
 import 'memory_provider.dart';
 import 'widgets/memory_garden_view.dart';
 import 'widgets/memory_top_bar.dart';
-import 'widgets/memory_bottom_bar.dart';
 import 'widgets/flashcard_presenter.dart';
 import 'widgets/memory_list_view.dart';
 
@@ -50,12 +49,12 @@ class MemoryModeScreen extends StatelessWidget {
             return _buildEmptyState(context, controller);
           }
 
-          // Giao diện chính
+          // Giao diện chính — thanh công cụ gọn phía trên, KHÔNG xếp thêm
+          // thanh đáy thứ hai đè lên BottomNav của MainShell.
           return Column(
             children: [
               const MemoryTopBar(),
               Expanded(child: _buildContent(controller)),
-              const MemoryBottomBar(),
             ],
           );
         },

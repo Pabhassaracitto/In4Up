@@ -34,8 +34,6 @@ class _SpeakModeScreenState extends State<SpeakModeScreen> {
     'stats': false,
     'preset': false,
     'history': false,
-    'tipFlow': false,
-    'tipDesign': false,
   };
 
   bool _isOpen(String id) => _openSections[id] ?? false;
@@ -79,18 +77,6 @@ class _SpeakModeScreenState extends State<SpeakModeScreen> {
                         color: const Color(0xFF00BCD4),
                         onTap: widget.onOpenYouGlish,
                       ),
-                      _QuickActionChip(
-                        icon: Icons.auto_awesome,
-                        label: 'Công cụ nhanh',
-                        color: const Color(0xFF7C4DFF),
-                        onTap: widget.onOpenQuickActions,
-                      ),
-                      _QuickActionChip(
-                        icon: Icons.lightbulb_outline,
-                        label: 'Qua tab Hiểu',
-                        color: const Color(0xFFFFB300),
-                        onTap: widget.onOpenUnderstand,
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -117,31 +103,6 @@ class _SpeakModeScreenState extends State<SpeakModeScreen> {
                     shadowing: shadowing,
                     expanded: _isOpen('history'),
                     onToggle: () => _toggleSection('history'),
-                  ),
-                  const SizedBox(height: 16),
-                  _TipCard(
-                    id: 'tipFlow',
-                    title: 'Luồng luyện nói đề xuất',
-                    bullets: const [
-                      '1. Chọn audio ở tab Nghe hoặc Công cụ nhanh — file được lưu vào thư viện app, không sợ bị dọn cache.',
-                      '2. Không bắt buộc A-B: luyện cả bài; nếu có lời (LRC) app tự gợi ý từng câu.',
-                      '3. Chỉnh tay A-B ngay trong tab Nói (±0.5s hoặc đặt tại vị trí phát).',
-                      '4. Nghe mẫu → Ghi âm → xem chấm điểm; YouGlish để đối chiếu phát âm.',
-                    ],
-                    expanded: _isOpen('tipFlow'),
-                    onToggle: () => _toggleSection('tipFlow'),
-                  ),
-                  const SizedBox(height: 16),
-                  _TipCard(
-                    id: 'tipDesign',
-                    title: 'Thiết kế hiện tại',
-                    bullets: const [
-                      'Nói là không gian thực hành phát âm và lặp lại có chủ đích.',
-                      'Preset nhanh giúp đổi nhịp luyện tập mà không cần chui sâu vào cài đặt.',
-                      'Các chức năng sâu hơn như AI chấm phát âm sẽ tiếp tục gom về đây.',
-                    ],
-                    expanded: _isOpen('tipDesign'),
-                    onToggle: () => _toggleSection('tipDesign'),
                   ),
                 ],
               ),
@@ -1395,85 +1356,6 @@ class _MiniStatCard extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TipCard extends StatelessWidget {
-  final String id;
-  final String title;
-  final List<String> bullets;
-  final bool expanded;
-  final VoidCallback onToggle;
-
-  const _TipCard({
-    required this.id,
-    required this.title,
-    required this.bullets,
-    required this.expanded,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121827),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(
-            sectionKey: 'speak-section-$id-header',
-            title: title,
-            expanded: expanded,
-            onToggle: onToggle,
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-          const SizedBox(height: 12),
-          ...bullets.map(
-            (bullet) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 3),
-                    child: Icon(
-                      Icons.check_circle_outline,
-                      size: 14,
-                      color: Color(0xFFB388FF),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      bullet,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-                    ],
-                  )
-                : const SizedBox(width: double.infinity),
           ),
         ],
       ),

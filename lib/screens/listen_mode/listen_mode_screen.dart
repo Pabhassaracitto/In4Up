@@ -899,14 +899,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                           });
                         }
                         final compactCurtain = displayHeight < 150;
-                        final dragAction = context.uiText(
-                          displayHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
-                        );
-                        final tapAction = context.uiText(
-                          displayHeight < maxH * 0.9
-                              ? 'mở toàn màn hình'
-                              : 'thu gọn',
-                        );
 
                         if (!hasLines) {
                           return Container(
@@ -995,8 +987,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                   });
                                 },
                                 child: Container(
+                                  width: double.infinity,
                                   padding: EdgeInsets.symmetric(
-                                    vertical: compactCurtain ? 3 : 8,
+                                    vertical: compactCurtain ? 4 : 7,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.white
@@ -1004,50 +997,16 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     borderRadius: const BorderRadius.vertical(
                                         top: Radius.circular(14)),
                                   ),
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        width: 38,
-                                        height: 5,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white24,
-                                          borderRadius:
-                                              BorderRadius.circular(3),
-                                        ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 38,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white24,
+                                        borderRadius:
+                                            BorderRadius.circular(3),
                                       ),
-                                      if (!compactCurtain) const SizedBox(height: 6),
-                                      if (!compactCurtain) Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.keyboard_arrow_up_rounded,
-                                            size: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Flexible(
-                                            child: Text(
-                                              context.uiText('Kéo để $dragAction • chạm để $tapAction'),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            Icons.keyboard_arrow_down_rounded,
-                                            size: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),

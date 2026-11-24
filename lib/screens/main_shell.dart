@@ -410,10 +410,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   bool get _shouldShowShellMiniPlayer {
-    if (_currentTab == _PrimaryTab.home) return false;
-    if (_currentTab == _PrimaryTab.listen) return false;
-    if (_currentTab == _PrimaryTab.read) return false;
-    if (_currentTab == _PrimaryTab.understand) return false;
+    if (_currentTab == _PrimaryTab.listen && _listenModeIndex == 0) {
+      return false;
+    }
     return true;
   }
 
@@ -1443,6 +1442,7 @@ class _MainShellState extends State<MainShell> {
           initialMode: _understandLearningMode,
           onModeChanged: _handleUnderstandModeChanged,
           showInternalModeTabs: false,
+          showWorkspaceHeader: false,
           onOpenSpeakMode: () => _setListenMode(1),
           onOpenYouGlish: () {
             _handleTool('youglish');
@@ -1908,15 +1908,9 @@ class _MainShellState extends State<MainShell> {
   Widget _buildListenContextHeader(BuildContext context) {
     if (_listenModeIndex == 2) {
       // YT-WATCH-QUICK-001 (#5): icon YouTube ĐÃ chuyển lên app bar, sát nút
-      //「Thư viện văn bản」. Header này chỉ còn nhãn — không còn nút lẻ loi
-      // bên phải làm tốn một hàng chiều cao.
-      return _WorkspaceHeaderSurface(
-        accent: _currentAccent,
-        child: Row(children: [
-          Expanded(child: Text(context.uiText('Video thiết bị'),
-              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600))),
-        ]),
-      );
+      // 「Thư viện văn bản」 — bỏ luôn hàng nhãn đơn lẻ «Video thiết bị» bên dưới
+      // để tiết kiệm chiều cao cho danh sách video.
+      return const SizedBox.shrink();
     }
     final actions = switch (_listenModeIndex) {
       0 => <_WorkspaceHeaderAction>[
@@ -1925,11 +1919,6 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.library_music_rounded,
             onPressed: () => _openListenSource(_listenSource),
           ),
-          _WorkspaceHeaderAction(
-            label: 'Học từ nội dung',
-            icon: Icons.lightbulb_outline,
-            onPressed: () => _setPrimaryTab(_PrimaryTab.understand),
-          ),
         ],
       1 => <_WorkspaceHeaderAction>[
           _WorkspaceHeaderAction(
@@ -1937,53 +1926,25 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.record_voice_over,
             onPressed: () => _handleTool('youglish'),
           ),
-          _WorkspaceHeaderAction(
-            label: 'Hỏi AI',
-            icon: Icons.psychology_outlined,
-            onPressed: () => _setPrimaryTab(_PrimaryTab.understand),
-          ),
         ],
-      // Chế độ 2 (Xem) đã `return` ở trên ⇒ nhánh này không còn chạy được.
-      // Trước đây nó giữ bản sao hai nút YouTube / Thư viện video (đã chuyển
-      // lên app bar) — để trống hẳn, tránh có hai nguồn sự thật cho cùng lối
-      // tắt. `_ =>` vẫn cần vì switch trên int là exhaustive.
       _ => <_WorkspaceHeaderAction>[],
     };
 
     return _WorkspaceHeaderSurface(
       accent: _currentAccent,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(context.uiText('Công cụ nghe'),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
-              ),
-              IconButton(
-                tooltip: context.uiText(_listenToolsExpanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  final next = !_listenToolsExpanded;
-                  setState(() => _listenToolsExpanded = next);
-                  unawaited(_storage.saveSetting('listen_workspace_tools_expanded_v1', next));
-                },
-                icon: Icon(_listenToolsExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.white70),
-              ),
-            ],
-          ),
-          if (_listenToolsExpanded) ...[
           // AUDIT-2026-10-20 (mục 5): nhãn + nguồn CHUNG MỘT HÀNG (chips
-          // cuộn ngang) ⇒ header gọn hơn, vẫn đồng bộ 3 tab.
+          // cuộn ngang) ⇒ một thanh gọn ≤ 44pt, bấm mũi tên để bung thêm action.
           Row(
             children: [
               _WorkspaceHeaderLabel(
                 icon: Icons.source_outlined,
                 label: context.uiText('Nguồn'),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: WorkspaceSourcePicker<ListenContentSource>(
                   items: _listenSourceItems(context),
@@ -1994,10 +1955,27 @@ class _MainShellState extends State<MainShell> {
                   menuTooltip: context.uiText('Chọn nguồn'),
                 ),
               ),
+              IconButton(
+                tooltip: context.uiText(_listenToolsExpanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () {
+                  final next = !_listenToolsExpanded;
+                  setState(() => _listenToolsExpanded = next);
+                  unawaited(_storage.saveSetting('listen_workspace_tools_expanded_v1', next));
+                },
+                icon: Icon(
+                  _listenToolsExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: Colors.white70,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          _WorkspaceHeaderActions(actions: actions),
+          if (_listenToolsExpanded && actions.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _WorkspaceHeaderActions(dense: true, actions: actions),
           ],
         ],
       ),
@@ -2099,46 +2077,37 @@ class _MainShellState extends State<MainShell> {
   Widget _buildUnderstandContextHeader(BuildContext context) {
     return _WorkspaceHeaderSurface(
       accent: _currentAccent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // AUDIT-2026-10-20 (mục 5): nhãn + chế độ chung một hàng.
-          Row(
-            children: [
-              _WorkspaceHeaderLabel(
-                icon: Icons.route_outlined,
-                label: context.uiText('Chế độ'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: WorkspaceModeBar<UnderstandWorkspaceMode>(
-                  items: _understandModeItems(context),
-                  selectedValue: _understandMode,
-                  onChanged: _setUnderstandMode,
-                  presentation: WorkspaceNavigationPresentation.chips,
-                  menuTooltip: context.uiText('Chọn chế độ'),
-                ),
-              ),
-            ],
+          // AUDIT-2026-10-20 (mục 5): gộp chế độ + trạng thái Audio/Text + Hỏi AI
+          // vào MỘT hàng duy nhất ≤ 44pt để không chồng nhiều tầng header.
+          Expanded(
+            child: WorkspaceModeBar<UnderstandWorkspaceMode>(
+              items: _understandModeItems(context),
+              selectedValue: _understandMode,
+              onChanged: _setUnderstandMode,
+              presentation: WorkspaceNavigationPresentation.chips,
+              menuTooltip: context.uiText('Chọn chế độ'),
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(width: 8),
           Consumer2<PlayerProvider, TextProvider>(
             builder: (context, player, textProvider, _) {
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              return Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _StatusPill(
                     icon: Icons.headphones,
                     label: 'Audio',
                     ready: player.currentSongPath != null,
                   ),
+                  const SizedBox(width: 6),
                   _StatusPill(
                     icon: Icons.menu_book,
                     label: 'Text',
                     ready: textProvider.hasLyrics,
                   ),
+                  const SizedBox(width: 6),
                   _WorkspaceHeaderActionButton(
                     action: _WorkspaceHeaderAction(
                       label: 'Hỏi AI',
@@ -2238,17 +2207,25 @@ class _MainShellState extends State<MainShell> {
 
     return Container(
       key: ValueKey('mode-switch-${_currentTab.name}-$selectedIndex'),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       color: const Color(0xFF111827),
       child: Row(
         children: [
           Expanded(
-            child: Row(
-              children: List.generate(labels.length, (index) {
-                final selected = index == selectedIndex;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              ),
+              child: Row(
+                children: List.generate(labels.length, (index) {
+                  final selected = index == selectedIndex;
+                  return Expanded(
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.selectionClick();
@@ -2258,36 +2235,36 @@ class _MainShellState extends State<MainShell> {
                           _setReadMode(index);
                         }
                       },
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(8),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: selected
-                              ? accent.withValues(alpha: 0.18)
-                              : Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: selected
-                                ? accent.withValues(alpha: 0.35)
-                                : Colors.white.withValues(alpha: 0.06),
-                          ),
+                              ? accent.withValues(alpha: 0.2)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: selected
+                              ? Border.all(color: accent.withValues(alpha: 0.35))
+                              : null,
                         ),
                         child: Text(
                           context.uiText(labels[index]),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: selected ? accent : Colors.grey[400],
                             fontWeight:
                                 selected ? FontWeight.w700 : FontWeight.w500,
-                            fontSize: 13,
+                            fontSize: 12.5,
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
           ),
           // IN4-31: dấu X để TẮT chế độ tự ẩn — thanh mode giữ hiện.
@@ -2470,7 +2447,7 @@ class _WorkspaceHeaderSurface extends StatelessWidget {
       key: const Key('workspace-context-header'),
       width: double.infinity,
       // AUDIT-2026-10-20 (mục 5): padding gọn hơn để dành chỗ cho nội dung.
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       decoration: BoxDecoration(
         color: const Color(0xFF101827),
         border: Border(
@@ -2579,27 +2556,31 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = ready ? const Color(0xFF66BB6A) : Colors.grey;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.24)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 6),
-          Text(
-            '${context.uiText(label)} · ${context.uiText(ready ? 'Sẵn sàng' : 'Chưa có')}',
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+    return Tooltip(
+      message:
+          '${context.uiText(label)} · ${context.uiText(ready ? 'Sẵn sàng' : 'Chưa có')}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.24)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

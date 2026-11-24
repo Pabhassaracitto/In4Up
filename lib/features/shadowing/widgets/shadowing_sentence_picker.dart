@@ -65,7 +65,7 @@ class ShadowingSentencePicker extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 132,
+            height: 140,
             child: Scrollbar(
               child: ListView.builder(
                 itemCount: suggestions.length,

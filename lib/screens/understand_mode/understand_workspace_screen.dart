@@ -17,6 +17,7 @@ class UnderstandWorkspaceScreen extends StatefulWidget {
   final UnderstandLearningMode initialMode;
   final ValueChanged<UnderstandLearningMode>? onModeChanged;
   final bool showInternalModeTabs;
+  final bool showWorkspaceHeader;
 
   /// Optional để không phá caller hiện tại (main_shell không cần đổi):
   /// mặc định mở sheet "Trợ lý hiểu bài" từ state của tab Hiểu.
@@ -31,6 +32,7 @@ class UnderstandWorkspaceScreen extends StatefulWidget {
     this.initialMode = UnderstandLearningMode.sync,
     this.onModeChanged,
     this.showInternalModeTabs = true,
+    this.showWorkspaceHeader = true,
     this.onOpenAiCoach,
   });
 
@@ -61,6 +63,14 @@ class _UnderstandWorkspaceScreenState extends State<UnderstandWorkspaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final connector = UnderstandTabConnector(
+      initialMode: widget.initialMode,
+      onModeChanged: widget.onModeChanged,
+      showInternalModeTabs: widget.showInternalModeTabs,
+    );
+    if (!widget.showWorkspaceHeader) {
+      return connector;
+    }
     return Column(
       children: [
         UnderstandWorkspaceHeader(
@@ -72,13 +82,7 @@ class _UnderstandWorkspaceScreenState extends State<UnderstandWorkspaceScreen> {
           onOpenQuickActions: widget.onOpenQuickActions,
           onOpenAiCoach: widget.onOpenAiCoach ?? () => openUnderstandAiCoach(context),
         ),
-        Expanded(
-          child: UnderstandTabConnector(
-            initialMode: widget.initialMode,
-            onModeChanged: widget.onModeChanged,
-            showInternalModeTabs: widget.showInternalModeTabs,
-          ),
-        ),
+        Expanded(child: connector),
       ],
     );
   }

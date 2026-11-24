@@ -118,11 +118,8 @@ void main() {
       expect(source, contains('speak-section-$id-header'),
           reason: 'khối $id cần header có key để test bung/gộp');
     }
-    // Hai _TipCard nhận id khác nhau → key header sinh động từ id.
-    expect(source, contains(r'speak-section-$id-header'),
-        reason: 'TipCard phải sinh key header từ id');
-    expect(source, contains("'tipFlow'"), reason: 'thiếu _TipCard tipFlow');
-    expect(source, contains("'tipDesign'"), reason: 'thiếu _TipCard tipDesign');
+    expect(source, isNot(contains('_TipCard(')),
+        reason: 'bỏ thẻ giải thích văn xuôi dài dòng ở cuối màn Nói');
   });
 
   testWidgets('360×640: Shadowing nằm trong màn hình đầu, không cần cuộn',

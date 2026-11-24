@@ -1,15 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
 import '../settings/stt_model_settings_screen.dart';
-import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 import 'quick_capture/quick_capture_sheet.dart';
 import 'quick_capture/quick_suggestion_sheet.dart';
@@ -162,12 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _GlobalMiniPlayer(),
-          ),
           Positioned(
             right: 16,
             bottom: 16,
@@ -286,40 +276,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeaderTextBlock(BuildContext context, AppLocalizations l10n) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.commandCenter,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            color: Colors.blue[400],
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.knowledgeOS,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          context.uiText(
-            'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
-          ),
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 12,
-            height: 1.4,
-          ),
-        ),
-      ],
+    return Text(
+      l10n.knowledgeOS,
+      style: const TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w800,
+        color: Colors.white,
+        letterSpacing: -0.5,
+      ),
     );
   }
 
@@ -531,84 +495,6 @@ class _BentoCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _GlobalMiniPlayer extends StatelessWidget {
-  const _GlobalMiniPlayer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        if (player.currentSongTitle == null) return const SizedBox.shrink();
-
-        return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E).withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.music_note,
-                  color: Color(0xFF6C63FF),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      player.currentSongTitle ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      AppLocalizations.of(context).nowPlaying,
-                      style: const TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  player.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                ),
-                onPressed: player.togglePlayPause,
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

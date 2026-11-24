@@ -1123,15 +1123,6 @@ Hãy trả về JSON hợp lệ với:
                       _buildSummaryCard(textProvider, currentLine!)
                     else
                       _buildClozeCard(currentLine!),
-                    const SizedBox(height: 20),
-                    const _TipCard(
-                      title: 'Vai trò của tab Viết',
-                      bullets: [
-                        'Viết là nhánh output gắn trực tiếp với nguồn text hoặc lyric hiện tại.',
-                        'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ, chọn đáp án, viết lại ý và tóm tắt ngắn.',
-                        'Tab này đang đi theo 2 lớp: phản hồi local luôn chạy, AI local là lớp tăng cường khi model sẵn sàng.',
-                      ],
-                    ),
                   ],
                 ],
               ),
@@ -3195,66 +3186,6 @@ class _MetricRow extends StatelessWidget {
             child: Text(
               localizeValue ? context.uiText(value) : value,
               style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TipCard extends StatelessWidget {
-  final String title;
-  final List<String> bullets;
-
-  const _TipCard({required this.title, required this.bullets});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121827),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...bullets.map(
-            (bullet) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 3),
-                    child: Icon(
-                      Icons.check_circle_outline,
-                      size: 14,
-                      color: Color(0xFF26C6DA),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      bullet,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

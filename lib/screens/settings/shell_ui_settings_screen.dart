@@ -102,30 +102,14 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tùy chỉnh giao diện shell',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Compact mode · Auto-hide · Mode switch',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-            ),
-          ],
+        title: const Text(
+          'Tùy chỉnh giao diện shell',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _SectionCard(
-            title: 'Ưu tiên cho người dùng nâng cao',
-            subtitle:
-                'Mặc định app ưu tiên dễ thấy. Các tùy chọn dưới đây giúp tiết kiệm không gian và thao tác nhanh hơn.',
-            child: const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 16),
           _ContentOrderCard(
             value: _contentOrder,
             onChanged: _updateContentOrder,
@@ -189,15 +173,6 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
             onChanged: _updateRememberLastSubMode,
             icon: Icons.history_toggle_off,
             color: const Color(0xFF66BB6A),
-          ),
-          const SizedBox(height: 16),
-          const _SectionCard(
-            title: 'Gợi ý sử dụng',
-            subtitle:
-                '• Người mới: tắt compact mode và auto-hide để dễ khám phá.\n'
-                '• Người dùng quen tay: bật compact mode + nhớ mode gần nhất.\n'
-                '• Muốn thao tác cực nhanh: bật thêm long-press đổi mode.',
-            child: SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
           const _YtDlpInfoCard(),

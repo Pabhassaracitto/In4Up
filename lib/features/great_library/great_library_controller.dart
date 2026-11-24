@@ -1,6 +1,6 @@
 // lib/features/great_library/great_library_controller.dart
 //
-// GLIB-004 — Thư Viện Chung I4U (PLAN-049, ADR-0031).
+// GLIB-004 — Thư Viện Chung I4U (PLAN-049, ADR-0036).
 // ChangeNotifier nối catalog (GLIB-003) + download manager (GLIB-002) cho UI:
 //  - load({force}) → entries / loading / errorMessage
 //  - query (filter + sort) qua GlCatalogQuery thuần

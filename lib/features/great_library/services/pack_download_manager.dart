@@ -1,6 +1,6 @@
 // lib/features/great_library/services/pack_download_manager.dart
 //
-// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D3/D5).
+// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D3/D5).
 // Download manager cho pack `.i4upack`: hàng đợi tuần tự, resume theo
 // byte-range, retry backoff, verify sha256 file sau khi tải.
 //

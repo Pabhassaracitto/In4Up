@@ -1,6 +1,6 @@
 // lib/features/great_library/services/gl_catalog_service.dart
 //
-// GLIB-003 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D2/D5).
+// GLIB-003 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D2/D5).
 // Catalog service: đọc danh mục pack PUBLISHED (public — không cần đăng nhập,
 // D5), cache local có TTL (offline-first: lỗi mạng → dùng cache cũ), và tầng
 // query/filter/sort THUẦN để UI gọi.

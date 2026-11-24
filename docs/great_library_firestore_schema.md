@@ -1,6 +1,6 @@
 # Thư Viện Chung I4U — Firestore schema & Security Rules (GLIB-003)
 
-> PLAN-049 · ADR-0031 D2/D4/D5. Ngày: 2026-11-15.
+> PLAN-049 · ADR-0036 D2/D4/D5. Ngày: 2026-11-15.
 > Repo hiện **không** có file `firestore.rules` (rules app đang quản trong
 > Firebase Console). Tài liệu này cung cấp block rules để **owner dán vào
 > Console** + hướng dẫn tạo doc admin. Agent không tự deploy rules.

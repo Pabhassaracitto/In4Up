@@ -1,6 +1,6 @@
 // lib/features/great_library/services/pack_storage_firebase.dart
 //
-// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D3).
+// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D3).
 // Backend Firebase Storage qua REST thuần (đúng quy ước app: không kéo SDK
 // Storage nặng — giống FirestoreRestClient đi qua REST):
 //   download: GET  /v0/b/{bucket}/o/{encodeComponent(path)}?alt=media (+Range)

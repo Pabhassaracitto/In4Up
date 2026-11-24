@@ -17,6 +17,12 @@ on:
       # (bắt đầu bằng chữ số) — `build.yml` chỉ nghe 'v*' ⇒ KHÔNG chạy.
       - 'v*'
       - '[0-9]*'
+      # BETA-1.30.0 (2026-11-24): khai báo tường minh tag beta có hậu tố chữ.
+      # '[0-9]*' ở trên vẫn khớp vì class ký tự chỉ so ký tự ĐẦU, nhưng ghi rõ
+      # để người đọc không phải suy luận và để tag kiểu mới (`1.31.0-beta.1`)
+      # chắc chắn chạy. Vẫn KHÔNG chạm 'v*' của build.yml ⇒ không tranh asset.
+      - '[0-9]*-Beta'
+      - '[0-9]*-beta*'
   workflow_dispatch:
     inputs:
       version_name:

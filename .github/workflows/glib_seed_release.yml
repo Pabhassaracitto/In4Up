@@ -6,6 +6,11 @@ name: Seed Thư Viện Chung lên GitHub Release
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['arena/**', 'main']
+    paths:
+      - 'tool/great_library_seed/**'
+      - '.github/workflows/glib_seed_release.yml'
 
 permissions:
   contents: write   # tạo release + upload asset

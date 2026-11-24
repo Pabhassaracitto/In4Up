@@ -113,7 +113,7 @@ class GrammarLegendBar extends StatelessWidget {
                   icon: const Icon(Icons.close, size: 17, color: Colors.white70),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                   onPressed: onDismiss,
                 ),
             ],

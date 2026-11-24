@@ -312,7 +312,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                     child: Text(context.uiText('$mm:$ss'),
                         style: const TextStyle(
                             color: Color(0xFFFF9800),
-                            fontSize: 10,
+                            fontSize: 11,
                             fontFamily: 'monospace')),
                   ),
                   const SizedBox(width: 6),

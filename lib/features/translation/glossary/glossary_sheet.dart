@@ -212,7 +212,7 @@ class _GlossarySheetState extends State<GlossarySheet> {
                     context.uiText('${entry.sourceLang.toUpperCase()} → '
                     '${entry.targetLang.toUpperCase()} · '
                     '${_domainLabel(context, entry.domain)}'),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
                 ],
               ),

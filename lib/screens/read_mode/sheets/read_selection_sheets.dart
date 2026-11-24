@@ -293,7 +293,7 @@ class _ReadSelectionTranslateSheetState
             const SizedBox(height: 8),
             Text(
               result.engineName,
-              style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
             ),
           ],
         ],

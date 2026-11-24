@@ -25,12 +25,15 @@ class ReadSettingsSheet {
     context.read<TextProvider>().refreshGrammarPresetLibrary();
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => const _SettingsContent(),
+      builder: (context) => const SafeArea(
+        top: false,
+        child: _SettingsContent(),
+      ),
     ).then((_) {
       // AUDIT-2026-10-20 (mục 1): sheet đóng ⇒ cấu hình vừa đổi (ví dụ vị
       // trí phần TIÊU ĐỀ khi ở chế độ Focus) phải có hiệu lực NGAY, không
@@ -675,7 +678,7 @@ class _WordColorStyleSelector extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             context.uiText(current.description),
-            style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
           ),
         ],
       ),
@@ -743,7 +746,7 @@ class _WordColorStyleChip extends StatelessWidget {
               context.uiText(style.label),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 11,
                 color: selected ? Colors.white : Colors.grey[500],
                 fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -854,7 +857,7 @@ class _IpaSaveSourceSectionState extends State<_IpaSaveSourceSection> {
         Text(
           'Tự điền IPA cho từ lưu mới — không hỏi lại từng lần.',
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             color: Colors.grey[600],
             fontStyle: FontStyle.italic,
           ),
@@ -1072,7 +1075,7 @@ class _IpaToggleChip extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: on ? color : Colors.grey[500],
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1186,7 +1189,7 @@ class _Chip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1828,7 +1831,7 @@ class _PresetChoiceCard extends StatelessWidget {
                     preset.audienceLabel,
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1941,7 +1944,7 @@ class _PaletteChoiceCard extends StatelessWidget {
                     palette.isDark ? 'Dark' : 'Light',
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2074,7 +2077,7 @@ class _ChoiceChipButton extends StatelessWidget {
                 subtitle!,
                 style: TextStyle(
                   color: Colors.grey[400],
-                  fontSize: 10.5,
+                  fontSize: 11,
                   height: 1.35,
                 ),
               ),

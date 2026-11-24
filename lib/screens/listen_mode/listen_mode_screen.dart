@@ -521,7 +521,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 color: kSpeakerColors[id], shape: BoxShape.circle,
               )),
               const SizedBox(width: 4),
-              Text(context.uiText('Người $id'), style: const TextStyle(color: Colors.white, fontSize: 10)),
+              Text(context.uiText('Người $id'), style: const TextStyle(color: Colors.white, fontSize: 11)),
             ]),
           )).toList(),
         ),
@@ -548,7 +548,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           const SizedBox(width: 6),
           Text(
             context.uiText('${voiceCommandLabel(locale, 'received')}: $_lastVoiceText'),
-            style: const TextStyle(color: Colors.white, fontSize: 10),
+            style: const TextStyle(color: Colors.white, fontSize: 11),
           ),
         ],
       ],
@@ -1085,7 +1085,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                                 color: _autoScroll
                                                     ? const Color(0xFF4CAF50)
                                                     : Colors.grey,
-                                                fontSize: 9,
+                                                fontSize: 11,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
@@ -1169,7 +1169,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                   "Vuốt xuống để ẩn • Nhấn dòng để nhảy tới",
                                   style: TextStyle(
                                     color: Colors.grey[600],
-                                    fontSize: 9,
+                                    fontSize: 11,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -1495,7 +1495,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     const SizedBox(width: 6),
                     Text('Đang phân tích...',
                         style:
-                            TextStyle(color: Colors.grey[400], fontSize: 10)),
+                            TextStyle(color: Colors.grey[400], fontSize: 11)),
                   ]),
                 ),
               ),
@@ -1607,7 +1607,7 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
                         context.uiText('${_zoom.toStringAsFixed(1)}×'),
                         style: TextStyle(
                           color: _zoom == 1.0 ? Colors.grey[500] : Colors.white,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1884,7 +1884,7 @@ class _ActionTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(badge!,
-                    style: const TextStyle(fontSize: 9, color: Colors.white)),
+                    style: const TextStyle(fontSize: 11, color: Colors.white)),
               ),
             ],
           ],
@@ -2630,7 +2630,7 @@ class _SlimProgress extends StatelessWidget {
 
         return Row(children: [
           Text(_fmt(pos),
-              style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
           const SizedBox(width: 8),
           Expanded(
             child: SliderTheme(
@@ -2652,7 +2652,7 @@ class _SlimProgress extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(_fmt(dur),
-              style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
         ]);
       },
     );
@@ -2876,7 +2876,7 @@ class GenerateLrcButton extends StatelessWidget {
                               const SizedBox(width: 2),
                               Text(
                                 'RAM safe: lazy chunk',
-                                style: TextStyle(color: Colors.orange.shade300, fontSize: 10),
+                                style: TextStyle(color: Colors.orange.shade300, fontSize: 11),
                               ),
                             ],
                           ),
@@ -3094,7 +3094,7 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                         child: Text(
                           context.uiText('tự nhận diện'),
                           style:
-                              TextStyle(fontSize: 10, color: Colors.grey[500]),
+                              TextStyle(fontSize: 11, color: Colors.grey[500]),
                         ),
                       ),
                   ],

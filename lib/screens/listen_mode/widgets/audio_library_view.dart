@@ -346,15 +346,15 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
 
   Widget _buildList(AudioLibraryProvider provider) {
     if (provider.isScanning && provider.entries.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: _accent, strokeWidth: 2),
-            SizedBox(height: 12),
+            const CircularProgressIndicator(color: _accent, strokeWidth: 2),
+            const SizedBox(height: 12),
             Text(
-              'Đang quét thư viện âm thanh…',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+              context.uiText('Đang quét thư viện âm thanh…'),
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ],
         ),
@@ -490,7 +490,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
                     IconButton(
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints(minWidth: 34, minHeight: 34),
+                          const BoxConstraints(minWidth: 44, minHeight: 44),
                       icon: Icon(
                         entry.favorite
                             ? Icons.favorite
@@ -557,28 +557,31 @@ class _PermissionGate extends StatelessWidget {
           children: [
             const Icon(Icons.phonelink_lock, size: 48, color: Colors.white24),
             const SizedBox(height: 14),
-            const Text(
-              'Cần quyền truy cập âm thanh',
-              style: TextStyle(
+            Text(
+              context.uiText('Cần quyền truy cập âm thanh'),
+              style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Để quét và liệt kê toàn bộ file âm thanh trên máy.\n'
-              'Dữ liệu chỉ lưu cục bộ (offline-first).',
+            Text(
+              context.uiText(
+                'Để quét và liệt kê toàn bộ file âm thanh trên máy.\n'
+                'Dữ liệu chỉ lưu cục bộ (offline-first).',
+              ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.6),
+              style: const TextStyle(
+                  color: Colors.white54, fontSize: 12.5, height: 1.6),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: onGrant,
               icon: const Icon(Icons.lock_open, size: 18, color: Colors.white),
-              label: const Text(
-                'Cấp quyền & quét',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              label: Text(
+                context.uiText('Cấp quyền & quét'),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w700),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6C63FF),

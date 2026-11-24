@@ -164,7 +164,7 @@ class PdfPageTranslatePanel extends StatelessWidget {
               padding: const EdgeInsets.only(right: 8),
               child: Text(
                 context.uiText('${controller.pageTranslatedCount} câu'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
               ),
             ),
           _HeaderBtn(
@@ -264,7 +264,7 @@ class PdfPageTranslatePanel extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.grey[500],
-                fontSize: 10.5,
+                fontSize: 11,
                 height: 1.35,
               ),
             ),

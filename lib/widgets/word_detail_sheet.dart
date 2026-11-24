@@ -292,7 +292,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
         ),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
         ),
       ],
     );

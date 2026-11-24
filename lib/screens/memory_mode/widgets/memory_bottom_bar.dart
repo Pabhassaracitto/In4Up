@@ -40,7 +40,7 @@ class MemoryBottomBar extends StatelessWidget {
                   if (stats.totalItems > 0)
                     Text(
                       context.uiText('${(stats.averageAccuracy * 100).round()}% chính xác'),
-                      style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
                     ),
                 ],
               ),
@@ -134,7 +134,7 @@ class _ReviewModeButton extends StatelessWidget {
                   context.uiText('$count'),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

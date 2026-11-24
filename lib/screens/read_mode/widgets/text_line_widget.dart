@@ -613,7 +613,7 @@ class _LineHeader extends StatelessWidget {
                 color: data.isCurrentLine
                     ? const Color(0xFF2196F3)
                     : Colors.grey[600],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'monospace',
               ),
@@ -631,7 +631,7 @@ class _LineHeader extends StatelessWidget {
           Text(
             _formatDuration(data.startTime!),
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 11,
               color:
                   data.isPlaying ? const Color(0xFF4CAF50) : Colors.grey[600],
               fontFamily: 'monospace',

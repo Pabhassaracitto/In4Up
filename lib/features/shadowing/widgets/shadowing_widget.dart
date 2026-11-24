@@ -1267,7 +1267,7 @@ class _ScoreItem extends StatelessWidget {
             label,
             style: TextStyle(
               color: Colors.grey[500],
-              fontSize: 10,
+              fontSize: 11,
             ),
           ),
         ],

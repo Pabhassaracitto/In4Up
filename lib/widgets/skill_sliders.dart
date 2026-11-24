@@ -168,7 +168,7 @@ class _SkillSlidersState extends State<SkillSliders> {
           Text(
             context.uiText('${(value * 100).toInt()}%'),
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               color: color,
             ),

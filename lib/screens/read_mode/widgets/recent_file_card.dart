@@ -246,7 +246,7 @@ class _TypeBadge extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
         ),

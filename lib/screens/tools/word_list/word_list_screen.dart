@@ -3347,7 +3347,7 @@ class _PerWordRepeatBtn extends StatelessWidget {
           onChanged: (v) => onChanged(v.clamp(1, 999)),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           child: Center(
             child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),

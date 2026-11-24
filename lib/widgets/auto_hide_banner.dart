@@ -126,7 +126,7 @@ class _AutoHideInfoBannerState extends State<AutoHideInfoBanner>
                             const Text(
                               'Không hiện lại',
                               style: TextStyle(
-                                  color: Colors.white70, fontSize: 9),
+                                  color: Colors.white70, fontSize: 11),
                             ),
                           ],
                         ),

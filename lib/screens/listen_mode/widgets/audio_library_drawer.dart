@@ -536,7 +536,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                             context.uiText('${player.getSegmentsForCurrentSong().length}'),
                             style: const TextStyle(
                                 color: Color(0xFF9C8FFF),
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -908,7 +908,7 @@ class _SegmentTile extends StatelessWidget {
                         const TextStyle(color: Colors.white70, fontSize: 12)),
                 Text(
                   context.uiText('${_fmt(segment.startTime)} → ${_fmt(segment.endTime)}'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
                 ),
               ],
             ),

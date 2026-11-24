@@ -705,7 +705,7 @@ class _PageNumberField extends StatelessWidget {
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 10),
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           enabledBorder: OutlineInputBorder(

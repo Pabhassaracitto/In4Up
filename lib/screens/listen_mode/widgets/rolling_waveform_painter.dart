@@ -260,7 +260,7 @@ class RollingWaveformPainter extends CustomPainter {
       text: TextSpan(
         text: '$mm:$ss',
         style: const TextStyle(
-            color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
+            color: Colors.white54, fontSize: 11, fontFamily: 'monospace'),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

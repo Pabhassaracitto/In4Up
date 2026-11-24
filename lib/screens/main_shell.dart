@@ -13,6 +13,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 
 import '../core/files/incoming_file_classifier.dart';
 import '../core/files/incoming_file_router.dart';
+import '../core/theme/app_colors.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
@@ -1500,7 +1501,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF080B1A),
+      backgroundColor: AppColors.bgBase,
       // Keep the physical drawer side paired with the content-tab side. The
       // same preference also controls the bottom navigation order.
       drawer: _listenFirst
@@ -1663,7 +1664,7 @@ class _MainShellState extends State<MainShell> {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: AppColors.surfaceElevated,
         border: Border(
           bottom: BorderSide(
             color: _isHome
@@ -1990,7 +1991,7 @@ class _MainShellState extends State<MainShell> {
                 tooltip: context.uiText(_listenToolsExpanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 onPressed: () {
                   final next = !_listenToolsExpanded;
                   setState(() => _listenToolsExpanded = next);
@@ -2306,7 +2307,7 @@ class _MainShellState extends State<MainShell> {
               icon: const Icon(Icons.close, size: 18, color: Colors.white54),
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             ),
         ],
       ),
@@ -2633,9 +2634,9 @@ class _ToolPage extends StatelessWidget {
     return Theme(
       data: Theme.of(context).copyWith(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF080B1A),
+        scaffoldBackgroundColor: AppColors.bgBase,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1A1A2E),
+          backgroundColor: AppColors.surfaceElevated,
           elevation: 0,
         ),
       ),

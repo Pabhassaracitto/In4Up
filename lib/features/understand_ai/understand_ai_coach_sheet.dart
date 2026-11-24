@@ -419,7 +419,7 @@ class _ContextPreviewCard extends StatelessWidget {
                   context.uiText(
                     'Chỉ gửi đoạn văn bản này — không gửi audio, không tự ghi âm.',
                   ),
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ),
             ],
@@ -450,7 +450,7 @@ class _StepperButton extends StatelessWidget {
       iconSize: 18,
       color: Colors.white54,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
       onPressed: onPressed,
     );
   }

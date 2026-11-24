@@ -106,12 +106,14 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
   Future<String?> _showPlayDialog(DriveItem item) async {
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
+      builder: (_) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -181,6 +183,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -529,7 +532,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
             icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
             onPressed: _loadItems,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
           ),
           // Sign out
           IconButton(
@@ -539,7 +542,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
               setState(() => _items = []);
             },
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
           ),
         ],
       ),
@@ -635,7 +638,7 @@ class _DriveItemTile extends StatelessWidget {
                           if (item.sizeLabel.isNotEmpty)
                             Text(item.sizeLabel,
                                 style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 10)),
+                                    color: Colors.grey[600], fontSize: 11)),
                         ],
                       ),
                     ],
@@ -668,7 +671,7 @@ class _DriveItemTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 context.uiText('Đang tải ${(downloadProgress * 100).toInt()}%...'),
-                style: const TextStyle(color: Color(0xFF9C8FFF), fontSize: 10),
+                style: const TextStyle(color: Color(0xFF9C8FFF), fontSize: 11),
               ),
             ],
           ],
@@ -693,7 +696,7 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(label,
           style: TextStyle(
-              color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+              color: color, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 }

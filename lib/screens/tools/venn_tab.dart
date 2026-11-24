@@ -132,14 +132,14 @@ class _VennTabState extends State<VennTab> {
           Text(
             '🔵 ${context.uiText('HIỂU')}  ·  🟢 ${context.uiText('NGHE')}  ·  🔴 ${context.uiText('ĐỌC')}',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
           Expanded(flex: 5, child: _buildVennDiagram(prov, counts)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Text(context.uiText('Chuyển vùng sẽ thay đổi điểm của cả ba kỹ năng.'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 10)),
+                style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 11)),
           ),
           Expanded(flex: 5, child: _buildWordList(prov, zones)),
       ],

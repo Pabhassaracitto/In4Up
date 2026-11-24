@@ -1444,7 +1444,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
-            tooltip: 'Tốc độ đọc',
+            tooltip: context.uiText('Tốc độ đọc'),
             icon: const Icon(Icons.speed, color: Colors.white70, size: 19),
             onPressed: () {
               final next = nextReaderSpeed(_controller.ttsSpeed);
@@ -1453,7 +1453,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
-            tooltip: 'Dừng đọc',
+            tooltip: context.uiText('Dừng đọc'),
             icon: const Icon(Icons.stop, color: Colors.redAccent, size: 20),
             onPressed: _controller.stopTts,
             visualDensity: VisualDensity.compact,
@@ -1659,7 +1659,7 @@ class _RecallLegendDot extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );

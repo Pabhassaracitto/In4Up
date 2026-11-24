@@ -223,7 +223,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
                   ? context.uiText('Bên nhiều bên ít: gốc 2 lần, dịch 1 lần')
                   : context.uiText(
                       'Bên nhiều bên ít: đặt hai số khác nhau (vd gốc 2 · dịch 1)'),
-              style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
             ),
 
             const SizedBox(height: 16),
@@ -262,7 +262,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
                   ? context.uiText(
                       'Đọc mãi mãi — lặp lại cả bài cho tới khi bấm Dừng.')
                   : context.uiText('Đọc $_passes lượt cả bài rồi tự dừng.'),
-              style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
             ),
 
             const SizedBox(height: 16),
@@ -279,7 +279,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
               subtitle: Text(
                 context.uiText(
                     'Tắt: chỉ nghe giọng đọc, video đứng yên ở chỗ cũ'),
-                style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
               onChanged: (v) => setState(() => _syncVideo = v),
             ),
@@ -297,7 +297,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
               subtitle: Text(
                 context.uiText(
                     'Bật: nghe giọng thật của video cho câu gốc, tắt khi đọc bản dịch'),
-                style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
               onChanged: _syncVideo
                   ? (v) => setState(() => _playVideoAudio = v)
@@ -317,7 +317,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
               ),
               subtitle: Text(
                 context.uiText('Tắt để đọc lại từ dòng đầu tiên'),
-                style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
               onChanged: (v) => setState(() => _fromCurrent = v),
             ),
@@ -418,7 +418,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
           // Màu chữ lấy CHÍNH màu khung (đậm hơn nền 12% alpha nên vẫn đọc
           // được). Không dùng `shade100` — đó là API của MaterialColor, còn
           // tham số ở đây là `Color` nên sẽ không biên dịch được.
-          style: TextStyle(color: color, fontSize: 10.5, height: 1.4),
+          style: TextStyle(color: color, fontSize: 11, height: 1.4),
         ),
       );
 
@@ -468,7 +468,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
                     Text(subtitle,
                         style: TextStyle(
                             color: Colors.grey[500],
-                            fontSize: 10.5,
+                            fontSize: 11,
                             height: 1.3)),
                   ],
                 ),

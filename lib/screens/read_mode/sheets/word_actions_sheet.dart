@@ -562,7 +562,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                           color: isSelected
                               ? Colors.white70
                               : level.color.withValues(alpha: 0.7),
-                          fontSize: 10,
+                          fontSize: 11,
                         ),
                       ),
                     ],
@@ -604,7 +604,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
               'Ch\u1EA5m \u0111\u1EC3 ch\u1ECDn \u00B7 Gi\u1EE5 \u0111\u1EC3 x\u00F3a',
               style: TextStyle(
                 color: Colors.grey[600],
-                fontSize: 10,
+                fontSize: 11,
                 fontStyle: FontStyle.italic,
               ),
               textAlign: TextAlign.center,
@@ -821,7 +821,7 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(color: Colors.grey[600], fontSize: 10),
+          style: TextStyle(color: Colors.grey[600], fontSize: 11),
         ),
       ],
     );

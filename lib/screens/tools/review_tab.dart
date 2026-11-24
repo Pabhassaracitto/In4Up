@@ -133,7 +133,7 @@ class _ReviewTabState extends State<ReviewTab>
             decoration: BoxDecoration(
                 color: Colors.red, borderRadius: BorderRadius.circular(10)),
             child: Text(context.uiText('$count'),
-                style: const TextStyle(color: Colors.white, fontSize: 10)),
+                style: const TextStyle(color: Colors.white, fontSize: 11)),
           ),
         ],
       ],
@@ -426,7 +426,7 @@ class _ReviewTabState extends State<ReviewTab>
       children: [
         Text(value,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }

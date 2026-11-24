@@ -282,7 +282,7 @@ class _BarAction extends StatelessWidget {
                   badge!,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

@@ -23,9 +23,11 @@
 > chặn mọi ghi trái phép (AT3).
 
 1. **Firestore Database → Rules**.
-2. **Thêm** block sau vào cuối (giữ nguyên mọi `match` hiện có của app).
-   Block Firestore **không chứa UID** (quyền admin đọc từ doc `gl_config/
-   admins` ở Bước 2) — dán nguyên văn:
+2. **Thêm** block sau vào cuối — QUAN TRỌNG: dán **TRƯỚC 2 dấu `}` cuối
+   cùng** (block `gl_*` phải nằm BÊN TRONG `match /databases/{database}/
+   documents { … }`; dán ra ngoài sẽ báo "unexpected 'match'"). Giữ nguyên
+   mọi `match` hiện có của app. Block Firestore **không chứa UID** (quyền
+   admin đọc từ doc `gl_config/admins` ở Bước 2) — dán nguyên văn:
 
 ```
     // ===== Thư Viện Chung I4U (GLIB-003) =====

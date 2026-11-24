@@ -9876,6 +9876,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | rebase 251e `d23341a`, code + test + ADR; chờ CI và thiết bị.
   - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI run 43482984172 xanh trên `5680958`; còn renderer CSS/MDD và QA bộ thật.
   - 2026-11-24 | 22:58 UTC | doing→doing | agent arena/1168b461-in4up | sửa race tra màn Từ điển, cho mở nguồn khi preview rỗng, báo DB lỗi/giới hạn 10 ở màn Từ điển và hành động Đọc; test synthetic + checklist `docs/dictionary/DICT_DEVICE_ACCEPTANCE.md`; chờ CI và QA LAAD3/Lạc Việt/SAF trên máy. Chưa phân trang hoặc lan báo lỗi mọi popup.
+  - 2026-11-24 | 23:10 UTC | doing→doing | agent arena/1168b461-in4up | ngăn cache WordInsight giữ entry cũ sau import/xóa/đổi bộ, tắt/bật và đổi thứ tự; bỏ kết quả in-flight nếu phiên bản nguồn đổi. Chờ CI và kiểm thiết bị.
 
 ### DICT-PACK-002 — Sửa 404 catalog và giữ kết quả pop Đọc khi mở rộng
 

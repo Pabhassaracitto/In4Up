@@ -986,13 +986,15 @@ class DictionaryService {
     _dicts
       ..clear()
       ..addAll(next);
+    _invalidateResources();
     await _saveManifest();
   }
 
   Future<void> toggleDict(String dictId, bool enabled) async {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
-    if (idx < 0) return;
+    if (idx < 0 || _dicts[idx].enabled == enabled) return;
     _dicts[idx] = _dicts[idx].copyWith(enabled: enabled);
+    _invalidateResources();
     await _saveManifest();
   }
 

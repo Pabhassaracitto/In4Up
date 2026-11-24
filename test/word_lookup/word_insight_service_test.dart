@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // WORD-INSIGHT-001 — Unit test: waterfall "mạng → từ điển → offline".
 //
 // Toàn bộ nguồn ngoài được thay bằng seam ⇒ test chạy offline, không chạm
@@ -265,4 +267,39 @@ void main() {
       expect(OnlineDictionarySource.parseJson('{}'), isNull);
     });
   });
+  test('dictionary changes invalidate cached local and online results', () async {
+    var revision = 0;
+    var definition = 'old';
+    WordInsightService.dictionaryRevisionOverride = () => revision;
+    WordInsightService.dictionaryLookupOverride = (word) async => [
+      DictEntry(headword: word, definition: definition, dictId: 'd')];
+    WordInsightService.onlineLookupOverride = (word) async => null;
+    final service = WordInsightService();
+    expect((await service.resolveLocal('hello')).entries.single.definition, 'old');
+    expect((await service.resolve('hello')).entries.single.definition, 'old');
+    definition = 'new';
+    revision++;
+    expect((await service.resolveLocal('hello')).entries.single.definition, 'new');
+    expect((await service.resolve('hello')).entries.single.definition, 'new');
+  });
+
+  test('in-flight lookup after dictionary change is not returned or cached', () async {
+    var revision = 0;
+    final pending = Completer<List<DictEntry>>();
+    var calls = 0;
+    WordInsightService.dictionaryRevisionOverride = () => revision;
+    WordInsightService.dictionaryLookupOverride = (word) {
+      calls++;
+      if (calls == 1) return pending.future;
+      return Future.value([DictEntry(headword: word, definition: 'new', dictId: 'd')]);
+    };
+    final service = WordInsightService();
+    final old = service.resolveLocal('hello');
+    revision++;
+    pending.complete(const [DictEntry(headword: 'hello', definition: 'old', dictId: 'd')]);
+    expect((await old).entries, isEmpty);
+    expect((await service.resolveLocal('hello')).entries.single.definition, 'new');
+    expect(calls, 2);
+  });
+
 }

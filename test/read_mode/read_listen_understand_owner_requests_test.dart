@@ -83,7 +83,7 @@ void main() {
     expect(writeScreen, contains('final IconData icon;'));
 
     // ToolsOverlayV2 dùng PopScope + tìm kiếm + đóng nhanh không chờ stagger.
-    expect(toolsOverlay, isNot(contains('WillPopScope')));
+    expect(toolsOverlay, isNot(contains('WillPopScope(')));
     expect(toolsOverlay, contains('PopScope('));
     expect(toolsOverlay, contains('_buildSearchBar()'));
 

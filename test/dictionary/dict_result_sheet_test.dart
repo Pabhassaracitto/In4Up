@@ -6,6 +6,7 @@ import 'dart:async';
 // một từ được GỘP, nghĩa trùng bị khử, nội dung đã làm sạch HTML.
 
 import 'package:flutter/material.dart' as material;
+import 'package:flutter/services.dart' show TextInputAction;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_entry.dart';
 import 'package:in4up/features/dictionary/models/dict_info.dart';
@@ -140,15 +141,15 @@ void main() {
     await tester.pump();
     await tester.pump();
     await tester.enterText(find.byType(material.TextField), 'second');
-    await tester.testTextInput.receiveAction(material.TextInputAction.search);
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pump();
     second.complete(DictLookupReport(entries: [entry(word: 'second', definition: 'new meaning')]));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('second'), findsOneWidget);
+    expect(find.textContaining('new meaning'), findsOneWidget);
     first.complete(DictLookupReport(entries: [entry(word: 'first', definition: 'old meaning')]));
     await tester.pump();
-    expect(find.text('second'), findsOneWidget);
+    expect(find.textContaining('new meaning'), findsOneWidget);
     expect(find.text('first'), findsNothing);
     expect(find.textContaining('old meaning'), findsNothing);
   });

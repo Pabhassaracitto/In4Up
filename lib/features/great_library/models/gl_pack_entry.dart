@@ -1,6 +1,6 @@
 // lib/features/great_library/models/gl_pack_entry.dart
 //
-// GLIB-003 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D2).
+// GLIB-003 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D2).
 // Một mục trong catalog công khai: metadata pack (PackManifest) + thông tin
 // file để tải/verify (fileSha256, fileBytes) + publishedAt.
 //

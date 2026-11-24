@@ -1,12 +1,12 @@
 // lib/features/great_library/models/pack_manifest.dart
 //
-// GLIB-001 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D1).
+// GLIB-001 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D1).
 // Model lõi của gói chia sẻ cộng đồng `.i4upack` và manifest JSON của nó.
 //
 // Thuần Dart (không Flutter, không dart:io) để test chạy mọi nơi và tái dùng
 // được trong tool soạn pack seed (tool/great_library_seed — GLIB-008).
 //
-// Quy ước checksum (ADR-0031 D1):
+// Quy ước checksum (ADR-0036 D1):
 //  - `payloadSha256` TRONG manifest: hash nội dung data/ + media/ do
 //    pack_file.dart tính lúc build và verify lúc mở — bất biến theo cách nén
 //    ZIP, không đổi khi chỉ re-zip cùng nội dung.
@@ -68,7 +68,7 @@ enum PackLicense {
   }
 }
 
-/// Vòng đời kiểm duyệt (ADR-0031 D4: pending-first). Append-only.
+/// Vòng đời kiểm duyệt (ADR-0036 D4: pending-first). Append-only.
 enum PackStatus {
   pending('pending'),
   published('published'),
@@ -138,7 +138,7 @@ class PackStats {
   }
 }
 
-/// Tham chiếu storage pluggable (ADR-0031 D3): backend nào + path trong backend.
+/// Tham chiếu storage pluggable (ADR-0036 D3): backend nào + path trong backend.
 class PackStorageRef {
   const PackStorageRef({required this.backend, required this.path});
 

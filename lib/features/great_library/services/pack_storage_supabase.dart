@@ -1,6 +1,6 @@
 // lib/features/great_library/services/pack_storage_supabase.dart
 //
-// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D3, ideation D4).
+// GLIB-002 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D3, ideation D4).
 // STUB cho backend Supabase Storage — chỉ khai báo để khóa interface + điểm
 // cắm; implement khi Firebase Storage sắp hết quota (cảnh báo 80% ở GLIB-007).
 //

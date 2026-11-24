@@ -1,6 +1,6 @@
 // lib/features/great_library/ui/contribute_wizard_screen.dart
 //
-// GLIB-006 — wizard đóng góp pack (PLAN-049 §GLIB-006, ADR-0031 D6).
+// GLIB-006 — wizard đóng góp pack (PLAN-049 §GLIB-006, ADR-0036 D6).
 // 3 bước: (1) chọn nguồn — export-as-pack từ Vườn nhớ của mình hoặc soạn mới;
 // (2) metadata (nút "Gợi ý bằng AI" opt-in BYOK, mặc định TẮT; user sửa lại);
 // (3) cam kết bản quyền + license → build .i4upack → upload → gl_contributions

@@ -5,7 +5,7 @@
 > **Nền tảng quyết định:** [`docs/great_library_ideation_v1.md`](../great_library_ideation_v1.md)
 > — ideation v1.2, **6/6 quyết định D1–D6 đã LOCKED** (tên gọi, seed, không cần
 > đăng nhập để tải, storage pluggable, AI gợi ý BYOK, admin in-app theo uid owner).
-> **Liên quan:** ADR-0031 · cards `GLIB-001..008` · tận dụng WORDLIST-TTS-001,
+> **Liên quan:** ADR-0036 · cards `GLIB-001..008` · tận dụng WORDLIST-TTS-001,
 > `vocab_image`, API-001/002 (tầng Server API/BYOK), ADR-0001 (SM-2), rule vàng #5 (i18n).
 
 ---
@@ -37,7 +37,7 @@ bản quyền thương mại, tính năng trả phí.
 | Nhu cầu Thư Viện Chung | Hiện trạng trong repo | Kết luận |
 |---|---|---|
 | Catalog/metadata pack | `lib/services/firestore_rest_client.dart` (`FirestoreRestClient`) + `firebase_rest_auth.dart` | Đủ nền REST; viết `GlCatalogService` mỏng trên đó, KHÔNG thêm SDK |
-| Lưu/tải file nhị phân | `lib/services/storage_service.dart` (`StorageService` — Firebase Storage REST) | Đặt sau interface `PackStorageBackend` (ADR-0031 D3) để thêm Supabase sau |
+| Lưu/tải file nhị phân | `lib/services/storage_service.dart` (`StorageService` — Firebase Storage REST) | Đặt sau interface `PackStorageBackend` (ADR-0036 D3) để thêm Supabase sau |
 | Auth khi đóng góp / admin | `lib/services/auth_service.dart` | Gate admin = uid của `be.you8778@gmail.com` trong `gl_config/admins` |
 | Import audio vào Tab Nghe | `lib/services/audio_import_service.dart`, `audio_library_service.dart` | `PackImportService` gọi lại, không viết lại |
 | Transcript/LRC cho AudioPack | `lib/services/lrc_time_parser.dart` | Pack nhúng LRC; preview parse bằng parser sẵn có |
@@ -77,7 +77,7 @@ góp; màn admin; tooling soạn pack seed (`tool/`).
 
 ---
 
-## 4. Kiến trúc tổng thể (chi tiết & phương án đã loại: ADR-0031)
+## 4. Kiến trúc tổng thể (chi tiết & phương án đã loại: ADR-0036)
 
 1. **Đơn vị chia sẻ = `.i4upack`** — ZIP gồm `manifest.json` + `data/` + `media/`;
    `sha256` toàn gói + version tăng dần. Không chia sẻ file lẻ.
@@ -223,5 +223,5 @@ góp; màn admin; tooling soạn pack seed (`tool/`).
 ## 11. Lịch sử
 
 - 2026-11-15 | created (proposed) | agent `arena/a04e4405-in4up` | PLAN-049 +
-  ADR-0031 + 8 card GLIB; toàn bộ quyết định lấy từ ideation v1.2 (D1–D6
+  ADR-0036 + 8 card GLIB; toàn bộ quyết định lấy từ ideation v1.2 (D1–D6
   LOCKED). Chờ owner duyệt → doing.

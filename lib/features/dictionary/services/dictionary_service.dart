@@ -48,6 +48,15 @@ class DictImportOutcome {
   bool get isSuccess => imported.isNotEmpty;
 }
 
+/// Lookup results plus diagnostics; names are shown without private paths/errors.
+class DictLookupReport {
+  final List<DictEntry> entries;
+  final List<String> failedSources;
+  final List<String> truncatedSources;
+  const DictLookupReport({required this.entries, this.failedSources = const [],
+    this.truncatedSources = const []});
+}
+
 /// Facade quản lý tất cả từ điển đã import
 class DictionaryService {
   static DictionaryService? _instance;
@@ -99,24 +108,45 @@ class DictionaryService {
   ///
   /// Kết quả giữ đúng THỨ TỰ ƯU TIÊN của manifest: bộ đứng trước lên trước,
   /// nên `DictTextCleaner.merge(...)` gộp theo đúng thứ tự người dùng đã sắp.
-  Future<List<DictEntry>> lookup(String word, {String? dictId}) async {
+  Future<List<DictEntry>> lookup(String word, {String? dictId}) async =>
+      (await lookupWithReport(word, dictId: dictId)).entries;
+
+  /// Keeps partial results when a DB fails and detects the existing per-source
+  /// limit. The extra row is only a sentinel, not rendered or redirect-resolved.
+  Future<DictLookupReport> lookupWithReport(String word, {String? dictId}) async {
     await ensureInitialized();
     final results = <DictEntry>[];
+    final failed = <String>[];
+    final truncated = <String>[];
     final sources = dictId == null
         ? enabledDictionaries
         : enabledDictionaries.where((d) => d.id == dictId).toList();
     for (final dict in sources) {
       try {
-        final entries = await DictDbService.lookup(dict.dbPath, word);
+        final entries = await DictDbService.lookup(dict.dbPath, word, limit: 11);
+        var sourceTruncated = entries.length > 10;
+        var redirectFailed = false;
         results.addAll(await DictRedirectResolver.resolve(
-          entries,
-          (target) => DictDbService.lookup(dict.dbPath, target),
+          entries.take(10).toList(),
+          (target) async {
+            try {
+              final matches = await DictDbService.lookup(dict.dbPath, target, limit: 11);
+              if (matches.length > 10) sourceTruncated = true;
+              return matches.take(10).toList();
+            } catch (_) {
+              redirectFailed = true;
+              rethrow;
+            }
+          },
         ));
-      } catch (e) {
-        // DB lỗi → bỏ qua
+        if (sourceTruncated) truncated.add(dict.name);
+        if (redirectFailed) failed.add(dict.name);
+      } catch (_) {
+        failed.add(dict.name);
       }
     }
-    return results;
+    return DictLookupReport(entries: results, failedSources: failed,
+      truncatedSources: truncated);
   }
 
   /// Start a cancellable resource read. The worker receives no paths and

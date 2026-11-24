@@ -7,6 +7,7 @@ import '../models/dict_entry.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
+import 'dict_lookup_notice.dart';
 import 'dict_source_entries.dart';
 import 'dictionary_screen.dart';
 
@@ -21,14 +22,16 @@ import 'dictionary_screen.dart';
 class DictResultSheet extends StatelessWidget {
   final String word;
   final List<DictEntry> entries;
+  final DictLookupReport? report;
 
   const DictResultSheet({
     super.key,
     required this.word,
     required this.entries,
+    this.report,
   });
 
-  static void show(BuildContext context, String word, List<DictEntry> entries) {
+  static void show(BuildContext context, String word, List<DictEntry> entries, {DictLookupReport? report}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF141A28),
@@ -39,7 +42,7 @@ class DictResultSheet extends StatelessWidget {
       useSafeArea: true,
       builder: (_) => FractionallySizedBox(
         heightFactor: 0.86,
-        child: DictResultSheet(word: word, entries: entries),
+        child: DictResultSheet(word: word, entries: entries, report: report),
       ),
     );
   }
@@ -171,8 +174,11 @@ class DictResultSheet extends StatelessWidget {
           ),
         ),
         const Divider(color: Color(0xFF1E2A3A), height: 1),
+        if (report != null) DictLookupNotice(report: report!),
         Expanded(
-          child: entries.isEmpty
+          child: entries.isEmpty && (report?.failedSources.isNotEmpty ?? false)
+              ? const SizedBox.shrink()
+              : entries.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),

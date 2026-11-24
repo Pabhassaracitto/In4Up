@@ -21,7 +21,6 @@ import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
 import '../../../features/dictionary/widgets/dict_result_sheet.dart';
 import '../../../providers/text_provider.dart';
@@ -193,15 +192,17 @@ class ReadTextActionRunner {
     VoidCallback? onOpenDictionaryManager,
   }) async {
     final query = _dictionaryQuery(text);
-    List<DictEntry> entries = const [];
+    DictLookupReport report;
     try {
-      entries = await DictionaryService.instance.lookup(query);
+      report = await DictionaryService.instance.lookupWithReport(query);
     } catch (_) {
-      entries = const [];
+      if (!context.mounted) return;
+      _snack(context, 'Không thể đọc từ điển. Hãy kiểm tra hoặc nhập lại bộ bị lỗi.');
+      return;
     }
     if (!context.mounted) return;
-    if (entries.isNotEmpty) {
-      DictResultSheet.show(context, query, entries);
+    if (report.entries.isNotEmpty || report.failedSources.isNotEmpty) {
+      DictResultSheet.show(context, query, report.entries, report: report);
       return;
     }
     final messenger = ScaffoldMessenger.maybeOf(context);

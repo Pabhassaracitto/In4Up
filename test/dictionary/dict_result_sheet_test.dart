@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart' as material;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_entry.dart';
+import 'package:in4up/features/dictionary/services/dictionary_service.dart';
 import 'package:in4up/features/dictionary/widgets/dict_result_sheet.dart';
 
 DictEntry entry({
@@ -110,4 +111,14 @@ void main() {
     expect(find.text('"zzzz" not found'), findsOneWidget);
     expect(find.text('0 results'), findsOneWidget);
   });
+  testWidgets('DB failure is not presented as a missing word', (tester) async {
+    await tester.pumpWidget(const material.MaterialApp(home: material.Scaffold(
+      body: material.Column(children: [material.Expanded(child: DictResultSheet(
+        word: 'hello', entries: [], report: DictLookupReport(entries: [],
+          failedSources: ['broken dictionary']))) ]),
+    )));
+    expect(find.text('broken dictionary'), findsOneWidget);
+    expect(find.text('"hello" not found'), findsNothing);
+  });
+
 }

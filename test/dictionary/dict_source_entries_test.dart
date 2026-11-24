@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' as material;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_entry.dart';
 import 'package:in4up/features/dictionary/widgets/dict_source_entries.dart';
+import 'package:in4up/features/dictionary/widgets/dict_definition_view.dart';
 
 void main() {
   test('safe text view retains long entries, examples and source metadata', () {
@@ -88,4 +89,14 @@ void main() {
     expect(texts, contains('same first'));
     expect(texts, contains('same second'));
   });
+  testWidgets('empty cleaned preview still offers full source', (tester) async {
+    var opened = false;
+    await tester.pumpWidget(material.MaterialApp(home: material.Scaffold(
+      body: DictDefinitionView(groups: const [], compact: true,
+        onOpenFull: () { opened = true; }),
+    )));
+    await tester.tap(find.text('Open full dictionary'));
+    expect(opened, isTrue);
+  });
+
 }

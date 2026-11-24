@@ -60,7 +60,7 @@ class DictDbService {
     return entries.length;
   }
 
-  static Future<List<DictEntry>> lookup(String dbPath, String word) async {
+  static Future<List<DictEntry>> lookup(String dbPath, String word, {int limit = 10}) async {
     ensureDictionaryDatabaseFactory();
     final db = await openDatabase(dbPath, readOnly: true);
     try {
@@ -68,7 +68,8 @@ class DictDbService {
         'dict_entries',
         where: 'headword = ? COLLATE NOCASE',
         whereArgs: [word],
-        limit: 10,
+        orderBy: 'id ASC',
+        limit: limit,
       );
       return maps.map((m) => DictEntry.fromMap(m)).toList();
     } finally {

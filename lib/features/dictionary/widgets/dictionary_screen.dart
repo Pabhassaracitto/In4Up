@@ -34,6 +34,7 @@ import '../services/dict_history.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
+import 'dict_lookup_notice.dart';
 import 'dict_source_entries.dart';
 import 'dict_manager_screen.dart';
 import 'dict_pack_screen.dart';
@@ -103,6 +104,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   bool _loadingDicts = true;
   bool _searching = false;
   bool _submitted = false;
+  int _searchGeneration = 0;
+  DictLookupReport? _lookupReport;
 
   /// Đang gõ (chưa bấm tra) ⇒ hiện gợi ý thay vì kết quả.
   bool _typing = false;
@@ -115,6 +118,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
   @override
   void dispose() {
+    _searchGeneration++;
     _debounce?.cancel();
     _searchController.dispose();
     _searchFocus.dispose();
@@ -207,7 +211,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   // ── Tìm & tra ───────────────────────────────────────────────────────────
 
   void _onTextChanged(String value) {
+    _searchGeneration++;
     _debounce?.cancel();
+    _searching = false;
+    _submitted = false;
     final query = value.trim();
     if (query.isEmpty) {
       setState(() {
@@ -245,6 +252,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     final word = DictHistory.normalize(raw);
     if (word.isEmpty) return;
     _debounce?.cancel();
+    final generation = ++_searchGeneration;
     _searchFocus.unfocus();
     setState(() {
       _query = word;
@@ -252,21 +260,26 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       _typing = false;
       _suggestions = const <String>[];
       _searching = true;
+      _entries = const <DictEntry>[];
+      _merged = null;
+      _lookupReport = null;
     });
     if (_searchController.text != word) _searchController.text = word;
 
-    List<DictEntry> entries = const <DictEntry>[];
+    DictLookupReport report;
     try {
-      entries = await DictionaryService.instance.lookup(
-        word,
-        dictId: _selectedDictId,
+      report = await DictionaryService.instance.lookupWithReport(
+        word, dictId: _selectedDictId,
       );
     } catch (_) {
-      entries = const <DictEntry>[];
+      report = DictLookupReport(entries: const [],
+        failedSources: _dicts.map((d) => d.name).toList());
     }
-    if (!mounted) return;
+    if (!mounted || generation != _searchGeneration) return;
+    final entries = report.entries;
     setState(() {
       _entries = entries;
+      _lookupReport = report;
       _merged = entries.isEmpty ? null : _merge(entries);
       _searching = false;
     });
@@ -295,11 +308,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   void _clearSearch() {
+    _searchGeneration++;
     _debounce?.cancel();
     _searchController.clear();
     setState(() {
       _typing = false;
       _submitted = false;
+      _searching = false;
+      _lookupReport = null;
       _query = '';
       _entries = const <DictEntry>[];
       _merged = null;
@@ -521,8 +537,15 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     if (_searching && _merged == null) {
       return const Center(child: CircularProgressIndicator(color: _accent));
     }
-    if (_merged == null || _entries.isEmpty) return _buildNotFound();
-    return _buildResult();
+    final notice = _lookupReport;
+    final result = _merged == null || _entries.isEmpty
+        ? (notice != null && notice.failedSources.isNotEmpty
+            ? const SizedBox.shrink() : _buildNotFound())
+        : _buildResult();
+    if (notice == null || (notice.failedSources.isEmpty && notice.truncatedSources.isEmpty)) {
+      return result;
+    }
+    return Column(children: [DictLookupNotice(report: notice), Expanded(child: result)]);
   }
 
   // ── Trạng thái: chưa có bộ từ điển ──────────────────────────────────────

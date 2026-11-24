@@ -40,7 +40,9 @@ class DictDefinitionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (groups.isEmpty) return const SizedBox.shrink();
+    if (groups.isEmpty && (!compact || onOpenFull == null)) {
+      return const SizedBox.shrink();
+    }
     return compact ? _buildCompact(context) : _buildFull(context);
   }
 

@@ -9875,6 +9875,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | rebase 251e `d23341a`, code + test + ADR; chờ CI và thiết bị.
   - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI run 43482984172 xanh trên `5680958`; còn renderer CSS/MDD và QA bộ thật.
+  - 2026-11-24 | 22:58 UTC | doing→doing | agent arena/1168b461-in4up | sửa race tra màn Từ điển, cho mở nguồn khi preview rỗng, báo DB lỗi/giới hạn 10 ở màn Từ điển và hành động Đọc; test synthetic + checklist `docs/dictionary/DICT_DEVICE_ACCEPTANCE.md`; chờ CI và QA LAAD3/Lạc Việt/SAF trên máy. Chưa phân trang hoặc lan báo lỗi mọi popup.
 
 ### DICT-PACK-002 — Sửa 404 catalog và giữ kết quả pop Đọc khi mở rộng
 
@@ -9948,6 +9949,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | thử hiển thị ảnh MDD theo yêu cầu, PNG/JPEG giới hạn + huỷ theo ADR-0033; chờ CI/review/QA thiết bị, CSS/audio chưa có.
   - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | CI 43799648679 xanh trên `d8c0196`; PR #195. Ảnh MDD thử nghiệm theo yêu cầu, chưa CSS/audio, còn QA LAAD3/SAF thật.
   - 2026-11-09 | doing→doing | agent arena/e76afbe7-in4up | đồng bộ 251e `7cd8f82`; số ADR trong hai dòng trước được đổi: MDD theo lô 0032→0033, ảnh 0033→0034 để tránh trùng ADR-0032 của tab Đọc; chờ CI sau đồng bộ.
+  - 2026-11-24 | 22:58 UTC | doing→doing | agent arena/1168b461-in4up | PR #195 đã merge; checklist nghiệm thu LAAD3/SAF và đo cold/warm/RAM tại `docs/dictionary/DICT_DEVICE_ACCEPTANCE.md`; chưa có bộ/thiết bị thật, chưa có số đo.
 
 ### BETA-1.29.0 — (2026-11-12) Beta hub v1.29.0: tổng hợp 9 lane audit 1.28.0 trước khi vào 251e
 - **Trạng thái:** 🔨 doing — hub mở, **chưa có nhánh con nào**; chưa có code mới trên nhánh này

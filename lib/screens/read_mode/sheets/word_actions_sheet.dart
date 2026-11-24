@@ -196,8 +196,12 @@ class _WordActionsContentState extends State<_WordActionsContent> {
         context.read<VocabularyProvider>().findByWord(widget.word.word);
 
     String? bestMeaning = widget.word.meaning;
-    if (_dictEntries.isNotEmpty) {
-      bestMeaning = _dictEntries.first.compactDefinition;
+    for (final entry in _dictEntries) {
+      final meaning = entry.compactDefinition.trim();
+      if (meaning.isNotEmpty) {
+        bestMeaning = meaning;
+        break;
+      }
     }
     final ownIpa = _ownIpa;
     final dictIpa = ownIpa == null ? _dictIpa : null;

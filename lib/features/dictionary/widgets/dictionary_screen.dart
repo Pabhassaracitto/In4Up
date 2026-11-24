@@ -24,6 +24,7 @@ import 'dart:async';
 // `Text` tự dịch + `context.uiText`. Import cả hai ⇒ `Text` mơ hồ
 // (ambiguous_import) — lỗi CI đã gặp (run 40570682412).
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,7 +49,13 @@ class DictionaryScreen extends StatefulWidget {
   /// `home` · `pdf` · `read` · `deep_link` · `file` · `bubble` · `unknown`.
   final String? source;
 
-  const DictionaryScreen({super.key, this.initialQuery, this.initialDictId, this.source});
+  @visibleForTesting
+  final Future<List<DictInfo>> Function()? loadDictionariesForTest;
+  @visibleForTesting
+  final Future<DictLookupReport> Function(String, String?)? lookupForTest;
+
+  const DictionaryScreen({super.key, this.initialQuery, this.initialDictId, this.source,
+    this.loadDictionariesForTest, this.lookupForTest});
 
   /// ĐIỂM VÀO DUY NHẤT của màn Từ điển (ADR-0018).
   ///
@@ -148,8 +155,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
   Future<void> _loadDicts() async {
     try {
-      await DictionaryService.instance.ensureInitialized();
-      final dicts = DictionaryService.instance.enabledDictionaries;
+      final load = widget.loadDictionariesForTest;
+      final List<DictInfo> dicts;
+      if (load != null) {
+        dicts = await load();
+      } else {
+        await DictionaryService.instance.ensureInitialized();
+        dicts = DictionaryService.instance.enabledDictionaries;
+      }
       if (!mounted) return;
       setState(() {
         _dicts = dicts;
@@ -268,9 +281,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
     DictLookupReport report;
     try {
-      report = await DictionaryService.instance.lookupWithReport(
-        word, dictId: _selectedDictId,
-      );
+      final lookup = widget.lookupForTest;
+      report = lookup == null
+          ? await DictionaryService.instance.lookupWithReport(word, dictId: _selectedDictId)
+          : await lookup(word, _selectedDictId);
     } catch (_) {
       report = DictLookupReport(entries: const [],
         failedSources: _dicts.map((d) => d.name).toList());

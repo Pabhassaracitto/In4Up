@@ -1,6 +1,6 @@
 // lib/features/great_library/services/pack_file.dart
 //
-// GLIB-001 — Thư Viện Chung I4U (PLAN-049, ADR-0031 D1).
+// GLIB-001 — Thư Viện Chung I4U (PLAN-049, ADR-0036 D1).
 // Build / đọc / verify gói `.i4upack` (ZIP: manifest.json + data/ + media/).
 //
 // Thuần Dart + `archive`/`crypto` (đã có trong pubspec) — chạy được trong test

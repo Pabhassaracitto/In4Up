@@ -1,9 +1,17 @@
-# ADR-0031 — Thư Viện Chung I4U: gói `.i4upack`, catalog Firestore REST, storage pluggable, kiểm duyệt pending-first
+# ADR-0036 — Thư Viện Chung I4U: gói `.i4upack`, catalog Firestore REST, storage pluggable, kiểm duyệt pending-first
 
 - **Trạng thái:** ✅ accepted (owner chốt D1–D6 tại
   [`docs/great_library_ideation_v1.md`](../great_library_ideation_v1.md) §0,
   2026-11-15). Chưa code — triển khai theo PLAN-049.
 - **Nguồn:** owner qua agent `arena/a04e4405-in4up`.
+- **Đánh số lại (2026-11-24, beta 1.30.0):** file này gốc là `ADR-0031` trên nhánh
+  `arena/a04e4405-in4up`. Khi hợp nhất tuyến tính vào dòng 1.29.x, `ADR-0031`
+  **đã bị hai ADR khác dùng trước** (`0031-mdd-worker-resource-lifecycle`,
+  `0031-doc-tab-doi-vai-van-ban-va-ban-dich`) ⇒ đổi thành **ADR-0036** (số trống
+  kế tiếp sau `0035-whisper-runtime-desktop`) và cập nhật mọi tham chiếu trong
+  `lib/features/great_library/**`, `docs/plans/PLAN-049-thu-vien-chung-i4u.md`,
+  `docs/project/{KANBAN,PLAN}.md`, `docs/great_library_firestore_schema.md`.
+  **Không đổi nội dung quyết định D1–D6.**
 
 ## Bối cảnh
 

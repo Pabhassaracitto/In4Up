@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -214,7 +216,30 @@ Các câu xung quanh: ${coach.surroundingText ?? 'Không có'}
           IconButton(
             tooltip: context.uiText('Xóa cuộc trò chuyện'),
             icon: const Icon(Icons.delete_sweep_outlined),
-            onPressed: () => context.read<AiServiceFacade>().clearChat(),
+            // PLAN-049 P1-3: hỏi lại trước khi xoá — lịch sử chat persist
+            // xuyên restart, một chạm oan là mất cả phiên.
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: Text(
+                    context.uiText('Xóa cuộc trò chuyện'),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: Text(context.uiText('Hủy')),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: Text(context.uiText('Xóa')),
+                    ),
+                  ],
+                ),
+              );
+              if (!context.mounted || confirmed != true) return;
+              context.read<AiServiceFacade>().clearChat();
+            },
           ),
         ],
       ),
@@ -251,7 +276,16 @@ Các câu xung quanh: ${coach.surroundingText ?? 'Không có'}
               builder: (context, facade, _) {
                 final messages = facade.chatMessages;
                 if (messages.isEmpty) {
-                  return const _EmptyChat();
+                  // PLAN-049 P1-2: chip gợi ý chỉ ĐIỀN chữ vào ô nhập —
+                  // người dùng sửa rồi tự bấm gửi (không tự động gửi).
+                  return _EmptyChat(
+                    onPick: (suggestion) {
+                      _controller.text = suggestion;
+                      _controller.selection = TextSelection.collapsed(
+                        offset: suggestion.length,
+                      );
+                    },
+                  );
                 }
                 return ListView.builder(
                   controller: _scrollController,
@@ -664,8 +698,23 @@ class _ModelStatusBanner extends StatelessWidget {
   }
 }
 
+/// Màn trống: icon + tiêu đề + 4 chip gợi ý (PLAN-049 P1-2).
+///
+/// Chip chỉ **điền chữ** vào ô nhập qua [onPick] — không gửi. Người dùng
+/// sửa/xoá tuỳ ý trước khi bấm Gửi, cùng triết lý với [AiChatScreen.initialDraft].
 class _EmptyChat extends StatelessWidget {
-  const _EmptyChat();
+  const _EmptyChat({required this.onPick});
+
+  /// Nhận chuỗi gợi ý được chọn để nạp vào ô nhập.
+  final ValueChanged<String> onPick;
+
+  /// Gợi ý P1-2 — đã đăng ký i18n (legacy JSON + pack 8 locale).
+  static const List<String> _suggestions = <String>[
+    'Giải thích ngữ pháp cho mình',
+    'Đặt 3 ví dụ với từ mới',
+    'Tóm tắt giúp mình một đoạn văn',
+    'Sửa lỗi câu tiếng Anh của mình',
+  ];
 
   @override
   Widget build(BuildContext context) => Center(
@@ -691,6 +740,27 @@ class _EmptyChat extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final suggestion in _suggestions)
+                    ActionChip(
+                      onPressed: () => onPick(suggestion),
+                      backgroundColor: const Color(0xFF232A45),
+                      side: const BorderSide(color: Color(0xFF3A4166)),
+                      label: Text(
+                        context.uiText(suggestion),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -882,7 +952,39 @@ class _MessageBubble extends StatelessWidget {
         // PSRC-263: bubble của TRỢ LÝ được render qua markdown tối thiểu để
         // không lộ ký hiệu thô (`**`, `*`, backtick, `#`, `-`). Bubble của
         // NGƯỜI DÙNG giữ nguyên Text thường (họ gõ chữ, không phải markdown).
-        child: isUser ? Text(display) : _AssistantMarkdownBody(text: display),
+        //
+        // PLAN-049 P1-1: bubble trợ lý có nút SAO CHÉP — RichText không chọn
+        // được chữ bằng gesture nên copy là con đường duy nhất mang câu trả
+        // lời ra ngoài. i18n sẵn có: 'Sao chép' (tooltip) + 'Đã sao chép'.
+        child: isUser
+            ? Text(display)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _AssistantMarkdownBody(text: display),
+                  const SizedBox(height: 6),
+                  IconButton(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: display));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: Text(context.uiText('Đã sao chép')),
+                        ),
+                      );
+                    },
+                    tooltip: context.uiText('Sao chép'),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    iconSize: 16,
+                    icon: const Icon(Icons.copy_rounded,
+                        size: 16, color: Colors.white54),
+                  ),
+                ],
+              ),
       ),
     );
   }

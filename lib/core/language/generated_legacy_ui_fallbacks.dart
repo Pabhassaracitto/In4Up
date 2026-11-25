@@ -2408,4 +2408,11 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Model lớn hơn ngưỡng gợi ý — cần xác nhận trước khi tải.': 'Model is larger than the suggested limit — confirmation is required before downloading.',
   'Máy chủ báo dung lượng tải: {value0}': 'Server-reported download size: {value0}',
   'Vẫn tải': 'Download anyway',
+  // PLAN-049 P1-2 — chip gợi ý prompt ở màn trống AI Chat. Thêm tay
+  // (generator legacy vẫn bị chặn bởi catalog debt sẵn ở baseline).
+  // Mirrored in tool/legacy_ui_english_overrides.json + priority pack.
+  'Giải thích ngữ pháp cho mình': 'Explain grammar to me',
+  'Đặt 3 ví dụ với từ mới': 'Give 3 examples with a new word',
+  'Tóm tắt giúp mình một đoạn văn': 'Summarize a paragraph for me',
+  'Sửa lỗi câu tiếng Anh của mình': 'Fix mistakes in my English sentence',
 };

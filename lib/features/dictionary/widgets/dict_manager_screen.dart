@@ -77,6 +77,11 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
                 ),
                 onTap: () => Navigator.pop(ctx, DictStorageMode.imported),
               ),
+              const SizedBox(height: 8),
+              Text(
+                ctx.uiText('Nhập lại bằng chế độ sao chép giữ bản cũ và cần thêm dung lượng trống.'),
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              ),
             ],
           ),
           actions: [

@@ -340,4 +340,67 @@ void main() {
     expect(File(mdx).existsSync(), isTrue);
   });
 
+  test('failed copy reimport preserves previous bundle, MDD and index', () async {
+    final mdx = await writeMdx('stable.mdx', {'hello': 'old definition'});
+    final mdd = MdxTestBuilder(mdd: true, utf16: true,
+      entries: {'\\p': 'old resource'}).writeToFile('${tempDir.path}/stable.mdd');
+    final service = DictionaryService.instance;
+    final first = await service.importDictionaryBundle(
+      absoluteFilePaths: [mdx, mdd], rootPath: '', mode: DictStorageMode.imported);
+    expect(first.isSuccess, isTrue, reason: first.error);
+    final old = first.imported.single;
+    final oldMdx = File('${old.resourcePath}/stable.mdx');
+    expect(oldMdx.existsSync(), isTrue);
+    expect(await service.readMddResource(old.id, 'p'), 'old resource'.codeUnits);
+    // Same basename but a corrupt replacement; source is deliberately distinct.
+    final other = await Directory('${tempDir.path}/other').create();
+    final corrupt = File('${other.path}/stable.mdx');
+    await corrupt.writeAsBytes(List.filled(128, 0));
+    final failed = await service.importDictionaryBundle(
+      absoluteFilePaths: [corrupt.path], rootPath: '', mode: DictStorageMode.imported);
+    expect(failed.isSuccess, isFalse);
+    expect(oldMdx.existsSync(), isTrue);
+    expect(service.dictionaries.single.resourcePath, old.resourcePath);
+    expect((await service.lookup('hello')).single.definition, 'old definition');
+    expect(await service.readMddResource(old.id, 'p'), 'old resource'.codeUnits);
+    DictionaryService.resetForTest();
+    await DictionaryService.instance.ensureInitialized();
+    expect(DictionaryService.instance.dictionaries.single.resourcePath, old.resourcePath);
+    expect((await DictionaryService.instance.lookup('hello')).single.definition, 'old definition');
+    expect(await DictionaryService.instance.readMddResource(old.id, 'p'), 'old resource'.codeUnits);
+  });
+
+  test('failed selected companion on reimport keeps prior copy intact', () async {
+    final mdx = await writeMdx('protected.mdx', {'hello': 'old definition'});
+    final mdd = MdxTestBuilder(mdd: true, utf16: true,
+      entries: {'\\p': 'old resource'}).writeToFile('${tempDir.path}/protected.mdd');
+    final service = DictionaryService.instance;
+    final first = await service.importDictionaryBundle(
+      absoluteFilePaths: [mdx, mdd], rootPath: '', mode: DictStorageMode.imported);
+    final old = first.imported.single;
+    final missing = '${tempDir.path}/protected.1.mdd';
+    final failed = await service.importDictionaryBundle(
+      absoluteFilePaths: [mdx, missing], rootPath: '', mode: DictStorageMode.imported);
+    expect(failed.isSuccess, isFalse);
+    expect(failed.error, contains('protected.1.mdd'));
+    expect(service.dictionaries.single.resourcePath, old.resourcePath);
+    expect(await service.readMddResource(old.id, 'p'), 'old resource'.codeUnits);
+    expect((await service.lookup('hello')).single.definition, 'old definition');
+  });
+
+  test('successful copy reimport does not overwrite or delete previous bundle', () async {
+    final mdx = await writeMdx('versioned.mdx', {'hello': 'first'});
+    final service = DictionaryService.instance;
+    final first = await service.importDictionaryBundle(
+      absoluteFilePaths: [mdx], rootPath: '', mode: DictStorageMode.imported);
+    final old = first.imported.single;
+    await writeMdx('versioned.mdx', {'hello': 'second'});
+    final second = await service.importDictionaryBundle(
+      absoluteFilePaths: [mdx], rootPath: '', mode: DictStorageMode.imported);
+    expect(second.isSuccess, isTrue, reason: second.error);
+    expect(second.imported.single.resourcePath, isNot(old.resourcePath));
+    expect(File('${old.resourcePath}/versioned.mdx').existsSync(), isTrue);
+    expect((await service.lookup('hello')).single.definition, 'second');
+  });
+
 }

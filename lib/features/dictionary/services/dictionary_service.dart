@@ -314,7 +314,7 @@ class DictionaryService {
   /// I4U18-DICT-001: hai chế độ rõ ràng.
   ///
   /// - [DictStorageMode.imported]: copy mdx + mdd + css vào
-  ///   `dictionaries/<id>.bundle/` rồi index — ổn định lâu dài.
+  ///   `dictionaries/<id>.bundle-<unique>/` rồi index — ổn định lâu dài.
   /// - [DictStorageMode.linked]: KHÔNG copy file nguồn (tránh nhân đôi dữ
   ///   liệu lớn); chỉ index SQLite trong app, mdd/css/asset resolve từ
   ///   thư mục gốc của user.
@@ -628,45 +628,64 @@ class DictionaryService {
     final orderedMdds = DictBundleScanner.sortMddFiles(set.mddFiles);
 
     if (mode == DictStorageMode.imported) {
-      // Copy bundle vào app storage (mdx + mdd + css — asset lẻ không copy:
-      // tài nguyên entry nằm trong MDD; file lẻ cùng folder thường không
-      // liên quan, copy sẽ phình dữ liệu ngoài ý muốn).
-      final bundleDir = Directory('$dictDir/$dictId.bundle');
-      if (bundleDir.existsSync()) {
-        bundleDir.deleteSync(recursive: true);
-      }
-      bundleDir.createSync(recursive: true);
-      for (final f in [set.mdx, ...orderedMdds, ...set.cssFiles]) {
-        final abs = absOf(f);
-        final dest = '${bundleDir.path}/${f.name}';
-        try {
-          await File(abs).copy(dest);
-        } catch (_) {
-          // Keep the user-visible missing list accurate even when only one
-          // part of a multi-part bundle failed to copy.
-          if (DictBundleScanner.isMddName(f.name) ||
-              DictBundleScanner.isCssName(f.name)) copyFailures.add(f.name);
-          continue;
+      // Stage into a fresh app-owned directory. Never delete the currently
+      // registered bundle before the replacement has been fully indexed.
+      // createTemp avoids collisions with concurrent imports of the same name.
+      final bundleDir = await Directory(dictDir).createTemp('$dictId.bundle-');
+      var accepted = false;
+      try {
+        for (final f in [set.mdx, ...orderedMdds, ...set.cssFiles]) {
+          final abs = absOf(f);
+          final dest = '${bundleDir.path}/${f.name}';
+          try {
+            await File(abs).copy(dest);
+          } catch (_) {
+            if (DictBundleScanner.isMddName(f.name) ||
+                DictBundleScanner.isCssName(f.name)) {
+              copyFailures.add(f.name);
+              continue;
+            }
+            rethrow; // An MDX copy failure must never index an incomplete file.
+          }
+          if (DictBundleScanner.isCssName(f.name)) cssAbs.add(dest);
+          if (DictBundleScanner.isMddName(f.name)) mddAbs.add(dest);
         }
-        if (DictBundleScanner.isCssName(f.name)) cssAbs.add(dest);
-        if (DictBundleScanner.isMddName(f.name)) mddAbs.add(dest);
+        // Preserve an existing working registration rather than replacing it
+        // with a degraded copy when one selected companion cannot be copied.
+        if (copyFailures.isNotEmpty && _dicts.any((dict) => dict.id == dictId)) {
+          throw FileSystemException(
+            'Could not copy selected companion files: ${copyFailures.join(', ')}',
+          );
+        }
+        final copiedMdx = '${bundleDir.path}/${set.mdx.name}';
+        resourcePath = bundleDir.path;
+        final info = await _indexAndRegister(
+          set,
+          mdxToParse: copiedMdx,
+          dictId: dictId,
+          dbPath: dbPath,
+          resourcePath: resourcePath,
+          storageMode: mode,
+          cssPaths: cssAbs,
+          mddPaths: mddAbs,
+          additionalMissingResources: copyFailures,
+          langProbe: copiedMdx,
+          sourceFileName: set.mdx.name,
+          sourceWasFolder: sourceWasFolder,
+          onFileProgress: onFileProgress,
+        );
+        accepted = info != null;
+        return info;
+      } finally {
+        if (!accepted) {
+          try {
+            await bundleDir.delete(recursive: true);
+          } catch (_) {
+            // Leave the staging directory if cleanup fails; never touch the
+            // previous bundle or the user-selected source.
+          }
+        }
       }
-      final copiedMdx = '${bundleDir.path}/${set.mdx.name}';
-      resourcePath = bundleDir.path;
-      return _indexAndRegister(
-        set,
-        mdxToParse: copiedMdx,
-        dictId: dictId,
-        dbPath: dbPath,
-        resourcePath: resourcePath,
-        storageMode: mode,
-        cssPaths: cssAbs,
-        mddPaths: mddAbs,
-        additionalMissingResources: copyFailures,
-        langProbe: copiedMdx,
-        sourceFileName: set.mdx.name,
-        sourceWasFolder: sourceWasFolder,
-      );
     }
 
     // LINK mode — không copy; index thẳng từ nguồn.

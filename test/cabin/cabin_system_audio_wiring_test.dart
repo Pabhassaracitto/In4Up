@@ -21,6 +21,8 @@ void main() {
     expect(service, contains('_pushSystemCaption(hasNewerPartial ? current! : finalizedCaption'));
     expect(service, contains('CabinAndroidCapture.updateCaption(text)'));
     expect(service, contains('_windowsOverlay?.setCaption(text)'));
+    // Translation comes first so truncation cannot hide it behind a long source.
+    expect(service, contains(r"'$_overlayLastTranslation\n${caption.sourceText}'"));
     expect(service, contains('gateCabinSystemPcm(data, mute: _systemTtsDepth > 0)'));
   });
 }

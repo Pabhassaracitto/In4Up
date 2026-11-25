@@ -880,7 +880,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              context.uiText('Khuyên dùng tai nghe khi bật phát âm để tránh tiếng dịch lọt ngược vào micro!'),
+              context.uiText(_service.audioSource == CabinAudioSource.systemAudio
+                  ? 'Một số ứng dụng có thể chặn thu âm. Khi đọc bản dịch, nhận diện và ghi âm nguồn tạm dừng.'
+                  : 'Khuyên dùng tai nghe khi bật phát âm để tránh tiếng dịch lọt ngược vào micro!'),
               style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 11, height: 1.3),
             ),
           ),
@@ -1084,7 +1086,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               Text(
                 active?.sourceText.isNotEmpty == true
                     ? active!.sourceText
-                    : context.uiText('Nói vào microphone để bắt đầu dịch cabin...'),
+                    : context.uiText(_service.audioSource == CabinAudioSource.systemAudio
+                        ? 'Phát âm thanh trên thiết bị để bắt đầu dịch...'
+                        : 'Nói vào microphone để bắt đầu dịch cabin...'),
                 style: TextStyle(
                   color: active?.sourceText.isNotEmpty == true ? Colors.white : Colors.white38,
                   fontSize: 18,
@@ -1440,7 +1444,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                 ],
               ),
               child: Icon(
-                isListening ? Icons.stop_rounded : Icons.mic_rounded,
+                isListening ? Icons.stop_rounded :
+                    (_service.audioSource == CabinAudioSource.systemAudio
+                        ? Icons.graphic_eq_rounded : Icons.mic_rounded),
                 color: Colors.black,
                 size: 32,
               ),
@@ -1454,7 +1460,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               color: isListening || _service.isPaused ? Colors.white : Colors.white30,
               size: 28,
             ),
-            onPressed: isListening || _service.isPaused
+            onPressed: _service.isListening || _service.isPaused
                 ? () {
                     HapticFeedback.mediumImpact();
                     _service.togglePause();

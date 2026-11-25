@@ -8,6 +8,7 @@ void main() {
   final pack = jsonDecode(File('tool/priority_native_pack.json').readAsStringSync()) as Map<String, dynamic>;
   const labels = [
     'Micro', 'Âm thanh hệ thống', 'Bong bóng toàn hệ thống',
+    'Phát âm thanh trên thiết bị để bắt đầu dịch...',
     'Không thu được âm thanh hệ thống', 'Cần cấp quyền micro để thu âm thanh hệ thống',
     'Cần Android 10 trở lên', 'Cấp quyền hiển thị trên ứng dụng khác',
     'Mở cài đặt rồi cho phép In4Up hiển thị trên ứng dụng khác.',

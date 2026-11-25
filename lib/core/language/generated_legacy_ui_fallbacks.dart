@@ -4,6 +4,7 @@
 
 const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   // CABIN-SYS-001: source, overlay and capture guidance.
+  'Phát âm thanh trên thiết bị để bắt đầu dịch...': 'Play audio on this device to start translating...',
   'Micro': 'Microphone',
   'Âm thanh hệ thống': 'System audio',
   'Bong bóng toàn hệ thống': 'System-wide bubble',

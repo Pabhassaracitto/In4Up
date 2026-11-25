@@ -19916,6 +19916,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'เล่นเสียง',
     'ja': '音声を再生',
   },
+  'Phát âm thanh trên thiết bị để bắt đầu dịch...': {
+    'en': 'Play audio on this device to start translating...',
+    'zh': '在此设备上播放音频以开始翻译...',
+    'zh_TW': '在此裝置上播放音訊以開始翻譯...',
+    'hi': 'अनुवाद शुरू करने के लिए इस डिवाइस पर ऑडियो चलाएँ...',
+    'si': 'පරිවර්තනය ආරම්භ කිරීමට මෙම උපාංගයේ ශ්‍රව්‍ය වාදනය කරන්න...',
+    'my': 'ဘာသာပြန်ရန် ဤစက်တွင် အသံဖွင့်ပါ...',
+    'th': 'เล่นเสียงบนอุปกรณ์นี้เพื่อเริ่มแปล...',
+    'ja': 'このデバイスで音声を再生して翻訳を開始...',
+  },
   'Phân bổ 8 vùng': {
     'en': '8-area distribution',
     'zh': '八区分布',

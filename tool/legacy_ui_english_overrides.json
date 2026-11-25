@@ -4264,5 +4264,6 @@
   "Cần Android 10 trở lên": "Android 10 or later is required",
   "Cấp quyền hiển thị trên ứng dụng khác": "Allow display over other apps",
   "Mở cài đặt rồi cho phép In4Up hiển thị trên ứng dụng khác.": "Open settings and allow In4Up to display over other apps.",
-  "Một số ứng dụng có thể chặn thu âm. Khi đọc bản dịch, nhận diện và ghi âm nguồn tạm dừng.": "Some apps may block capture. Source recognition and recording pause while the translation is spoken."
+  "Một số ứng dụng có thể chặn thu âm. Khi đọc bản dịch, nhận diện và ghi âm nguồn tạm dừng.": "Some apps may block capture. Source recognition and recording pause while the translation is spoken.",
+  "Phát âm thanh trên thiết bị để bắt đầu dịch...": "Play audio on this device to start translating..."
 }

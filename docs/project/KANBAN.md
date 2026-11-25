@@ -253,6 +253,8 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
+| DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 code + 21 test thuần, chờ CI 🟢 + nghiệm thu máy | `e12820f`: `process_text_route.dart` (thuần) + `ProcessTextRouter` (channel `in4up/process_text`, dedupe 3s) + Manifest filter + MainActivity consume-once; nối CI DICT list |
+| AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 code + test source-scan, chờ CI 🟢 + nghiệm thu máy | `ai_chat_screen.dart` (copy button, `_EmptyChat.onPick`, `showDialog` trước `clearChat`); 4 chuỗi i18n mới en+8 locale; test `chat_p1_copy_suggest_test.dart` + step CI mới |
 
 
 ## Card chi tiết
@@ -10059,3 +10061,70 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | `8a79e572` → CI 🟢 **45874527320**
   - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **owner làm rõ hợp đồng (lần 2) và bản `8a79e572` hoá ra SAI vế 2** ⇒ sửa lại `240132f8`. Hợp đồng đúng: ① chưa có lời (hoặc A–B **không khớp** mốc dòng) ⇒ trượt theo khoảng thời gian, giữ nguyên `B − A` (5–8 → 8–11 → 11–14 · 15–40 → 40–65); ② có lời **và** mốc thời gian mỗi dòng **khớp** với vùng A–B ⇒ nhảy xuống đúng dòng câu kế tiếp. Bản trước hễ có lời là **luôn** nhảy theo dòng, nên A–B 13–18 (lệch mốc 0/10/20) nhảy về 20–30 thay vì 18–23. Thêm `kLineMatchTolerance = 50 ms` cho LRC sinh từ STT, và nhãn nút đổi sang `nextRepeatLabelFor(hasLyrics, alignsWithLines)` — "Lặp câu tiếp" chỉ khi có lời **và** khớp mốc. Test viết lại theo đúng 4 ví dụ owner nêu. CI `App Analyze` **45877390470** 🟢.
+
+### DICT-PROCESS-001 — (2026-11-24) ACTION_PROCESS_TEXT: chọn chữ ngoài app → Từ điển hoặc Dịch
+- **Trạng thái:** 🔨 code + test thuần (21 test), chờ CI 🟢 + nghiệm thu máy.
+- **Nguồn:** owner 2026-11-24 qua `ask_user` — *"tôi muốn có thêm lựa chọn"* +
+  chốt **smart split**: 1 từ ⇒ `DictionaryScreen.open`; cụm/câu ⇒
+  `TranslationService` qua sheet dịch (không cần mở app trước).
+- **Nội dung (commit `e12820f`):**
+  - `lib/features/dictionary/services/process_text_route.dart` (thuần):
+    `routeProcessText` — trim→null; có whitespace HOẶC >64 rune ⇒ dịch;
+    còn lại ⇒ từ điển (`kProcessTextMaxWordLength=64`).
+  - `lib/features/dictionary/services/process_text_router.dart`: channel
+    Dart `in4up/process_text`, idempotent `start()`, dedupe 3s,
+    `resetForTest`; mở `DictionaryScreen.route(query:, source:'process_text')`
+    hoặc `ReadSelectionTranslateSheet.show(text:, targetCode:
+    TranslationService().targetLang)` qua overlay context.
+  - Android: `AndroidManifest.xml` filter `PROCESS_TEXT` (minSdk < 24 vẫn
+    khai báo được — không crash); `MainActivity.kt` consume-once
+    (đọc queued/fromIntent **trước** `removeExtra` — lần 1 viết ngược
+    thứ tự nên luôn null, đã sửa) + push `onProcessText`.
+  - `lib/main.dart`: `unattended(ProcessTextRouter.instance.start())`.
+  - Test `test/dictionary/process_text_route_test.dart` — 21 test thuần
+    (URL ≤64 ⇒ từ điển vì one-token; bài học: 1 test mâu thuẫn đã xoá).
+  - CI: nối vào DICT list `app_analyze.yml:362–381`.
+- **Lưu ý CI:** `android/**` KHÔNG nằm trong path filter `app_analyze` ⇒
+  commit Kotlin-only sẽ không chạy analyze; đã ghép chung với `lib/**`.
+  MainActivity.kt không được kotlinc step compile-check (chỉ 2 file kia).
+- **Chưa kiểm (máy thật):** chọn chữ trong Chrome/Docs → menu "Dịch"/"Từ
+  điển" hiện đúng; sheet dịch ra tiếng Anh; dedupe 3s không nuốt chọn khác.
+- **Lịch sử:**
+  - 2026-11-24 | created→doing | agent `arena/7ba1e7b3-in4up` | commit `e12820f` (7 file, +487) → push
+
+### AI-CHAT-P1-001 — (2026-11-24) AI Chat P1: copy-answer + chip gợi ý + xác nhận xoá (PLAN-049)
+- **Trạng thái:** 🔨 code + test source-scan, chờ CI 🟢 + nghiệm thu máy.
+- **Nguồn:** owner 2026-11-24 qua `ask_user` — chốt **`plan_plus_p1`**:
+  *"lên kế hoạch làm cho AI Chat đầy hơn + implement các P1 dễ đầu tiên
+  (chat history, prompt suggestions, copy-answer…)"*. Kế hoạch đầy đủ:
+  **`docs/plans/PLAN-049-ai-chat-pho-bien.md`** (P2: regenerate, thao tác
+  theo tin, cap lịch sử, nối 3 test chưa chạy; P3: đính kèm, mic, cite).
+- **Nội dung:**
+  - **P1-1 copy-answer** (`ai_chat_screen.dart` `_MessageBubble`): nút copy
+    16px góc dưới bubble trợ lý (kể cả bubble lỗi) → `Clipboard.setData`
+    đúng chuỗi hiển thị + snackbar. i18n **sẵn**: `'Sao chép'`/`'Đã sao chép'`.
+    Bubble user giữ nguyên (Text thường chọn được bằng gesture).
+  - **P1-2 prompt suggestions** (`_EmptyChat` + callback `onPick`): 4 chip
+    `'Giải thích ngữ pháp cho mình'` / `'Đặt 3 ví dụ với từ mới'` /
+    `'Tóm tắt giúp mình một đoạn văn'` / `'Sửa lỗi câu tiếng Anh của mình'`
+    — bấm = **điền vào ô nhập**, KHÔNG tự gửi (cùng triết lý
+    `initialDraft`).
+  - **P1-3 confirm xoá**: AppBar `clearChat()` nay qua `AlertDialog`
+    (`'Xóa cuộc trò chuyện'`/`'Hủy'`/`'Xóa'` — 3 chuỗi đã đăng ký, không
+    sinh mới) + `context.mounted` trước khi xoá. Lịch sử persist vốn đã có
+    (`in4up_ai_chat_history_v1`) — P1 chỉ chặn mất oan.
+  - **i18n 4 chuỗi mới** (quy trình rule #5, cùng PR): `legacy_ui_english_overrides.json`
+    (en) + `generated_legacy_ui_fallbacks.dart` (thêm tay theo tiền lệ
+    `71d53978` — generator legacy fail sẵn `898 unused` trên base) +
+    `priority_native_pack.json` (đủ 8 locale) rồi
+    `generate_priority_native_pack.py` → **3814 entry × 8**.
+  - **Test** `test/ai_chat/chat_p1_copy_suggest_test.dart` — thuần
+    source-scan + đọc JSON (không widget/plugin — bài học run 40575300780);
+    máy bắt: nút copy, 4 chip + `onPick`, `showDialog` đứng TRƯỚC
+    `clearChat()`, i18n 8 locale sạch ký tự Việt. Mô phỏng Python: ALL PASS.
+  - **CI**: step mới `PLAN-049 P1 tests` trong `app_analyze.yml` (cạnh
+    PSRC-19/23), có gate file-missing như các step khác.
+- **Chưa kiểm (máy thật):** chip điền chữ vào ô nhập; copy ra clipboard;
+    dialog hỏi trước khi xoá;4 chip hiển thị đúng ở locale en/zh.
+- **Lịch sử:**
+  - 2026-11-24 | created→doing | agent `arena/7ba1e7b3-in4up` | PLAN-049 + P1 code + i18n 4 chuỗi + test + CI step

@@ -28,8 +28,8 @@ thiết bị, Android, RAM, vùng lưu trữ và ID commit; che đường dẫn/
    đầy đủ, mục theo từng bộ và các ví dụ có nhất quán. So hai bộ bật đồng thời,
    đổi thứ tự và lọc riêng; thử từ không có và tra nhanh hai từ liên tiếp.
 3. Mở từng nguồn trong chi tiết. Ảnh phải bấm tải, tối đa bốn ảnh PNG/JPEG được
-   hỗ trợ; hiện sau văn bản. CSS, âm thanh, ảnh inline chưa hỗ trợ nên ghi là
-   giới hạn đã biết, không đánh dấu đạt fidelity gốc. Thử thiếu MDD/phần phụ,
+   hỗ trợ; hiện sau văn bản. Chỉ một số kiểu chữ nội tuyến được hỗ trợ; tệp
+   CSS, âm thanh, ảnh inline chưa hỗ trợ nên ghi là giới hạn đã biết, không đánh dấu đạt fidelity gốc. Thử thiếu MDD/phần phụ,
    nhập lại/liên kết lại, đóng sheet hoặc đổi mục khi ảnh đang tải.
 4. Với DB nhập bằng bản parser cũ: so sánh bộ cũ với một bản nhập **mới riêng**
    từ nguồn đã sao lưu. Nếu khác, ghi phiên bản và từ ví dụ; không tự xóa DB cũ,

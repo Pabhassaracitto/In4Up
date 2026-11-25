@@ -12,19 +12,17 @@
 
 import 'dart:async';
 
+import 'package:in4up_ai/in4up_ai.dart';
+
 import '../../../core/language/localized_material.dart';
 
 /// Bán kính "đang bận" — vành jade quanh lá.
 class MascotBubble extends StatefulWidget {
   final VoidCallback onTap;
 
-  /// Sara đang trả lời (facade.isChatLoading) — vành jade + không autohide.
-  final bool busy;
-
   const MascotBubble({
     super.key,
     required this.onTap,
-    this.busy = false,
   });
 
   @override
@@ -44,19 +42,6 @@ class _MascotBubbleState extends State<MascotBubble> {
   }
 
   @override
-  void didUpdateWidget(MascotBubble oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.busy && _shrunk) {
-      setState(() => _shrunk = false);
-    }
-    if (widget.busy) {
-      _timer?.cancel();
-    } else {
-      _scheduleAutohide();
-    }
-  }
-
-  @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
@@ -65,7 +50,7 @@ class _MascotBubbleState extends State<MascotBubble> {
   void _scheduleAutohide() {
     _timer?.cancel();
     _timer = Timer(_autohideAfter, () {
-      if (!mounted || widget.busy) return;
+      if (!mounted || AiServiceFacade().isChatLoading) return;
       setState(() => _shrunk = true);
     });
   }
@@ -78,6 +63,18 @@ class _MascotBubbleState extends State<MascotBubble> {
 
   @override
   Widget build(BuildContext context) {
+    // Tự lắng nghe facade qua SINGLETON (không phụ thuộc Provider — môi
+    // trường widget test pump MainShell không có Provider AiServiceFacade;
+    // lỗi linux_shell_regression run 45577189591).
+    return AnimatedBuilder(
+      animation: AiServiceFacade(),
+      builder: (context, _) => _buildBubble(context),
+    );
+  }
+
+  Widget _buildBubble(BuildContext context) {
+    final busy = AiServiceFacade().isChatLoading;
+    if (busy && _shrunk) _shrunk = false;
     final size = _shrunk ? 40.0 : 54.0;
     return Semantics(
       button: true,
@@ -97,11 +94,11 @@ class _MascotBubbleState extends State<MascotBubble> {
               colors: [Color(0xFF163148), Color(0xFF06121E)],
             ),
             border: Border.all(
-              color: widget.busy
+              color: busy
                   ? const Color(0xFF53D6BD)
                   : const Color(0xFFF4C95D).withValues(
                       alpha: _shrunk ? 0.35 : 0.75),
-              width: widget.busy ? 2 : 1.4,
+              width: busy ? 2 : 1.4,
             ),
             boxShadow: [
               BoxShadow(

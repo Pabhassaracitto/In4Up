@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
-import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../core/files/incoming_file_classifier.dart';
@@ -1932,12 +1931,7 @@ class _MainShellState extends State<MainShell> {
               Positioned(
                 right: 14,
                 bottom: _shouldShowShellMiniPlayer ? 78 : 12,
-                child: Consumer<AiServiceFacade>(
-                  builder: (context, facade, _) => MascotBubble(
-                    busy: facade.isChatLoading,
-                    onTap: _openMascotChatSheet,
-                  ),
-                ),
+                child: MascotBubble(onTap: _openMascotChatSheet),
               ),
           ],
         ),

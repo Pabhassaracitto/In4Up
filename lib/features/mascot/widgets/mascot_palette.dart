@@ -244,7 +244,9 @@ class _MascotPaletteSheetState extends State<MascotPaletteSheet> {
   }
 
   Widget _buildSearchField() {
-    return KeyboardListener(
+    // Focus (không KeyboardListener): handler cần trả KeyEventResult để chặn
+    // ↑↓/Enter/Esc trước TextField (KeyboardListener chỉ nhận void callback).
+    return Focus(
       focusNode: _focusNode,
       onKeyEvent: _handleKey,
       child: TextField(

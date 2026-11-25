@@ -11,13 +11,19 @@ import android.os.Bundle
 class CabinCaptureRequestActivity : Activity() {
     companion object {
         private const val REQUEST_CAPTURE = 0x6C11
-        fun newIntent(context: Context): Intent = Intent(context, CabinCaptureRequestActivity::class.java)
+        fun newIntent(context: Context, requestId: Long, overlay: Boolean): Intent =
+            Intent(context, CabinCaptureRequestActivity::class.java).apply {
+                putExtra(CabinSystemAudioService.EXTRA_REQUEST_ID, requestId)
+                putExtra(CabinSystemAudioService.EXTRA_OVERLAY, overlay)
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // A recreated Activity is still waiting for the original result.
         if (savedInstanceState != null) return
+        val requestId = intent.getLongExtra(CabinSystemAudioService.EXTRA_REQUEST_ID, -1)
+        if (!CabinSystemAudioService.isCurrent(requestId)) { finish(); return }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || CabinSystemAudioService.listener == null) {
             CabinSystemAudioService.listener?.onError("unavailable")
             finish()
@@ -37,6 +43,8 @@ class CabinCaptureRequestActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_CAPTURE) return
+        val requestId = intent.getLongExtra(CabinSystemAudioService.EXTRA_REQUEST_ID, -1)
+        if (!CabinSystemAudioService.isCurrent(requestId)) { finish(); return }
         if (resultCode != RESULT_OK || data == null) {
             CabinSystemAudioService.listener?.onError("consent_denied")
             finish()
@@ -47,6 +55,9 @@ class CabinCaptureRequestActivity : Activity() {
                 action = CabinSystemAudioService.ACTION_START
                 putExtra(CabinSystemAudioService.EXTRA_RESULT_CODE, resultCode)
                 putExtra(CabinSystemAudioService.EXTRA_RESULT_DATA, data)
+                putExtra(CabinSystemAudioService.EXTRA_REQUEST_ID, requestId)
+                putExtra(CabinSystemAudioService.EXTRA_OVERLAY,
+                    intent.getBooleanExtra(CabinSystemAudioService.EXTRA_OVERLAY, false))
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service)
             else startService(service)

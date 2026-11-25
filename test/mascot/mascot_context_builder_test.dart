@@ -14,10 +14,13 @@ void main() {
     });
 
     test('cắt ở biên câu gần nhất', () {
-      const text = 'Câu thứ nhất thật dài để vượt ngân sách. Câu hai ngắn.';
+      // Câu ĐẦU phải gọn hơn ngân sách để dấu '.' nằm trong cửa sổ tìm lùi
+      // (câu đầu dài hơn ngân sách ⇒ không có biên câu trong cửa sổ — rơi về
+      // cắt khoảng trắng, xem test bên dưới).
+      const text =
+          'Câu một. Câu hai dài hơn nhiều để bị cắt ra khỏi cửa sổ ngân sách.';
       final cut = truncateAtSentenceBoundary(text, 30);
-      expect(cut.startsWith('Câu thứ nhất'), isTrue);
-      expect(cut.endsWith('.'), isTrue);
+      expect(cut, 'Câu một.');
       expect(cut.length, lessThanOrEqualTo(30));
       expect(cut.contains('Câu hai'), isFalse);
     });
@@ -67,7 +70,7 @@ void main() {
   });
 
   group('buildMascotOneShotContext', () {
-    test('tổng không vượt ngân sách mascot', () {
+    test('tổng ≤ trần oneShot; khối ngữ cảnh bị cắt khi prompt dài', () {
       final prompt = buildMascotDefaultSystemPrompt();
       final data = MascotContextData(
         surface: 'Đọc · Đọc',
@@ -76,9 +79,18 @@ void main() {
         streakDays: 4,
       );
       final ctx = buildMascotOneShotContext(data, systemPrompt: prompt);
-      expect(ctx.length, lessThanOrEqualTo(kMascotContextMaxChars));
+      expect(ctx.length, lessThanOrEqualTo(kMascotOneShotMaxChars));
       expect(ctx, contains('Sara'));
       expect(ctx, contains('[NGỮ CẢNH APP HIỆN TẠI]'));
+    });
+
+    test('prompt một mình vượt trần ⇒ giữ prompt, bỏ khối ngữ cảnh', () {
+      final giantPrompt = 'P' * (kMascotOneShotMaxChars + 100);
+      final ctx = buildMascotOneShotContext(
+        const MascotContextData(surface: 'Nhớ', dueWordCount: 5),
+        systemPrompt: giantPrompt,
+      );
+      expect(ctx, giantPrompt);
     });
 
     test('prompt giàu ngữ cảnh vẫn giữ nguyên phần system', () {

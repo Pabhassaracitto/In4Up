@@ -8,12 +8,18 @@
 // cắt theo ngân sách. Prompt là NỘI DUNG gửi cho AI (giống prompt coach Hiểu)
 // — KHÔNG đưa vào catalog i18n (rule #5 AGENTS.md).
 
-/// Ngân sách ký tự cho ngữ cảnh mascot — THẤP hơn coach Hiểu (1200 tổng) vì
-/// mascot hỏi đáp ngắn, không cần cả tài liệu (PLAN-050 §11).
+/// Ngân sách ký tự cho KHỐI NGỮ CẢNH APP (không gồm system prompt) — THẤP
+/// hơn coach Hiểu vì mascot hỏi đáp ngắn, không cần cả tài liệu (PLAN-050 §11).
 const int kMascotContextMaxChars = 1200;
 
 /// Ngân sách riêng cho phần trích tài liệu đang mở.
 const int kMascotExcerptMaxChars = 500;
+
+/// Trần TỔNG của oneShotContext gửi model = system prompt (persona + danh
+/// sách hành động — nội dung AI, dài ~2k) + khối ngữ cảnh. Trần này chỉ là
+/// cầu an toàn: nếu prompt một mình đã vượt trần thì giữ nguyên prompt và bỏ
+/// khối ngữ cảnh (persona quan trọng hơn dữ liệu).
+const int kMascotOneShotMaxChars = 3600;
 
 /// Dữ liệu ngữ cảnh một phiên chat với Sara — caller thu từ provider thật,
 /// không hardcode (PLAN-050 §6.1).
@@ -90,16 +96,23 @@ String buildMascotContextBlock(MascotContextData data) {
 
 /// Ghép ngữ cảnh đầy đủ gửi kèm MỘT lượt hỏi (dùng `oneShotContext` của
 /// `AiServiceFacade.sendMessage` — PSRC-264: không tái đính các lượt sau).
+///
+/// Trần: tổng ≤ [kMascotOneShotMaxChars]; khối ngữ cảnh tự giới hạn ≤
+/// [kMascotContextMaxChars]. Prompt một mình vượt trần ⇒ giữ prompt, bỏ khối
+/// (không bao giờ cắt persona giữa chừng).
 String buildMascotOneShotContext(
   MascotContextData data, {
   required String systemPrompt,
 }) {
   final block = buildMascotContextBlock(data);
+  if (systemPrompt.length > kMascotOneShotMaxChars - 2) {
+    return systemPrompt;
+  }
   final combined = '$systemPrompt\n\n$block';
-  if (combined.length <= kMascotContextMaxChars) return combined;
-  // Cắt phần khối ngữ cảnh (giữ nguyên system prompt) ở biên câu.
+  if (combined.length <= kMascotOneShotMaxChars) return combined;
   final budget =
-      kMascotContextMaxChars - systemPrompt.length - 2;
+      (kMascotOneShotMaxChars - systemPrompt.length - 2)
+          .clamp(0, kMascotContextMaxChars);
   if (budget <= 0) return systemPrompt;
   final cut = truncateAtSentenceBoundary(block, budget);
   return '$systemPrompt\n\n$cut';

@@ -14,7 +14,11 @@ int main(int argc, char** argv) {
   auto channels = reinterpret_cast<int (*)(void*)>(GetProcAddress(library, "cabin_loopback_channels"));
   auto read = reinterpret_cast<int (*)(void*, float*, int)>(GetProcAddress(library, "cabin_loopback_read"));
   auto destroy = reinterpret_cast<void (*)(void*)>(GetProcAddress(library, "cabin_loopback_destroy"));
-  if (!create || !start || !rate || !channels || !read || !destroy) return 3;
+  auto overlayCreate = GetProcAddress(library, "cabin_overlay_create");
+  auto overlayText = GetProcAddress(library, "cabin_overlay_set_text");
+  auto overlayDestroy = GetProcAddress(library, "cabin_overlay_destroy");
+  if (!create || !start || !rate || !channels || !read || !destroy ||
+      !overlayCreate || !overlayText || !overlayDestroy) return 3;
   float sample = 0;
   if (start(nullptr) >= 0 || rate(nullptr) >= 0 || channels(nullptr) >= 0 ||
       read(nullptr, &sample, 1) >= 0) return 4;

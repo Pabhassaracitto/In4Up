@@ -10135,3 +10135,19 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   «Gửi» đã có — dùng lại); test thuần 3 file (context budget/truncate, prompt
   deterministic + không playback, parser 12 case). **Chờ CI + nghiệm thu máy**
   (bong bóng mở sheet, hỏi "mở pdf" ⇒ mở PDF Reader, chip ôn từ, Ẩn linh vật).
+- 2026-11-25 | MASCOT-003/004 | doing→doing | agent `arena/4ad3035e-in4up` |
+  P1 qua 3 vòng CI: (1) 4 analyzer ERROR — main_shell thiếu import
+  package:in4up_ai cho Consumer<AiServiceFacade>, mascotPromptActions đặt nhầm
+  file (context_builder → prompts), replaceFirst không nhận RegExpMatch
+  (⇒ replaceRange), test import thiếu; (2) linux_shell_regression đỏ:
+  harness widget test pump MainShell KHÔNG có Provider AiServiceFacade ⇒
+  bong bóng đổi sang tự lắng nghe facade qua SINGLETON (AnimatedBuilder),
+  bỏ Consumer wrapper; (3) oracle bắt 2 lỗi logic thuần: test truncate kỳ vọng
+  biên câu khi câu đầu dài hơn ngân sách (sửa test — câu đầu gọn hơn ngân sách)
+  và buildMascotOneShotContext trả 2175 > 1200 vì trần 1200 chỉ hợp cho KHỐI
+  ngữ cảnh ⇒ tách hai trần: khối ngữ cảnh ≤1200, oneShot tổng ≤3600, prompt
+  một mình vượt trần ⇒ giữ prompt bỏ khối. **app_analyze 🟢 run 45579251929**
+  (analyze + Rule 5 + mascot 7 file test + linux shell + toàn bộ máy bắt);
+  deploy-web 🟢. P1 đủ điều kiện nghiệm thu máy: bong bóng nổi mọi tab, sheet
+  chat hỏi "mở pdf" ⇒ tự mở PDF Reader, chip Ôn từ đến hạn, Ẩn linh vật,
+  Dừng khi streaming; hội thoại dài mở màn AI Chat (cùng lịch sử).

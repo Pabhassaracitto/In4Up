@@ -145,6 +145,14 @@ TextSpan dictionaryTextSpans(String definition) {
       return;
     }
     if (blocks.contains(tag)) lineBreak();
+    // Preserve cell boundaries without interpreting untrusted CSS or HTML attributes.
+    if (tag == 'td' || tag == 'th') {
+      final previous = node.previousElementSibling;
+      if (previous != null && (previous.localName == 'td' || previous.localName == 'th')) {
+        spans.add(TextSpan(text: '  |  ', style: style));
+        lastEndsWithNewline = false;
+      }
+    }
     if (tag == 'ol' || tag == 'ul') {
       listCounters.add(tag == 'ol' ? 0 : null);
     }
@@ -159,7 +167,7 @@ TextSpan dictionaryTextSpans(String definition) {
       lastEndsWithNewline = false;
     }
     final nextStyle = style.merge(TextStyle(
-      fontWeight: <String>{'b', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}.contains(tag)
+      fontWeight: <String>{'b', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'th'}.contains(tag)
           ? FontWeight.bold : null,
       fontStyle: <String>{'i', 'em'}.contains(tag) ? FontStyle.italic : null,
       decoration: tag == 'u' ? TextDecoration.underline : null,

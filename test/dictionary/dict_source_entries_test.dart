@@ -25,6 +25,16 @@ void main() {
     expect(text, contains('2. second'));
   });
 
+  test('table cells remain separated and active content stays blocked', () {
+    final text = dictionaryTextSpans(
+      '<table><tr><th>form</th><th>meaning</th></tr>'
+      '<tr><td>retains</td><td>keeps<script>bad</script></td></tr></table>',
+    ).toPlainText();
+    expect(text, contains('form  |  meaning'));
+    expect(text, contains('retains  |  keeps'));
+    expect(text, isNot(contains('bad')));
+  });
+
   test('removes MDX terminator from already imported text', () {
     expect(dictionaryTextSpans('nghĩa gốc\u0000').toPlainText(), 'nghĩa gốc');
     expect(dictionaryTextSpans('<p>definition</p>\u0000').toPlainText(),

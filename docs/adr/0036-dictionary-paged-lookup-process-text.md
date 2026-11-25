@@ -1,0 +1,34 @@
+# ADR-0036 — Tra theo từng đợt và chọn chữ từ ứng dụng Android khác
+
+Trạng thái: triển khai từng phần, cần review, CI và nghiệm thu thiết bị.
+
+## Tra từ
+
+Giữ SQLite hiện tại; lookup nhanh mặc định tối đa 10 record/bộ, đọc thêm một
+record để nhận biết thiếu. Màn Từ điển cho tải thêm 10 mỗi lần bằng cách tra
+lại có thứ tự theo id, tối đa 100 record/bộ; không tự tải toàn bộ. Redirect được
+tra cùng hạn mức và resolver giới hạn tối đa 512 kết quả, 512 lượt thăm, 32
+lookup, độ sâu 8; báo chưa đủ nếu gặp giới hạn. Vì đây là truy vấn lại, không
+phải snapshot cố định nếu DB thay đổi đồng thời; cần QA race import/relink.
+Các popup khác chưa phân trang; người dùng có thể mở màn Từ điển để tải thêm.
+Không thay đổi giới hạn Unicode NOCASE của SQLite hoặc kiến trúc lưu MDX.
+
+Renderer văn bản giữ ranh giới ô bảng, không đọc stylesheet, thực thi script,
+network hay đường dẫn; ảnh MDD vẫn tuân thủ ADR-0034. Không coi đó là hiển thị
+nguyên bản, chưa CSS/audio/font hoặc ảnh inline.
+
+## Android PROCESS_TEXT
+
+Thêm lựa chọn bôi chữ `text/plain` do người dùng chủ động gọi; chuyển dữ liệu
+thành URI tra từ app, dùng bộ kiểm tra deep-link 64 rune. Native giới hạn đầu
+vào trước encode; không đọc clipboard, không OCR, không trả văn bản thay đổi cho
+ứng dụng nguồn, không mở tệp do chữ đưa vào. Hàng đợi nhận đến khi Dart sẵn;
+chưa nghiệm thu cold/warm, xoay màn hình, app nguồn hoặc đa ngôn ngữ trên máy.
+Không có bong bóng tra từ hoặc hỗ trợ iOS/desktop trong thay đổi này.
+
+## Còn lại
+
+Đo LAAD3/SAF + Lạc Việt thật, xử lý lỗi và giới hạn trong mọi popup, tìm kiếm
+Unicode, phân trang theo cursor/snapshot thay vì lặp truy vấn, báo dung lượng
+DB/bundle có phân biệt không rõ, renderer CSS an toàn / media, và QA phát hành.
+Không tự xóa nguồn, không dùng sample có bản quyền làm fixture.

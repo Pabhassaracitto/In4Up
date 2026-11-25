@@ -16456,6 +16456,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ครั้งเดียว',
     'ja': '1回',
   },
+  'Một số bộ còn kết quả chưa hiển thị; nội dung bên dưới chưa đầy đủ.': {
+    'en': 'Some dictionaries have more results; the content below is incomplete.',
+    'zh': '部分词典还有未显示的结果；以下内容不完整。',
+    'zh_TW': '部分詞典還有未顯示的結果；以下內容不完整。',
+    'hi': 'कुछ शब्दकोशों के और परिणाम हैं; नीचे की सामग्री अधूरी है।',
+    'si': 'සමහර ශබ්දකෝෂවල තවත් ප්‍රතිඵල ඇත; පහත අන්තර්ගතය සම්පූර්ණ නොවේ.',
+    'my': 'အဘိဓာန်အချို့တွင် မပြရသေးသော ရလဒ်များရှိသည်။ အောက်ပါအကြောင်းအရာ မပြည့်စုံပါ။',
+    'th': 'พจนานุกรมบางชุดยังมีผลลัพธ์ที่ไม่ได้แสดง เนื้อหาด้านล่างจึงไม่ครบ',
+    'ja': '一部の辞書に未表示の結果があります。以下の内容は完全ではありません。',
+  },
   'Một số bộ có hơn 10 kết quả; nội dung bên dưới chưa đầy đủ.': {
     'en': 'Some dictionaries have more than 10 results; the content below is incomplete.',
     'zh': '部分词典有超过 10 个结果；以下内容不完整。',
@@ -26405,6 +26415,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'my': 'စာတန်းထိုး ဒေါင်းလုပ်လုပ်မည်',
     'th': 'ดาวน์โหลดคำบรรยาย',
     'ja': '字幕をダウンロード',
+  },
+  'Tải thêm kết quả': {
+    'en': 'Load more results',
+    'zh': '加载更多结果',
+    'zh_TW': '載入更多結果',
+    'hi': 'और परिणाम लोड करें',
+    'si': 'තවත් ප්‍රතිඵල පූරණය කරන්න',
+    'my': 'ရလဒ်များ ထပ်မံဖွင့်ရန်',
+    'th': 'โหลดผลลัพธ์เพิ่มเติม',
+    'ja': '結果をさらに読み込む',
   },
   'Tải thêm đoạn': {
     'en': 'Load more passages',

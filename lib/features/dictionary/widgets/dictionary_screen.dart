@@ -52,7 +52,7 @@ class DictionaryScreen extends StatefulWidget {
   @visibleForTesting
   final Future<List<DictInfo>> Function()? loadDictionariesForTest;
   @visibleForTesting
-  final Future<DictLookupReport> Function(String, String?)? lookupForTest;
+  final Future<DictLookupReport> Function(String, String?, int)? lookupForTest;
 
   const DictionaryScreen({super.key, this.initialQuery, this.initialDictId, this.source,
     this.loadDictionariesForTest, this.lookupForTest});
@@ -112,6 +112,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   bool _searching = false;
   bool _submitted = false;
   int _searchGeneration = 0;
+  int _lookupLimit = DictionaryService.lookupPageSize;
   DictLookupReport? _lookupReport;
 
   /// Đang gõ (chưa bấm tra) ⇒ hiện gợi ý thay vì kết quả.
@@ -261,7 +262,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  Future<void> _submit(String raw) async {
+  Future<void> _submit(String raw, {int limit = DictionaryService.lookupPageSize}) async {
     final word = DictHistory.normalize(raw);
     if (word.isEmpty) return;
     _debounce?.cancel();
@@ -269,6 +270,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     _searchFocus.unfocus();
     setState(() {
       _query = word;
+      _lookupLimit = limit;
       _submitted = true;
       _typing = false;
       _suggestions = const <String>[];
@@ -283,8 +285,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     try {
       final lookup = widget.lookupForTest;
       report = lookup == null
-          ? await DictionaryService.instance.lookupWithReport(word, dictId: _selectedDictId)
-          : await lookup(word, _selectedDictId);
+          ? await DictionaryService.instance.lookupWithReport(word, dictId: _selectedDictId, limitPerSource: limit)
+          : await lookup(word, _selectedDictId, limit);
     } catch (_) {
       report = DictLookupReport(entries: const [],
         failedSources: _dicts.map((d) => d.name).toList());
@@ -559,7 +561,17 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     if (notice == null || (notice.failedSources.isEmpty && notice.truncatedSources.isEmpty)) {
       return result;
     }
-    return Column(children: [DictLookupNotice(report: notice), Expanded(child: result)]);
+    return Column(children: [
+      DictLookupNotice(report: notice),
+      if (notice.truncatedSources.isNotEmpty &&
+          _lookupLimit < DictionaryService.maxLookupRecordsPerSource)
+        TextButton.icon(
+          onPressed: () => _submit(_query, limit: _lookupLimit + DictionaryService.lookupPageSize),
+          icon: const Icon(Icons.expand_more),
+          label: Text(context.uiText('Tải thêm kết quả')),
+        ),
+      Expanded(child: result),
+    ]);
   }
 
   // ── Trạng thái: chưa có bộ từ điển ──────────────────────────────────────

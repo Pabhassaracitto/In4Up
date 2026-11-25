@@ -98,6 +98,7 @@ class MainActivity : FlutterActivity() {
     private val deepLinkChannelName = "in4up/deeplink"
     private var deepLinkChannel: MethodChannel? = null
     private var pendingDeepLink: String? = null
+    private var deepLinkListenerReady = false
 
     // BATTERY-OPT-001 — mở ĐÚNG màn "Tối ưu pin" của HỆ THỐNG cho app này.
     //
@@ -193,10 +194,12 @@ class MainActivity : FlutterActivity() {
             captureIncomingFileIntent(intent, isInitialLaunch = false)
             return
         }
-        val link = intent.dataString
+        val link = if (intent.action == Intent.ACTION_PROCESS_TEXT)
+            processTextLink(intent) else intent.dataString
+        if (intent.action == Intent.ACTION_PROCESS_TEXT) setIntent(Intent(Intent.ACTION_MAIN))
         if (link.isNullOrEmpty()) return
         val channel = deepLinkChannel
-        if (channel == null) {
+        if (channel == null || !deepLinkListenerReady) {
             // Engine chưa sẵn (rất hiếm) ⇒ để Dart lấy qua getInitialLink.
             pendingDeepLink = link
             return
@@ -260,10 +263,27 @@ class MainActivity : FlutterActivity() {
      * CI đỏ với "Expecting member declaration" ở dòng KHÔNG liên quan (đã xảy
      * ra: run 40628219927 / 40629835587 / 40631471443 / 40633324522).
      */
+    // Only the text explicitly selected by the user, not clipboard or screen capture.
+    // Return an app-specific URI so the same Dart validation applies as deep links.
+    private fun processTextLink(incoming: Intent?): String? {
+        if (incoming?.action != Intent.ACTION_PROCESS_TEXT || incoming.type != "text/plain") return null
+        val text = try { incoming.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() }
+            catch (_: RuntimeException) { null } ?: return null
+        // Bound the data before URI encoding; Dart enforces the stricter 64-rune limit.
+        if (text.isBlank() || text.length > 256) return null
+        return Uri.Builder().scheme("in4up").authority("dict")
+            .appendQueryParameter("w", text).build().toString()
+    }
+
     private fun consumeInitialDeepLink(): String? {
         val queued = pendingDeepLink
         pendingDeepLink = null
         if (queued != null) return queued
+        if (intent?.action == Intent.ACTION_PROCESS_TEXT) {
+            val link = processTextLink(intent)
+            setIntent(Intent(Intent.ACTION_MAIN))
+            return link
+        }
         val data = intent?.data ?: return null
         val scheme = data.scheme?.lowercase()
         val host = data.host?.lowercase()
@@ -337,7 +357,10 @@ class MainActivity : FlutterActivity() {
             channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     // App vừa được mở bằng link ⇒ trả URL một lần rồi xoá.
-                    "getInitialLink" -> result.success(consumeInitialDeepLink())
+                    "getInitialLink" -> {
+                        deepLinkListenerReady = true
+                        result.success(consumeInitialDeepLink())
+                    }
                     else -> result.notImplemented()
                 }
             }

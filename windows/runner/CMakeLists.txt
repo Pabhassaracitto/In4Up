@@ -59,6 +59,13 @@ if(TARGET in4up_ai_native)
   )
 endif()
 
+# Loopback capture is a separate DLL; place it next to the executable.
+add_dependencies(${BINARY_NAME} in4up_cabin_audio)
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:in4up_cabin_audio> $<TARGET_FILE_DIR:${BINARY_NAME}>
+)
+
 # Copy Whisper & GGML DLLs từ windows/libs/ sang thư mục build cạnh file .exe
 # Support both flat libs/ and libs/whisper/ layouts, plus ffmpeg.exe fallback for desktop STT/audio conversion
 set(DLL_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libs")

@@ -147,6 +147,9 @@ target_include_directories(in4up_ai_native PRIVATE
 )
 target_link_libraries(in4up_ai_native PRIVATE llama)
 
+# Dedicated WASAPI loopback backend for Live Cabin.
+add_subdirectory(cabin_audio)
+
 # === PATCH: Workaround for broken Windows plugins ===
 # Issue: ffmpeg_kit_flutter_new v4.2.1 fails with C1083
 #   Cannot open include file: 'include/ffmpeg_kit_flutter_new_full/f_fmpeg_kit_flutter_plugin.h'
@@ -279,6 +282,9 @@ if(TARGET in4up_ai_native)
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+install(FILES $<TARGET_FILE:in4up_cabin_audio>
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 
 if(PLUGIN_BUNDLED_LIBRARIES)
   install(FILES "${PLUGIN_BUNDLED_LIBRARIES}"

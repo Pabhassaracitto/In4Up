@@ -178,6 +178,17 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Cabin playback capture uses its own single-use MediaProjection consent. -->
+        <service
+            android:name="com.in4up.cabin.CabinSystemAudioService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+        <activity
+            android:name="com.in4up.cabin.CabinCaptureRequestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- PSRC-221 — in4up là engine "Chuyển văn bản thành giọng nói" của
              Android (Cài đặt ▸ Ngôn ngữ & nhập ▸ Chuyển văn bản thành giọng nói).
 

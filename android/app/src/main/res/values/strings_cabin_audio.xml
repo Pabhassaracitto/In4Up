@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cabin_audio_channel">Live Cabin audio</string>
+    <string name="cabin_audio_notification_title">Live Cabin is capturing system audio</string>
+    <string name="cabin_audio_notification_body">Tap Stop to end capture.</string>
+    <string name="cabin_audio_stop">Stop</string>
+</resources>

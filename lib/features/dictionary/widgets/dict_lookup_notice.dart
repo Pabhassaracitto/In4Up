@@ -22,7 +22,7 @@ class DictLookupNotice extends StatelessWidget {
           material.Text(report.failedSources.join(', '), style: const TextStyle(color: Color(0xFFFFB74D))),
         ],
         if (report.truncatedSources.isNotEmpty) ...[
-          Text(context.uiText('Một số bộ có hơn 10 kết quả; nội dung bên dưới chưa đầy đủ.'),
+          Text(context.uiText('Một số bộ còn kết quả chưa hiển thị; nội dung bên dưới chưa đầy đủ.'),
             style: const TextStyle(color: Color(0xFFFFB74D))),
           material.Text(report.truncatedSources.join(', '), style: const TextStyle(color: Color(0xFFFFB74D))),
         ],

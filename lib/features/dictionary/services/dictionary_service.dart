@@ -113,7 +113,15 @@ class DictionaryService {
 
   /// Keeps partial results when a DB fails and detects the existing per-source
   /// limit. The extra row is only a sentinel, not rendered or redirect-resolved.
-  Future<DictLookupReport> lookupWithReport(String word, {String? dictId}) async {
+  static const int lookupPageSize = 10;
+  static const int maxLookupRecordsPerSource = 100;
+
+  Future<DictLookupReport> lookupWithReport(String word, {
+    String? dictId, int limitPerSource = lookupPageSize,
+  }) async {
+    if (limitPerSource < 1 || limitPerSource > maxLookupRecordsPerSource) {
+      throw RangeError.range(limitPerSource, 1, maxLookupRecordsPerSource);
+    }
     await ensureInitialized();
     final results = <DictEntry>[];
     final failed = <String>[];
@@ -123,21 +131,22 @@ class DictionaryService {
         : enabledDictionaries.where((d) => d.id == dictId).toList();
     for (final dict in sources) {
       try {
-        final entries = await DictDbService.lookup(dict.dbPath, word, limit: 11);
-        var sourceTruncated = entries.length > 10;
+        final entries = await DictDbService.lookup(dict.dbPath, word, limit: limitPerSource + 1);
+        var sourceTruncated = entries.length > limitPerSource;
         var redirectFailed = false;
         results.addAll(await DictRedirectResolver.resolve(
-          entries.take(10).toList(),
+          entries.take(limitPerSource).toList(),
           (target) async {
             try {
-              final matches = await DictDbService.lookup(dict.dbPath, target, limit: 11);
-              if (matches.length > 10) sourceTruncated = true;
-              return matches.take(10).toList();
+              final matches = await DictDbService.lookup(dict.dbPath, target, limit: limitPerSource + 1);
+              if (matches.length > limitPerSource) sourceTruncated = true;
+              return matches.take(limitPerSource).toList();
             } catch (_) {
               redirectFailed = true;
               rethrow;
             }
           },
+          onTruncated: () => sourceTruncated = true,
         ));
         if (sourceTruncated) truncated.add(dict.name);
         if (redirectFailed) failed.add(dict.name);

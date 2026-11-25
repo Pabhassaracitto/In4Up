@@ -77,4 +77,15 @@ void main() {
     expect(calls, lessThanOrEqualTo(DictRedirectResolver.maxLookups));
     expect(result.length, lessThanOrEqualTo(DictRedirectResolver.maxVisitedEntries * 10));
   });
+  test('large branching is capped and reports incomplete results', () async {
+    var truncated = false;
+    final result = await DictRedirectResolver.resolve(
+      [entry('a', '@@@LINK=b')],
+      (word) async => List.generate(100, (i) => entry('$word$i', '@@@LINK=${word}x')),
+      onTruncated: () => truncated = true,
+    );
+    expect(result.length, lessThanOrEqualTo(DictRedirectResolver.maxResolvedEntries));
+    expect(truncated, isTrue);
+  });
+
 }

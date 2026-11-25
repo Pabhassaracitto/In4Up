@@ -295,6 +295,11 @@ void main() {
     expect(report.entries, hasLength(11)); // 10 from first, 1 from second
     expect(report.truncatedSources, [first.name]);
     expect(report.failedSources, isEmpty);
+    report = await DictionaryService.instance.lookupWithReport('hello', limitPerSource: 20);
+    expect(report.entries, hasLength(12));
+    expect(report.truncatedSources, isEmpty);
+    await expectLater(DictionaryService.instance.lookupWithReport('hello', limitPerSource: 101),
+      throwsRangeError);
     report = await DictionaryService.instance.lookupWithReport('absent');
     expect(report.entries, isEmpty);
     expect(report.failedSources, isEmpty);

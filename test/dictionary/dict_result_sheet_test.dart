@@ -136,7 +136,7 @@ void main() {
     await tester.pumpWidget(material.MaterialApp(home: DictionaryScreen(
       initialQuery: 'first',
       loadDictionariesForTest: () async => [dict],
-      lookupForTest: (word, _) => word == 'first' ? first.future : second.future,
+      lookupForTest: (word, dictId, limit) => word == 'first' ? first.future : second.future,
     )));
     await tester.pump();
     await tester.pump();
@@ -152,6 +152,30 @@ void main() {
     expect(find.textContaining('new meaning'), findsOneWidget);
     expect(find.text('first'), findsNothing);
     expect(find.textContaining('old meaning'), findsNothing);
+  });
+
+  testWidgets('load more requests a bounded larger page', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final limits = <int>[];
+    final dict = DictInfo(id: 'd', name: 'test', entryCount: 12, dbPath: '',
+      importedAt: DateTime(2026));
+    await tester.pumpWidget(material.MaterialApp(home: DictionaryScreen(
+      initialQuery: 'hello', loadDictionariesForTest: () async => [dict],
+      lookupForTest: (word, _, limit) async {
+        limits.add(limit);
+        return DictLookupReport(entries: [entry(word: word, definition: 'meaning')],
+          truncatedSources: limit == 10 ? ['test'] : []);
+      },
+    )));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(limits, [10]);
+    await tester.tap(find.text('Load more results'));
+    await tester.pump();
+    await tester.pump();
+    expect(limits, [10, 20]);
+    expect(find.text('Load more results'), findsNothing);
   });
 
 }

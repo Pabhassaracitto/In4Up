@@ -10,11 +10,13 @@ class DictRedirectResolver {
   static const int maxDepth = 8;
   static const int maxLookups = 32;
   static const int maxVisitedEntries = 512;
+  static const int maxResolvedEntries = 512;
 
   static Future<List<DictEntry>> resolve(
     List<DictEntry> entries,
-    Future<List<DictEntry>> Function(String word) lookup,
-  ) async {
+    Future<List<DictEntry>> Function(String word) lookup, {
+    void Function()? onTruncated,
+  }) async {
     var remaining = maxLookups;
     var remainingVisits = maxVisitedEntries;
     final cache = <String, List<DictEntry>>{};
@@ -24,7 +26,10 @@ class DictRedirectResolver {
       Set<String> visited,
       int depth,
     ) async {
-      if (remainingVisits <= 0) return <DictEntry>[entry];
+      if (remainingVisits <= 0) {
+        onTruncated?.call();
+        return <DictEntry>[entry];
+      }
       remainingVisits--;
       final target = DictEntryLinks.redirectTarget(entry.definition);
       if (target == null || depth >= maxDepth || visited.contains(target)) {
@@ -32,7 +37,10 @@ class DictRedirectResolver {
       }
       var matches = cache[target];
       if (matches == null) {
-        if (remaining <= 0) return <DictEntry>[entry];
+        if (remaining <= 0) {
+          onTruncated?.call();
+          return <DictEntry>[entry];
+        }
         remaining--;
         try {
           matches = await lookup(target);
@@ -46,6 +54,10 @@ class DictRedirectResolver {
       final resolved = <DictEntry>[];
       for (final match in matches) {
         for (final result in await visit(match, nextVisited, depth + 1)) {
+          if (resolved.length >= maxResolvedEntries) {
+            onTruncated?.call();
+            return resolved;
+          }
           resolved.add(DictEntry(
             headword: entry.headword,
             definition: result.definition,
@@ -60,8 +72,16 @@ class DictRedirectResolver {
     }
 
     final output = <DictEntry>[];
-    for (final entry in entries) {
-      output.addAll(await visit(entry, <String>{entry.headword}, 0));
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      final resolved = await visit(entry, <String>{entry.headword}, 0);
+      final remaining = maxResolvedEntries - output.length;
+      if (resolved.length > remaining) onTruncated?.call();
+      output.addAll(resolved.take(remaining));
+      if (output.length >= maxResolvedEntries && i + 1 < entries.length) {
+        onTruncated?.call();
+        break;
+      }
     }
     return output;
   }

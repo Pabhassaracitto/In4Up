@@ -40,6 +40,15 @@ void main() {
     });
   });
 
+  test('selected text becomes a word, never a file request or executable link', () {
+    for (final value in ['học sinh', 'a&b=#?%', 'in4up://open?path=/tmp/a.mdx']) {
+      final url = Uri(scheme: 'in4up', host: 'dict', queryParameters: {'w': value});
+      final request = DictDeepLink.parse(url.toString());
+      expect(request?.kind, DictDeepLinkKind.word);
+      expect(request?.value, value);
+    }
+  });
+
   group('ca xấu — trả null, KHÔNG ném', () {
     test('thiếu w', () {
       expect(DictDeepLink.parse('in4up://dict'), isNull);

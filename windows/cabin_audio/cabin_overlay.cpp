@@ -3,6 +3,8 @@
 #include <windowsx.h>
 
 #include <condition_variable>
+#include <cstdlib>
+#include <cwchar>
 #include <mutex>
 #include <new>
 #include <string>

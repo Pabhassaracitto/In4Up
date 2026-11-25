@@ -21,6 +21,13 @@ jobs:
       - name: Configure native DLL
         run: cmake -S windows/cabin_audio -B cabin-native-build -A x64
       - name: Compile
-        run: cmake --build cabin-native-build --config Release
+        shell: pwsh
+        run: |
+          cmake --build cabin-native-build --config Release 2>&1 | Tee-Object -FilePath cabin-native-build.log
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Get-Content cabin-native-build.log | Select-String -Pattern 'error C[0-9]+|error LNK[0-9]+|fatal error' | Select-Object -First 30 | ForEach-Object { Write-Output "::error title=Cabin Windows compile::$_" }
+          }
+          exit $code
       - name: Test exports and invalid arguments
         run: ctest --test-dir cabin-native-build -C Release --output-on-failure

@@ -50,3 +50,11 @@ trên ứng dụng khác, rồi review trước khi tuyên bố hoàn tất.
 Đây mới là nền độc lập, **chưa** nối vào Cabin hay được nghiệm thu với ứng dụng
 khác. Trên Android, `1f81501`–`212b3ad` thêm kênh + overlay và test hợp đồng;
 vẫn phải tích hợp luồng caption và xử lý đầy đủ vòng đời trên máy thật.
+
+### Cập nhật tích hợp
+
+`bfc8197`–`39ecb41` nối nguồn PCM vào Sherpa/recorder, giao diện chọn nguồn và
+bong bóng, cấp quyền, caption đích trước nguồn, cùng chặn TTS bằng PCM im lặng.
+Trong thời gian đọc bản dịch, cả nhận dạng lẫn WAV không chứa tiếng nguồn;
+UI cảnh báo rõ. Chưa xác nhận thực tế trên thiết bị hoặc khắc phục aliasing
+trên Windows. Kế hoạch nghiệm thu: `docs/ci/cabin-system-audio-manual-qa.md`.

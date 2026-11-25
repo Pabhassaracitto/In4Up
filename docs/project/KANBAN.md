@@ -253,7 +253,7 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
-| CABIN-SYS-001 | Live Cabin: âm thanh hệ thống Android + Windows, bong bóng toàn hệ thống | 🔨 doing — đã nối pipeline/UI; cần CI tip, review và nghiệm thu thiết bị | `bfc8197`–`39ecb41`; [QA thiết bị](../ci/cabin-system-audio-manual-qa.md) |
+| CABIN-SYS-001 | Live Cabin: âm thanh hệ thống Android + Windows, bong bóng toàn hệ thống | 🔨 doing — CI xanh, cần review và nghiệm thu thiết bị | [App CI 45683528981](https://github.com/Pabhassaracitto/In4Up/actions/runs/45683528981); [QA thiết bị](../ci/cabin-system-audio-manual-qa.md) |
 | DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 CI xanh, chờ nghiệm thu máy | `e12820f` + fix `a7a57b1` (hide `ProcessTextAction` trùng Flutter services); [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 |
 | AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 CI xanh, chờ nghiệm thu máy | `a3859da` + `a7a57b1`; [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 (step `PLAN-049 P1 tests` success) |
 

@@ -1,7 +1,9 @@
 # PLAN-050 — Linh vật AI In4Up (I4U Mascot): quản gia · gia sư · hướng dẫn dùng app
 
-> **Trạng thái:** 📋 proposed — đã khảo sát repo (2026-11-25) và lập kế hoạch;
-> chờ owner chốt DQ1–DQ5 (§12) rồi thi công theo thứ tự P0→P4.
+> **Trạng thái:** 🔨 doing — owner chốt DQ1–DQ5 (2026-11-25): tên **Sara**
+> (hình tượng **lá bồ đề**), giọng **vi+en trước**, não **theo routing hiện có**,
+> duyệt **P0 thi công ngay**. P0 (MASCOT-001+002) đang làm trên nhánh
+> `arena/4ad3035e-in4up`; P1–P4 chờ lần lượt.
 > **Nguồn:** người sở hữu (2026-11-25, qua agent `arena/4ad3035e-in4up`) —
 > *"tạo Linh vật AI đóng vai trò quản gia, gia sư, hướng dẫn dùng app, có thể chat
 > hay trò chuyện âm thanh, có thể mở nhanh các file, chức năng… Mục đích: giải phóng
@@ -240,9 +242,10 @@ nghiệm thu máy → cập nhật KANBAN (append). Mỗi card = một PR, chrom
   `priority_ui_overrides.dart` T2 (en/hi/zh/zh_TW/si) + `legacy_ui_english_overrides.json`;
   test máy bắt Rule 5 phải xanh ngay ở PR đầu tiên có UI.
 - **Không dịch:** prompt hệ thống, output AI, transcript STT, nội dung user.
-- **Hình mẫu mặc định (đề xuất — chờ DQ1):** "đốm sáng Hidden Gift" — khối tròn phát
-  sáng nhẹ theo motif Quiet Reveal 04A, gradient Jade→Gold như đường "rise" của logo,
-  nền Midnight, viền Ivory mờ; 4 trạng thái:
+- **Hình mẫu (owner chốt 2026-11-25):** **Sara** — linh vật hoá **lá bồ đề**,
+  tông Bodhi gold `#F4C95D` + accent Jade `#53D6BD` theo motif Quiet Reveal 04A
+  (nền Midnight, viền Ivory mờ, gradient Jade→Gold như đường "rise" của logo);
+  4 trạng thái:
   - `idle`: thở + lấp lánh nhẹ (Lottie ~60 frame, ≤80 KB),
   - `listening`: vòng sóng mở dần quanh đốm,
   - `thinking`: các hạt Jade xoáy chậm,
@@ -273,6 +276,16 @@ nghiệm thu máy → cập nhật KANBAN (append). Mỗi card = một PR, chrom
 | DQ3 | **Não mặc định?** (a) theo routing hiện có (ưu tiên online OpenRouter, rớt Gemma offline); (b) mascot riêng offline-first (Gemma trước, cloud chỉ khi bật) | (a) theo routing hiện có + trần ngữ cảnh §11 |
 | DQ4 | **Vị trí & hành vi bong bóng?** góc phải-dưới trên bottom nav / góc trái-dưới / ẩn mặc định chỉ mở từ Home | góc phải-dưới, autohide 10 s, ẩn hẳn được |
 | DQ5 | **Bắt đầu P0 ngay?** P0 (MASCOT-001+002) độc lập persona, có giá trị dùng riêng (palette) | Duyệt P0 làm ngay, P1 chờ DQ1–DQ3 |
+
+### Kết quả chốt (owner, 2026-11-25 — trả lời qua agent)
+
+| # | Quyết định |
+|---|---|
+| DQ1 | **Sara** — hình tượng linh vật hoá **lá bồ đề** (owner bấm nhầm «để sau», đã đính chính: *"phải là hình tượng linh vật hóa lá bồ đề với tên là sara"*) |
+| DQ2 | Giọng nói: **vi + en trước** — *"trước tiên dùng anh việt trước thấy ổn thì đa nghữ sau"* |
+| DQ3 | Não: **theo routing hiện có** — ưu tiên online OpenRouter, rớt Gemma offline (giữ nguyên trần ngữ cảnh §11) |
+| DQ4 | Chưa chốt — dùng mặc định đề xuất (góc phải-dưới, autohide 10 s, ẩn hẳn được) |
+| DQ5 | **Duyệt P0 làm ngay** — MASCOT-001 + MASCOT-002 thi công trên nhánh `arena/4ad3035e-in4up` |
 
 ## 13. Chiến lược kiểm thử & CI
 

@@ -2406,4 +2406,14 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Model lớn hơn ngưỡng gợi ý — cần xác nhận trước khi tải.': 'Model is larger than the suggested limit — confirmation is required before downloading.',
   'Máy chủ báo dung lượng tải: {value0}': 'Server-reported download size: {value0}',
   'Vẫn tải': 'Download anyway',
+  // MASCOT-001/002 — Palette «Mở nhanh» của linh vật Sara (PLAN-050)
+  'Mở nhanh': 'Quick open',
+  'Tìm chức năng, tệp hoặc lệnh…': 'Search features, files, or commands…',
+  'Không có kết quả khớp': 'No matching results',
+  'Chức năng': 'Features',
+  'Đi đến': 'Go to',
+  'Tệp & âm thanh': 'Files & audio',
+  'Không tìm thấy tệp trong danh sách gần đây': 'File not found in the recent list',
+  'Không tìm thấy bài trong thư viện âm thanh': 'Track not found in the audio library',
+  'Không mở được tệp': 'Could not open the file',
 };

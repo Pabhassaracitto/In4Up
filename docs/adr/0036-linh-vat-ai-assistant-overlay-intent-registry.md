@@ -1,7 +1,9 @@
 # ADR-0036 — Linh vật AI In4Up: lớp trợ lý nổi trong shell + một registry hành động, tái dùng facade AI/STT/TTS hiện có
 
-- **Trạng thái:** 📋 proposed (chưa code) — chờ owner chốt DQ1–DQ5 trong
-  [PLAN-050 §12](../plans/PLAN-050-linh-vat-ai-i4u.md).
+- **Trạng thái:** 🔨 accepted (thi công theo pha) — owner chốt DQ1–DQ5 ngày
+  2026-11-25; **P0 (MASCOT-001+002) đã code** trên nhánh `arena/4ad3035e-in4up`:
+  registry + search index + shell action hub + palette «Mở nhanh»; P1–P4 làm
+  tiếp theo PLAN-050 §9.
 - **Nguồn:** người sở hữu (2026-11-25, qua agent `arena/4ad3035e-in4up`).
 - **Bối cảnh kỹ thuật:** khảo sát đầy đủ tại `docs/plans/PLAN-050-linh-vat-ai-i4u.md` §2/§5.
 

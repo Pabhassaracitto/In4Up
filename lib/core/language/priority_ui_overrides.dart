@@ -9152,4 +9152,69 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'ja': '現在の位置から音声を抽出',
   },
 
+  // MASCOT-001/002 — Palette «Mở nhanh» của linh vật Sara (PLAN-050).
+  'Mở nhanh': {
+    'en': 'Quick open',
+    'hi': 'तेज़ी से खोलें',
+    'zh': '快速打开',
+    'zh_TW': '快速開啟',
+    'si': 'ඉක්මනින් විවෘත කරන්න',
+  },
+  'Tìm chức năng, tệp hoặc lệnh…': {
+    'en': 'Search features, files, or commands…',
+    'hi': 'सुविधाएँ, फ़ाइलें या कमांड खोजें…',
+    'zh': '搜索功能、文件或命令…',
+    'zh_TW': '搜尋功能、檔案或指令…',
+    'si': 'විශේෂාංග, ගොනු හෝ විධාන සොයන්න…',
+  },
+  'Không có kết quả khớp': {
+    'en': 'No matching results',
+    'hi': 'कोई मेल खाता परिणाम नहीं',
+    'zh': '没有匹配的结果',
+    'zh_TW': '沒有符合的結果',
+    'si': 'ගැළපෙන ප්‍රතිඵල නැත',
+  },
+  'Chức năng': {
+    'en': 'Features',
+    'hi': 'सुविधाएँ',
+    'zh': '功能',
+    'zh_TW': '功能',
+    'si': 'විශේෂාංග',
+  },
+  'Đi đến': {
+    'en': 'Go to',
+    'hi': 'इस पर जाएँ',
+    'zh': '前往',
+    'zh_TW': '前往',
+    'si': 'මෙතනට යන්න',
+  },
+  'Tệp & âm thanh': {
+    'en': 'Files & audio',
+    'hi': 'फ़ाइलें और ऑडियो',
+    'zh': '文件与音频',
+    'zh_TW': '檔案與音訊',
+    'si': 'ගොනු සහ ශ්‍රව්‍ය',
+  },
+  'Không tìm thấy tệp trong danh sách gần đây': {
+    'en': 'File not found in the recent list',
+    'hi': 'हाल की सूची में फ़ाइल नहीं मिली',
+    'zh': '在最近列表中找不到文件',
+    'zh_TW': '在最近清單中找不到檔案',
+    'si': 'මෑත ලැයිස්තුවේ ගොනුව හමු නොවිය',
+  },
+  'Không tìm thấy bài trong thư viện âm thanh': {
+    'en': 'Track not found in the audio library',
+    'hi': 'ऑडियो लाइब्रेरी में ट्रैक नहीं मिला',
+    'zh': '在音频库中找不到该曲目',
+    'zh_TW': '在音訊庫中找不到該曲目',
+    'si': 'ශ්‍රව්‍ය පුස්තකාලයේ පටිය හමු නොවිය',
+  },
+  'Không mở được tệp': {
+    'en': 'Could not open the file',
+    'hi': 'फ़ाइल नहीं खोली जा सकी',
+    'zh': '无法打开文件',
+    'zh_TW': '無法開啟檔案',
+    'si': 'ගොනුව විවෘත කළ නොහැක',
+  },
+
 };

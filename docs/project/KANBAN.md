@@ -10046,8 +10046,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 | ID | Việc | Trạng thái | Kế hoạch / bằng chứng |
 |---|---|---|---|
-| MASCOT-001 | Nền móng: `MascotIntentRegistry` (thuần) + mở rộng `ShellNavigationRequest` + cầu `ShellActionHub` bọc `_handleTool`/`_setPrimaryTab`/`_setListenMode`/`_setReadMode` của main_shell | 📋 proposed | PLAN-050 §5/§7/§9 P0; registry = nguồn sự thật duy nhất mọi hành động (ADR-0036 D2/D3); test thuần `test/mascot/`; 8 intent voice_command cũ đăng ký lại cùng ngữ nghĩa |
-| MASCOT-002 | Mở nhanh: `MascotSearchIndex` hợp nhất (tools ~28 id + tab/mode + RecentFiles + TextLibrary + Audio/Video library + Tipiṭaka + dict packs + WordList, fuzzy không dấu + boost usage/ngữ cảnh) + palette UI | 📋 proposed | PLAN-050 §7/§9 P0; palette mở ≤2 thao tác từ mọi tab; mở file qua định danh nguồn thật của service (quy tắc vàng 3); đo ≤150 ms ~1000 mục trong test |
+| MASCOT-001 | Nền móng: `MascotIntentRegistry` (thuần) + mở rộng `ShellNavigationRequest` + cầu `ShellActionHub` bọc `_handleTool`/`_setPrimaryTab`/`_setListenMode`/`_setReadMode` của main_shell | 🔨 doing (code + test thuần `test/mascot/`; chờ CI + nghiệm thu) | PLAN-050 §5/§7/§9 P0; registry = nguồn sự thật duy nhất mọi hành động (ADR-0036 D2/D3); 8 intent voice_command cũ đăng ký lại cùng ngữ nghĩa (nhóm playback — P0 chưa nối executor) |
+| MASCOT-002 | Mở nhanh: `MascotSearchIndex` hợp nhất (tools ~28 id + tab/mode + RecentFiles + TextLibrary + Audio/Video library + Tipiṭaka + dict packs + WordList, fuzzy không dấu + boost usage/ngữ cảnh) + palette UI | 🔨 doing (P0 code + test: tools/tab/mode + RecentFiles local + audio library; chờ CI + nghiệm thu máy) | PLAN-050 §7/§9 P0; palette mở ≤2 thao tác từ mọi tab (tool id `mascot_palette` trong quick actions); mở file qua TextProvider/PdfReaderScreen + PlayerProvider.loadSong (định danh nguồn thật — quy tắc vàng 3); TextLibrary/Tipiṭaka/WordList nối cùng khớp loại ở P1 (MASCOT-003) |
 | MASCOT-003 | Não linh vật: `MascotController` + persona prompts (quản gia/gia sư/hướng dẫn) + `MascotContextBuilder` theo tab (trần ~1.2k ký tự, khuôn UnderstandAiContext) + protocol JSON `{"say","action"}` fallback chỉ-nói | 📋 proposed | PLAN-050 §5/§8/§9 P1; TÁI DÙNG AiServiceFacade (Gemma ⇄ OpenRouter) qua `oneShotContext` — không dựng não thứ hai (ADR-0036 D1/D4); JSON hỏng ⇒ không thực thi |
 | MASCOT-004 | UI linh vật nổi trong MainShell: bong bóng Lottie 4 trạng thái (idle/listening/thinking/speaking) theo brand Hidden Gift 04A (Midnight/Jade→Gold/Ivory), kéo/autohide/ẩn hẳn + chat sheet streaming | 📋 proposed | PLAN-050 §10/§9 P1; overlay trong Stack (không màn push — ADR-0036 D1); chrome i18n en/hi/zh/zh_TW/si trong CÙNG PR (bài học REL-1.29.2); QA Android + Windows |
 | MASCOT-005 | Hội thoại âm thanh: máy trạng thái thuần `MascotVoiceLoop` (STT→LLM→TTS, barge-in dừng TTS bằng epoch guard) + chính sách duck/restore qua PlayerProvider, không tự TTS khi audio đang phát | 📋 proposed | PLAN-050 §8/§9 P2; SttServiceFacade + TtsService có sẵn, KHÔNG engine mới, KHÔNG đụng FFI (ADR-0036 D5); nghiệm thu máy thật: barge-in <300 ms, ≥5 lượt không treo |
@@ -10069,3 +10069,30 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **CI:** thêm bước `flutter test test/mascot/` vào `app_analyze.yml` ở PR P0 đầu tiên;
   chỉ test thuần Dart trong sandbox (không có Flutter SDK); UI nghiệm thu máy thật.
 
+
+### Lịch sử MASCOT (append-only — PLAN-050)
+
+- 2026-11-25 | MASCOT-001/002 | proposed→doing | agent `arena/4ad3035e-in4up` |
+  owner chốt DQ1–DQ5: tên **Sara**, hình tượng **lá bồ đề** (bấm nhầm «để sau»,
+  đính chính qua trả lời DQ2), giọng **vi+en trước**, não **theo routing hiện có**
+  (OpenRouter online-first, rớt Gemma offline), **duyệt P0 thi công ngay**.
+  Code P0: `lib/features/mascot/mascot_intent_registry.dart` (registry thuần:
+  5 tab + 5 mode + ~24 tool id trùng `_handleTool` + 8 intent voice_command cũ;
+  chuẩn hoá không dấu cùng phương pháp voice_command_parser),
+  `mascot_search_index.dart` (exact/prefix/word-prefix/contains/fuzzy
+  subsequence + boost), `shell_action_hub.dart` (cầu attach/detach),
+  `widgets/mascot_palette.dart` (overlay tìm kiếm, ↑↓/Enter/Esc desktop + tap
+  mobile); `ShellNavigationRequest` mở rộng (+home/understand/remember/tool +
+  `pendingToolId`, giữ nguyên openRead/openListen); main_shell: tách
+  `_buildToolById`, tool `mascot_palette` ở quick actions MỌI tab,
+  `_handleTool` case mới, `_openMascotPalette/_buildPaletteEntries/
+  _executeMascotAction` (mở tệp gần đây local qua `TextProvider.loadTextFile` +
+  `_setReadMode(0)` / `PdfReaderScreen`; audio library qua
+  `PlayerProvider.loadSong` → `openListen`, cùng đường Kho media YouTube);
+  i18n 9 chuỗi chrome mới en/hi/zh/zh_TW/si (`priority_ui_overrides.dart` +
+  `generated_legacy_ui_fallbacks.dart` + `legacy_ui_english_overrides.json`);
+  test thuần `test/mascot/` 3 file (registry · index + hiệu năng 1000 mục ·
+  hub + hợp đồng nav) + bước CI "MASCOT-001/002" trong `app_analyze.yml`.
+  **Chưa có:** hội thoại (P1), giọng nói (P2), proactive (P3), tour (P4);
+  playback executor chưa nối (P2). Chờ CI + nghiệm thu máy (palette mở từ
+  quick actions, tìm không dấu, mở file/audio).

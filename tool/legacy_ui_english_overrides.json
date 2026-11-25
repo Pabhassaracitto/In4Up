@@ -4250,5 +4250,14 @@
   "Model lớn hơn ngưỡng gợi ý — cần xác nhận trước khi tải.": "Model is larger than the suggested limit — confirmation is required before downloading.",
   "Máy chủ báo dung lượng tải: {value0}": "Server-reported download size: {value0}",
   "Kích thước là số do máy chủ báo qua HEAD, chưa phải file trên máy. RAM đỉnh khi chạy vẫn chỉ là ước tính. Tải file lớn có thể tốn băng thông, pin và làm app chậm/nóng.": "The size is reported by the server via HEAD, not yet the file on this device. Peak RAM remains an estimate. A large download can use bandwidth and battery and slow or heat the app.",
-  "Vẫn tải": "Download anyway"
+  "Vẫn tải": "Download anyway",
+  "Mở nhanh": "Quick open",
+  "Tìm chức năng, tệp hoặc lệnh…": "Search features, files, or commands…",
+  "Không có kết quả khớp": "No matching results",
+  "Chức năng": "Features",
+  "Đi đến": "Go to",
+  "Tệp & âm thanh": "Files & audio",
+  "Không tìm thấy tệp trong danh sách gần đây": "File not found in the recent list",
+  "Không tìm thấy bài trong thư viện âm thanh": "Track not found in the audio library",
+  "Không mở được tệp": "Could not open the file"
 }

@@ -25,6 +25,12 @@ import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../features/media_tools/screens/media_tools_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
+import '../features/mascot/mascot_intent_registry.dart';
+import '../features/mascot/mascot_search_index.dart';
+import '../features/mascot/shell_action_hub.dart';
+import '../features/mascot/widgets/mascot_palette.dart';
+import '../models/audio_library_entry.dart';
+import '../providers/audio_library_provider.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -92,6 +98,15 @@ class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final StorageService _storage = StorageService();
 
+  /// MASCOT-001: cầu thực thi cho palette «Mở nhanh»/linh vật Sara — gắn ở
+  /// initState, gỡ ở dispose (xem `ShellActionHub`). Callbacks là các hàm
+  /// có sẵn của shell, không đổi hành vi.
+  late final ShellActionCallbacks _shellActionCallbacks = ShellActionCallbacks(
+    onSetListenMode: _setListenMode,
+    onSetReadMode: _setReadMode,
+    onHandleTool: _handleTool,
+  );
+
   // ===== SHELL-GEAR-001: logging seam (CHỈ debug — không đổi hành vi) =====
   // Owner long-press nút gear → sọc vàng-đen (phải + đáy) + assertion
   // overlay.dart. Chưa tái hiện được ngoài máy owner → seam này để logcat
@@ -133,6 +148,8 @@ class _MainShellState extends State<MainShell> {
     ReadChromeLayoutStore.instance.load();
     ReadChromeLayoutStore.instance.layout.addListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
+    // MASCOT-001: gắn cầu thực thi cho registry linh vật (palette/giọng).
+    ShellActionHub.instance.attach(_shellActionCallbacks);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final vocabProvider = context.read<VocabularyProvider>();
@@ -154,6 +171,7 @@ class _MainShellState extends State<MainShell> {
     ReadChromeLayoutStore.instance.layout
         .removeListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
+    ShellActionHub.instance.detach(_shellActionCallbacks);
     _modeSwitchHideTimer?.cancel();
     _shellHintTimer?.cancel();
     super.dispose();
@@ -626,6 +644,19 @@ class _MainShellState extends State<MainShell> {
         // YT-MEDIA-LIB-001: màn "Kho media YouTube" mở tab Nghe (chế độ Nghe
         // = 0). File âm thanh đã được màn gọi nạp vào `PlayerProvider` trước.
         _setListenMode(0);
+      case ShellNavigationTarget.home:
+        _setPrimaryTab(_PrimaryTab.home);
+      case ShellNavigationTarget.understand:
+        _setPrimaryTab(_PrimaryTab.understand);
+      case ShellNavigationTarget.remember:
+        _setPrimaryTab(_PrimaryTab.remember);
+      case ShellNavigationTarget.tool:
+        // MASCOT-001: mở tool qua cùng dispatcher quick actions.
+        final toolId = ShellNavigationRequest.pendingToolId.value;
+        ShellNavigationRequest.pendingToolId.value = null;
+        if (toolId != null && toolId.isNotEmpty) {
+          unawaited(_handleTool(toolId));
+        }
     }
   }
 
@@ -734,10 +765,21 @@ class _MainShellState extends State<MainShell> {
     await _handleTool(toolId);
   }
 
-  List<tools.ToolItem> _buildQuickActions(BuildContext context) {
+  /// MASCOT-001/002: bản đồ ToolItem dùng chung cho quick actions và palette
+  /// «Mở nhanh» (Sara) — tách method để tái dùng, nội dung giữ nguyên.
+  Map<String, tools.ToolItem> _buildToolById(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
     final toolById = <String, tools.ToolItem>{
+      // MASCOT-002: palette «Mở nhanh» cũng là một tool — xuất hiện trong
+      // quick actions (mọi tab) và tự mở lại được từ _handleTool.
+      'mascot_palette': tools.ToolItem(
+        id: 'mascot_palette',
+        title: context.uiText('Mở nhanh'),
+        subtitle: context.uiText('Tìm chức năng, tệp hoặc lệnh…'),
+        icon: Icons.manage_search_rounded,
+        color: const Color(0xFF53D6BD),
+      ),
       'shell_ui_settings': tools.ToolItem(
         id: 'shell_ui_settings',
         title: context.uiText('Giao diện shell'),
@@ -936,6 +978,12 @@ class _MainShellState extends State<MainShell> {
       ),
     };
 
+    return toolById;
+  }
+
+  List<tools.ToolItem> _buildQuickActions(BuildContext context) {
+    final toolById = _buildToolById(context);
+
     List<tools.ToolItem> take(List<String> ids) => [
           for (final id in ids)
             if (toolById[id] != null) toolById[id]!,
@@ -943,6 +991,7 @@ class _MainShellState extends State<MainShell> {
 
     final openContent = switch (_currentTab) {
       _PrimaryTab.home => take([
+          'mascot_palette',
           'shell_ui_settings',
           'tipitaka',
           'youtube_downloader',
@@ -956,6 +1005,7 @@ class _MainShellState extends State<MainShell> {
           'dict_packs',
         ]),
       _PrimaryTab.listen => take([
+          'mascot_palette',
           'media_tools',
           'youtube_downloader',
           'video_library',
@@ -963,6 +1013,7 @@ class _MainShellState extends State<MainShell> {
           'shell_ui_settings',
         ]),
       _PrimaryTab.read => take([
+          'mascot_palette',
           'web_reader',
           'pdf_reader',
           'tipitaka',
@@ -971,12 +1022,14 @@ class _MainShellState extends State<MainShell> {
           'shell_ui_settings',
         ]),
       _PrimaryTab.understand => take([
+          'mascot_palette',
           'pdf_reader',
           'web_reader',
           'youtube_downloader',
           'shell_ui_settings',
         ]),
       _PrimaryTab.remember => take([
+          'mascot_palette',
           'word_list',
           'learn_by_heart',
           'shell_ui_settings',
@@ -1193,6 +1246,10 @@ class _MainShellState extends State<MainShell> {
     }
 
     switch (toolId) {
+      case 'mascot_palette':
+        // MASCOT-002: palette «Mở nhanh» của linh vật Sara.
+        await _openMascotPalette();
+        return;
       case 'live_cabin':
         nav.push(
           MaterialPageRoute(
@@ -1351,6 +1408,254 @@ class _MainShellState extends State<MainShell> {
         return;
     }
   }
+
+  // ═══════════════ MASCOT-001/002 — Palette «Mở nhanh» (Sara) ═══════════════
+
+  /// Mở palette «Mở nhanh»: tìm kiếm hợp nhất tab/mode/tool + tệp gần đây +
+  /// âm thanh; thực thi qua cùng cơ chế quick actions (hub/_handleTool).
+  Future<void> _openMascotPalette() async {
+    final entries = await _buildPaletteEntries();
+    if (!mounted) return;
+    final actionId = await showMascotPalette(context, entries: entries);
+    if (!mounted || actionId == null || actionId.isEmpty) return;
+    await _executeMascotAction(actionId);
+  }
+
+  /// Mục palette — nhãn lấy từ cùng nguồn quick actions (ToolItem/l10n/uiText)
+  /// nên đã i18n; boost theo usage + ngữ cảnh tab hiện tại (khuôn
+  /// `_quickActionScore`). Tệp/âm thanh chỉ thêm khi có định danh nguồn thật
+  /// (quy tắc vàng 3 — không chế tạo đường dẫn).
+  Future<List<MascotSearchEntry>> _buildPaletteEntries() async {
+    final l10n = AppLocalizations.of(context);
+    final toolById = _buildToolById(context);
+    final audioLibrary = context.read<AudioLibraryProvider>();
+    final entries = <MascotSearchEntry>[
+      // Tab chính — cùng nhãn bottom nav.
+      MascotSearchEntry(
+        id: 'tab_home',
+        kind: MascotSearchKind.tab,
+        title: l10n.home,
+        boost: _currentTab == _PrimaryTab.home ? 0.5 : 0,
+      ),
+      MascotSearchEntry(
+        id: 'tab_listen',
+        kind: MascotSearchKind.tab,
+        title: l10n.listen,
+        boost: _currentTab == _PrimaryTab.listen ? 0.5 : 0,
+      ),
+      MascotSearchEntry(
+        id: 'tab_read',
+        kind: MascotSearchKind.tab,
+        title: l10n.read,
+        boost: _currentTab == _PrimaryTab.read ? 0.5 : 0,
+      ),
+      MascotSearchEntry(
+        id: 'tab_understand',
+        kind: MascotSearchKind.tab,
+        title: l10n.understand,
+        boost: _currentTab == _PrimaryTab.understand ? 0.5 : 0,
+      ),
+      MascotSearchEntry(
+        id: 'tab_remember',
+        kind: MascotSearchKind.tab,
+        title: l10n.remember,
+        boost: _currentTab == _PrimaryTab.remember ? 0.5 : 0,
+      ),
+      // Sub-mode — nhãn đã có sẵn trong catalog i18n.
+      MascotSearchEntry(
+        id: 'mode_listen',
+        kind: MascotSearchKind.mode,
+        title: context.uiText('Nghe'),
+      ),
+      MascotSearchEntry(
+        id: 'mode_speak',
+        kind: MascotSearchKind.mode,
+        title: context.uiText('Nói'),
+      ),
+      MascotSearchEntry(
+        id: 'mode_watch',
+        kind: MascotSearchKind.mode,
+        title: context.uiText('Xem'),
+      ),
+      MascotSearchEntry(
+        id: 'mode_read',
+        kind: MascotSearchKind.mode,
+        title: context.uiText('Đọc'),
+      ),
+      MascotSearchEntry(
+        id: 'mode_write',
+        kind: MascotSearchKind.mode,
+        title: context.uiText('Viết'),
+      ),
+      // Tools — trừ chính palette (đang mở rồi).
+      for (final tool in toolById.values)
+        if (tool.id != 'mascot_palette')
+          MascotSearchEntry(
+            id: tool.id,
+            kind: MascotSearchKind.tool,
+            title: tool.title,
+            subtitle: tool.subtitle,
+            boost: _paletteToolBoost(tool.id),
+          ),
+    ];
+
+    // Tệp gần đây (tab Đọc) — chỉ mục local có đường dẫn thật.
+    try {
+      final recents = await RecentFilesService().getAll();
+      for (final file in recents) {
+        final path = file.localPath;
+        if (path == null || path.isEmpty) continue;
+        if (file.type != RecentFileType.localText &&
+            file.type != RecentFileType.localPdf) {
+          continue;
+        }
+        entries.add(MascotSearchEntry(
+          id: 'file:${file.id}',
+          kind: MascotSearchKind.file,
+          title: file.title,
+          subtitle: path,
+          boost: 0.4,
+        ));
+      }
+    } catch (e) {
+      debugPrint('MASCOT-002: nạp tệp gần đây lỗi ($e)');
+    }
+
+    // Âm thanh trong thư viện — mở qua PlayerProvider.loadSong (cùng đường
+    // với Kho media YouTube: nạp trước, mở tab Nghe sau). Trần 40 mục để
+    // palette nhẹ với thư viện lớn.
+    try {
+      for (final audio in audioLibrary.entries.take(40)) {
+        if (audio.uri.isEmpty) continue;
+        entries.add(MascotSearchEntry(
+          id: 'audio:${audio.libraryId}',
+          kind: MascotSearchKind.audio,
+          title: audio.title,
+          subtitle: audio.artist,
+          boost: 0.25,
+        ));
+      }
+    } catch (e) {
+      debugPrint('MASCOT-002: nạp thư viện âm thanh lỗi ($e)');
+    }
+
+    return entries;
+  }
+
+  /// Boost 0..1 cho tool: ưu tiên nền theo tab (khuôn `_basePriorityForTool`)
+  /// + đã dùng bao giờ + dùng gần 72h.
+  double _paletteToolBoost(String id) {
+    var boost = (_basePriorityForTool(id) / 100) * 0.4;
+    if (_storage.getQuickActionUsageCount(id) > 0) boost += 0.2;
+    final lastUsed = _storage.getQuickActionLastUsedMillis(id);
+    if (lastUsed > 0 &&
+        DateTime.now().millisecondsSinceEpoch - lastUsed < 72 * 3600000) {
+      boost += 0.2;
+    }
+    return boost.clamp(0.0, 1.0);
+  }
+
+  /// Thực thi lựa chọn palette: registry trước (tab/mode/tool qua hub);
+  /// `file:`/`audio:` mở qua service hiện có; tool chưa kịp đăng ký đi thẳng
+  /// `_handleTool` như quick actions cũ.
+  Future<void> _executeMascotAction(String actionId) async {
+    if (!mounted) return;
+    final audioProvider = context.read<AudioLibraryProvider>();
+
+    if (actionId.startsWith('file:')) {
+      final recentId = actionId.substring('file:'.length);
+      final file = await _findRecentFileById(recentId);
+      if (!mounted) return;
+      if (file != null) {
+        await _openPaletteFile(file);
+      } else {
+        _showWorkspaceSnack(
+            context.uiText('Không tìm thấy tệp trong danh sách gần đây'));
+      }
+      return;
+    }
+
+    if (actionId.startsWith('audio:')) {
+      final libraryId = actionId.substring('audio:'.length);
+      AudioLibraryEntry? audio;
+      for (final entry in audioProvider.entries) {
+        if (entry.libraryId == libraryId) {
+          audio = entry;
+          break;
+        }
+      }
+      if (!mounted) return;
+      if (audio != null) {
+        await _openPaletteAudio(audio);
+      } else {
+        _showWorkspaceSnack(
+            context.uiText('Không tìm thấy bài trong thư viện âm thanh'));
+      }
+      return;
+    }
+
+    final def = MascotIntentRegistry.byId(actionId);
+    if (def != null) {
+      if (def.group == MascotActionGroup.tool) {
+        await _storage.recordQuickActionUsage(def.id);
+      }
+      await ShellActionHub.instance.execute(def);
+      return;
+    }
+    await _storage.recordQuickActionUsage(actionId);
+    await _handleTool(actionId);
+  }
+
+  Future<RecentFile?> _findRecentFileById(String id) async {
+    try {
+      final recents = await RecentFilesService().getAll();
+      for (final file in recents) {
+        if (file.id == id) return file;
+      }
+    } catch (e) {
+      debugPrint('MASCOT-002: tra tệp gần đây lỗi ($e)');
+    }
+    return null;
+  }
+
+  /// Mở tệp gần đây bằng đúng đường mở hiện có: text →
+  /// `TextProvider.loadTextFile` + tab Đọc; PDF → `PdfReaderScreen`
+  /// (giống nhánh 'pdf_reader' của quick actions).
+  Future<void> _openPaletteFile(RecentFile file) async {
+    final path = file.localPath;
+    if (path == null || path.isEmpty) return;
+    if (file.type == RecentFileType.localPdf) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PdfReaderScreen(pdfPath: path),
+        ),
+      );
+      return;
+    }
+    final ok = await context.read<TextProvider>().loadTextFile(path);
+    if (!mounted) return;
+    if (ok) {
+      _setReadMode(0);
+    } else {
+      _showWorkspaceSnack(context.uiText('Không mở được tệp'));
+    }
+  }
+
+  /// Nạp bài vào `PlayerProvider` (autoPlay:false như luồng Kho media
+  /// YouTube) rồi mở tab Nghe qua `ShellNavigationRequest`.
+  Future<void> _openPaletteAudio(AudioLibraryEntry audio) async {
+    final ok = await context
+        .read<PlayerProvider>()
+        .loadSong(path: audio.uri, title: audio.title, artist: audio.artist);
+    if (!mounted) return;
+    if (ok) {
+      ShellNavigationRequest.openListen();
+    } else {
+      _showWorkspaceSnack(context.uiText('Không mở được tệp'));
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
 
   Widget _buildCurrentScreen() {
     switch (_currentTab) {

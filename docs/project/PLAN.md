@@ -1518,8 +1518,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
 
 ### PLAN-050 — Linh vật AI In4Up: quản gia · gia sư · hướng dẫn dùng app (chat + giọng nói + mở nhanh)
 - Nguồn: người sở hữu (2026-11-25, qua agent `arena/4ad3035e-in4up`).
-- Trạng thái: proposed — đã khảo sát repo (9 lượt) và lập kế hoạch; chờ owner chốt
-  DQ1–DQ5 rồi thi công theo P0→P4.
+- Trạng thái: doing — owner chốt DQ1–DQ5 (2026-11-25: Sara lá bồ đề · vi+en
+  trước · routing hiện có · duyệt P0); P0 (MASCOT-001+002) đang thi công.
 - Milestone đề xuất: M3 — lớp trợ lý AI nền tảng (phạm vi mới ngoài bàn giao M0–M2;
   không đụng danh mục M3 cũ của Knowledge).
 - Chi tiết: [`plans/PLAN-050-linh-vat-ai-i4u.md`](../plans/PLAN-050-linh-vat-ai-i4u.md)
@@ -1541,3 +1541,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
     voice_command/libraries/brand/governance ⇒ PLAN-050 + ADR-0036 + 8 card KANBAN
     (proposed); chờ DQ1–DQ5 (tên, ngôn ngữ giọng, não mặc định, vị trí bong bóng,
     duyệt P0).
+  - 2026-11-25 | created→doing | agent `arena/4ad3035e-in4up` | owner chốt DQ1–DQ5
+    (Sara lá bồ đề · vi+en trước · routing hiện có · P0 làm ngay) ⇒ thi công P0
+    (MASCOT-001+002): `lib/features/mascot/` (registry + search index + hub thuần
+    Dart), `ShellNavigationRequest` mở rộng, palette «Mở nhanh» trong main_shell,
+    i18n 9 chuỗi T2, test thuần `test/mascot/` + bước CI mới.

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cabin_audio_channel">Âm thanh Cabin trực tiếp</string>
+    <string name="cabin_audio_notification_title">Cabin đang thu âm thanh hệ thống</string>
+    <string name="cabin_audio_notification_body">Nhấn Dừng để kết thúc thu âm.</string>
+    <string name="cabin_audio_stop">Dừng</string>
+</resources>

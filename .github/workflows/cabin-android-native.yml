@@ -1,0 +1,50 @@
+name: Cabin Android native
+
+on:
+  push:
+    branches: ['arena/**', 'main']
+    paths:
+      - 'android/app/src/main/kotlin/com/in4up/cabin/**'
+      - 'android/app/src/main/res/values*/strings_cabin_audio.xml'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - '.github/workflows/cabin-android-native.yml'
+  pull_request:
+    paths:
+      - 'android/app/src/main/kotlin/com/in4up/cabin/**'
+      - 'android/app/src/main/res/values*/strings_cabin_audio.xml'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - '.github/workflows/cabin-android-native.yml'
+  workflow_dispatch:
+
+jobs:
+  kotlin-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android API and Kotlin compiler
+        run: |
+          sdkmanager 'platforms;android-36'
+          if ! command -v kotlinc >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y kotlin
+          fi
+      - name: Compile Android capture sources
+        run: |
+          cat > "$RUNNER_TEMP/CabinR.kt" <<'KOTLIN'
+          package com.in4up
+          object R { object string {
+            const val cabin_audio_channel = 1
+            const val cabin_audio_notification_title = 2
+            const val cabin_audio_notification_body = 3
+            const val cabin_audio_stop = 4
+          } }
+          KOTLIN
+          kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
+            "$RUNNER_TEMP/CabinR.kt" android/app/src/main/kotlin/com/in4up/cabin/*.kt \
+            -d "$RUNNER_TEMP/cabin-audio.jar"

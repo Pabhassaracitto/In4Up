@@ -100,6 +100,15 @@ class MainActivity : FlutterActivity() {
     private var pendingDeepLink: String? = null
     private var deepLinkListenerReady = false
 
+    // ADR-0018 P2 — chữ bôi chọn từ app khác (`ACTION_PROCESS_TEXT`).
+    // Native CHỈ lấy `EXTRA_PROCESS_TEXT` rồi chuyển tiếp chuỗi thô; smart
+    // split (một từ → Từ điển, cụm/câu → sheet dịch) nằm ở Dart:
+    // features/dictionary/services/process_text_router.dart.
+    private val processTextChannelName = "in4up/process_text"
+    private var processTextChannel: MethodChannel? = null
+    private var pendingProcessText: String? = null
+    private var processTextListenerReady = false
+
     // BATTERY-OPT-001 — mở ĐÚNG màn "Tối ưu pin" của HỆ THỐNG cho app này.
     //
     // Vì sao cần native thay vì chỉ `permission_handler`:
@@ -181,6 +190,17 @@ class MainActivity : FlutterActivity() {
         if (savedInstanceState == null && IncomingFileResolver.isIncomingFileIntent(intent)) {
             captureIncomingFileIntent(intent, isInitialLaunch = true)
         }
+        // Keep an unconsumed selection across activity recreation, but never
+        // replay a selection that Dart already consumed.
+        pendingProcessText = if (savedInstanceState != null) {
+            savedInstanceState.getString(STATE_PENDING_PROCESS_TEXT)
+        } else {
+            selectedProcessText(intent)
+        }
+        if (intent.action == Intent.ACTION_PROCESS_TEXT) {
+            intent.removeExtra(Intent.EXTRA_PROCESS_TEXT)
+            setIntent(Intent(Intent.ACTION_MAIN))
+        }
     }
 
     /**
@@ -194,9 +214,23 @@ class MainActivity : FlutterActivity() {
             captureIncomingFileIntent(intent, isInitialLaunch = false)
             return
         }
-        val link = if (intent.action == Intent.ACTION_PROCESS_TEXT)
-            processTextLink(intent) else intent.dataString
-        if (intent.action == Intent.ACTION_PROCESS_TEXT) setIntent(Intent(Intent.ACTION_MAIN))
+        // PROCESS_TEXT goes only through smart split, not also the deep-link
+        // channel. This preserves the base branch's normal link ready guard.
+        if (intent.action == Intent.ACTION_PROCESS_TEXT) {
+            val text = selectedProcessText(intent)
+            intent.removeExtra(Intent.EXTRA_PROCESS_TEXT)
+            setIntent(Intent(Intent.ACTION_MAIN))
+            if (text != null) {
+                val processChannel = processTextChannel
+                if (processChannel == null || !processTextListenerReady) {
+                    pendingProcessText = text
+                } else {
+                    processChannel.invokeMethod("onProcessText", text)
+                }
+            }
+            return
+        }
+        val link = intent.dataString
         if (link.isNullOrEmpty()) return
         val channel = deepLinkChannel
         if (channel == null || !deepLinkListenerReady) {
@@ -263,27 +297,18 @@ class MainActivity : FlutterActivity() {
      * CI đỏ với "Expecting member declaration" ở dòng KHÔNG liên quan (đã xảy
      * ra: run 40628219927 / 40629835587 / 40631471443 / 40633324522).
      */
-    // Only the text explicitly selected by the user, not clipboard or screen capture.
-    // Return an app-specific URI so the same Dart validation applies as deep links.
-    private fun processTextLink(incoming: Intent?): String? {
+    // Handle Spannable/CharSequence selections too, and bound untrusted input.
+    private fun selectedProcessText(incoming: Intent?): String? {
         if (incoming?.action != Intent.ACTION_PROCESS_TEXT || incoming.type != "text/plain") return null
         val text = try { incoming.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() }
             catch (_: RuntimeException) { null } ?: return null
-        // Bound the data before URI encoding; Dart enforces the stricter 64-rune limit.
-        if (text.isBlank() || text.length > 256) return null
-        return Uri.Builder().scheme("in4up").authority("dict")
-            .appendQueryParameter("w", text).build().toString()
+        return text.takeIf { it.isNotBlank() && it.length <= 100000 }
     }
 
     private fun consumeInitialDeepLink(): String? {
         val queued = pendingDeepLink
         pendingDeepLink = null
         if (queued != null) return queued
-        if (intent?.action == Intent.ACTION_PROCESS_TEXT) {
-            val link = processTextLink(intent)
-            setIntent(Intent(Intent.ACTION_MAIN))
-            return link
-        }
         val data = intent?.data ?: return null
         val scheme = data.scheme?.lowercase()
         val host = data.host?.lowercase()
@@ -295,8 +320,20 @@ class MainActivity : FlutterActivity() {
         return data.toString()
     }
 
+    /**
+     * ADR-0018 P2 — trả `EXTRA_PROCESS_TEXT` MỘT LẦN cho Dart (ProcessTextRouter
+     * gọi ngay sau runApp qua `getInitialProcessText`). Đọc xong xoá extra để
+     * activity dựng lại (xoay màn/process restore) không gửi lại chuỗi cũ.
+     */
+    private fun consumeInitialProcessText(): String? {
+        val queued = pendingProcessText
+        pendingProcessText = null
+        return queued
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
+        pendingProcessText?.let { outState.putString(STATE_PENDING_PROCESS_TEXT, it) }
         // Chỉ lưu khi thật sự có phiên quét đang chờ: instance mới đọc cờ này
         // để biết kết quả máy quét đã bị hệ thống nuốt mất.
         if (scanSessionInFlight) {
@@ -360,6 +397,24 @@ class MainActivity : FlutterActivity() {
                     "getInitialLink" -> {
                         deepLinkListenerReady = true
                         result.success(consumeInitialDeepLink())
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
+        // ADR-0018 P2 — chữ bôi chọn từ app khác. Native CHỈ chuyển tiếp
+        // `EXTRA_PROCESS_TEXT` thô; smart split nằm ở Dart
+        // (features/dictionary/services/process_text_router.dart).
+        processTextChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            processTextChannelName,
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // App vừa được mở bằng PROCESS_TEXT ⇒ trả chuỗi một lần.
+                    "getInitialProcessText" -> {
+                        processTextListenerReady = true
+                        result.success(consumeInitialProcessText())
                     }
                     else -> result.notImplemented()
                 }
@@ -1535,6 +1590,7 @@ class MainActivity : FlutterActivity() {
         private const val OCR_TAG = "In4UpOcr"
         private const val OCR_CHANNEL_NAME = "in4up/ocr"
         private const val STATE_OCR_SCAN_IN_FLIGHT = "in4up.ocrScanInFlight"
+        private const val STATE_PENDING_PROCESS_TEXT = "in4up.pendingProcessText"
 
         /** Dấu vết nhận diện exception đến từ lane quét tài liệu (ML Kit/GMS). */
         private val OCR_CRASH_MARKERS = listOf(

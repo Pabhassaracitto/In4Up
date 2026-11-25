@@ -69,6 +69,7 @@ import 'core/platform/system_tts/system_tts_entrypoint.dart';
 
 // ADR-0018 (P1) — link/tệp từ ngoài app (in4up://dict?w=…, "Mở bằng In4Up").
 import 'features/dictionary/services/dict_deep_link_router.dart';
+import 'features/dictionary/services/process_text_router.dart';
 import 'features/dharma/services/dharma_provider.dart';
 
 bool isFirebaseAvailable = false;
@@ -172,6 +173,10 @@ Future<void> main(List<String> args) async {
   // tới khi `navigatorKey` có Navigator. `args` là `argv` trên Windows/Linux
   // (`in4up.exe "C:\a.mdx"`); Android/iOS để trống.
   unawaited(DictDeepLinkRouter.instance.start(args));
+  // ADR-0018 P2 — chữ bôi chọn từ app khác (ACTION_PROCESS_TEXT: Chrome,
+  // đọc PDF…): một từ → mở Từ điển, cụm/câu → hiện bảng dịch (smart split).
+  // Dùng chung `navigatorKey` với deep link (MaterialApp chỉ nhận một key).
+  unawaited(ProcessTextRouter.instance.start());
   if (!kIsWeb) {
     DictDeepLinkRouter.instance.attachFileOpenHandler(
       IncomingFileRouter.instance.handleOpenPathLink,

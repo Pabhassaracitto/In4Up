@@ -1,0 +1,26 @@
+name: Cabin Windows native
+
+on:
+  push:
+    branches: ['arena/**', 'main']
+    paths:
+      - 'windows/cabin_audio/**'
+      - '.github/workflows/cabin-windows-native.yml'
+  pull_request:
+    paths:
+      - 'windows/cabin_audio/**'
+      - '.github/workflows/cabin-windows-native.yml'
+  workflow_dispatch:
+
+jobs:
+  native-abi:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native DLL
+        run: cmake -S windows/cabin_audio -B cabin-native-build -A x64
+      - name: Compile
+        run: cmake --build cabin-native-build --config Release
+      - name: Test exports and invalid arguments
+        run: ctest --test-dir cabin-native-build -C Release --output-on-failure

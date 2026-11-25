@@ -35,6 +35,22 @@ void main() {
     expect(text, isNot(contains('bad')));
   });
 
+  test('only inert inline typography declarations are applied', () {
+    final safe = safeDictionaryInlineStyle(
+      'font-weight: bold; font-style: italic; text-decoration: underline; '
+      'color: red; background: url(https://example.com/x); display:none');
+    expect(safe.fontWeight, material.FontWeight.bold);
+    expect(safe.fontStyle, material.FontStyle.italic);
+    expect(safe.decoration, material.TextDecoration.underline);
+    expect(safe.color, isNull);
+    final malicious = safeDictionaryInlineStyle('font-weight: url(file:///x); font-style: italic!important');
+    expect(malicious.fontWeight, isNull);
+    expect(malicious.fontStyle, isNull);
+    expect(safeDictionaryInlineStyle('font-weight:bold;${'x' * 1024}').fontWeight, isNull);
+    final span = dictionaryTextSpans('<span style="font-weight:bold">styled</span>');
+    expect((span.children!.first as material.TextSpan).style!.fontWeight, material.FontWeight.bold);
+  });
+
   test('removes MDX terminator from already imported text', () {
     expect(dictionaryTextSpans('nghĩa gốc\u0000').toPlainText(), 'nghĩa gốc');
     expect(dictionaryTextSpans('<p>definition</p>\u0000').toPlainText(),

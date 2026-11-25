@@ -44,7 +44,7 @@ class DictSourceEntries extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          context.uiText('Ảnh MDD đang thử nghiệm; chưa hỗ trợ CSS và âm thanh.'),
+          context.uiText('Ảnh MDD thử nghiệm; chỉ hỗ trợ một số kiểu chữ, chưa hỗ trợ tệp CSS và âm thanh.'),
           style: TextStyle(color: Colors.grey[400], fontSize: 12),
         ),
         for (final entry in entries)
@@ -98,7 +98,8 @@ class DictSourceEntries extends StatelessWidget {
 }
 
 /// Render a safe, non-executable HTML subset as selectable text. No HTML
-/// attributes are interpreted; resource requests and JavaScript are impossible.
+/// attributes are interpreted except a strict, inert inline typography subset;
+/// resource requests and JavaScript are impossible.
 /// Whitespace inside preformatted blocks is retained; normal HTML whitespace
 /// is collapsed. No sense/example truncation or cross-dictionary deduplication.
 TextSpan dictionaryTextSpans(String definition) {
@@ -166,12 +167,14 @@ TextSpan dictionaryTextSpans(String definition) {
       spans.add(TextSpan(text: marker, style: style));
       lastEndsWithNewline = false;
     }
-    final nextStyle = style.merge(TextStyle(
+    final tagStyle = TextStyle(
       fontWeight: <String>{'b', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'th'}.contains(tag)
           ? FontWeight.bold : null,
       fontStyle: <String>{'i', 'em'}.contains(tag) ? FontStyle.italic : null,
       decoration: tag == 'u' ? TextDecoration.underline : null,
-    ));
+    );
+    final inline = safeDictionaryInlineStyle(node.attributes['style']);
+    final nextStyle = style.merge(tagStyle).merge(inline);
     for (final child in node.nodes) {
       visit(child, nextStyle, pre || tag == 'pre', depth + 1);
     }
@@ -183,4 +186,35 @@ TextSpan dictionaryTextSpans(String definition) {
     visit(node, const TextStyle(), false, 0);
   }
   return TextSpan(children: spans);
+}
+
+/// Only inert typography declarations. Never interpret URLs, escapes, selectors,
+/// colors, fonts, sizing, layout, visibility, or external stylesheets.
+TextStyle safeDictionaryInlineStyle(String? css) {
+  if (css == null || css.length > 1024) return const TextStyle();
+  FontWeight? weight;
+  FontStyle? fontStyle;
+  TextDecoration? decoration;
+  for (final declaration in css.split(';').take(32)) {
+    final split = declaration.indexOf(':');
+    if (split < 1) continue;
+    final key = declaration.substring(0, split).trim().toLowerCase();
+    final value = declaration.substring(split + 1).trim().toLowerCase();
+    switch (key) {
+      case 'font-weight':
+        if (value == 'bold' || value == '700') weight = FontWeight.bold;
+        if (value == 'normal' || value == '400') weight = FontWeight.normal;
+        break;
+      case 'font-style':
+        if (value == 'italic') fontStyle = FontStyle.italic;
+        if (value == 'normal') fontStyle = FontStyle.normal;
+        break;
+      case 'text-decoration':
+        if (value == 'underline') decoration = TextDecoration.underline;
+        if (value == 'line-through') decoration = TextDecoration.lineThrough;
+        if (value == 'none') decoration = TextDecoration.none;
+        break;
+    }
+  }
+  return TextStyle(fontWeight: weight, fontStyle: fontStyle, decoration: decoration);
 }

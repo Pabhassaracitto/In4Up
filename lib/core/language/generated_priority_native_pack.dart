@@ -37166,6 +37166,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ประมาณ',
     'ja': '推定',
   },
+  'Ảnh MDD thử nghiệm; chỉ hỗ trợ một số kiểu chữ, chưa hỗ trợ tệp CSS và âm thanh.': {
+    'en': 'MDD images are experimental; only limited text styling is supported, not CSS files or audio.',
+    'zh': 'MDD 图片为试验功能；仅支持部分文字样式，不支持 CSS 文件和音频。',
+    'zh_TW': 'MDD 圖片為實驗功能；僅支援部分文字樣式，不支援 CSS 檔案和音訊。',
+    'hi': 'MDD चित्र प्रायोगिक हैं; केवल सीमित पाठ शैली समर्थित है, CSS फ़ाइलें और ऑडियो नहीं।',
+    'si': 'MDD පින්තූර පර්යේෂණාත්මකයි; සීමිත පෙළ හැඩතල පමණක් සහාය දක්වයි, CSS ගොනු සහ ශ්‍රව්‍ය නොවේ.',
+    'my': 'MDD ပုံများသည် စမ်းသပ်ဆဲဖြစ်သည်။ စာသားပုံစံအချို့သာ ရပြီး CSS ဖိုင်နှင့် အသံကို မပံ့ပိုးပါ။',
+    'th': 'ภาพ MDD เป็นฟีเจอร์ทดลอง รองรับรูปแบบข้อความบางส่วน แต่ไม่รองรับไฟล์ CSS และเสียง',
+    'ja': 'MDD画像は試験機能です。一部の文字装飾のみ対応し、CSSファイルと音声には未対応です。',
+  },
   'Ảnh MDD đang thử nghiệm; chưa hỗ trợ CSS và âm thanh.': {
     'en': 'MDD images are experimental; CSS and audio are not supported yet.',
     'zh': 'MDD 图片为试验功能；暂不支持 CSS 和音频。',

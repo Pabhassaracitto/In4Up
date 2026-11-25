@@ -82,7 +82,7 @@ class CabinAndroidCapture {
       }
       // Limit buffering before Sherpa subscribes, rather than silently losing
       // audio or retaining unbounded data if model initialisation stalls.
-      if (!_consumerAttached && ++_bufferedPackets > 30) {
+      if (!_consumerAttached && ++_bufferedPackets > 150) {
         _onError(StateError('Capture consumer did not start in time'));
         return;
       }

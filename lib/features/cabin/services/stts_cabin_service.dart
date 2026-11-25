@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -14,9 +15,15 @@ import 'package:in4up/features/cabin/models/cabin_session.dart';
 import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
 import 'package:in4up/features/cabin/services/cabin_session_store.dart';
 import 'package:in4up/features/cabin/services/cabin_session_settings.dart';
+import 'package:in4up/features/cabin/services/cabin_audio_source.dart';
+import 'package:in4up/features/cabin/services/cabin_android_capture.dart';
+import 'package:in4up/features/cabin/services/cabin_loopback_stream.dart';
+import 'package:in4up/features/cabin/services/cabin_windows_loopback.dart';
+import 'package:in4up/features/cabin/services/cabin_windows_overlay.dart';
 
 // Engine type + kế hoạch chọn model nằm ở cabin_asr_plan.dart (logic thuần,
 // test được không cần thiết bị). Re-export để call-site cũ không phải sửa.
+export 'package:in4up/features/cabin/services/cabin_audio_source.dart';
 export 'package:in4up/features/cabin/services/cabin_asr_plan.dart'
     show CabinSttEngineType, CabinAsrPlan, planCabinAsr;
 
@@ -54,6 +61,15 @@ class SttsCabinService extends ChangeNotifier {
 
   CabinState _state = CabinState.idle;
   CabinSttEngineType _sttEngineType = CabinSttEngineType.system;
+  CabinAudioSource _audioSource = CabinAudioSource.microphone;
+  bool _systemOverlay = false;
+  bool _systemStarting = false;
+  int _systemGeneration = 0;
+  bool _systemStreamFailed = false;
+  int _systemTtsDepth = 0;
+  CabinAndroidCapture? _androidCapture;
+  CabinWindowsOverlay? _windowsOverlay;
+
 
   /// Ngôn ngữ nguồn user chọn tay; `null` = còn dùng mặc định theo model đã cài.
   String? _sourceLanguageOverride;
@@ -140,6 +156,31 @@ class SttsCabinService extends ChangeNotifier {
   // ── Getters ───────────────────────────────────────────────────────────────
   CabinState get state => _state;
   CabinSttEngineType get sttEngineType => _sttEngineType;
+  CabinAudioSource get audioSource => _audioSource;
+  bool get systemOverlay => _systemOverlay;
+  bool get isStartingSystemAudio => _systemStarting;
+  bool get supportsSystemAudio => !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+       defaultTargetPlatform == TargetPlatform.windows);
+
+  void setAudioSource(CabinAudioSource source) {
+    if (isListening || isPaused || _systemStarting || _audioSource == source) return;
+    _audioSource = source;
+    if (source == CabinAudioSource.systemAudio) {
+      _sttEngineType = CabinSttEngineType.sherpaOffline;
+    }
+    _lastError = null;
+    _modelPlan = null;
+    if (_state == CabinState.error) _state = CabinState.idle;
+    notifyListeners();
+  }
+
+  void setSystemOverlay(bool enabled) {
+    if (isListening || isPaused || _systemStarting) return;
+    _systemOverlay = enabled;
+    notifyListeners();
+  }
+
   bool get isListening =>
       _state == CabinState.listening ||
       _state == CabinState.translating ||
@@ -238,6 +279,8 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   Future<void> setSttEngineType(CabinSttEngineType type) async {
+    if (_audioSource == CabinAudioSource.systemAudio &&
+        type != CabinSttEngineType.sherpaOffline) return;
     if (_sttEngineType == type) return;
     _sttEngineType = type;
     if (isListening) {
@@ -253,6 +296,33 @@ class SttsCabinService extends ChangeNotifier {
     String? targetLang,
     bool? dubbing,
   }) async {
+    if (_audioSource != CabinAudioSource.systemAudio) {
+      return _startCabin(sourceLang: sourceLang, targetLang: targetLang, dubbing: dubbing);
+    }
+    if (_systemStarting) return false;
+    _systemStarting = true;
+    _systemStreamFailed = false;
+    final generation = ++_systemGeneration;
+    notifyListeners();
+    try {
+      return await _startCabin(sourceLang: sourceLang, targetLang: targetLang,
+          dubbing: dubbing, systemGeneration: generation);
+    } finally {
+      _systemStarting = false;
+      if (_systemStreamFailed && generation == _systemGeneration && isListening) {
+        unawaited(_failSystemAudio(generation));
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _startCabin({
+    String? sourceLang,
+    String? targetLang,
+    bool? dubbing,
+    int? systemGeneration,
+  }) async {
+    bool current() => systemGeneration == null || systemGeneration == _systemGeneration;
     if (sourceLang != null) {
       _sourceLanguageOverride = AsrModelRouter.normalizeLanguage(sourceLang);
       if (!_targetLanguageExplicit) {
@@ -272,9 +342,14 @@ class SttsCabinService extends ChangeNotifier {
 
     // 1. Check microphone permission
     try {
-      final status = await Permission.microphone.status;
+      final needsRecordPermission = systemGeneration == null ||
+          (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
+      final status = needsRecordPermission
+          ? await Permission.microphone.status : PermissionStatus.granted;
+      if (!current()) return false;
       if (!status.isGranted) {
         final result = await Permission.microphone.request();
+        if (!current()) return false;
         if (!result.isGranted) {
           _state = CabinState.error;
           _lastError = 'Chưa cấp quyền microphone. Vào Cài đặt → Ứng dụng → '
@@ -287,6 +362,7 @@ class SttsCabinService extends ChangeNotifier {
       debugPrint('⚠️ SttsCabinService permission check error: $e');
     }
 
+    if (!current()) return false;
     // Dọn các phiên nghe cũ
     try {
       await _stt.stopListening();
@@ -304,8 +380,10 @@ class SttsCabinService extends ChangeNotifier {
       _audioRecorder = null;
     }
 
+    if (!current()) return false;
     // CABIN-SAVE-001: mở phiên ghi (giữ nguyên qua pause/đổi ngôn ngữ).
     await _ensureSession();
+    if (!current()) { await _endSession(); return false; }
 
     // 2. Chạy theo engine được chọn
     if (_sttEngineType == CabinSttEngineType.sherpaOffline) {
@@ -316,6 +394,7 @@ class SttsCabinService extends ChangeNotifier {
         debugPrint('⚠️ SttsCabinService ensureFresh error: $e');
       }
 
+      if (!current()) return false;
       final plan = planCabinAsr(
         engine: CabinSttEngineType.sherpaOffline,
         language: sourceLanguage,
@@ -339,21 +418,29 @@ class SttsCabinService extends ChangeNotifier {
                 'châu Âu).'
             : 'Chưa cài model $family cho ${plan.requestedLanguage.toUpperCase()}'
                 '${fallbackTag == null ? '' : ' — máy có $fallbackTag, cần user xác nhận'}.';
+        if (systemGeneration != null) await _endSession();
         notifyListeners();
         debugPrint('⛔ SttsCabinService: $plan');
         return false;
       }
 
       try {
-        final recorder = AudioRecorder();
-        _audioRecorder = recorder;
-        final rawPcm = await recorder.startStream(
-          cabinRecordConfig(
-            isAndroid: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
-          ),
-        );
+        Stream<Uint8List> rawPcm;
+        if (systemGeneration != null) {
+          rawPcm = await _openSystemAudio(systemGeneration);
+          if (!current()) { await _closeSystemAudio(); return false; }
+          rawPcm = _watchSystemAudio(rawPcm, systemGeneration);
+        } else {
+          final recorder = AudioRecorder();
+          _audioRecorder = recorder;
+          rawPcm = await recorder.startStream(
+            cabinRecordConfig(
+              isAndroid: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
+            ),
+          );
+        }
 
-        // CABIN-SAVE-001: tee PCM → WAV (cùng luồng mic, không mở mic lần 2).
+        // Keep the session recorder tee on the same PCM stream for both sources.
         final pcmStream = _recorder?.tapPcm(rawPcm) ?? rawPcm;
 
         // M4U-IMPORT-003: dùng ĐÚNG model đã plan (Parakeet đa ngữ khi
@@ -371,16 +458,26 @@ class SttsCabinService extends ChangeNotifier {
               : _modelManager.getAsrModelPaths(planProfile.id),
         );
 
-        if (!ok) {
+        if (!current()) {
+          await _sherpaStt.stopListening();
+          await _closeSystemAudio();
+          return false;
+        }
+        if (!ok || (systemGeneration != null && _systemStreamFailed)) {
           _state = CabinState.error;
           _lastError = _sherpaStt.lastError ??
               'Không khởi động được model offline cho '
                   '${plan.requestedLanguage}.';
-          try {
-            await recorder.stop();
-            await recorder.dispose();
-          } catch (_) {}
-          _audioRecorder = null;
+          final recorder = _audioRecorder;
+          if (recorder != null) {
+            try { await recorder.stop(); await recorder.dispose(); } catch (_) {}
+            _audioRecorder = null;
+          }
+          if (systemGeneration != null) {
+            await _closeSystemAudio();
+            await _sherpaStt.stopListening();
+            await _endSession();
+          }
           notifyListeners();
           return false;
         }
@@ -399,15 +496,24 @@ class SttsCabinService extends ChangeNotifier {
         _state = CabinState.listening;
         _consecutiveStartFails = 0;
         _recorder?.resumeClock();
-        _startKeepAlive();
+        if (systemGeneration == null) _startKeepAlive();
         notifyListeners();
         debugPrint('🎙️ SttsCabinService started with Sherpa '
             '${plan.profile?.family.name ?? 'zipformer'} '
             '($sourceLanguage ➔ $_targetLanguage)');
         return true;
       } catch (e) {
+        if (!current()) return false;
         _state = CabinState.error;
-        _lastError = 'Lỗi khởi động Sherpa STT: $e';
+        _lastError = systemGeneration != null
+            ? 'Không thu được âm thanh hệ thống'
+            : 'Lỗi khởi động Sherpa STT: $e';
+        if (systemGeneration != null) {
+          debugPrint('Cabin system audio start failed: $e');
+          await _closeSystemAudio();
+          await _sherpaStt.stopListening();
+          await _endSession();
+        }
         if (_audioRecorder != null) {
           try {
             await _audioRecorder!.stop();
@@ -449,6 +555,82 @@ class SttsCabinService extends ChangeNotifier {
     debugPrint(
         '🎙️ SttsCabinService started with System STT ($sourceLanguage ➔ $_targetLanguage)');
     return true;
+  }
+
+  Future<Stream<Uint8List>> _openSystemAudio(int generation) async {
+    if (!supportsSystemAudio) throw UnsupportedError('System audio unsupported');
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      if (!await CabinAndroidCapture.isSupported()) {
+        throw UnsupportedError('Android 10 required');
+      }
+      if (_systemOverlay && !await CabinAndroidCapture.hasOverlayPermission()) {
+        throw StateError('Overlay permission required');
+      }
+      if (generation != _systemGeneration) throw StateError('Capture cancelled');
+      final capture = CabinAndroidCapture();
+      _androidCapture = capture;
+      return capture.open(overlay: _systemOverlay);
+    }
+    if (_systemOverlay) {
+      final overlay = CabinWindowsOverlay();
+      overlay.show();
+      _windowsOverlay = overlay;
+    }
+    return cabinLoopbackStream(CabinWindowsLoopback.new);
+  }
+
+  Stream<Uint8List> _watchSystemAudio(Stream<Uint8List> source, int generation) {
+    return source.transform(StreamTransformer<Uint8List, Uint8List>.fromHandlers(
+      handleData: (data, sink) {
+        // Prevent the app's spoken translation feeding back into recognition.
+        // This also mutes source speech during TTS; the UI warns about the gap.
+        sink.add(_systemTtsDepth > 0 ? Uint8List(data.length) : data);
+      },
+      handleError: (error, stack, sink) {
+        _systemCaptureEnded(generation);
+        sink.addError(error, stack);
+      },
+      handleDone: (sink) {
+        _systemCaptureEnded(generation);
+        sink.close();
+      },
+    ));
+  }
+
+  void _systemCaptureEnded(int generation) {
+    if (generation != _systemGeneration || _systemStreamFailed) return;
+    _systemStreamFailed = true;
+    if (!_systemStarting && isListening) unawaited(_failSystemAudio(generation));
+  }
+
+  Future<void> _failSystemAudio(int generation) async {
+    if (generation != _systemGeneration) return;
+    await stopCabin();
+    if (_systemGeneration != generation + 1) return;
+    _lastError = 'Không thu được âm thanh hệ thống';
+    _state = CabinState.error;
+    notifyListeners();
+  }
+
+  Future<void> _closeSystemAudio() async {
+    ++_systemGeneration; // invalidate late consent and stream callbacks
+    final capture = _androidCapture;
+    _androidCapture = null;
+    if (capture != null) await capture.close();
+    final overlay = _windowsOverlay;
+    _windowsOverlay = null;
+    overlay?.close();
+  }
+
+  void _pushSystemCaption(CabinCaption caption) {
+    if (_audioSource != CabinAudioSource.systemAudio || !_systemOverlay) return;
+    final text = caption.translatedText.isEmpty
+        ? caption.sourceText : '${caption.sourceText}\n${caption.translatedText}';
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      unawaited(CabinAndroidCapture.updateCaption(text).catchError((_) {}));
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
+      try { _windowsOverlay?.setCaption(text); } catch (_) {}
+    }
   }
 
   /// Start engine hệ thống chế độ hội thoại (không cap 2 phút, ListenMode.dictation).
@@ -564,6 +746,9 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   Future<void> stopCabin() async {
+    if (_audioSource == CabinAudioSource.systemAudio) {
+      await _closeSystemAudio();
+    }
     _silenceTimer?.cancel();
     _silenceTimer = null;
     _stopKeepAlive();
@@ -613,6 +798,9 @@ class SttsCabinService extends ChangeNotifier {
     if (_state == CabinState.paused) {
       await startCabin();
     } else if (isListening) {
+      if (_audioSource == CabinAudioSource.systemAudio) {
+        await _closeSystemAudio();
+      }
       _silenceTimer?.cancel();
 
       if (_sttEngineType == CabinSttEngineType.sherpaOffline) {
@@ -665,7 +853,11 @@ class SttsCabinService extends ChangeNotifier {
       _targetLanguage = defaultCabinTargetLanguageFor(next);
     }
     if (isListening) {
-      startCabin();
+      if (_audioSource == CabinAudioSource.systemAudio) {
+        unawaited(stopCabin());
+      } else {
+        startCabin();
+      }
     } else {
       notifyListeners();
     }
@@ -706,7 +898,11 @@ class SttsCabinService extends ChangeNotifier {
     _targetLanguageExplicit = true;
     _modelPlan = null;
     if (isListening) {
-      startCabin();
+      if (_audioSource == CabinAudioSource.systemAudio) {
+        unawaited(stopCabin());
+      } else {
+        startCabin();
+      }
     } else {
       notifyListeners();
     }
@@ -767,10 +963,18 @@ class SttsCabinService extends ChangeNotifier {
 
     if (textToSpeak.trim().isEmpty) return;
 
+    final muteCapture = _audioSource == CabinAudioSource.systemAudio && isListening;
+    if (muteCapture) _systemTtsDepth++;
     try {
       await _tts.speak(textToSpeak, language: langToSpeak);
+      if (muteCapture) {
+        await _tts.waitForCompletion();
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
     } catch (e) {
       debugPrint('⚠️ Replay caption TTS error: $e');
+    } finally {
+      if (muteCapture) _systemTtsDepth--;
     }
   }
 
@@ -813,6 +1017,7 @@ class SttsCabinService extends ChangeNotifier {
       targetLang: _targetLanguage,
       isFinal: sttResult.isFinal,
     );
+    _pushSystemCaption(_activeCaption!);
     notifyListeners();
 
     _silenceTimer?.cancel();
@@ -959,6 +1164,7 @@ class SttsCabinService extends ChangeNotifier {
         current.sourceText.trim() != trimmed;
     if (!hasNewerPartial) {
       _activeCaption = finalizedCaption;
+      _pushSystemCaption(finalizedCaption);
     }
     _history.add(finalizedCaption);
     // AUDIT-1.21.0 #3: điểm "không thể quay lại" — caption ĐÃ được tạo, nên
@@ -981,14 +1187,18 @@ class SttsCabinService extends ChangeNotifier {
     if (_isDubbingEnabled && translated.isNotEmpty) {
       _state = CabinState.speaking;
       notifyListeners();
+      final muteCapture = _audioSource == CabinAudioSource.systemAudio;
+      if (muteCapture) _systemTtsDepth++;
       try {
         await _tts.speak(translated, language: chunkTargetLang);
         await _tts.waitForCompletion();
+        // Brief pause to prevent pickup after audio output ceases.
+        await Future.delayed(const Duration(milliseconds: 300));
       } catch (e) {
         debugPrint('⚠️ SttsCabinService Dubbing TTS error: $e');
+      } finally {
+        if (muteCapture) _systemTtsDepth--;
       }
-      // Brief pause to prevent microphone pickup after audio output ceases
-      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     if (isListening) {

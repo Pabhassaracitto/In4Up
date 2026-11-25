@@ -46,6 +46,9 @@ class CabinAndroidCapture {
     _opened = true;
     final pcm = StreamController<Uint8List>(
       onListen: () { _consumerAttached = true; },
+      // A paused consumer cannot keep up. Stop rather than accumulate
+      // unbounded audio in a Dart stream buffer or silently lose samples.
+      onPause: () { _onError(StateError('Capture consumer paused')); },
       onCancel: close,
     );
     _pcm = pcm;
@@ -73,6 +76,10 @@ class CabinAndroidCapture {
     } else if (event == 'started') {
       if (!_started.isCompleted) _started.complete();
     } else if (event is Uint8List && _started.isCompleted) {
+      if (event.length.isOdd) {
+        _onError(StateError('Invalid PCM16 packet'));
+        return;
+      }
       // Limit buffering before Sherpa subscribes, rather than silently losing
       // audio or retaining unbounded data if model initialisation stalls.
       if (!_consumerAttached && ++_bufferedPackets > 30) {

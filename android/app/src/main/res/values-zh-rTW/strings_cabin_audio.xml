@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="cabin_audio_channel">即時傳譯音訊</string>
+    <string name="cabin_audio_notification_title">即時傳譯正在擷取系統音訊</string>
+    <string name="cabin_audio_notification_body">點選停止以結束擷取。</string>
+    <string name="cabin_audio_stop">停止</string>
+</resources>

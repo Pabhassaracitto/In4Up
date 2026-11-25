@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="cabin_audio_channel">实时传译音频</string>
+    <string name="cabin_audio_notification_title">实时传译正在捕获系统音频</string>
+    <string name="cabin_audio_notification_body">点击停止以结束捕获。</string>
+    <string name="cabin_audio_stop">停止</string>
+</resources>

@@ -50,6 +50,28 @@ void main() {
     await events.close();
   });
 
+  test('invalid PCM packet ends capture rather than passing corrupt audio', () async {
+    final events = StreamController<dynamic>();
+    final calls = <String>[];
+    final capture = CabinAndroidCapture(
+      eventStream: () => events.stream,
+      invoke: (method, [args]) async {
+        calls.add(method);
+        if (method == 'start') { events.add('started'); return true; }
+        return null;
+      },
+    );
+    final opening = capture.open();
+    events.add('ready');
+    final stream = await opening;
+    final expectation = expectLater(stream, emitsError(isA<StateError>()));
+    events.add(Uint8List.fromList([1]));
+    await expectation;
+    await capture.close();
+    expect(calls, ['start', 'stop']);
+    await events.close();
+  });
+
   test('closing a pending consent rejects the open operation', () async {
     final events = StreamController<dynamic>();
     final startCalled = Completer<void>();

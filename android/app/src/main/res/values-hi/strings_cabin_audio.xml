@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="cabin_audio_channel">लाइव केबिन ऑडियो</string>
+    <string name="cabin_audio_notification_title">लाइव केबिन सिस्टम ऑडियो रिकॉर्ड कर रहा है</string>
+    <string name="cabin_audio_notification_body">रिकॉर्डिंग बंद करने के लिए रोकें दबाएँ।</string>
+    <string name="cabin_audio_stop">रोकें</string>
+</resources>

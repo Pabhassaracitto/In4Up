@@ -253,8 +253,8 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
-| DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 code + 21 test thuần, chờ CI 🟢 + nghiệm thu máy | `e12820f`: `process_text_route.dart` (thuần) + `ProcessTextRouter` (channel `in4up/process_text`, dedupe 3s) + Manifest filter + MainActivity consume-once; nối CI DICT list |
-| AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 code + test source-scan, chờ CI 🟢 + nghiệm thu máy | `ai_chat_screen.dart` (copy button, `_EmptyChat.onPick`, `showDialog` trước `clearChat`); 4 chuỗi i18n mới en+8 locale; test `chat_p1_copy_suggest_test.dart` + step CI mới |
+| DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 CI xanh, chờ nghiệm thu máy | `e12820f` + fix `a7a57b1` (hide `ProcessTextAction` trùng Flutter services); [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 |
+| AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 CI xanh, chờ nghiệm thu máy | `a3859da` + `a7a57b1`; [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 (step `PLAN-049 P1 tests` success) |
 
 
 ## Card chi tiết
@@ -10128,3 +10128,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     dialog hỏi trước khi xoá;4 chip hiển thị đúng ở locale en/zh.
 - **Lịch sử:**
   - 2026-11-24 | created→doing | agent `arena/7ba1e7b3-in4up` | PLAN-049 + P1 code + i18n 4 chuỗi + test + CI step
+  - 2026-11-24 | doing→doing | agent `arena/7ba1e7b3-in4up` | **CI xanh** run **45532454816** 🟢 trên `a7a57b1` (analyze 0 error, Rule 5, DICT, PLAN-049 P1 — 92 step success); fix `a7a57b1` hide `ProcessTextAction` (trùng class Flutter services ⇒ ambiguous_import làm đỏ 2 run trước)

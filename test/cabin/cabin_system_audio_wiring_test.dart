@@ -18,9 +18,9 @@ void main() {
     expect(service, contains('_systemStreamFailed'));
   });
   test('system overlay gets captions and TTS input is muted', () {
-    expect(service, contains('_pushSystemCaption(finalizedCaption)'));
+    expect(service, contains('_pushSystemCaption(hasNewerPartial ? current! : finalizedCaption'));
     expect(service, contains('CabinAndroidCapture.updateCaption(text)'));
     expect(service, contains('_windowsOverlay?.setCaption(text)'));
-    expect(service, contains('_systemTtsDepth > 0 ? Uint8List(data.length) : data'));
+    expect(service, contains('gateCabinSystemPcm(data, mute: _systemTtsDepth > 0)'));
   });
 }

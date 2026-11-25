@@ -16,6 +16,7 @@ import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
 import 'package:in4up/features/cabin/services/cabin_session_store.dart';
 import 'package:in4up/features/cabin/services/cabin_session_settings.dart';
 import 'package:in4up/features/cabin/services/cabin_audio_source.dart';
+import 'package:in4up/features/cabin/services/cabin_pcm_gate.dart';
 import 'package:in4up/features/cabin/services/cabin_android_capture.dart';
 import 'package:in4up/features/cabin/services/cabin_loopback_stream.dart';
 import 'package:in4up/features/cabin/services/cabin_windows_loopback.dart';
@@ -67,6 +68,9 @@ class SttsCabinService extends ChangeNotifier {
   int _systemGeneration = 0;
   bool _systemStreamFailed = false;
   int _systemTtsDepth = 0;
+  int _overlaySequence = 0;
+  int _overlayLastSequence = -1;
+  String _overlayLastTranslation = '';
   CabinAndroidCapture? _androidCapture;
   CabinWindowsOverlay? _windowsOverlay;
 
@@ -302,6 +306,8 @@ class SttsCabinService extends ChangeNotifier {
     if (_systemStarting) return false;
     _systemStarting = true;
     _systemStreamFailed = false;
+    _overlayLastTranslation = '';
+    _overlayLastSequence = -1;
     final generation = ++_systemGeneration;
     notifyListeners();
     try {
@@ -352,8 +358,10 @@ class SttsCabinService extends ChangeNotifier {
         if (!current()) return false;
         if (!result.isGranted) {
           _state = CabinState.error;
-          _lastError = 'Chưa cấp quyền microphone. Vào Cài đặt → Ứng dụng → '
-              'In4Up → Quyền → cho phép "Microphone" rồi thử lại.';
+          _lastError = systemGeneration != null
+              ? 'Cần cấp quyền micro để thu âm thanh hệ thống'
+              : 'Chưa cấp quyền microphone. Vào Cài đặt → Ứng dụng → '
+                'In4Up → Quyền → cho phép "Microphone" rồi thử lại.';
           notifyListeners();
           return false;
         }
@@ -584,7 +592,7 @@ class SttsCabinService extends ChangeNotifier {
       handleData: (data, sink) {
         // Prevent the app's spoken translation feeding back into recognition.
         // This also mutes source speech during TTS; the UI warns about the gap.
-        sink.add(_systemTtsDepth > 0 ? Uint8List(data.length) : data);
+        sink.add(gateCabinSystemPcm(data, mute: _systemTtsDepth > 0));
       },
       handleError: (error, stack, sink) {
         _systemCaptureEnded(generation);
@@ -622,10 +630,11 @@ class SttsCabinService extends ChangeNotifier {
     overlay?.close();
   }
 
-  void _pushSystemCaption(CabinCaption caption) {
+  void _pushSystemCaption(CabinCaption caption, {String? translation}) {
     if (_audioSource != CabinAudioSource.systemAudio || !_systemOverlay) return;
-    final text = caption.translatedText.isEmpty
-        ? caption.sourceText : '${caption.sourceText}\n${caption.translatedText}';
+    if (translation != null) _overlayLastTranslation = translation;
+    final text = _overlayLastTranslation.isEmpty
+        ? caption.sourceText : '${caption.sourceText}\n$_overlayLastTranslation';
     if (defaultTargetPlatform == TargetPlatform.android) {
       unawaited(CabinAndroidCapture.updateCaption(text).catchError((_) {}));
     } else if (defaultTargetPlatform == TargetPlatform.windows) {
@@ -1120,6 +1129,7 @@ class SttsCabinService extends ChangeNotifier {
     notifyListeners();
 
     final captionId = _newCaptionId();
+    final overlaySequence = _overlaySequence++;
     String translated = '';
     String engine = 'Auto';
 
@@ -1164,7 +1174,13 @@ class SttsCabinService extends ChangeNotifier {
         current.sourceText.trim() != trimmed;
     if (!hasNewerPartial) {
       _activeCaption = finalizedCaption;
-      _pushSystemCaption(finalizedCaption);
+    }
+    // Translation is asynchronous: keep the newest completed translation even
+    // when a newer partial is on screen, and ignore late older completions.
+    if (overlaySequence > _overlayLastSequence) {
+      _overlayLastSequence = overlaySequence;
+      _pushSystemCaption(hasNewerPartial ? current! : finalizedCaption,
+          translation: translated);
     }
     _history.add(finalizedCaption);
     // AUDIT-1.21.0 #3: điểm "không thể quay lại" — caption ĐÃ được tạo, nên

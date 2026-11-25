@@ -4255,5 +4255,14 @@
   "Giải thích ngữ pháp cho mình": "Explain grammar to me",
   "Đặt 3 ví dụ với từ mới": "Give 3 examples with a new word",
   "Tóm tắt giúp mình một đoạn văn": "Summarize a paragraph for me",
-  "Sửa lỗi câu tiếng Anh của mình": "Fix mistakes in my English sentence"
+  "Sửa lỗi câu tiếng Anh của mình": "Fix mistakes in my English sentence",
+  "Micro": "Microphone",
+  "Âm thanh hệ thống": "System audio",
+  "Bong bóng toàn hệ thống": "System-wide bubble",
+  "Không thu được âm thanh hệ thống": "Could not capture system audio",
+  "Cần cấp quyền micro để thu âm thanh hệ thống": "Microphone permission is required to capture system audio",
+  "Cần Android 10 trở lên": "Android 10 or later is required",
+  "Cấp quyền hiển thị trên ứng dụng khác": "Allow display over other apps",
+  "Mở cài đặt rồi cho phép In4Up hiển thị trên ứng dụng khác.": "Open settings and allow In4Up to display over other apps.",
+  "Một số ứng dụng có thể chặn thu âm. Khi đọc bản dịch, nhận diện và ghi âm nguồn tạm dừng.": "Some apps may block capture. Source recognition and recording pause while the translation is spoken."
 }

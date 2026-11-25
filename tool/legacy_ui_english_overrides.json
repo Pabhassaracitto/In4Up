@@ -4259,5 +4259,15 @@
   "Tệp & âm thanh": "Files & audio",
   "Không tìm thấy tệp trong danh sách gần đây": "File not found in the recent list",
   "Không tìm thấy bài trong thư viện âm thanh": "Track not found in the audio library",
-  "Không mở được tệp": "Could not open the file"
+  "Không mở được tệp": "Could not open the file",
+  "Hỏi Sara": "Ask Sara",
+  "Quản gia · Gia sư · Hướng dẫn": "Butler · Tutor · Guide",
+  "Nhập câu hỏi…": "Type a question…",
+  "Đang trả lời…": "Replying…",
+  "Sara dùng chung bộ não AI Chat — hội thoại dài nên mở màn AI Chat.": "Sara shares the AI Chat brain — for long conversations open the AI Chat screen.",
+  "Ôn từ đến hạn": "Review due words",
+  "Xoá hội thoại": "Clear conversation",
+  "Đã mở": "Opened",
+  "Ẩn linh vật": "Hide mascot",
+  "Không chạy được hành động": "Could not run the action"
 }

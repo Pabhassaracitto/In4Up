@@ -2407,6 +2407,17 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Máy chủ báo dung lượng tải: {value0}': 'Server-reported download size: {value0}',
   'Vẫn tải': 'Download anyway',
   // MASCOT-001/002 — Palette «Mở nhanh» của linh vật Sara (PLAN-050)
+  // MASCOT-003/004 — Linh vật Sara: bong bóng nổi + sheet hội thoại
+  'Hỏi Sara': 'Ask Sara',
+  'Quản gia · Gia sư · Hướng dẫn': 'Butler · Tutor · Guide',
+  'Nhập câu hỏi…': 'Type a question…',
+  'Đang trả lời…': 'Replying…',
+  'Sara dùng chung bộ não AI Chat — hội thoại dài nên mở màn AI Chat.': 'Sara shares the AI Chat brain — for long conversations open the AI Chat screen.',
+  'Ôn từ đến hạn': 'Review due words',
+  'Xoá hội thoại': 'Clear conversation',
+  'Đã mở': 'Opened',
+  'Ẩn linh vật': 'Hide mascot',
+  'Không chạy được hành động': 'Could not run the action',
   'Mở nhanh': 'Quick open',
   'Tìm chức năng, tệp hoặc lệnh…': 'Search features, files, or commands…',
   'Không có kết quả khớp': 'No matching results',

@@ -142,10 +142,13 @@ Liên kết hệ thống:
   `GlobalKey<MascotShellBridgeState>` hoặc ValueNotifier mở rộng
   `ShellNavigationRequest` (target `home/understand/remember` + `tool(id)` + `payload`).
   Chọn ValueNotifier mở rộng vì đã là hợp đồng hiện có (`openRead/openListen`).
-- **Protocol hành động từ LLM:** mascot yêu cầu model trả **một dòng JSON**
-  `{"say": "...", "action": {"id": "...", "args": {...}}}` hoặc chỉ văn bản;
-  `MascotIntentRegistry.parse()` chấp nhận cả JSON lẫn lệnh thường vi/en. JSON hỏng ⇒
-  chỉ hiện `say`, không thực thi (an toàn).
+- **Protocol hành động từ LLM:** mascot yêu cầu model kết thúc câu trả lời bằng
+  **một dòng riêng** `[[action:<id>]]` (chính — model free viết dòng này đáng tin
+  hơn JSON đầy đủ) và parser khoan dung vẫn chấp nhận **JSON một khối**
+  `{"say": "...", "action": {"id": "..."}}` fenced hoặc nguyên văn; sai hết ⇒
+  chỉ hiện lời nói, không thực thi (an toàn là mặc định). Ghi nhận 2026-11-25:
+  PLAN gốc ghi JSON là giao thức chính — P1 chuyển directive-line làm chính vì
+  độ tin cậy với model free; JSON vẫn được chấp nhận như fallback.
 - **Tương thích lùi:** 8 intent `voice_command` cũ được đăng ký lại thành hành động
   registry cùng ngữ nghĩa; parser cũ giữ nguyên cho luồng phát lại trong tab Nghe.
 

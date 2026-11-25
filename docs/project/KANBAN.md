@@ -10096,3 +10096,42 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   **Chưa có:** hội thoại (P1), giọng nói (P2), proactive (P3), tour (P4);
   playback executor chưa nối (P2). Chờ CI + nghiệm thu máy (palette mở từ
   quick actions, tìm không dấu, mở file/audio).
+
+### Lịch sử MASCOT — vòng P0 CI + thi công P1 (append-only)
+
+- 2026-11-25 | MASCOT-001/002 | doing→doing | agent `arena/4ad3035e-in4up` |
+  4 vòng CI của P0: (1) push đầu đỏ 3 workflow — gốc: viết lại
+  `shell_navigation_request.dart` MẤT import foundation (ValueNotifier), import
+  sai cấp `../core/…` trong shell_action_hub (phải là `../../core/…`), palette
+  Text ambiguous (import material + localized_material); (2) sửa 3 lỗi ⇒ còn 1
+  analyzer ERROR: `KeyboardListener.onKeyEvent` nhận void callback, đổi sang
+  `Focus(onKeyEvent:)` để trả `KeyEventResult` chặn ↑↓/Enter/Esc; (3) đỏ đúng
+  bước test mascot mới — không annotation vì bước chưa tee log; nâng cấp bước
+  dùng `emit_failure_annotation.py` (kênh duy nhất sandbox đọc được); (4) lộ
+  **RangeError gốc**: `mascotNormalizeCommand` gõ lại tay chuỗi map dấu ⇒ lệch
+  độ dài; điều tra ra **bug có sẵn của app** — `voice_command_parser._normalize`
+  có map `to` = 65 ký tự (thiếu 3 'o', thừa 1 'u') vs `from` = 67 ⇒ `to[65]`
+  văng RangeError với MỌI chuỗi có dấu, test `test/voice_command_parser_test.dart`
+  mồ côi (không bước CI nào chạy) nên không ai phát hiện ⇒ sửa map CÂN BẰNG
+  67=67 cho cả mascot + parser, assert lúc chạy, đưa test mồ côi về bước CI
+  mascot. **app_analyze 🟢 run 45573131816** (analyze + Rule 5 + MASCOT + toàn
+  bộ máy bắt xanh); deploy-web 🟢. P0 đủ điều kiện nghiệm thu máy.
+- 2026-11-25 | MASCOT-003/004 | proposed→doing | agent `arena/4ad3035e-in4up` |
+  thi công P1: `mascot_prompts.dart` (persona 3 vai + giao thức
+  `[[action:<id>]]`, loại playback khỏi danh sách quảng cáo với model),
+  `mascot_context_builder.dart` (MascotContextData từ provider thật; ngân sách
+  1200 tổng / 500 excerpt, cắt biên câu), `mascot_reply_parser.dart` (directive
+  chính + JSON fenced/nguyên văn/giữa lời + fallback chỉ-lời — sai format KHÔNG
+  thực thi), `mascot_controller.dart` (await facade.sendMessage → parse tin
+  assistant cuối → thực thi tab/mode/tool qua ShellActionHub, record usage;
+  stop/clear passthrough), `widgets/mascot_bubble.dart` (lá bồ đề Bodhi gold
+  trên Midnight, autohide 12 s thu nhỏ mờ, vành jade khi đang trả lời),
+  `widgets/mascot_chat_sheet.dart` (bottom sheet 82%, Consumer2, chip «Ôn từ
+  đến hạn» qua hub + «Mở AI Chat» push AiChatScreen, nút Dừng khi
+  facade.isChatLoading, KHÔNG nút mic giả — giọng là P2), bong bóng cắm vào
+  Stack body main_shell (Positioned right 14, bottom 78 khi mini player đang
+  hiện, prefs `mascot_bubble_visible_v1`), provider MascotController ở
+  main.dart NGAY SAU AiServiceFacade; i18n 10 chuỗi chrome T2 mới («Mở AI Chat»
+  «Gửi» đã có — dùng lại); test thuần 3 file (context budget/truncate, prompt
+  deterministic + không playback, parser 12 case). **Chờ CI + nghiệm thu máy**
+  (bong bóng mở sheet, hỏi "mở pdf" ⇒ mở PDF Reader, chip ôn từ, Ẩn linh vật).

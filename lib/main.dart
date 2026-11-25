@@ -24,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/files/incoming_file_router.dart';
 import 'core/responsive/app_responsive.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
+import 'features/mascot/mascot_controller.dart';
 import 'features/ocr/ocr_service.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
@@ -492,6 +493,13 @@ class _MyAppState extends State<MyApp> {
             );
             return facade;
           },
+        ),
+        // MASCOT-003 (PLAN-050/ADR-0036): bộ não phiên chat của linh vật
+        // Sara — ĐẶT SAU facade (create đọc facade qua context.read).
+        ChangeNotifierProvider<MascotController>(
+          create: (context) => MascotController(
+            facade: context.read<AiServiceFacade>(),
+          ),
         ),
       ],
       child: Consumer<LocaleProvider>(

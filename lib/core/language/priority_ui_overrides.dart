@@ -9217,4 +9217,77 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'ගොනුව විවෘත කළ නොහැක',
   },
 
+  // MASCOT-003/004 — Linh vật Sara: bong bóng nổi + sheet hội thoại
+  // (PLAN-050). «Mở AI Chat» và «Gửi» đã có trong catalog — dùng lại.
+  'Hỏi Sara': {
+    'en': 'Ask Sara',
+    'hi': 'Sara से पूछें',
+    'zh': '问问 Sara',
+    'zh_TW': '問問 Sara',
+    'si': 'Sara ගෙන් අහන්න',
+  },
+  'Quản gia · Gia sư · Hướng dẫn': {
+    'en': 'Butler · Tutor · Guide',
+    'hi': 'बटलर · ट्यूटर · गाइड',
+    'zh': '管家 · 导师 · 指南',
+    'zh_TW': '管家 · 導師 · 指南',
+    'si': 'සේවක · උපගුරු · මඟපෙන්වන්නා',
+  },
+  'Nhập câu hỏi…': {
+    'en': 'Type a question…',
+    'hi': 'प्रश्न लिखें…',
+    'zh': '输入问题…',
+    'zh_TW': '輸入問題…',
+    'si': 'ප්‍රශ්නයක් ටයිප් කරන්න…',
+  },
+  'Đang trả lời…': {
+    'en': 'Replying…',
+    'hi': 'उत्तर दे रहे हैं…',
+    'zh': '正在回复…',
+    'zh_TW': '正在回覆…',
+    'si': 'පිළිතුරු දෙමින්…',
+  },
+  'Sara dùng chung bộ não AI Chat — hội thoại dài nên mở màn AI Chat.': {
+    'en': 'Sara shares the AI Chat brain — for long conversations open the AI Chat screen.',
+    'hi': 'Sara AI Chat के दिमाग़ को साझा करती है — लंबी बातचीत के लिए AI Chat स्क्रीन खोलें।',
+    'zh': 'Sara 与 AI 聊天共用大脑 — 长对话请打开 AI 聊天界面。',
+    'zh_TW': 'Sara 與 AI 聊天共用大腦 — 長對話請開啟 AI 聊天介面。',
+    'si': 'Sara AI Chat මොළය බෙදා ගනී — දිගු සංවාද සඳහා AI Chat තිරය විවෘත කරන්න.',
+  },
+  'Ôn từ đến hạn': {
+    'en': 'Review due words',
+    'hi': 'निर्धारित शब्द दोहराएँ',
+    'zh': '复习到期单词',
+    'zh_TW': '複習到期單字',
+    'si': 'නියමිත වචන අවර්ජනය',
+  },
+  'Xoá hội thoại': {
+    'en': 'Clear conversation',
+    'hi': 'बातचीत साफ़ करें',
+    'zh': '清除对话',
+    'zh_TW': '清除對話',
+    'si': 'සංවාදය මකන්න',
+  },
+  'Đã mở': {
+    'en': 'Opened',
+    'hi': 'खोल दिया',
+    'zh': '已打开',
+    'zh_TW': '已開啟',
+    'si': 'විවෘත කළා',
+  },
+  'Ẩn linh vật': {
+    'en': 'Hide mascot',
+    'hi': 'मास्कॉट छिपाएँ',
+    'zh': '隐藏吉祥物',
+    'zh_TW': '隱藏吉祥物',
+    'si': 'මැස්කොට් සඟවන්න',
+  },
+  'Không chạy được hành động': {
+    'en': 'Could not run the action',
+    'hi': 'कार्य नहीं चलाया जा सका',
+    'zh': '无法执行该操作',
+    'zh_TW': '無法執行該操作',
+    'si': 'ක්‍රියාව ධාවනය කළ නොහැක',
+  },
+
 };

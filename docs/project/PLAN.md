@@ -1546,3 +1546,20 @@ Package: `video_player: ^2.8.0` (Flutter official)
     (MASCOT-001+002): `lib/features/mascot/` (registry + search index + hub thuần
     Dart), `ShellNavigationRequest` mở rộng, palette «Mở nhanh» trong main_shell,
     i18n 9 chuỗi T2, test thuần `test/mascot/` + bước CI mới.
+  - 2026-11-25 | doing→doing | agent `arena/4ad3035e-in4up` | P0 qua 4 vòng CI:
+    3 lỗi compile (mất import foundation khi viết lại shell_navigation_request;
+    import sai cấp trong shell_action_hub; Text ambiguous trong palette khi
+    import material+localized_material) rồi 1 lỗi analyzer (KeyboardListener vs
+    Focus.onKeyEvent) — **app_analyze 🟢 run 45573131816**. Phát hiện BUG CÓ SẴN
+    của app: `_normalize` voice_command_parser lệch map dấu (to=65 vs from=67 ⇒
+    RangeError vòng 65 với MỌI chuỗi có dấu) do test mồ côi không nằm trong bước
+    CI nào — sửa cả mascot lẫn parser, đưa test về oracle.
+  - 2026-11-25 | doing→doing | agent `arena/4ad3035e-in4up` | thi công P1
+    (MASCOT-003+004): persona prompts + context builder (ngân sách 1200/500, cắt
+    biên câu) + reply parser ([[action:id]] chính, JSON fallback) + MascotController
+    (tái dùng AiServiceFacade, tự thực thi qua ShellActionHub) + bong bóng nổi
+    trong Stack body (autohide 12 s, prefs `mascot_bubble_visible_v1`) + chat
+    sheet (chip Ôn từ đến hạn/Mở AI Chat, nút Dừng khi streaming) + provider ở
+    main.dart sau facade; i18n 10 chuỗi T2 mới («Mở AI Chat»/«Gửi» dùng lại
+    catalog có sẵn); test thuần 3 file mới; giao thức chính đổi sang
+    directive-line (ghi nhận ở PLAN-050 §5).

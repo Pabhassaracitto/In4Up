@@ -25,12 +25,17 @@ import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../features/media_tools/screens/media_tools_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
+import '../features/mascot/mascot_context_builder.dart';
+import '../features/mascot/mascot_controller.dart';
 import '../features/mascot/mascot_intent_registry.dart';
 import '../features/mascot/mascot_search_index.dart';
 import '../features/mascot/shell_action_hub.dart';
+import '../features/mascot/widgets/mascot_bubble.dart';
+import '../features/mascot/widgets/mascot_chat_sheet.dart';
 import '../features/mascot/widgets/mascot_palette.dart';
 import '../models/audio_library_entry.dart';
 import '../providers/audio_library_provider.dart';
+import '../providers/focus_provider.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -107,6 +112,10 @@ class _MainShellState extends State<MainShell> {
     onHandleTool: _handleTool,
   );
 
+  /// MASCOT-004: bong bóng Sara hiển thị hay không (Cài đặt qua sheet «Ẩn
+  /// linh vật» — prefs sync `getSetting`, mặc định HIỆN).
+  bool _mascotBubbleVisible = true;
+
   // ===== SHELL-GEAR-001: logging seam (CHỈ debug — không đổi hành vi) =====
   // Owner long-press nút gear → sọc vàng-đen (phải + đáy) + assertion
   // overlay.dart. Chưa tái hiện được ngoài máy owner → seam này để logcat
@@ -142,6 +151,10 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _loadShellUiSettings();
+    // MASCOT-004: khôi phục lựa chọn hiển thị bong bóng Sara (sync pref).
+    _mascotBubbleVisible =
+        _storage.getSetting<bool>('mascot_bubble_visible_v1', defaultValue: true) ??
+            true;
     // READ-UI-120: cùng một nguồn cấu hình cho app bar, workspace header và
     // dock đáy. Đổi trong «Giao diện shell» ⇒ setState tức thì, không cần
     // restart app.
@@ -1657,6 +1670,58 @@ class _MainShellState extends State<MainShell> {
 
   // ═════════════════════════════════════════════════════════════════════════
 
+  // ═══════════════ MASCOT-003/004 — Sheet hội thoại Sara ═══════════════
+
+  /// Mở sheet hội thoại: thu thập ngữ cảnh THẬT từ provider (surface, tài
+  /// liệu đang mở, bài nghe, từ đến hạn, streak) → controller.beginSession.
+  Future<void> _openMascotChatSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final controller = context.read<MascotController>();
+    final text = context.read<TextProvider>();
+    final player = context.read<PlayerProvider>();
+    final vocab = context.read<VocabularyProvider>();
+    final focus = context.read<FocusProvider>();
+
+    final surface = switch (_currentTab) {
+      _PrimaryTab.home => l10n.home,
+      _PrimaryTab.listen =>
+        '${l10n.listen} · ${context.uiText(_listenModeIndex == 0 ? 'Nghe' : (_listenModeIndex == 1 ? 'Nói' : 'Xem'))}',
+      _PrimaryTab.read =>
+        '${l10n.read} · ${context.uiText(_readModeIndex == 0 ? 'Đọc' : 'Viết')}',
+      _PrimaryTab.understand => l10n.understand,
+      _PrimaryTab.remember => l10n.remember,
+    };
+
+    controller.beginSession(MascotContextData(
+      surface: surface,
+      documentTitle: text.currentDocument?.title,
+      documentExcerpt: text.fullText.isEmpty ? null : text.fullText,
+      audioTitle: player.currentSongTitle,
+      dueWordCount: vocab.dueCount,
+      streakDays: focus.streak,
+      isPlaying: player.isPlaying,
+    ));
+
+    await showMascotChatSheet(
+      context,
+      onOpenPalette: _openMascotPalette,
+      onOpenFullChat: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AiChatScreen()),
+        );
+      },
+      onHideBubble: _hideMascotBubble,
+    );
+  }
+
+  /// «Ẩn linh vật» trong sheet: lưu prefs + gỡ bong bóng khỏi shell.
+  void _hideMascotBubble() {
+    setState(() => _mascotBubbleVisible = false);
+    _storage.saveSetting('mascot_bubble_visible_v1', false);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+
   Widget _buildCurrentScreen() {
     switch (_currentTab) {
       case _PrimaryTab.home:
@@ -1859,6 +1924,20 @@ class _MainShellState extends State<MainShell> {
             const WordlistBubble(),
             // ★ Live Cabin floating bubble – persistent STS across tabs
             const LiveCaptionBubble(),
+            // ★ MASCOT-004 — linh vật Sara: bong bóng nổi mọi tab (ẩn theo
+            // prefs; autohide bên trong widget). Kết thúc bubble có kính lề
+            // đáy tăng khi mini player đang hiện để không đè.
+            if (_mascotBubbleVisible)
+              Positioned(
+                right: 14,
+                bottom: _shouldShowShellMiniPlayer ? 78 : 12,
+                child: Consumer<AiServiceFacade>(
+                  builder: (context, facade, _) => MascotBubble(
+                    busy: facade.isChatLoading,
+                    onTap: _openMascotChatSheet,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

@@ -34,8 +34,9 @@ thiết bị, Android, RAM, vùng lưu trữ và ID commit; che đường dẫn/
 4. Với DB nhập bằng bản parser cũ: so sánh bộ cũ với một bản nhập **mới riêng**
    từ nguồn đã sao lưu. Nếu khác, ghi phiên bản và từ ví dụ; không tự xóa DB cũ,
    không khẳng định reimport sẽ sửa mọi lỗi. Kiểm tra từ có >10 record/một bộ:
-   màn Từ điển và hành động Từ điển của Đọc phải cảnh báo chưa đủ; chưa có
-   phân trang, không coi 10 record là đầy đủ.
+   các mặt tra cứu phải cảnh báo chưa đủ. Mở màn Từ điển và bấm tải thêm,
+   kiểm nội dung sau mỗi lần; trần 100 record/bộ, trần redirect 512 nên vẫn
+   có thể chưa đầy đủ. Các popup chưa tự phân trang.
 
 ## 2. SAF, hiệu năng và tính bền
 
@@ -60,7 +61,17 @@ thiết bị, Android, RAM, vùng lưu trữ và ID commit; che đường dẫn/
 | SAF, thu hồi quyền, relink | | | | | | |
 | LAAD3 cold/warm/RAM | | | | | | |
 
-Các cảnh báo DB/số record mới chỉ đi qua màn Từ điển và hành động Từ điển của
-Đọc; các popup dùng API lookup cũ có thể chưa báo lỗi hoặc giới hạn. Cần tiếp
-đường lan truyền trạng thái, phân trang, đối chiếu Unicode SQLite và test máy
-thật trước khi đóng mục 1–2.
+Cảnh báo đã nối tới màn Từ điển, hành động Đọc, pop Đọc/WordActions,
+WordAnalysis và PDF qua WordInsight; vẫn cần kiểm thử các đường khác và trường
+hợp lỗi khởi tạo manifest. Quản lý bộ chỉ hiển thị kích thước file SQLite tại
+thời điểm đọc, không gồm WAL/SHM hay nguồn. Cần đối chiếu Unicode SQLite và
+máy thật trước khi đóng mục 1–2.
+
+## 3. Chọn chữ từ ứng dụng Android khác
+
+Chọn từ trong ứng dụng khác → chọn In4Up từ menu chọn văn bản; thử lúc In4Up
+đang đóng, đang mở, xoay màn hình và quay lại app nguồn. Thử văn bản Unicode,
+ký tự `&`, chuỗi rỗng và trên 64 rune; không được tự mở link/tệp hay thay thế
+văn bản nguồn. Từ tra thành công được lưu vào lịch sử tra trong app như tra ở
+màn Từ điển; có thể xóa lịch sử trong app. Không đọc clipboard hoặc chụp màn
+hình. Đây không phải bong bóng nổi, và cần ghi thiết bị/Android/app nguồn.

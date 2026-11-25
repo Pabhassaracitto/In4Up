@@ -24,7 +24,8 @@ thành URI tra từ app, dùng bộ kiểm tra deep-link 64 rune. Native giới 
 vào trước encode; không đọc clipboard, không OCR, không trả văn bản thay đổi cho
 ứng dụng nguồn, không mở tệp do chữ đưa vào. Hàng đợi nhận đến khi Dart sẵn;
 chưa nghiệm thu cold/warm, xoay màn hình, app nguồn hoặc đa ngôn ngữ trên máy.
-Không có bong bóng tra từ hoặc hỗ trợ iOS/desktop trong thay đổi này.
+Từ tra thành công được lưu lịch sử màn Từ điển (người dùng có thể xoá); không
+có bong bóng tra từ hoặc hỗ trợ iOS/desktop trong thay đổi này.
 
 ## Còn lại
 
@@ -32,3 +33,11 @@ Không có bong bóng tra từ hoặc hỗ trợ iOS/desktop trong thay đổi n
 Unicode, phân trang theo cursor/snapshot thay vì lặp truy vấn, báo dung lượng
 DB/bundle có phân biệt không rõ, renderer CSS an toàn / media, và QA phát hành.
 Không tự xóa nguồn, không dùng sample có bản quyền làm fixture.
+
+## Bổ sung chẩn đoán và quản lý
+
+WordInsight, pop Đọc, PDF và WordAnalysis giữ báo lỗi/thiếu record khi xem
+chi tiết; lookup lỗi không cache để có thể thử lại. Giao diện quản lý cho biết
+kích thước riêng tệp SQLite, không tính WAL/SHM, bundle hay file nguồn; nếu
+không đọc được ghi không rõ. Các báo cáo tổng dung lượng, SAF/provider treo,
+UI media và nghiệm thu trên thiết bị vẫn chưa hoàn tất.

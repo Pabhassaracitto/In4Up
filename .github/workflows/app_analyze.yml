@@ -136,8 +136,25 @@ jobs:
 
       # MASCOT-001/002 — registry hành động + chỉ mục «Mở nhanh» + cầu
       # ShellActionHub của linh vật Sara (PLAN-050, ADR-0036). Test thuần Dart.
+      # Đỏ ⇒ bơm annotation (kênh duy nhất sandbox đọc được — skill ci-red-debugging).
       - name: "MASCOT-001/002 — intent registry, search index, shell action hub"
-        run: flutter test test/mascot/ -r expanded
+        run: |
+          set +e
+          flutter test test/mascot/ -r expanded > mascot_test.log 2>&1
+          code=$?
+          tail -n 40 mascot_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py mascot_test.log "MASCOT-001/002 tests" 6
+          fi
+          exit $code
+
+      - name: Upload mascot test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mascot-test-log
+          path: mascot_test.log
+          if-no-files-found: ignore
 
       - name: Upload Linux shell test log
         if: always()

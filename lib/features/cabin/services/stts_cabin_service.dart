@@ -634,7 +634,7 @@ class SttsCabinService extends ChangeNotifier {
     if (_audioSource != CabinAudioSource.systemAudio || !_systemOverlay) return;
     if (translation != null) _overlayLastTranslation = translation;
     final text = _overlayLastTranslation.isEmpty
-        ? caption.sourceText : '${caption.sourceText}\n$_overlayLastTranslation';
+        ? caption.sourceText : '$_overlayLastTranslation\n${caption.sourceText}';
     if (defaultTargetPlatform == TargetPlatform.android) {
       unawaited(CabinAndroidCapture.updateCaption(text).catchError((_) {}));
     } else if (defaultTargetPlatform == TargetPlatform.windows) {

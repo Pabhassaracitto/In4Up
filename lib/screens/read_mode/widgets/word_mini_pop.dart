@@ -28,6 +28,7 @@ import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/dictionary/services/dict_text_cleaner.dart';
 import '../../../features/dictionary/widgets/dict_definition_view.dart';
+import '../../../features/dictionary/widgets/dict_lookup_notice.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../features/word_lookup/services/word_insight_service.dart';
 import '../../../features/word_lookup/widgets/word_pronunciation_row.dart';
@@ -297,6 +298,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
     // Capture the entries BEFORE dismissing the overlay; the full sheet must
     // not lose results already shown when a second lookup fails or differs.
     final initialEntries = _insight?.entries.toList() ?? const [];
+    final initialReport = _insight?.dictionaryReport;
     WordMiniPop.dismiss();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!sheetCtx.mounted) return;
@@ -306,6 +308,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
         widget.lineIndex,
         widget.wordIndex,
         initialDictionaryEntries: initialEntries,
+        initialDictionaryReport: initialReport,
       );
     });
   }
@@ -527,6 +530,8 @@ class _WordMiniPopState extends State<WordMiniPop> {
                           _buildDifficultyChips(context),
                           const SizedBox(height: 10),
                           _buildMeaningBlock(context),
+                          if (_insight?.dictionaryReport != null)
+                            DictLookupNotice(report: _insight!.dictionaryReport!),
                           const SizedBox(height: 12),
                           _buildActions(context, saved),
                         ],

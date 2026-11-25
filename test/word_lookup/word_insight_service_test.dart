@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/models/dict_entry.dart';
+import 'package:in4up/features/dictionary/services/dictionary_service.dart';
 import 'package:in4up/features/word_lookup/services/online_dictionary_source.dart';
 import 'package:in4up/features/word_lookup/services/word_insight_service.dart';
 
@@ -300,6 +301,33 @@ void main() {
     expect((await old).entries, isEmpty);
     expect((await service.resolveLocal('hello')).entries.single.definition, 'new');
     expect(calls, 2);
+  });
+
+  test('partial DB errors are visible and are not cached after repair', () async {
+    var calls = 0;
+    WordInsightService.dictionaryReportOverride = (word) async {
+      calls++;
+      return calls == 1
+        ? const DictLookupReport(entries: [], failedSources: ['bad'])
+        : DictLookupReport(entries: [DictEntry(headword: word, definition: 'fixed', dictId: 'd')]);
+    };
+    final service = WordInsightService();
+    final first = await service.resolveLocal('hello');
+    expect(first.dictionaryReport!.failedSources, ['bad']);
+    expect(first.copyWith(fromCache: true).dictionaryReport!.failedSources, ['bad']);
+    final second = await service.resolveLocal('hello');
+    expect(second.entries.single.definition, 'fixed');
+    expect(calls, 2);
+  });
+
+  test('fallback retains warning for partial older dictionary entries', () {
+    const entry = DictEntry(headword: 'a', definition: 'x', dictId: 'd');
+    const local = WordInsight(word: 'a', entries: [entry],
+      dictionaryReport: DictLookupReport(entries: [entry], failedSources: ['broken']));
+    const remote = WordInsight(word: 'a', dictionaryReport: DictLookupReport(entries: []));
+    final combined = remote.withDictionaryFallback(local);
+    expect(combined.entries, [entry]);
+    expect(combined.dictionaryReport!.failedSources, ['broken']);
   });
 
 }

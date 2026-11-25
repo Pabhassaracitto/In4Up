@@ -8,6 +8,8 @@ import 'package:in4up/core/platform/safe_haptics.dart';
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
 import '../../../features/dictionary/widgets/dict_entry_detail_sheet.dart';
+import '../../../features/dictionary/widgets/dict_lookup_notice.dart';
+import '../../../features/dictionary/widgets/dictionary_screen.dart';
 import '../../../features/word_lookup/services/word_insight_service.dart';
 import '../../../features/grammar/services/grammar_analysis_service.dart';
 import '../../../features/grammar/widgets/structure_section.dart';
@@ -56,6 +58,7 @@ class WordActionsSheet {
     int lineIndex,
     int wordIndex, {
     List<DictEntry> initialDictionaryEntries = const <DictEntry>[],
+    DictLookupReport? initialDictionaryReport,
   }) {
     SafeHaptics.mediumImpact();
 
@@ -82,6 +85,7 @@ class WordActionsSheet {
               lineIndex: lineIndex,
               wordIndex: wordIndex,
               initialDictionaryEntries: initialDictionaryEntries,
+              initialDictionaryReport: initialDictionaryReport,
             ),
           ),
         ),
@@ -95,12 +99,14 @@ class _WordActionsContent extends StatefulWidget {
   final int lineIndex;
   final int wordIndex;
   final List<DictEntry> initialDictionaryEntries;
+  final DictLookupReport? initialDictionaryReport;
 
   const _WordActionsContent({
     required this.word,
     required this.lineIndex,
     required this.wordIndex,
     this.initialDictionaryEntries = const <DictEntry>[],
+    this.initialDictionaryReport,
   });
 
   @override
@@ -110,6 +116,7 @@ class _WordActionsContent extends StatefulWidget {
 class _WordActionsContentState extends State<_WordActionsContent> {
   List<DictEntry> _dictEntries = [];
   bool _dictLoading = true;
+  DictLookupReport? _dictReport;
 
   /// IPA từ phân tích / dữ liệu đã có của AnalyzedWord (nguồn không rõ).
   String? get _ownIpa {
@@ -137,18 +144,20 @@ class _WordActionsContentState extends State<_WordActionsContent> {
   void initState() {
     super.initState();
     _dictEntries = List<DictEntry>.of(widget.initialDictionaryEntries);
+    _dictReport = widget.initialDictionaryReport;
     _lookupDict();
   }
 
   Future<void> _lookupDict() async {
     try {
-      final entries =
-          await DictionaryService.instance.lookup(
-            WordInsightService.normalizeWord(widget.word.word),
-          );
+      final report = await DictionaryService.instance.lookupWithReport(
+        WordInsightService.normalizeWord(widget.word.word),
+      );
+      final entries = report.entries;
       if (mounted) {
         setState(() {
           _dictEntries = mergeDictionaryEntrySnapshots(_dictEntries, entries);
+          _dictReport = report;
           _dictLoading = false;
         });
       }
@@ -361,6 +370,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                       context,
                       word: widget.word.word,
                       entries: _dictEntries,
+                      lookupReport: _dictReport,
                       ipa: shownIpa,
                       meaning: bestMeaning,
                     ),
@@ -398,6 +408,10 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                 ],
               ),
             ),
+
+          if (_dictReport != null) DictLookupNotice(report: _dictReport!,
+            onOpenDictionary: () => DictionaryScreen.open(context,
+              query: WordInsightService.normalizeWord(widget.word.word), source: 'read')),
 
           // ===== PHONETIC / EXAMPLE =====
           if (shownIpa != null || widget.word.example != null)

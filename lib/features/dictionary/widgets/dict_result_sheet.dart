@@ -174,7 +174,8 @@ class DictResultSheet extends StatelessWidget {
           ),
         ),
         const Divider(color: Color(0xFF1E2A3A), height: 1),
-        if (report != null) DictLookupNotice(report: report!),
+        if (report != null) DictLookupNotice(report: report!,
+          onOpenDictionary: () => DictionaryScreen.open(context, query: word, source: 'dictionary_detail')),
         Expanded(
           child: entries.isEmpty && (report?.failedSources.isNotEmpty ?? false)
               ? const SizedBox.shrink()

@@ -319,4 +319,25 @@ void main() {
     expect(report.failedSources, [second.name]);
   });
 
+  test('missing index survives restart and later manifest writes', () async {
+    final mdx = await writeMdx('missing-index.mdx', {'hello': 'meaning'});
+    final outcome = await DictionaryService.instance.importDictionaryBundle(
+      absoluteFilePaths: [mdx], rootPath: '', mode: DictStorageMode.linked);
+    final dict = outcome.imported.single;
+    await DictDbService.deleteDb(dict.dbPath);
+    DictionaryService.resetForTest();
+    final service = DictionaryService.instance;
+    await service.ensureInitialized();
+    expect(service.dictionaries.single.id, dict.id);
+    final report = await service.lookupWithReport('hello');
+    expect(report.entries, isEmpty);
+    expect(report.failedSources, [dict.name]);
+    await service.toggleDict(dict.id, false); // writes manifest
+    DictionaryService.resetForTest();
+    await DictionaryService.instance.ensureInitialized();
+    expect(DictionaryService.instance.dictionaries.single.id, dict.id);
+    expect(DictionaryService.instance.dictionaries.single.enabled, isFalse);
+    expect(File(mdx).existsSync(), isTrue);
+  });
+
 }

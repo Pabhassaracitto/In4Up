@@ -1108,7 +1108,9 @@ class DictionaryService {
       for (final item in json) {
         _dicts.add(DictInfo.fromJson(item as Map<String, dynamic>));
       }
-      _dicts.removeWhere((d) => !File(d.dbPath).existsSync());
+      // A missing/unreadable index is not an instruction to forget the source.
+      // Keep its manifest entry so lookup can report the failed dictionary and
+      // later manifest writes do not silently erase recovery information.
       // DICT-TITLE-001: manifest của bản cũ (≤1.17.0) đã lưu tên lấy nguyên
       // văn từ header .mdx (`<html><b>…</b></html>`, `Từ\điẻn\ Anh -\ Việt`).
       // Máy đang cài không cài lại từ điển ⇒ phải sửa NGAY khi nạp manifest.

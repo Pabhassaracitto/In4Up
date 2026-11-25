@@ -9879,6 +9879,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-24 | 23:10 UTC | doing→doing | agent arena/1168b461-in4up | ngăn cache WordInsight giữ entry cũ sau import/xóa/đổi bộ, tắt/bật và đổi thứ tự; bỏ kết quả in-flight nếu phiên bản nguồn đổi. Chờ CI và kiểm thiết bị.
   - 2026-11-25 | 17:20 UTC | doing→doing | agent arena/1168b461-in4up | thêm tải 10 record/bộ mỗi lần đến 100, giới hạn redirect 512, phân tách ô bảng và Android PROCESS_TEXT; ADR-0036; chờ CI và nghiệm thu, chưa CSS/audio/ảnh inline, chưa phân trang mọi popup.
   - 2026-11-25 | 17:28 UTC | doing→doing | agent arena/1168b461-in4up | đưa cảnh báo DB/giới hạn qua WordInsight, pop Đọc, PDF và WordAnalysis; không cache lần lỗi; quản lý hiển thị kích thước file SQLite riêng, không tính WAL/nguồn. Chờ CI và QA thiết bị.
+  - 2026-11-25 | 17:36 UTC | doing→doing | agent arena/1168b461-in4up | giữ manifest khi index SQLite bị mất, test khởi động lại/lưu manifest; thêm tập con kiểu chữ inline an toàn. Chờ CI, QA bộ thật, file CSS/audio/ảnh inline và báo dung lượng bundle.
 
 ### DICT-PACK-002 — Sửa 404 catalog và giữ kết quả pop Đọc khi mở rộng
 

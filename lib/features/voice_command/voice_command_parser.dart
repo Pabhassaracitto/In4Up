@@ -9,7 +9,7 @@ class VoiceCommand {
 
 String _normalize(String value) {
   const from = 'áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ';
-  const to =   'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiioooooooooooooouuuuuuuuuuuuyyyyyd';
+  const to = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
   var result = value.toLowerCase();
   for (var i = 0; i < from.length; i++) {
     result = result.replaceAll(from[i], to[i]);

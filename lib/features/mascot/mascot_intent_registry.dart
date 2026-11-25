@@ -76,9 +76,14 @@ class MascotActionMatch {
 String mascotNormalizeCommand(String value) {
   const from =
       'áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ';
-  const to =
-      'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiioooooooooooooouuuuuuuuuuuuyyyyyd';
+  const to = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
   var result = value.toLowerCase();
+  // Map phải CÂN BẰNG 67=67 — assert lúc chạy để sớm phát hiện ai
+  // sửa lệch (bug gốc: 'to' thiếu 3 'o', thừa 1 'u' ⇒ RangeError
+  // vòng 65 với MỌI chuỗi có dấu; tìm ra khi test mascot đỏ).
+  assert(from.length == to.length,
+      'mascotNormalizeCommand: map dấu lệch độ dài '
+      '${from.length} vs ${to.length}');
   for (var i = 0; i < from.length; i++) {
     result = result.replaceAll(from[i], to[i]);
   }

@@ -140,7 +140,10 @@ jobs:
       - name: "MASCOT-001/002 — intent registry, search index, shell action hub"
         run: |
           set +e
-          flutter test test/mascot/ -r expanded > mascot_test.log 2>&1
+          # kèm test/voice_command_parser_test.dart: grammar mascot kế thừa từ
+          # voice_command (đã sửa bug map dấu — file test này trước nay không
+          # nằm trong bước CI nào ⇒ RangeError `_normalize` không bị phát hiện).
+          flutter test test/mascot/ test/voice_command_parser_test.dart -r expanded > mascot_test.log 2>&1
           code=$?
           tail -n 40 mascot_test.log
           if [ "$code" -ne 0 ]; then

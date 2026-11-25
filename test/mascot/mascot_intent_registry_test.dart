@@ -105,18 +105,24 @@ void main() {
     });
 
     test('exact cộng điểm hơn chứa', () {
-      // 'on tap' (exact với review) phải hơn 'on' (chỉ chứa).
+      // exact «mo pdf» = 100; «mo pdf chua» chỉ bắt đầu bằng từ khoá ⇒ thấp hơn.
       final exact =
-          MascotIntentRegistry.matchCommands('on tap').first.score;
-      final contains =
-          MascotIntentRegistry.matchCommands('on tap').first.score;
-      expect(contains, exact);
-      final onScore =
-          MascotIntentRegistry.matchCommands('on tap')
-              .where((m) => m.action.id == 'review')
-              .first
-              .score;
-      expect(onScore, greaterThanOrEqualTo(100));
+          MascotIntentRegistry.matchCommands('mo pdf').first;
+      expect(exact.action.id, 'pdf_reader');
+      expect(exact.score, 100);
+      final prefix =
+          MascotIntentRegistry.matchCommands('mo pdf chua').first;
+      expect(prefix.action.id, 'pdf_reader');
+      expect(prefix.score, lessThan(exact.score));
+    });
+
+    test('regression map dấu: nhóm ô/ơ và đ phải map đúng (bug gốc to=65)', () {
+      // Bug đã có sẵn trong voice_command_parser (to thiếu 3 'o', thừa 1 'u')
+      // từng làm RangeError vòng 65 với mọi chuỗi có dấu.
+      expect(mascotNormalizeCommand('thuộc lòng'), 'thuoc long');
+      expect(mascotNormalizeCommand('ớ ờ ở ỡ ợ'), 'o o o o o');
+      expect(mascotNormalizeCommand('Đ ờ'), 'd o');
+      expect(mascotNormalizeCommand('nghe'), 'nghe');
     });
   });
 }

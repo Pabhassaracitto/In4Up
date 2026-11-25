@@ -2,6 +2,9 @@
 //
 // Yêu cầu chuyển tab của MainShell từ màn hình đang push phía trên
 // (vd. Cabin → "Mở trong Tab Đọc"). MainShell lắng nghe [pending].
+
+import 'package:flutter/foundation.dart';
+
 enum ShellNavigationTarget {
   read,
 

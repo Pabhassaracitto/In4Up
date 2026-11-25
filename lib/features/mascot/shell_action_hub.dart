@@ -12,7 +12,7 @@
 // - playback → P0 CHƯA nối: trả `executed: false`, không ném — parser cũ
 //   voice_command giữ nguyên cho luồng phát lại tab Nghe.
 
-import '../core/navigation/shell_navigation_request.dart';
+import '../../core/navigation/shell_navigation_request.dart';
 import 'mascot_intent_registry.dart';
 
 /// Callbacks shell đăng ký cho hub. Tất cả đều là hàm có sẵn của

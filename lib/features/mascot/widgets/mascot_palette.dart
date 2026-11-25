@@ -13,7 +13,10 @@
 // 6 chuỗi mới đã đăng ký trong `priority_ui_overrides.dart` (en/hi/zh/zh_TW/si)
 // + `generated_legacy_ui_fallbacks.dart` (en) + `legacy_ui_english_overrides.json`.
 
-import 'package:flutter/material.dart';
+// LƯU Ý (AGENTS.md): file UI chỉ import `localized_material.dart` — nó
+// re-export material.dart và SHIM `Text` (dịch chrome khi locale ≠ vi).
+// Import thêm material.dart ⇒ Text ambiguous (lỗi compile đã gặp ở P0).
+
 import 'package:flutter/services.dart';
 
 import '../../../core/language/localized_material.dart';

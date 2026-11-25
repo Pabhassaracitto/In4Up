@@ -15,7 +15,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+// `hide ProcessTextAction`: Flutter services cũng export class
+// `ProcessTextAction` (keyboard text-processing) — trùng tên với enum của
+// `process_text_route.dart` ⇒ analyzer ambiguous_import (CI run 45531369086).
+import 'package:flutter/services.dart' hide ProcessTextAction;
 import 'package:flutter/widgets.dart';
 
 import '../../../screens/read_mode/sheets/read_selection_sheets.dart';

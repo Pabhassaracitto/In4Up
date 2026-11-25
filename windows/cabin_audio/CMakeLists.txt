@@ -5,6 +5,7 @@ endif()
 
 add_library(in4up_cabin_audio SHARED cabin_loopback.cpp cabin_overlay.cpp)
 target_compile_features(in4up_cabin_audio PRIVATE cxx_std_17)
+target_compile_definitions(in4up_cabin_audio PRIVATE UNICODE _UNICODE)
 target_compile_options(in4up_cabin_audio PRIVATE /EHsc)
 target_link_libraries(in4up_cabin_audio PRIVATE ole32 user32 gdi32)
 

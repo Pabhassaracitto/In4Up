@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="cabin_audio_channel">සජීවී කැබින් ශ්‍රව්‍ය</string>
+    <string name="cabin_audio_notification_title">සජීවී කැබින් පද්ධති ශ්‍රව්‍ය ග්‍රහණය කරයි</string>
+    <string name="cabin_audio_notification_body">ග්‍රහණය අවසන් කිරීමට නවත්වන්න තට්ටු කරන්න.</string>
+    <string name="cabin_audio_stop">නවත්වන්න</string>
+</resources>

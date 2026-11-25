@@ -253,6 +253,7 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
+| CABIN-SYS-001 | Live Cabin: âm thanh hệ thống Android + Windows, bong bóng toàn hệ thống | 🔨 doing — mới có nền chuyển đổi PCM, chưa nối thu âm/overlay | `786c306`; CI đang chạy; chưa nghiệm thu |
 | DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 CI xanh, chờ nghiệm thu máy | `e12820f` + fix `a7a57b1` (hide `ProcessTextAction` trùng Flutter services); [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 |
 | AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 CI xanh, chờ nghiệm thu máy | `a3859da` + `a7a57b1`; [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 (step `PLAN-049 P1 tests` success) |
 
@@ -10129,3 +10130,17 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-24 | created→doing | agent `arena/7ba1e7b3-in4up` | PLAN-049 + P1 code + i18n 4 chuỗi + test + CI step
   - 2026-11-24 | doing→doing | agent `arena/7ba1e7b3-in4up` | **CI xanh** run **45532454816** 🟢 trên `a7a57b1` (analyze 0 error, Rule 5, DICT, PLAN-049 P1 — 92 step success); fix `a7a57b1` hide `ProcessTextAction` (trùng class Flutter services ⇒ ambiguous_import làm đỏ 2 run trước)
+
+### CABIN-SYS-001 — Live Cabin: âm thanh hệ thống + bong bóng
+- **Trạng thái:** 🔨 doing; chưa có chức năng thu âm hệ thống hoặc overlay.
+- **Phạm vi:** Android AudioPlaybackCapture + MediaProjection và overlay toàn
+  hệ thống; Windows WASAPI loopback; ASR offline và dịch/đọc bản dịch.
+- **Đã làm:** `786c306` thêm bộ chuyển float PCM interleaved thành PCM16 mono
+  16 kHz với đồng hồ liên tục qua các packet và unit test. Chưa nối vào pipeline.
+  Nội suy tuyến tính chưa lọc chống alias; cần đánh giá chất lượng/lọc trước
+  khi dùng cho nguồn có năng lượng trên 8 kHz.
+- **Còn lại:** native capture + lifecycle/quyền/consent, overlay, nối pipeline
+  và UI/i18n, test CI, build và nghiệm thu trên Android + Windows. Android có
+  thể không thu được âm thanh từ ứng dụng không cho phép playback capture.
+- **Lịch sử:**
+  - 2026-11-24 | created→doing | agent | Nền PCM và test; CI chưa xác nhận.

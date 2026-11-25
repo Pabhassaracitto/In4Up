@@ -41,3 +41,10 @@ chi tiết; lookup lỗi không cache để có thể thử lại. Giao diện q
 kích thước riêng tệp SQLite, không tính WAL/SHM, bundle hay file nguồn; nếu
 không đọc được ghi không rõ. Các báo cáo tổng dung lượng, SAF/provider treo,
 UI media và nghiệm thu trên thiết bị vẫn chưa hoàn tất.
+
+## Bổ sung kiểu chữ nội tuyến an toàn
+
+Chỉ nhận một số giá trị chính xác của `font-weight`, `font-style` và
+`text-decoration` trong thuộc tính style (tối đa 1024 ký tự, 32 khai báo);
+không diễn giải URL, file, màu, font, kích thước, bố cục hay thuộc tính ẩn.
+Không đọc tệp CSS, không chạy JavaScript; không coi đây là renderer nguyên bản.

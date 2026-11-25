@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import '../services/cabin_android_capture.dart';
 // sherpa_model_manager re-export cả asr_model_routing (profile + router).
 import 'package:in4up_stt/sherpa_model_manager.dart';
 
@@ -167,6 +169,56 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     }
   }
 
+  Future<void> _chooseAudioSource(CabinAudioSource source) async {
+    if (_service.isListening || _service.isPaused || _service.isStartingSystemAudio) return;
+    if (source == CabinAudioSource.systemAudio && !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        if (!await CabinAndroidCapture.isSupported()) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.uiText('Cần Android 10 trở lên'))),
+          );
+          return;
+        }
+      } catch (_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.uiText('Không thu được âm thanh hệ thống'))),
+        );
+        return;
+      }
+    }
+    _service.setAudioSource(source);
+  }
+
+  Future<bool> _ensureOverlayPermission() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android ||
+        _service.audioSource != CabinAudioSource.systemAudio || !_service.systemOverlay) {
+      return true;
+    }
+    try {
+      if (await CabinAndroidCapture.hasOverlayPermission()) return true;
+    } catch (_) { return false; }
+    if (!mounted) return false;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.uiText('Cấp quyền hiển thị trên ứng dụng khác')),
+        content: Text(dialogContext.uiText('Mở cài đặt rồi cho phép In4Up hiển thị trên ứng dụng khác.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.uiText('Hủy'))),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(dialogContext.uiText('Cài đặt'))),
+        ],
+      ),
+    );
+    if (open == true) {
+      try { await CabinAndroidCapture.requestOverlayPermission(); } catch (_) {}
+    }
+    // User returns from Settings and explicitly presses Start again.
+    return false;
+  }
+
   void _toggleDubbing() {
     final next = !_service.isDubbingEnabled;
     _service.setDubbing(next);
@@ -184,6 +236,8 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   }
 
   void _showLanguagePicker({required bool isSource}) {
+    if (isSource && _service.audioSource == CabinAudioSource.systemAudio &&
+        (_service.isListening || _service.isStartingSystemAudio)) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -447,7 +501,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: IconButton(
                   icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF00E676)),
-                  onPressed: () {
+                  onPressed: _service.audioSource == CabinAudioSource.systemAudio &&
+                          (_service.isListening || _service.isStartingSystemAudio)
+                      ? null : () {
                     HapticFeedback.selectionClick();
                     _service.swapLanguages();
                   },
@@ -502,6 +558,43 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
             ],
           ),
           const SizedBox(height: 8),
+
+          if (_service.supportsSystemAudio) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  label: Text(context.uiText('Micro')),
+                  selected: _service.audioSource == CabinAudioSource.microphone,
+                  onSelected: _service.isListening || _service.isPaused || _service.isStartingSystemAudio
+                      ? null : (_) => _chooseAudioSource(CabinAudioSource.microphone),
+                ),
+                ChoiceChip(
+                  label: Text(context.uiText('Âm thanh hệ thống')),
+                  selected: _service.audioSource == CabinAudioSource.systemAudio,
+                  onSelected: _service.isListening || _service.isPaused || _service.isStartingSystemAudio
+                      ? null : (_) => _chooseAudioSource(CabinAudioSource.systemAudio),
+                ),
+                if (_service.audioSource == CabinAudioSource.systemAudio)
+                  FilterChip(
+                    label: Text(context.uiText('Bong bóng toàn hệ thống')),
+                    selected: _service.systemOverlay,
+                    onSelected: _service.isListening || _service.isPaused || _service.isStartingSystemAudio
+                        ? null : _service.setSystemOverlay,
+                  ),
+              ],
+            ),
+            if (_service.audioSource == CabinAudioSource.systemAudio)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Text(
+                  context.uiText('Một số ứng dụng có thể chặn thu âm. Khi đọc bản dịch, nhận diện và ghi âm nguồn tạm dừng.'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
 
           // STT Engine Switcher (System vs Offline Sherpa Zipformer) + Dịch Engine
           Row(
@@ -692,7 +785,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     final isSelected = _service.sttEngineType == type;
     return Expanded(
       child: InkWell(
-        onTap: () => _handleEngineTap(type),
+        onTap: _service.isStartingSystemAudio ||
+                (_service.audioSource == CabinAudioSource.systemAudio && type == CabinSttEngineType.system)
+            ? null : () => _handleEngineTap(type),
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -849,6 +944,12 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
       );
       if (fallback == null) return base;
       return '$base ${context.uiText('Hoặc dùng $fallback (đã cài) sau khi xác nhận.')}';
+    }
+    if (_service.audioSource == CabinAudioSource.systemAudio && _service.lastError != null) {
+      if (_service.lastError == 'Cần cấp quyền micro để thu âm thanh hệ thống') {
+        return context.uiText('Cần cấp quyền micro để thu âm thanh hệ thống');
+      }
+      return context.uiText('Không thu được âm thanh hệ thống');
     }
     return _service.lastError ?? '';
   }
@@ -1264,7 +1365,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   }
 
   Widget _buildBottomControlBar() {
-    final isListening = _service.isListening;
+    final isListening = _service.isListening || _service.isStartingSystemAudio;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -1319,6 +1420,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               if (isListening) {
                 await _service.stopCabin();
               } else {
+                if (!await _ensureOverlayPermission()) return;
                 await _service.startCabin();
               }
             },

@@ -140,6 +140,7 @@
                 <data android:scheme="i4u" android:host="dict" />
                 <data android:scheme="i4u" android:host="open" />
             </intent-filter>
+
         </activity>
 
         <!-- XLAT-SCR-002 / XLAT-SCR-003 — Dịch màn hình toàn hệ thống (ADR-0011).

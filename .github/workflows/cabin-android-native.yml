@@ -26,10 +26,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Install Android API and Kotlin compiler
         run: |
-          sdkmanager 'platforms;android-36'
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager 'platforms;android-36'
+          fi
           if ! command -v kotlinc >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y kotlin
@@ -45,6 +46,15 @@ jobs:
             const val cabin_audio_stop = 4
           } }
           KOTLIN
+          set +e
           kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
             "$RUNNER_TEMP/CabinR.kt" android/app/src/main/kotlin/com/in4up/cabin/*.kt \
-            -d "$RUNNER_TEMP/cabin-audio.jar"
+            -d "$RUNNER_TEMP/cabin-audio.jar" > "$RUNNER_TEMP/cabin-kotlin.log" 2>&1
+          result=$?
+          cat "$RUNNER_TEMP/cabin-kotlin.log"
+          if [ "$result" -ne 0 ]; then
+            while IFS= read -r line; do
+              echo "::error title=Cabin Kotlin compile::$line"
+            done < "$RUNNER_TEMP/cabin-kotlin.log"
+          fi
+          exit "$result"

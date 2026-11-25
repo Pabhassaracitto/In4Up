@@ -43,3 +43,10 @@ quyền, capture, overlay hay bản dịch. Cần kiểm thử Android API 29/34
 âm thanh stereo/multichannel, mất thiết bị, từ chối/thu hồi consent, hủy trong
 khi đang xin quyền, pause/resume, TTS feedback, ngôn ngữ và hiển thị overlay
 trên ứng dụng khác, rồi review trước khi tuyên bố hoàn tất.
+
+### Cập nhật 2026-11-24
+
+`ba144c7`–`08a83d8` thêm cửa sổ Win32 topmost và `03f0551` thêm adapter FFI.
+Đây mới là nền độc lập, **chưa** nối vào Cabin hay được nghiệm thu với ứng dụng
+khác. Trên Android, `1f81501`–`212b3ad` thêm kênh + overlay và test hợp đồng;
+vẫn phải tích hợp luồng caption và xử lý đầy đủ vòng đời trên máy thật.

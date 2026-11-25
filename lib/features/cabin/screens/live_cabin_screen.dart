@@ -427,7 +427,10 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
         child: Column(
           children: [
             // Top Bar: Language Pair Selector & Mode Chips
-            _buildLanguageAndModeBar(),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.42),
+              child: SingleChildScrollView(child: _buildLanguageAndModeBar()),
+            ),
 
             // Headphone Warning Banner
             if (_showHeadphoneBanner) _buildHeadphoneReminder(),
@@ -1035,7 +1038,8 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   Widget _buildOneLineView() {
     final active = _service.activeCaption;
 
-    return Padding(
+    return SingleChildScrollView(
+      child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1155,6 +1159,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -1167,7 +1172,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
             Icon(Icons.mic_none_rounded, size: 64, color: Colors.white.withValues(alpha: 0.15)),
             const SizedBox(height: 16),
             Text(
-              context.uiText('Chưa có dữ liệu hội thoại.\nBấm nút Micro để bắt đầu phiên dịch cabin.'),
+              context.uiText(_service.audioSource == CabinAudioSource.systemAudio
+                  ? 'Phát âm thanh trên thiết bị để bắt đầu dịch...'
+                  : 'Chưa có dữ liệu hội thoại.\nBấm nút Micro để bắt đầu phiên dịch cabin.'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white38, fontSize: 14, height: 1.5),
             ),

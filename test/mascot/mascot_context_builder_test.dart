@@ -5,7 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:in4up/features/mascot/mascot_context_builder.dart';
-import 'package:in4up/features/mascot/mascot_intent_registry.dart';
+import 'package:in4up/features/mascot/mascot_prompts.dart';
 
 void main() {
   group('truncateAtSentenceBoundary', () {
@@ -88,16 +88,6 @@ void main() {
         systemPrompt: prompt,
       );
       expect(ctx.startsWith(prompt), isTrue);
-    });
-  });
-
-  group('mascotPromptActions', () {
-    test('không quảng cáo playback (chưa nối executor ở P1)', () {
-      final actions = mascotPromptActions();
-      expect(actions.where((a) => a.group == MascotActionGroup.playback),
-          isEmpty);
-      expect(
-          actions.any((a) => a.group == MascotActionGroup.tool), isTrue);
     });
   });
 }

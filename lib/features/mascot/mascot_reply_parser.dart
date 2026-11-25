@@ -38,7 +38,8 @@ MascotParsedReply parseMascotReply(String raw) {
   final directive = _directiveExp.firstMatch(text);
   if (directive != null) {
     final id = directive.group(1) ?? directive.group(2);
-    var say = text.replaceFirst(directive, '').trim();
+    var say =
+        text.replaceRange(directive.start, directive.end, '').trim();
     say = _stripJsonFence(say);
     return MascotParsedReply(_cleanSay(say), (id == null || id.isEmpty) ? null : id);
   }

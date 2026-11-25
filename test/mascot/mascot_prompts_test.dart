@@ -41,4 +41,13 @@ void main() {
       expect(again, prompt);
     });
   });
+
+  group('mascotPromptActions', () {
+    test('không quảng cáo playback (chưa nối executor ở P1)', () {
+      final actions = mascotPromptActions();
+      expect(actions.where((a) => a.group == MascotActionGroup.playback),
+          isEmpty);
+      expect(actions.any((a) => a.group == MascotActionGroup.tool), isTrue);
+    });
+  });
 }

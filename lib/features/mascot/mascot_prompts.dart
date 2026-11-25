@@ -54,6 +54,13 @@ String buildMascotSystemPrompt(Iterable<MascotActionDef> actions) {
   return buffer.toString().trim();
 }
 
+/// Danh sách hành động ghi vào prompt — CHỈ nhóm mascot thực thi được ở P1
+/// (tab/mode/tool); nhóm playback chưa nối executor nên không quảng cáo với
+/// model (không bịa lời hứa — PLAN-050 §9).
+List<MascotActionDef> mascotPromptActions() => MascotIntentRegistry.actions
+    .where((a) => a.group != MascotActionGroup.playback)
+    .toList(growable: false);
+
 /// System prompt chuẩn — dùng [mascotPromptActions] (loại playback chưa nối).
 String buildMascotDefaultSystemPrompt() =>
     buildMascotSystemPrompt(mascotPromptActions());

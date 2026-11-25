@@ -8,8 +8,6 @@
 // cắt theo ngân sách. Prompt là NỘI DUNG gửi cho AI (giống prompt coach Hiểu)
 // — KHÔNG đưa vào catalog i18n (rule #5 AGENTS.md).
 
-import 'mascot_intent_registry.dart';
-
 /// Ngân sách ký tự cho ngữ cảnh mascot — THẤP hơn coach Hiểu (1200 tổng) vì
 /// mascot hỏi đáp ngắn, không cần cả tài liệu (PLAN-050 §11).
 const int kMascotContextMaxChars = 1200;
@@ -89,13 +87,6 @@ String buildMascotContextBlock(MascotContextData data) {
   buffer.writeln('- Audio đang phát: ${data.isPlaying ? "có" : "không"}');
   return buffer.toString().trim();
 }
-
-/// Danh sách hành động ghi vào prompt — CHỈ nhóm mascot thực thi được ở P1
-/// (tab/mode/tool); nhóm playback chưa nối executor nên không quảng cáo với
-/// model (không bịa lời hứa — PLAN-050 §9).
-List<MascotActionDef> mascotPromptActions() => MascotIntentRegistry.actions
-    .where((a) => a.group != MascotActionGroup.playback)
-    .toList(growable: false);
 
 /// Ghép ngữ cảnh đầy đủ gửi kèm MỘT lượt hỏi (dùng `oneShotContext` của
 /// `AiServiceFacade.sendMessage` — PSRC-264: không tái đính các lượt sau).

@@ -4,6 +4,7 @@ import '../models/dict_info.dart';
 import '../services/dict_device_channel.dart';
 import '../services/dict_import_service.dart';
 import '../services/dict_list_order.dart';
+import '../services/dict_storage_size.dart';
 import '../services/dictionary_service.dart';
 import 'dict_pack_screen.dart';
 
@@ -583,6 +584,18 @@ class _DictCard extends StatelessWidget {
                 onPressed: onDelete,
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          FutureBuilder<int?>(
+            future: dictionaryDatabaseFileBytes(dict.dbPath),
+            builder: (context, snapshot) {
+              final bytes = snapshot.data;
+              final label = bytes == null
+                  ? context.uiText('Không rõ dung lượng tệp SQLite')
+                  : '${context.uiText('Tệp SQLite')}: ${(bytes / (1024 * 1024)).toStringAsFixed(2)} MiB';
+              return Text('$label · ${context.uiText('Chưa tính WAL và tệp nguồn')}',
+                style: TextStyle(color: Colors.grey[500], fontSize: 11));
+            },
           ),
           if (dict.needsReselect) ...[
             const SizedBox(height: 8),

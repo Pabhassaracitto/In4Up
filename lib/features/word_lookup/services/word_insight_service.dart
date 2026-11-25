@@ -55,6 +55,9 @@ class WordInsight {
   /// Entry MDX thô (đã có) — dùng cho trang từ điển đầy đủ + lưu từ.
   final List<DictEntry> entries;
 
+  /// Lookup diagnostics, independent from online/offline meanings.
+  final DictLookupReport? dictionaryReport;
+
   /// Nội dung MDX đã làm sạch/cấu trúc, song song với [entries].
   final List<DictDefinition> definitions;
 
@@ -73,6 +76,7 @@ class WordInsight {
     this.partOfSpeech,
     this.example,
     this.entries = const <DictEntry>[],
+    this.dictionaryReport,
     this.definitions = const <DictDefinition>[],
     this.dictionaryNames = const <String, String>{},
     this.origin,
@@ -112,6 +116,13 @@ class WordInsight {
       partOfSpeech: partOfSpeech,
       example: example,
       entries: fallback.entries,
+      dictionaryReport: DictLookupReport(
+        entries: fallback.entries,
+        failedSources: {...?dictionaryReport?.failedSources,
+          ...?fallback.dictionaryReport?.failedSources}.toList(),
+        truncatedSources: {...?dictionaryReport?.truncatedSources,
+          ...?fallback.dictionaryReport?.truncatedSources}.toList(),
+      ),
       definitions: fallback.definitions,
       dictionaryNames: fallback.dictionaryNames,
       origin: origin,
@@ -128,6 +139,7 @@ class WordInsight {
         partOfSpeech: partOfSpeech,
         example: example,
         entries: entries,
+        dictionaryReport: dictionaryReport,
         definitions: definitions,
         dictionaryNames: dictionaryNames,
         origin: origin,
@@ -151,6 +163,7 @@ class WordInsightService {
   static Future<OnlineDictEntry?> Function(String word)? onlineLookupOverride;
   static Future<List<DictEntry>> Function(String word)?
       dictionaryLookupOverride;
+  static Future<DictLookupReport> Function(String word)? dictionaryReportOverride;
   static Future<String?> Function(String text)? translateOverride;
   static String? Function(String word)? offlineMeaningOverride;
   static Future<String?> Function(String word)? offlineIpaOverride;
@@ -162,6 +175,7 @@ class WordInsightService {
   static void resetForTest() {
     onlineLookupOverride = null;
     dictionaryLookupOverride = null;
+    dictionaryReportOverride = null;
     translateOverride = null;
     offlineMeaningOverride = null;
     offlineIpaOverride = null;
@@ -225,6 +239,7 @@ class WordInsightService {
       insight = WordInsight(word: word);
     }
     if (_syncDictionaryRevision() != revision) return WordInsight(word: word);
+    if (insight.dictionaryReport?.failedSources.isNotEmpty ?? false) return insight;
     if (_localCache.length >= _cacheMax) _localCache.clear();
     _localCache[word] = insight;
     return insight;
@@ -258,6 +273,7 @@ class WordInsightService {
     if (_syncDictionaryRevision() != revision) return WordInsight(word: word);
     final local = _localCache[word];
     if (local != null) insight = insight.withDictionaryFallback(local);
+    if (insight.dictionaryReport?.failedSources.isNotEmpty ?? false) return insight;
     if (_cache.length >= _cacheMax) _cache.clear();
     _cache[word] = insight;
     _localCache[word] = insight;
@@ -304,7 +320,8 @@ class WordInsightService {
     }
 
     // ── 2. TỪ ĐIỂN MDX ─────────────────────────────────────────────────────
-    final entries = await _safeDictionaryLookup(word);
+    final dictionaryReport = await _safeDictionaryLookup(word);
+    final entries = dictionaryReport.entries;
     final definitions = <DictDefinition>[];
     for (final entry in entries) {
       final view = entry.definitionView;
@@ -368,6 +385,7 @@ class WordInsightService {
       partOfSpeech: partOfSpeech,
       example: example,
       entries: entries,
+      dictionaryReport: dictionaryReport,
       definitions: definitions,
       dictionaryNames: _safeDictionaryNames(),
       origin: origin,
@@ -385,14 +403,18 @@ class WordInsightService {
     }
   }
 
-  Future<List<DictEntry>> _safeDictionaryLookup(String word) async {
+  Future<DictLookupReport> _safeDictionaryLookup(String word) async {
     final override = dictionaryLookupOverride;
     try {
-      if (override != null) return await override(word);
-      return await DictionaryService.instance.lookup(word);
+      final reportOverride = dictionaryReportOverride;
+      if (reportOverride != null) return await reportOverride(word);
+      if (override != null) return DictLookupReport(entries: await override(word));
+      return await DictionaryService.instance.lookupWithReport(word);
     } catch (error) {
-      debugPrint('[WordInsight] MDX "$word" lỗi: $error');
-      return const <DictEntry>[];
+      debugPrint('[WordInsight] MDX lookup failed');
+      return DictLookupReport(entries: const [], failedSources: [
+        for (final dict in DictionaryService.instance.enabledDictionaries) dict.name,
+      ]);
     }
   }
 

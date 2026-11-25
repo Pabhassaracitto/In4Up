@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/dictionary/services/dict_db_service.dart';
+import 'package:in4up/features/dictionary/services/dict_storage_size.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -109,4 +110,12 @@ void main() {
     await DictDbService.deleteDb(dbPath);
     expect(File(dbPath).existsSync(), isFalse);
   });
+  test('file size is a file-only snapshot; absent file is unknown', () async {
+    expect(await dictionaryDatabaseFileBytes(dbPath), isNull);
+    await File(dbPath).writeAsBytes([1, 2, 3, 4]);
+    await File('$dbPath-wal').writeAsBytes([1, 2]);
+    expect(await dictionaryDatabaseFileBytes(dbPath), 4);
+    expect(await dictionaryDatabaseFileBytes(tempDir.path), isNull);
+  });
+
 }

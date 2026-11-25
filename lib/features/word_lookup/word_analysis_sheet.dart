@@ -6,6 +6,8 @@ import '../dictionary/services/dict_text_cleaner.dart';
 import '../dictionary/services/dictionary_service.dart';
 import '../dictionary/widgets/dict_definition_view.dart';
 import '../dictionary/widgets/dict_entry_detail_sheet.dart';
+import '../dictionary/widgets/dict_lookup_notice.dart';
+import '../dictionary/widgets/dictionary_screen.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
 
@@ -27,6 +29,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
   final _dict = OfflineDictionary();
   List<DictEntry> _mdxEntries = const <DictEntry>[];
   bool _mdxLoading = true;
+  DictLookupReport? _mdxReport;
 
   @override
   void initState() {
@@ -40,10 +43,12 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
 
   Future<void> _lookupMdx() async {
     try {
-      final entries = await DictionaryService.instance.lookup(widget.selectedWord);
+      final report = await DictionaryService.instance.lookupWithReport(widget.selectedWord);
+      final entries = report.entries;
       if (mounted) {
         setState(() {
           _mdxEntries = entries;
+          _mdxReport = report;
           _mdxLoading = false;
         });
       }
@@ -102,6 +107,10 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                     const SizedBox(height: 8),
                     _buildMdxLoading(),
                   ],
+
+                  if (_mdxReport != null) DictLookupNotice(report: _mdxReport!,
+                    onOpenDictionary: () => DictionaryScreen.open(context,
+                      query: widget.selectedWord, source: 'word_analysis')),
 
                   // ── Tầng 3: Hiển thị khi Gemma xong ──
                   if (analysis?.isPartial == false) ...[
@@ -267,6 +276,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                 context,
                 word: widget.selectedWord,
                 entries: _mdxEntries,
+                lookupReport: _mdxReport,
                 ipa: merged.ipa,
                 meaning: merged.compactMeaning(maxSenses: 3),
                 onSpeak: null,

@@ -5,6 +5,7 @@ import '../models/dict_entry.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
+import 'dict_lookup_notice.dart';
 import 'dict_source_entries.dart';
 import 'dictionary_screen.dart';
 
@@ -17,6 +18,7 @@ import 'dictionary_screen.dart';
 class DictEntryDetailSheet extends StatelessWidget {
   final String word;
   final List<DictEntry> entries;
+  final DictLookupReport? lookupReport;
 
   /// IPA dự phòng khi nguồn MDX không có (ví dụ lấy từ mạng).
   final String? fallbackIpa;
@@ -35,6 +37,7 @@ class DictEntryDetailSheet extends StatelessWidget {
     super.key,
     required this.word,
     this.entries = const <DictEntry>[],
+    this.lookupReport,
     this.fallbackIpa,
     this.fallbackMeaning,
     this.partOfSpeech,
@@ -46,6 +49,7 @@ class DictEntryDetailSheet extends StatelessWidget {
     BuildContext context, {
     required String word,
     List<DictEntry> entries = const <DictEntry>[],
+    DictLookupReport? lookupReport,
     String? ipa,
     String? meaning,
     String? partOfSpeech,
@@ -65,6 +69,7 @@ class DictEntryDetailSheet extends StatelessWidget {
         child: DictEntryDetailSheet(
           word: word,
           entries: entries,
+          lookupReport: lookupReport,
           fallbackIpa: ipa,
           fallbackMeaning: meaning,
           partOfSpeech: partOfSpeech,
@@ -226,6 +231,10 @@ class DictEntryDetailSheet extends StatelessWidget {
           ),
         ),
         const Divider(color: Color(0xFF1E2A3A), height: 16),
+        if (lookupReport != null) DictLookupNotice(
+          report: lookupReport!,
+          onOpenDictionary: () => DictionaryScreen.open(context, query: word, source: 'dictionary_detail'),
+        ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),

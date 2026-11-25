@@ -10,6 +10,8 @@ import '../../../providers/vocabulary_provider.dart';
 import '../../dictionary/services/dict_text_cleaner.dart';
 import '../../dictionary/widgets/dict_definition_view.dart';
 import '../../dictionary/widgets/dict_entry_detail_sheet.dart';
+import '../../dictionary/widgets/dict_lookup_notice.dart';
+import '../../dictionary/widgets/dictionary_screen.dart';
 import '../../vocab_image/vocab_image_quick_add.dart';
 import '../../word_lookup/services/word_insight_service.dart';
 import '../../../widgets/ipa_source_chip.dart';
@@ -126,6 +128,7 @@ class _WordSheetState extends State<_WordSheet> {
       context,
       word: _displayWord,
       entries: insight?.entries ?? const [],
+      lookupReport: insight?.dictionaryReport,
       ipa: insight?.ipa,
       meaning: meaning,
       partOfSpeech: insight?.partOfSpeech,
@@ -328,7 +331,7 @@ class _WordSheetState extends State<_WordSheet> {
                 ],
 
                 // ── Từ điển (cô đọng, có nút mở trang đầy đủ) ─────
-                if (merged != null && !merged.isEmpty) ...[
+                if (merged != null && (insight?.hasDictionary ?? false)) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -374,6 +377,12 @@ class _WordSheetState extends State<_WordSheet> {
                     ),
                   ),
                 ],
+
+                if (insight?.dictionaryReport != null) DictLookupNotice(
+                  report: insight!.dictionaryReport!,
+                  onOpenDictionary: () => DictionaryScreen.open(context,
+                    query: _lookupWord, source: 'pdf'),
+                ),
 
                 if (existing != null) ...[
                   const SizedBox(height: 12),

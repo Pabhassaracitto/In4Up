@@ -21,11 +21,21 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
+import android.provider.Settings
+import android.text.TextUtils
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.WindowManager
+import android.widget.TextView
+import kotlin.math.abs
 import com.in4up.R
 
 /**
- * Foreground playback capture, not wired to Flutter yet. A caller must install
- * a listener before requesting consent and clear it when the engine detaches.
+ * Foreground playback capture. The caller installs a per-session listener
+ * before requesting consent and invalidates it when the engine detaches.
  * PCM and errors may arrive on different threads: a Flutter bridge MUST post
  * events to the main thread. The service never persists projection tokens.
  */
@@ -42,9 +52,21 @@ class CabinSystemAudioService : Service() {
         const val ACTION_STOP = "com.in4up.cabin.STOP"
         const val EXTRA_RESULT_CODE = "resultCode"
         const val EXTRA_RESULT_DATA = "resultData"
+        const val EXTRA_REQUEST_ID = "requestId"
+        const val EXTRA_OVERLAY = "overlay"
         private const val CHANNEL = "in4up_cabin_audio"
         private const val NOTIFICATION = 0x6C12
         @Volatile var listener: Listener? = null
+        @Volatile private var requestId = 0L
+        @Volatile private var runningService: CabinSystemAudioService? = null
+
+        @Synchronized fun newRequest(): Long { requestId += 1; return requestId }
+        @Synchronized fun cancelRequest() { requestId += 1 }
+        fun isCurrent(id: Long): Boolean = requestId == id
+        fun updateCaption(text: String) {
+            val service = runningService ?: return
+            service.main.post { service.setCaption(text) }
+        }
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -53,6 +75,11 @@ class CabinSystemAudioService : Service() {
     private var projection: MediaProjection? = null
     private var worker: Thread? = null
     private var active = false
+    private var ownerListener: Listener? = null
+    private var overlay: TextView? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
+    private var expanded = true
+    private var caption = ""
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
             if (!stopping) fail("projection_stopped")
@@ -74,11 +101,14 @@ class CabinSystemAudioService : Service() {
         @Suppress("DEPRECATION")
         val data = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
+        val id = intent.getLongExtra(EXTRA_REQUEST_ID, -1)
+        if (!isCurrent(id)) { stopSelf(); return START_NOT_STICKY }
         if (data == null || resultCode != Activity.RESULT_OK || listener == null ||
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             fail("permission_or_consent")
             return START_NOT_STICKY
         }
+        ownerListener = listener
         try {
             // Android 14 requires a user-granted token before starting the
             // mediaProjection FGS, and that FGS before getMediaProjection.
@@ -109,8 +139,10 @@ class CabinSystemAudioService : Service() {
             if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
                 throw IllegalStateException("AudioRecord did not start")
             }
+            if (intent.getBooleanExtra(EXTRA_OVERLAY, false)) showOverlay()
             active = true
-            listener?.onStarted()
+            runningService = this
+            ownerListener?.onStarted()
             worker = Thread({ readLoop(recorder) }, "cabin-playback-capture").also { it.start() }
         } catch (_: Exception) {
             fail("capture_failed")
@@ -128,8 +160,8 @@ class CabinSystemAudioService : Service() {
                     return
                 }
                 if (count > 0) {
-                    val target = listener
-                    if (target == null) {
+                    val target = ownerListener
+                    if (target == null || listener !== target) {
                         main.post { stopSelf() }
                         return
                     }
@@ -143,7 +175,7 @@ class CabinSystemAudioService : Service() {
 
     private fun fail(code: String) {
         if (stopping) return
-        listener?.onError(code)
+        (ownerListener ?: listener)?.onError(code)
         stopSelf()
     }
 
@@ -168,8 +200,83 @@ class CabinSystemAudioService : Service() {
         }
     }
 
+    private fun showOverlay() {
+        if (!Settings.canDrawOverlays(this)) throw SecurityException("Overlay permission denied")
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        val view = TextView(this).apply {
+            text = "In4Up"
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            maxLines = 5
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(30, 37, 65))
+                cornerRadius = dp(16).toFloat()
+                setStroke(dp(1), Color.rgb(0, 230, 118))
+            }
+        }
+        val params = WindowManager.LayoutParams(
+            dp(260), WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.TOP or Gravity.START; x = dp(20); y = dp(160) }
+        var startX = 0
+        var startY = 0
+        var downX = 0f
+        var downY = 0f
+        var moved = false
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = params.x; startY = params.y
+                    downX = event.rawX; downY = event.rawY; moved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downX; val dy = event.rawY - downY
+                    if (abs(dx) + abs(dy) > dp(8)) moved = true
+                    if (moved) {
+                        params.x = startX + dx.toInt(); params.y = startY + dy.toInt()
+                        try { wm.updateViewLayout(view, params) } catch (_: Exception) {}
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) {
+                        expanded = !expanded
+                        params.width = dp(if (expanded) 260 else 60)
+                        setCaption(caption)
+                        try { wm.updateViewLayout(view, params) } catch (_: Exception) {}
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        wm.addView(view, params)
+        overlay = view
+        overlayParams = params
+    }
+
+    private fun setCaption(value: String) {
+        caption = value
+        overlay?.text = if (!expanded || value.isBlank()) "In4Up" else value
+    }
+
     override fun onDestroy() {
         stopping = true
+        if (runningService === this) runningService = null
+        overlay?.let {
+            try { (getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(it) }
+            catch (_: Exception) {}
+        }
+        overlay = null
+        overlayParams = null
         try { record?.stop() } catch (_: Exception) {}
         try { worker?.join(1000) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
         try { record?.release() } catch (_: Exception) {}
@@ -178,7 +285,8 @@ class CabinSystemAudioService : Service() {
         projection?.stop()
         projection = null
         active = false
-        listener?.onStopped()
+        ownerListener?.onStopped()
+        ownerListener = null
         super.onDestroy()
     }
 }

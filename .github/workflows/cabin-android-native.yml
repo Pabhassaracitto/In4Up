@@ -46,9 +46,26 @@ jobs:
             const val cabin_audio_stop = 4
           } }
           KOTLIN
+          cat > "$RUNNER_TEMP/FlutterChannels.kt" <<'KOTLIN'
+          package io.flutter.plugin.common
+          interface BinaryMessenger
+          class MethodCall(val method: String) { fun <T> argument(key: String): T? = null }
+          class MethodChannel(m: BinaryMessenger, name: String) {
+            interface Result { fun success(value: Any?); fun notImplemented() }
+            fun setMethodCallHandler(handler: ((MethodCall, Result) -> Unit)?) {}
+          }
+          class EventChannel(m: BinaryMessenger, name: String) {
+            interface EventSink { fun success(value: Any?); fun error(code: String, message: String?, details: Any?); fun endOfStream() }
+            interface StreamHandler { fun onListen(arguments: Any?, eventSink: EventSink); fun onCancel(arguments: Any?) }
+            fun setStreamHandler(handler: StreamHandler?) {}
+          }
+          KOTLIN
           set +e
           kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
-            "$RUNNER_TEMP/CabinR.kt" android/app/src/main/kotlin/com/in4up/cabin/*.kt \
+            "$RUNNER_TEMP/CabinR.kt" "$RUNNER_TEMP/FlutterChannels.kt" \
+            android/app/src/main/kotlin/com/in4up/cabin/CabinSystemAudioPlugin.kt \
+            android/app/src/main/kotlin/com/in4up/cabin/CabinCaptureRequestActivity.kt \
+            android/app/src/main/kotlin/com/in4up/cabin/CabinSystemAudioService.kt \
             -d "$RUNNER_TEMP/cabin-audio.jar" > "$RUNNER_TEMP/cabin-kotlin.log" 2>&1
           result=$?
           cat "$RUNNER_TEMP/cabin-kotlin.log"

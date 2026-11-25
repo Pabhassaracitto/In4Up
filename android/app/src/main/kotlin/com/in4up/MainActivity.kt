@@ -22,6 +22,7 @@ import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import android.util.Log
+import com.in4up.cabin.CabinSystemAudioPlugin
 import com.in4up.screentranslate.ScreenTranslatePlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -128,6 +129,7 @@ class MainActivity : FlutterActivity() {
     // chỉ là nơi đăng ký channel (createScreenCaptureIntent cần Activity nên
     // có activity trong suốt riêng — xem ScreenCaptureRequestActivity).
     private var screenTranslatePlugin: ScreenTranslatePlugin? = null
+    private var cabinSystemAudioPlugin: CabinSystemAudioPlugin? = null
 
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
@@ -432,6 +434,10 @@ class MainActivity : FlutterActivity() {
         ScreenTranslatePlugin(this).also {
             it.attach(flutterEngine.dartExecutor.binaryMessenger)
             screenTranslatePlugin = it
+        }
+        CabinSystemAudioPlugin(this).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+            cabinSystemAudioPlugin = it
         }
         ocrChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OCR_CHANNEL_NAME)
         ocrChannel?.setMethodCallHandler { call, result ->
@@ -1568,6 +1574,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        cabinSystemAudioPlugin?.detach()
+        cabinSystemAudioPlugin = null
         screenTranslatePlugin?.detach()
         screenTranslatePlugin = null
         openDictionaryDocuments.keys.toList().forEach(::closeDictionaryDocument)

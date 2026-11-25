@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -70,7 +71,31 @@ class DictionaryService {
   /// Signals that previously loaded resource bytes should be discarded.
   ValueListenable<int> get resourceRevision => _resourceRevision;
   void _invalidateResources() => _resourceRevision.value++;
-  bool _initialized = false;
+  Future<void>? _initialization;
+  Future<void> _mutationTail = Future<void>.value();
+
+  // Serializes in-process writers (including manifest updates and index
+  // promotion). Lookups remain independent and can report transient errors.
+  Future<T> _mutate<T>(Future<T> Function() operation) async {
+    final previous = _mutationTail;
+    final released = Completer<void>();
+    _mutationTail = released.future;
+    await previous;
+    try {
+      await ensureInitialized();
+      final hook = mutationStartedForTest;
+      if (hook != null) await hook();
+      return await operation();
+    } finally {
+      released.complete();
+    }
+  }
+
+  @visibleForTesting
+  static Future<void> Function()? mutationStartedForTest;
+
+  @visibleForTesting
+  static Future<void> Function()? initializationStartedForTest;
 
   /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
   /// production luôn dùng path_provider.
@@ -85,9 +110,10 @@ class DictionaryService {
   @visibleForTesting
   static void resetForTest() {
     _instance?._dicts.clear();
-    _instance?._initialized = false;
     _instance = null;
     linkedSourceAccessProbeOverride = null;
+    mutationStartedForTest = null;
+    initializationStartedForTest = null;
   }
 
   static Future<Directory> _appDocuments() async =>
@@ -97,9 +123,11 @@ class DictionaryService {
   List<DictInfo> get enabledDictionaries =>
       _dicts.where((d) => d.enabled).toList();
 
-  Future<void> ensureInitialized() async {
-    if (_initialized) return;
-    _initialized = true;
+  Future<void> ensureInitialized() => _initialization ??= _initialize();
+
+  Future<void> _initialize() async {
+    final hook = initializationStartedForTest;
+    if (hook != null) await hook();
     await _loadManifest();
   }
 
@@ -331,8 +359,32 @@ class DictionaryService {
     String? sourceFolderOverride,
     bool sourceWasFolder = true,
     void Function(double progress, String message)? onProgress,
+  }) {
+    final paths = List<String>.of(absoluteFilePaths);
+    final uris = Map<String, String>.of(sourceUris);
+    final sizes = Map<String, int>.of(sourceSizes);
+    return _mutate(() => _importDictionaryBundle(
+      absoluteFilePaths: paths,
+      rootPath: rootPath,
+      mode: mode,
+      sourceUris: uris,
+      sourceSizes: sizes,
+      sourceFolderOverride: sourceFolderOverride,
+      sourceWasFolder: sourceWasFolder,
+      onProgress: onProgress,
+    ));
+  }
+
+  Future<DictImportOutcome> _importDictionaryBundle({
+    required List<String> absoluteFilePaths,
+    required String rootPath,
+    required DictStorageMode mode,
+    required Map<String, String> sourceUris,
+    required Map<String, int> sourceSizes,
+    required String? sourceFolderOverride,
+    required bool sourceWasFolder,
+    void Function(double progress, String message)? onProgress,
   }) async {
-    await ensureInitialized();
     if (absoluteFilePaths.isEmpty) {
       return const DictImportOutcome(error: 'Chưa chọn file/thư mục nào');
     }
@@ -902,8 +954,17 @@ class DictionaryService {
     required List<DictDeviceFile> files,
     required String? treeUri,
     required bool sourceWasFolder,
+  }) {
+    final selected = List<DictDeviceFile>.of(files);
+    return _mutate(() => _relinkSafSource(dictId, files: selected,
+      treeUri: treeUri, sourceWasFolder: sourceWasFolder));
+  }
+
+  Future<bool> _relinkSafSource(String dictId, {
+    required List<DictDeviceFile> files,
+    required String? treeUri,
+    required bool sourceWasFolder,
   }) async {
-    await ensureInitialized();
     final dictIndex = _dicts.indexWhere((dict) => dict.id == dictId);
     if (dictIndex < 0) return false;
     final dict = _dicts[dictIndex];
@@ -978,8 +1039,12 @@ class DictionaryService {
   /// này. Nhờ đó lần sau mở màn "Tải bộ từ điển" biết ngay là **đã cài**, thay
   /// vì so tên (tên từ điển do người dựng bộ đặt trong header .mdx nên gần như
   /// không bao giờ trùng tên bộ trong danh mục).
-  Future<void> tagPackId(Iterable<String> dictIds, String packId) async {
+  Future<void> tagPackId(Iterable<String> dictIds, String packId) {
     final wanted = dictIds.toSet();
+    return _mutate(() => _tagPackId(wanted, packId));
+  }
+
+  Future<void> _tagPackId(Set<String> wanted, String packId) async {
     if (wanted.isEmpty || packId.isEmpty) return;
     var changed = false;
     for (var i = 0; i < _dicts.length; i++) {
@@ -997,8 +1062,12 @@ class DictionaryService {
   /// Thứ tự trong manifest chính là thứ tự tra/gộp nghĩa: bộ đứng trước được
   /// ưu tiên khi cùng một từ có ở nhiều bộ (xem [lookup] duyệt
   /// `enabledDictionaries` theo đúng thứ tự này).
-  Future<void> reorderDicts(List<String> orderedIds) async {
-    await ensureInitialized();
+  Future<void> reorderDicts(List<String> orderedIds) {
+    final ids = List<String>.of(orderedIds);
+    return _mutate(() => _reorderDicts(ids));
+  }
+
+  Future<void> _reorderDicts(List<String> orderedIds) async {
     if (orderedIds.isEmpty || _dicts.isEmpty) return;
     final next = applyDictOrder(_dicts, orderedIds);
     var same = next.length == _dicts.length;
@@ -1018,7 +1087,10 @@ class DictionaryService {
     await _saveManifest();
   }
 
-  Future<void> toggleDict(String dictId, bool enabled) async {
+  Future<void> toggleDict(String dictId, bool enabled) =>
+      _mutate(() => _toggleDict(dictId, enabled));
+
+  Future<void> _toggleDict(String dictId, bool enabled) async {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
     if (idx < 0 || _dicts[idx].enabled == enabled) return;
     _dicts[idx] = _dicts[idx].copyWith(enabled: enabled);
@@ -1026,7 +1098,9 @@ class DictionaryService {
     await _saveManifest();
   }
 
-  Future<void> deleteDict(String dictId) async {
+  Future<void> deleteDict(String dictId) => _mutate(() => _deleteDict(dictId));
+
+  Future<void> _deleteDict(String dictId) async {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
     if (idx < 0) return;
     final dict = _dicts[idx];
@@ -1068,8 +1142,9 @@ class DictionaryService {
   /// Revalidate linked sources without deleting the local SQLite index.
   /// Android links are checked by opening the persisted SAF document URI;
   /// filesystem links use the original path.
-  Future<List<DictInfo>> refreshLinkedSources() async {
-    await ensureInitialized();
+  Future<List<DictInfo>> refreshLinkedSources() => _mutate(_refreshLinkedSources);
+
+  Future<List<DictInfo>> _refreshLinkedSources() async {
     var changed = false;
     for (var i = 0; i < _dicts.length; i++) {
       final dict = _dicts[i];

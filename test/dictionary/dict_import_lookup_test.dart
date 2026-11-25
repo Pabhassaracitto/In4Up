@@ -4,6 +4,7 @@
 // Chạy SQLite qua sqflite_common_ffi; thư mục documents ghi đè bằng
 // DictionaryService.documentsDirectoryOverride (test seam).
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -401,6 +402,115 @@ void main() {
     expect(second.imported.single.resourcePath, isNot(old.resourcePath));
     expect(File('${old.resourcePath}/versioned.mdx').existsSync(), isTrue);
     expect((await service.lookup('hello')).single.definition, 'second');
+  });
+
+  test('concurrent initialization waits for the same manifest load', () async {
+    final mdx = await writeMdx('startup.mdx', {'hello': 'ready'});
+    final imported = await DictionaryService.instance.importDictionaryBundle(
+      absoluteFilePaths: [mdx], rootPath: '', mode: DictStorageMode.linked);
+    final id = imported.imported.single.id;
+    DictionaryService.resetForTest();
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    var starts = 0;
+    DictionaryService.initializationStartedForTest = () async {
+      starts++;
+      started.complete();
+      await gate.future;
+    };
+    final service = DictionaryService.instance;
+    var lookupCompleted = false;
+    final loading = service.ensureInitialized();
+    await started.future;
+    final lookup = service.lookup('hello').then((value) {
+      lookupCompleted = true;
+      return value;
+    });
+    final toggle = service.toggleDict(id, false);
+    await Future<void>.delayed(Duration.zero);
+    expect(lookupCompleted, isFalse);
+    expect(starts, 1);
+    gate.complete();
+    await loading;
+    // A lookup can race with disabling, but it must not see an uninitialized
+    // list. Verify it separately with the dictionary re-enabled.
+    await lookup;
+    await toggle;
+    expect(service.dictionaries.single.enabled, isFalse);
+    await service.toggleDict(id, true);
+    expect((await service.lookup('hello')).single.definition, 'ready');
+    DictionaryService.resetForTest();
+    await DictionaryService.instance.ensureInitialized();
+    expect(DictionaryService.instance.dictionaries.single.enabled, isTrue);
+  });
+
+  test('concurrent copy imports and delete execute in submission order', () async {
+    final first = await writeMdx('queued.mdx', {'hello': 'first'});
+    final other = await Directory('${tempDir.path}/second').create();
+    final second = MdxTestBuilder(entries: {'hello': 'second'})
+        .writeToFile('${other.path}/queued.mdx');
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    var mutations = 0;
+    DictionaryService.mutationStartedForTest = () async {
+      if (++mutations == 1) {
+        started.complete();
+        await gate.future;
+      }
+    };
+    final service = DictionaryService.instance;
+    final one = service.importDictionaryBundle(
+      absoluteFilePaths: [first], rootPath: '', mode: DictStorageMode.imported);
+    await started.future;
+    var secondDone = false;
+    final two = service.importDictionaryBundle(
+      absoluteFilePaths: [second], rootPath: '', mode: DictStorageMode.imported)
+        .then((result) { secondDone = true; return result; });
+    await Future<void>.delayed(Duration.zero);
+    expect(secondDone, isFalse);
+    gate.complete();
+    final old = (await one).imported.single;
+    final newer = (await two).imported.single;
+    expect(newer.id, old.id);
+    expect(newer.resourcePath, isNot(old.resourcePath));
+    expect((await service.lookup('hello')).single.definition, 'second');
+    DictionaryService.resetForTest();
+    await DictionaryService.instance.ensureInitialized();
+    expect(DictionaryService.instance.dictionaries.single.resourcePath, newer.resourcePath);
+    expect((await DictionaryService.instance.lookup('hello')).single.definition, 'second');
+
+    final next = DictionaryService.instance;
+    final pause = Completer<void>();
+    final entered = Completer<void>();
+    var calls = 0;
+    DictionaryService.mutationStartedForTest = () async {
+      if (++calls == 1) { entered.complete(); await pause.future; }
+    };
+    final reimport = next.importDictionaryBundle(
+      absoluteFilePaths: [first], rootPath: '', mode: DictStorageMode.imported);
+    await entered.future;
+    final deletion = next.deleteDict(newer.id);
+    pause.complete();
+    expect((await reimport).isSuccess, isTrue);
+    await deletion;
+    expect(next.dictionaries, isEmpty);
+    DictionaryService.resetForTest();
+    await DictionaryService.instance.ensureInitialized();
+    expect(DictionaryService.instance.dictionaries, isEmpty);
+  });
+
+  test('mutation queue releases after an exception', () async {
+    final service = DictionaryService.instance;
+    var calls = 0;
+    DictionaryService.mutationStartedForTest = () async {
+      if (++calls == 1) throw StateError('simulated failure');
+    };
+    final failed = service.toggleDict('missing', false);
+    final checkFailure = expectLater(failed, throwsStateError);
+    final next = service.toggleDict('missing', true);
+    await checkFailure;
+    await next.timeout(const Duration(seconds: 5));
+    expect(calls, 2);
   });
 
 }

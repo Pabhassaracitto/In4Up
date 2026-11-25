@@ -10031,3 +10031,41 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | cherry-pick 5 commit từ `arena/60e35d65-in4up` (0 merge) → bump `1.29.2+31` (`d078091b`) → CI 4/5 workflow 🟢, `app_analyze` 🔴 → tag `1.29.2` → build **45106326071** 🟢 4/4 → sửa i18n `71d53978`
   - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **xác nhận CI xanh sau khi sửa i18n:** `App Analyze + Locale` run **45246030183** 🟢 · `Read translation regression` **45246030197** 🟢 · `Deploy web` **45246141130** 🟢 trên tip `88445a49`. Cả 3 workflow đỏ/treo trên `b360f699` nay đã xanh → 1.29.2 đủ điều kiện nghiệm thu máy thật.
+
+## MASCOT-PLAN-050 — (2026-11-25) Linh vật AI: quản gia · gia sư · hướng dẫn dùng app (chat + giọng nói + mở nhanh)
+
+- **Trạng thái:** 📋 proposed — kế hoạch hoàn tất (PLAN-050 + ADR-0036); chờ owner
+  chốt DQ1–DQ5 (tên/hình, ngôn ngữ giọng, não mặc định, vị trí bong bóng, duyệt P0)
+  rồi nhận việc theo thứ tự P0.
+- **Nguồn:** owner 2026-11-25 qua agent `arena/4ad3035e-in4up` — *"tạo Linh vật AI đóng
+  vai trò quản gia, gia sư, hướng dẫn dùng app, có thể chat hay trò chuyện âm thanh, có
+  thể mở nhanh các file, chức năng… giải phóng thời gian, công sức, nâng cao trải nghiệm,
+  hiệu suất trong khi dùng app."*
+- **Kế hoạch:** [`plans/PLAN-050-linh-vat-ai-i4u.md`](../plans/PLAN-050-linh-vat-ai-i4u.md)
+  · [ADR-0036](../adr/0036-linh-vat-ai-assistant-overlay-intent-registry.md) (proposed).
+
+| ID | Việc | Trạng thái | Kế hoạch / bằng chứng |
+|---|---|---|---|
+| MASCOT-001 | Nền móng: `MascotIntentRegistry` (thuần) + mở rộng `ShellNavigationRequest` + cầu `ShellActionHub` bọc `_handleTool`/`_setPrimaryTab`/`_setListenMode`/`_setReadMode` của main_shell | 📋 proposed | PLAN-050 §5/§7/§9 P0; registry = nguồn sự thật duy nhất mọi hành động (ADR-0036 D2/D3); test thuần `test/mascot/`; 8 intent voice_command cũ đăng ký lại cùng ngữ nghĩa |
+| MASCOT-002 | Mở nhanh: `MascotSearchIndex` hợp nhất (tools ~28 id + tab/mode + RecentFiles + TextLibrary + Audio/Video library + Tipiṭaka + dict packs + WordList, fuzzy không dấu + boost usage/ngữ cảnh) + palette UI | 📋 proposed | PLAN-050 §7/§9 P0; palette mở ≤2 thao tác từ mọi tab; mở file qua định danh nguồn thật của service (quy tắc vàng 3); đo ≤150 ms ~1000 mục trong test |
+| MASCOT-003 | Não linh vật: `MascotController` + persona prompts (quản gia/gia sư/hướng dẫn) + `MascotContextBuilder` theo tab (trần ~1.2k ký tự, khuôn UnderstandAiContext) + protocol JSON `{"say","action"}` fallback chỉ-nói | 📋 proposed | PLAN-050 §5/§8/§9 P1; TÁI DÙNG AiServiceFacade (Gemma ⇄ OpenRouter) qua `oneShotContext` — không dựng não thứ hai (ADR-0036 D1/D4); JSON hỏng ⇒ không thực thi |
+| MASCOT-004 | UI linh vật nổi trong MainShell: bong bóng Lottie 4 trạng thái (idle/listening/thinking/speaking) theo brand Hidden Gift 04A (Midnight/Jade→Gold/Ivory), kéo/autohide/ẩn hẳn + chat sheet streaming | 📋 proposed | PLAN-050 §10/§9 P1; overlay trong Stack (không màn push — ADR-0036 D1); chrome i18n en/hi/zh/zh_TW/si trong CÙNG PR (bài học REL-1.29.2); QA Android + Windows |
+| MASCOT-005 | Hội thoại âm thanh: máy trạng thái thuần `MascotVoiceLoop` (STT→LLM→TTS, barge-in dừng TTS bằng epoch guard) + chính sách duck/restore qua PlayerProvider, không tự TTS khi audio đang phát | 📋 proposed | PLAN-050 §8/§9 P2; SttServiceFacade + TtsService có sẵn, KHÔNG engine mới, KHÔNG đụng FFI (ADR-0036 D5); nghiệm thu máy thật: barge-in <300 ms, ≥5 lượt không treo |
+| MASCOT-006 | Quản gia chủ động: `MascotProactiveRules` (thuần) gợi ý từ dữ liệu THẬT — bài dở (Player/Text), dueCount (Vocabulary), streak/snapshot (LearningActivityService); chip gợi ý + tổng kết ngày; cooldown, tắt được trong Cài đặt | 📋 proposed | PLAN-050 §6.1/§9 P3; không hardcode dữ liệu, không gợi ý khi đang phát/focus mode; test rules với snapshot giả |
+| MASCOT-007 | Gia sư theo ngữ cảnh: giải thích từ/câu đang mở (nối WordInsight/selection), quiz từ đến hạn chấm qua `reviewWord` (KHÔNG gộp SM-2), coach shadowing nối Understand AI Coach | 📋 proposed | PLAN-050 §6.2/§9 P3; system prompt gia sư hỏi ngược/chia bước, không làm hộ; giải thích phải trích đúng nguồn đang mở |
+| MASCOT-008 | Hướng dẫn dùng app: tour registry thuần + overlay highlight ≥3 lộ trình (Vòng học 5 tab · Đọc & tạo lời · Ôn từ & Vườn nhớ) + FAQ "cách làm X" khớp offline trước khi rớt LLM + onboarding 1 lần | 📋 proposed | PLAN-050 §6.3/§9 P4; tour chạy trên widget thật (key), mỗi bước bỏ qua được; prefs `mascot_onboarding_done_v1` |
+
+### Ghi chú chung MASCOT (đọc trước khi nhận card)
+
+- **Định danh PLAN/ADR:** PLAN-050 (kế hoạch gốc) · ADR-0036 (kiến trúc proposed).
+- **Phụ thuộc:** MASCOT-002 phụ thuộc 001; 004 phụ thuộc 003; 005 phụ thuộc 003+004;
+  006/007 phụ thuộc 004; 008 độc lập tương đối (cần 001 để mở mục tiêu tour).
+- **Vùng cấm giữ nguyên:** `lib/ffi/` UltraTimeStretch · 3 SM-2 (Hiểu–Nghe–Đọc) ·
+  hợp đồng mở lại đúng nguồn (PDF rect/PDF y-up qua `pdf_geometry.dart`, Web url/scroll,
+  audio timestamp) · KHÔNG chạy `tool/generate_arbs.py`.
+- **i18n:** mọi nhãn chrome mới của mascot = `priority_ui_overrides.dart` (en/hi/zh/
+  zh_TW/si) hoặc `uiText('…')` + `tool/legacy_ui_english_overrides.json`; prompt AI và
+  output AI/transcript STT giữ nguyên nguồn (không catalog).
+- **CI:** thêm bước `flutter test test/mascot/` vào `app_analyze.yml` ở PR P0 đầu tiên;
+  chỉ test thuần Dart trong sandbox (không có Flutter SDK); UI nghiệm thu máy thật.
+

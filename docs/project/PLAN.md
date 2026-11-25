@@ -1515,3 +1515,29 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-12 | created→doing | agent `arena/60e35d65-in4up` | dựng hợp đồng land cho
     9 agent, sửa `deploy-web.yml` (không auto-publish beta) + `build_final_complete.yml`
     (tag beta ⇒ prerelease), thêm `scripts/beta/beta_board.sh`.
+
+### PLAN-050 — Linh vật AI In4Up: quản gia · gia sư · hướng dẫn dùng app (chat + giọng nói + mở nhanh)
+- Nguồn: người sở hữu (2026-11-25, qua agent `arena/4ad3035e-in4up`).
+- Trạng thái: proposed — đã khảo sát repo (9 lượt) và lập kế hoạch; chờ owner chốt
+  DQ1–DQ5 rồi thi công theo P0→P4.
+- Milestone đề xuất: M3 — lớp trợ lý AI nền tảng (phạm vi mới ngoài bàn giao M0–M2;
+  không đụng danh mục M3 cũ của Knowledge).
+- Chi tiết: [`plans/PLAN-050-linh-vat-ai-i4u.md`](../plans/PLAN-050-linh-vat-ai-i4u.md)
+  + [ADR-0036](../adr/0036-linh-vat-ai-assistant-overlay-intent-registry.md) (proposed)
+  + card `MASCOT-001..008` trong `KANBAN.md`.
+  - 3 vai trò: quản gia (chủ động từ dữ liệu thật — LearningActivityService/providers),
+    gia sư (theo ngữ cảnh tab, quiz dueWords, nối coach Hiểu), hướng dẫn dùng app
+    (tour + FAQ "cách làm X" offline).
+  - 2 hình thức: chat chữ (tái dùng AiServiceFacade) + hội thoại âm thanh
+    (SttServiceFacade → MascotVoiceLoop → TtsService, có barge-in, không tự TTS khi
+    audio đang phát).
+  - Mở nhanh: một registry hành động (nguồn sự thật cho palette + lệnh giọng + LLM)
+    + chỉ mục tìm kiếm hợp nhất (tools ~28 id + tab/mode + file/audio/video/Tipiṭaka/
+    từ điển/WordList) + cầu điều hướng mở rộng `ShellNavigationRequest`.
+  - Tái dùng tối đa facade/provider hiện có; KHÔNG đụng FFI UltraTimeStretch, KHÔNG
+    gộp SM-2, KHÔNG thêm dependency; i18n chrome T2 trong cùng PR từng card.
+- Lịch sử:
+  - 2026-11-25 | created | agent `arena/4ad3035e-in4up` | khảo sát shell/AI/STT/TTS/
+    voice_command/libraries/brand/governance ⇒ PLAN-050 + ADR-0036 + 8 card KANBAN
+    (proposed); chờ DQ1–DQ5 (tên, ngôn ngữ giọng, não mặc định, vị trí bong bóng,
+    duyệt P0).

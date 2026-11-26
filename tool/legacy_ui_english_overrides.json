@@ -4204,6 +4204,7 @@
   "Sri Lanka — chọn ngôn ngữ cụ thể": "Sri Lanka — choose a specific language",
   "Sri Lanka là quốc gia, không phải tên ngôn ngữ. Hãy chọn cụ thể: Sinhala, Tamil hoặc English.": "Sri Lanka is a country, not a language. Choose one specifically: Sinhala, Tamil or English.",
   "Ngôn ngữ Piper chưa có giọng bản xứ": "Piper has no native voice for these languages",
+  "Đây là câu cuối của bài — không còn câu tiếp theo để lặp.": "This is the last sentence — there is no next sentence to repeat.",
   "Piper chưa có giọng bản xứ cho ngôn ngữ này. Dùng Edge TTS/giọng hệ thống, hoặc tự import model tương thích — đừng tải nhầm giọng tiếng khác.": "Piper has no native voice for this language. Use Edge TTS/a system voice, or import a compatible model yourself — do not download a voice in another language by mistake.",
   "Ẩn ngôn ngữ khác": "Hide other languages",
   "Xem thêm ngôn ngữ": "Show more languages",

@@ -6,6 +6,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../features/media_tools/media_export_actions.dart';
+import '../models/loop_advance.dart';
 import '../models/loop_presets.dart';
 import '../providers/player_provider.dart';
 import '../screens/understand_mode/understand_provider.dart';
@@ -678,10 +679,15 @@ class _ExtendedControls extends StatelessWidget {
   }
 }
 
-/// LISTEN-630-01: di chuyển vùng lặp A→B sang phần tiếp theo rồi lặp.
-/// Ưu tiên dòng LRC (câu kế tiếp theo timestamp); không có LRC thì lấy B làm
-/// mốc A mới và giữ ĐÚNG độ dài A–B (PSRC-178: hành vi thật là "đoạn", nên
-/// nhãn nút đổi theo — xem `_ExtendedControls`).
+/// LISTEN-630-01 / PSRC-178 / PSRC-275: di chuyển vùng lặp A→B sang phần
+/// tiếp theo rồi lặp lại.
+///
+/// Ưu tiên dòng lời (LRC): đã có "tạo lời" thì lặp **từng câu đã tạo** theo
+/// mốc thời gian của chính câu đó. Chưa có lời thì dịch đúng **độ dài A–B**
+/// bắt đầu tại B (A = 10 s, B = 20 s ⇒ 20 → 30 s).
+///
+/// Toàn bộ phép tính nằm trong `computeNextLoopRegion` (hàm THUẦN, test được ở
+/// host VM); hàm này chỉ đọc state, gọi tính toán rồi áp vào player.
 void _advanceToNextSentence(BuildContext context, PlayerProvider player) {
   final a = player.loopStart;
   final b = player.loopEnd;
@@ -692,33 +698,32 @@ void _advanceToNextSentence(BuildContext context, PlayerProvider player) {
     player.toggleLoopPause();
   }
 
-  Duration nextStart = b;
-  Duration nextEnd = b + const Duration(seconds: 10);
-
   final understand = context.read<UnderstandProvider>();
   final lines = understand.lrcLines;
-  if (lines.isNotEmpty) {
-    // Dòng chứa điểm B (dòng lớn nhất có timestamp <= b)
-    int idx = -1;
-    for (int i = lines.length - 1; i >= 0; i--) {
-      if (lines[i].timestamp <= b) {
-        idx = i;
-        break;
-      }
-    }
-    if (idx >= 0 && idx + 1 < lines.length) {
-      nextStart = lines[idx + 1].timestamp;
-      nextEnd = (idx + 2 < lines.length)
-          ? lines[idx + 2].timestamp
-          : nextStart + const Duration(seconds: 10);
-    }
+
+  final result = computeNextLoopRegion(
+    a: a,
+    b: b,
+    lineStarts: [for (final line in lines) line.timestamp],
+    duration: player.state.duration > Duration.zero
+        ? player.state.duration
+        : null,
+  );
+
+  // Đã ở câu cuối của bài: KHÔNG bịa một đoạn mới (lỗi cũ: cắt 10 giây tuỳ
+  // tiện làm mốc lệch hẳn khỏi câu), chỉ báo cho người dùng biết.
+  if (result.reachedEnd) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(
+            'Đây là câu cuối của bài — không còn câu tiếp theo để lặp.')),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    return;
   }
 
-  if (nextEnd <= nextStart) {
-    nextEnd = nextStart + const Duration(seconds: 4);
-  }
-
-  player.setLoop(nextStart, nextEnd, startImmediately: true);
+  player.setLoop(result.start, result.end, startImmediately: true);
 }
 
 class _LoopCountSelector extends StatelessWidget {

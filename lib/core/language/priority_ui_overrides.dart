@@ -6555,6 +6555,14 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     "zh_TW": "Piper 暫無這些語言的母語語音",
     "si": "මෙම භාෂා සඳහා Piper ස්වදේශීය හඬක් නැත",
   },
+  // PSRC-275 — báo khi bấm "Lặp câu tiếp" ở câu cuối của bài.
+  "Đây là câu cuối của bài — không còn câu tiếp theo để lặp.": {
+    "en": "This is the last sentence — there is no next sentence to repeat.",
+    "hi": "यह अंतिम वाक्य है — दोहराने के लिए अगला वाक्य नहीं है।",
+    "zh": "这是最后一句 — 没有可重复的下一句。",
+    "zh_TW": "這是最後一句 — 沒有可重複的下一句。",
+    "si": "මෙය අවසාන වාක්‍යයයි — නැවත කිරීමට ඊළඟ වාක්‍යයක් නැත.",
+  },
   "Piper TTS — đọc chữ offline": {
     "en": "Piper TTS — offline reading voice",
     "hi": "Piper TTS — ऑफ़लाइन पढ़ने की आवाज़",

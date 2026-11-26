@@ -10031,3 +10031,22 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | cherry-pick 5 commit từ `arena/60e35d65-in4up` (0 merge) → bump `1.29.2+31` (`d078091b`) → CI 4/5 workflow 🟢, `app_analyze` 🔴 → tag `1.29.2` → build **45106326071** 🟢 4/4 → sửa i18n `71d53978`
   - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **xác nhận CI xanh sau khi sửa i18n:** `App Analyze + Locale` run **45246030183** 🟢 · `Read translation regression` **45246030197** 🟢 · `Deploy web` **45246141130** 🟢 trên tip `88445a49`. Cả 3 workflow đỏ/treo trên `b360f699` nay đã xanh → 1.29.2 đủ điều kiện nghiệm thu máy thật.
+
+### PSRC-275 — (2026-11-23) "Lặp câu tiếp" canh đúng mốc câu / đúng độ dài A–B
+- **Trạng thái:** ✅ done (CI 🟢) — **chờ nghiệm thu máy thật**
+- **Nguồn:** owner 2026-11-23 — *"khi chọn lặp AB thì nhấn lặp câu tiếp theo thì nó đã không canh đúng khoảng thời gian đúng… Ví dụ AB ở giây 10 - 20 thì khi nhấn lặp câu tiếp theo thì phải chuyển tới đoạn 20 - 30."*
+- **Commit:** `8a79e572`.
+- **Hai lỗi tìm thấy trong `_advanceToNextSentence` (`lib/widgets/ab_loop_controls.dart`):**
+  1. **Chưa có lời** — độ dài đoạn mới hard-code **10 giây**, không phải `B − A`. A–B 10–20 ra 20–30 chỉ vì tình cờ trùng 10 s; A–B 5–8 thì ra 8–18 (**sai 3 s**).
+  2. **Đã có lời** — chọn dòng bằng `timestamp <= b` nên khi owner đặt A/B **đúng ranh giới câu** (bấm vào dòng lời để lấy mốc) thì dòng B bị coi là "dòng chứa B" ⇒ app nhảy **thêm một câu nữa**: lời 10/20/30 với A–B 10–20 nhảy tới **30–40**, bỏ hẳn câu 20–30.
+- **Sửa:** tách phép tính ra hàm THUẦN `computeNextLoopRegion` (`lib/models/loop_advance.dart`) — test được ở host VM, không cần Flutter:
+  * có lời: mốc xuất phát = dòng **cuối** bắt đầu **nghiêm ngặt** trước B (`< b`); vùng mới = câu kế tiếp ⇒ 10–20 → **20–30**;
+  * chưa có lời: giữ đúng `B − A`, bắt đầu tại B ⇒ 10–20 → **20–30**;
+  * câu cuối bài / đã chạm cuối file: `reachedEnd` ⇒ snackbar, **không bịa** đoạn 10 giây lệch mốc;
+  * chặn vùng 0 ms khi mốc câu sát nhau (karaoke), kẹp theo độ dài file, span tối thiểu 400 ms.
+- **Test:** `test/models/loop_advance_test.dart` — 16 case, gồm đúng ví dụ owner nêu và 2 case biên do mô phỏng Python phát hiện (vùng sát cuối file; mốc karaoke sát nhau).
+- **i18n (rule #5):** chuỗi snackbar mới đăng ký ở `priority_ui_overrides.dart` (đủ 5 locale) + `generated_legacy_ui_fallbacks.dart` + `tool/legacy_ui_english_overrides.json` — **làm ngay trong commit**, không lặp lại lỗi của REL-1.29.2.
+- **CI trên `8a79e572`:** `App Analyze + Locale` **45874527320** 🟢 · `Read translation regression` 🟢 · `Deploy web` 🟢.
+- **Chưa kiểm (máy thật):** bấm "Lặp câu tiếp" với file **đã tạo lời** (phải nhảy đúng từng câu) và với file **chưa có lời** (phải đúng `B − A`); hành vi ở câu cuối bài (snackbar).
+- **Lịch sử:**
+  - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | `8a79e572` → CI 🟢 **45874527320**

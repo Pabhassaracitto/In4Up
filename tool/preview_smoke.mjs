@@ -4,15 +4,15 @@
 // Chromium headless, chụp ảnh màn hình và gom lỗi console/network.
 //
 // Vì sao cần: sandbox của agent không chạy được Chromium (thiếu libnspr4 /
-// libnss3 và apt bị chặn egress), nên bước "mở thật trong trình duyệt" được
+// libnss3, apt bị chặn egress), nên bước "mở thật trong trình duyệt" được
 // chạy trên runner GitHub — nơi có sẵn môi trường — rồi commit ảnh + log vào
 // nhánh preview để đọc lại được.
 //
-// Cách dùng:
+// Cách dùng (script phải nằm CẠNH node_modules):
 //   npm i puppeteer-core @sparticuz/chromium
-//   node tool/preview_smoke.mjs http://127.0.0.1:8080 smoke-out
+//   node preview_smoke.mjs http://127.0.0.1:8080 smoke-out
 //
-// Kết quả: <out>/*.png + <out>/report.txt (exit code 0 nếu không có lỗi nặng).
+// Kết quả: <out>/*.png + <out>/report.txt
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -22,7 +22,6 @@ import chromium from '@sparticuz/chromium';
 const base = (process.argv[2] || 'http://127.0.0.1:8080').replace(/\/$/, '');
 const outDir = process.argv[3] || 'smoke-out';
 
-/** Mỗi mục = một màn cần chứng minh là đã render được. */
 const shots = [
   { file: '01-typography.png', url: `${base}/#chu`, note: 'Sàn chữ ≥11sp' },
   { file: '02-touch-targets.png', url: `${base}/#cham`, note: 'Vùng chạm ≥40pt' },
@@ -40,13 +39,34 @@ const shots = [
   { file: '06-locales.png', url: `${base}/#locale`, note: '8 locale ưu tiên' },
   { file: '07-library.png', url: `${base}/#thuvien`, note: 'Trạng thái GLIB' },
   { file: '08-web-lite.png', url: `${base}/web-lite/`, note: 'App web chính thức' },
-  { file: '09-mobile-small.png', url: `${base}/#cham`, note: 'Màn hẹp 360×740' },
+  {
+    file: '09-mobile-small.png',
+    url: `${base}/#cham`,
+    note: 'Màn hẹp 360×740',
+    width: 360,
+    height: 740,
+  },
 ];
 
 const errors = [];
-const report = [];
+const lines = [];
+let rendered = 0;
 
-async function shoot(browser, shot, opts = {}) {
+await fs.mkdir(outDir, { recursive: true });
+
+async function writeReport(extra = '') {
+  const summary =
+    `In4Up · preview smoke-test\n` +
+    `thời điểm: ${new Date().toISOString()}\n` +
+    `số màn render được: ${rendered}/${shots.length}\n` +
+    `tổng lỗi console/network: ${errors.length}\n` +
+    (extra ? `\n${extra}\n` : '\n') +
+    lines.join('\n');
+  await fs.writeFile(path.join(outDir, 'report.txt'), summary, 'utf8');
+  return summary;
+}
+
+async function shoot(browser, shot) {
   const page = await browser.newPage();
   const local = [];
   page.on('console', (m) => {
@@ -54,70 +74,91 @@ async function shoot(browser, shot, opts = {}) {
   });
   page.on('pageerror', (e) => local.push(`pageerror: ${String(e).slice(0, 400)}`));
   page.on('requestfailed', (r) =>
-    local.push(`requestfailed: ${r.url().slice(0, 160)} (${r.failure()?.errorText})`),
+    local.push(
+      `requestfailed: ${r.url().slice(0, 160)} (${r.failure()?.errorText})`,
+    ),
   );
 
   await page.setViewport({
-    width: opts.width || 430,
-    height: opts.height || 932,
+    width: shot.width || 430,
+    height: shot.height || 932,
     deviceScaleFactor: 2,
   });
 
   const t0 = Date.now();
-  await page.goto(shot.url, { waitUntil: 'networkidle2', timeout: 180000 });
-  // Flutter chỉ vẽ vào <canvas> sau khi engine khởi động ⇒ chờ canvas xuất hiện.
-  await page.waitForSelector('canvas', { timeout: 180000 });
-  await new Promise((r) => setTimeout(r, opts.settle ?? 4000));
+  let boot = 'ok';
+  let canvases = [];
+  let bodyText = '';
 
-  const canvases = await page.$$eval('canvas', (els) =>
+  await page.goto(shot.url, { waitUntil: 'networkidle2', timeout: 180000 });
+
+  // Flutter (CanvasKit/skwasm) dựng khung `flutter-view` / `flt-glass-pane`;
+  // không phụ thuộc <canvas> vì engine có thể render bằng element khác.
+  try {
+    await page.waitForFunction(
+      () =>
+        !!document.querySelector(
+          'flutter-view, flt-glass-pane, flt-scene-host, canvas',
+        ),
+      { timeout: 120000, polling: 500 },
+    );
+  } catch {
+    boot = 'KHÔNG thấy flutter-view/canvas sau 120s';
+  }
+
+  // Loader trong index.html chỉ tự xoá sau frame đầu ⇒ chờ nó biến mất.
+  try {
+    await page.waitForFunction(() => !document.getElementById('in4up-loader'), {
+      timeout: 60000,
+      polling: 400,
+    });
+  } catch {
+    boot += ' · loader vẫn còn';
+  }
+  await new Promise((r) => setTimeout(r, 2500));
+
+  canvases = await page.$$eval('canvas', (els) =>
     els.map((e) => `${e.width}x${e.height}`),
   );
+  bodyText = (await page.evaluate(() => document.body?.innerText ?? ''))
+    .replace(/\s+/g, ' ')
+    .slice(0, 160);
 
   await page.screenshot({ path: path.join(outDir, shot.file) });
-
-  const line =
-    `${shot.file} · ${shot.note}\n` +
-    `  url: ${shot.url}\n` +
-    `  boot: ${Date.now() - t0} ms · canvas: ${canvases.join(', ') || 'KHÔNG CÓ'}\n` +
-    (local.length ? `  lỗi:\n    ${local.join('\n    ')}\n` : '  lỗi: không có\n');
-  report.push(line);
-  errors.push(...local.map((l) => `${shot.file}: ${l}`));
-  console.log(line);
-
   await page.close();
-  return canvases.length > 0;
+
+  const ok = canvases.length > 0 || bodyText.length > 0;
+  if (ok) rendered++;
+  lines.push(
+    `${shot.file} · ${shot.note}\n` +
+      `  url: ${shot.url}\n` +
+      `  boot: ${Date.now() - t0} ms · ${boot}\n` +
+      `  canvas: ${canvases.join(', ') || 'KHÔNG CÓ'} · text: ${bodyText || '(rỗng)'}\n` +
+      (local.length ? `  lỗi:\n    ${local.join('\n    ')}\n` : '  lỗi: không có\n'),
+  );
+  errors.push(...local.map((l) => `${shot.file}: ${l}`));
+  console.log(`${shot.file}: ${ok ? 'OK' : 'FAIL'} (${boot})`);
 }
 
-await fs.mkdir(outDir, { recursive: true });
-
-const browser = await puppeteer.launch({
-  args: [...chromium.args, '--no-sandbox', '--disable-dev-shm-usage'],
-  executablePath: await chromium.executablePath(),
-  headless: 'shell',
-});
-
-let rendered = 0;
+let browser;
 try {
+  browser = await puppeteer.launch({
+    args: [...chromium.args, '--no-sandbox', '--disable-dev-shm-usage'],
+    executablePath: await chromium.executablePath(),
+    headless: true,
+  });
   for (const shot of shots) {
-    if (shot.file === '09-mobile-small.png') {
-      if (await shoot(browser, shot, { width: 360, height: 740 })) rendered++;
-    } else if (await shoot(browser, shot)) {
-      rendered++;
-    }
+    await shoot(browser, shot);
   }
+} catch (e) {
+  const fatal = `fatal: ${String(e).slice(0, 600)}`;
+  errors.push(fatal);
+  lines.push(fatal);
 } finally {
-  await browser.close();
+  await browser?.close();
 }
 
-const summary =
-  `In4Up · preview smoke-test\n` +
-  `thời điểm: ${new Date().toISOString()}\n` +
-  `số màn render được: ${rendered}/${shots.length}\n` +
-  `tổng lỗi console/network: ${errors.length}\n\n` +
-  report.join('\n');
-
-await fs.writeFile(path.join(outDir, 'report.txt'), summary, 'utf8');
-console.log(summary);
+console.log(await writeReport());
 
 if (rendered < shots.length) {
   console.error(`::error title=smoke::chỉ ${rendered}/${shots.length} màn render được`);

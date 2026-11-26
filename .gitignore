@@ -173,3 +173,6 @@ lib/l10n/app_localizations*.dart
 
 # GLIB-008 seed artifacts (regenerable — build lại bằng build_seed_packs.py)
 tool/great_library_seed/dist/
+
+# Ảnh preview UI (sinh tự động từ nhánh preview/*, không cần theo dõi trong Git)
+docs/preview/ui-gallery/*.png

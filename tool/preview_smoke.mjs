@@ -117,23 +117,37 @@ async function shoot(browser, shot) {
   }
   await new Promise((r) => setTimeout(r, 2500));
 
-  canvases = await page.$$eval('canvas', (els) =>
-    els.map((e) => `${e.width}x${e.height}`),
-  );
-  bodyText = (await page.evaluate(() => document.body?.innerText ?? ''))
-    .replace(/\s+/g, ' ')
-    .slice(0, 160);
+  // Flutter (CanvasKit) đặt <canvas> trong SHADOW DOM của flt-glass-pane —
+  // `document.querySelector('canvas')` không thấy. Phải đi xuyên shadow root.
+  const probe = await page.evaluate(() => {
+    const out = { canvases: [], scenes: 0, text: '' };
+    const visit = (root, depth) => {
+      if (!root || depth > 6) return;
+      for (const el of root.querySelectorAll('*')) {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'canvas') out.canvases.push(`${el.width}x${el.height}`);
+        if (tag === 'flt-scene-host') out.scenes++;
+        if (el.shadowRoot) visit(el.shadowRoot, depth + 1);
+      }
+    };
+    visit(document, 0);
+    out.text = (document.body?.innerText ?? '').replace(/\s+/g, ' ').slice(0, 200);
+    return out;
+  });
+  canvases = probe.canvases;
+  const scenes = probe.scenes;
+  bodyText = probe.text;
 
   await page.screenshot({ path: path.join(outDir, shot.file) });
   await page.close();
 
-  const ok = canvases.length > 0 || bodyText.length > 0;
+  const ok = canvases.length > 0 || scenes > 0 || bodyText.length > 0;
   if (ok) rendered++;
   lines.push(
     `${shot.file} · ${shot.note}\n` +
       `  url: ${shot.url}\n` +
       `  boot: ${Date.now() - t0} ms · ${boot}\n` +
-      `  canvas: ${canvases.join(', ') || 'KHÔNG CÓ'} · text: ${bodyText || '(rỗng)'}\n` +
+      `  canvas: ${canvases.join(', ') || 'KHÔNG CÓ'} · scene: ${scenes} · text: ${bodyText || '(rỗng)'}\n` +
       (local.length ? `  lỗi:\n    ${local.join('\n    ')}\n` : '  lỗi: không có\n'),
   );
   errors.push(...local.map((l) => `${shot.file}: ${l}`));

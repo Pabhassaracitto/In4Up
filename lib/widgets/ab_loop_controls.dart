@@ -612,14 +612,29 @@ class _ExtendedControls extends StatelessWidget {
         // theo mốc câu), "đoạn" khi không có lời (cắt một đoạn cùng độ dài
         // với A–B, bắt đầu tại B). Một nhãn "Lặp câu tiếp" duy nhất khiến
         // người dùng tưởng app nhảy sai khi file chưa có lời.
-        Consumer<UnderstandProvider>(
-          builder: (_, understand, __) {
+        Consumer2<UnderstandProvider, PlayerProvider>(
+          builder: (_, understand, player, __) {
             final hasLyrics = understand.lrcLines.isNotEmpty;
+            // PSRC-275: nhãn phải khớp VIỆC SẮP LÀM. Chỉ nhảy theo câu khi
+            // vùng A–B thật sự khớp mốc thời gian của một dòng lời; lệch mốc
+            // (hoặc chưa có lời) thì nút lặp theo KHOẢNG THỜI GIAN.
+            final a = player.loopStart;
+            final b = player.loopEnd;
+            final aligns = a != null &&
+                b != null &&
+                loopRegionAlignsWithLines(
+                  a,
+                  b,
+                  [for (final line in understand.lrcLines) line.timestamp],
+                );
             return _ActionButton(
               icon: Icons.subdirectory_arrow_right_rounded,
               // Nhãn do hàm THUẦN quyết định ⇒ test được, và chỉ có MỘT chỗ
-              // định nghĩa (PSRC-178).
-              label: LoopPresets.nextRepeatLabel(hasLyrics: hasLyrics),
+              // định nghĩa (PSRC-178 / PSRC-275).
+              label: LoopPresets.nextRepeatLabelFor(
+                hasLyrics: hasLyrics,
+                alignsWithLines: aligns,
+              ),
               color: const Color(0xFF26C6DA),
               onTap: () => _advanceToNextSentence(context, player),
             );

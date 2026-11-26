@@ -115,7 +115,35 @@ class GalleryHome extends StatefulWidget {
 }
 
 class _GalleryHomeState extends State<GalleryHome> {
-  int _section = 0;
+  /// Cho phép mở thẳng một tab bằng URL: `/#cham`, `/#sheet`, `/#locale`…
+  /// (Dùng cho smoke-test tự động và để gửi link trực tiếp cho người xem.)
+  static int _sectionFromFragment(String fragment) {
+    switch (fragment.toLowerCase()) {
+      case 'chu':
+      case 'typography':
+        return 0;
+      case 'cham':
+      case 'touch':
+        return 1;
+      case 'sheet':
+      case 'sheets':
+        return 2;
+      case 'locale':
+      case 'locales':
+        return 3;
+      case 'thuvien':
+      case 'library':
+        return 4;
+      case 'ghichu':
+      case 'about':
+        return 5;
+      default:
+        return 0;
+    }
+  }
+
+  late int _section =
+      _sectionFromFragment(Uri.base.fragment);
 
   @override
   Widget build(BuildContext context) {
@@ -571,8 +599,64 @@ class _TouchTargetSectionState extends State<_TouchTargetSection> {
 // 2 · SHEETS — SafeArea trong bottom sheet
 // ===========================================================================
 
-class _SheetsSection extends StatelessWidget {
+class _SheetsSection extends StatefulWidget {
   const _SheetsSection();
+
+  @override
+  State<_SheetsSection> createState() => _SheetsSectionState();
+}
+
+class _SheetsSectionState extends State<_SheetsSection> {
+  @override
+  void initState() {
+    super.initState();
+    // `/#sheet-grammar` hoặc `/#sheet-pdf` mở thẳng sheet (smoke-test).
+    final fragment = Uri.base.fragment.toLowerCase();
+    if (fragment == 'sheet-grammar' || fragment == 'sheet-pdf') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (fragment == 'sheet-grammar') {
+          _openGrammarSheet(context);
+        } else {
+          _openPdfSheet(context);
+        }
+      });
+    }
+  }
+
+  void _openGrammarSheet(BuildContext context) {
+    GrammarQuickSettingsSheet.show(
+      context,
+      title: 'Chú giải ngữ pháp',
+      settings: GrammarHighlightSettings.defaults(),
+      palette: GrammarPalettes.defaults().first,
+      activePreset: GrammarHighlightPresets.defaults().first,
+      presets: GrammarHighlightPresets.defaults(),
+      onToggleEnabled: (_) async {},
+      onSelectPreset: (_) async {},
+      onSaveCurrentAsPreset: (name, description) async =>
+          GrammarHighlightPresets.defaults().first,
+      onRestorePreviousPreset: () async {},
+      onToggleAdvancedMode: (_) async {},
+      onSelectPalette: (_) async {},
+      onSelectStyle: (_) async {},
+      onToggleCategory: (_) async {},
+      onToggleLegend: (_) async {},
+      onShowAllCategories: () async {},
+    );
+  }
+
+  void _openPdfSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => PdfReaderThemeSheet(
+        state: PdfReaderThemeState.defaults,
+        onChanged: (_) {},
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -592,40 +676,14 @@ class _SheetsSection extends StatelessWidget {
           icon: Icons.text_format,
           title: 'Bảng chú giải ngữ pháp',
           subtitle: 'GrammarQuickSettingsSheet · useSafeArea: true',
-          onTap: () => GrammarQuickSettingsSheet.show(
-            context,
-            title: 'Chú giải ngữ pháp',
-            settings: GrammarHighlightSettings.defaults(),
-            palette: GrammarPalettes.defaults().first,
-            activePreset: GrammarHighlightPresets.defaults().first,
-            presets: GrammarHighlightPresets.defaults(),
-            onToggleEnabled: (_) async {},
-            onSelectPreset: (_) async {},
-            onSaveCurrentAsPreset: (name, description) async =>
-                GrammarHighlightPresets.defaults().first,
-            onRestorePreviousPreset: () async {},
-            onToggleAdvancedMode: (_) async {},
-            onSelectPalette: (_) async {},
-            onSelectStyle: (_) async {},
-            onToggleCategory: (_) async {},
-            onToggleLegend: (_) async {},
-            onShowAllCategories: () async {},
-          ),
+          onTap: () => _openGrammarSheet(context),
         ),
         const SizedBox(height: 10),
         _SheetLauncher(
           icon: Icons.palette_outlined,
           title: 'Giao diện trình đọc PDF',
           subtitle: 'PdfReaderThemeSheet · sheet thật của PDF Reader',
-          onTap: () => showModalBottomSheet<void>(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: true,
-            builder: (_) => PdfReaderThemeSheet(
-              state: PdfReaderThemeState.defaults,
-              onChanged: (_) {},
-            ),
-          ),
+          onTap: () => _openPdfSheet(context),
         ),
         const SizedBox(height: 10),
         const _SectionHeader(

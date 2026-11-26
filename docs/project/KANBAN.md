@@ -10276,7 +10276,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Smoke-test (`tool/preview_smoke.mjs`):** mở 11 màn, chờ `flutter-view`/`flt-glass-pane` + `#in4up-loader` biến mất, chụp PNG, gom lỗi console/network. Run **45849632526** → `11/11`, `0` lỗi.
 - **3 lỗi thật do smoke bắt được (đã sửa):** (1) `#sheet-pdf`/`#sheet-grammar` rơi về tab 0 do thiếu `case`; (2) web-lite build `--base-href /` nên nạp `/main.dart.js` của gallery ⇒ sai app; (3) `<canvas>` của Flutter nằm trong **shadow DOM** nên `querySelector('canvas')` rỗng ⇒ báo sai "0/9 màn".
 - **Giới hạn:** không có ghi âm, tải gói GLIB, engine dịch FFI, OCR PDF, Firebase — cần native. Các mục "chưa kiểm (máy thật)" của `REL-1.30.1-Beta` **vẫn nguyên**; nghiệm thu chính thức vẫn là APK/IPA.
-- **Chi tiết + lệnh chạy:** [`PREVIEW-UI-001.md`](PREVIEW-UI-001.md)
+- **Chi tiết + lệnh chạy:** [`PREVIEW-UI-001.md`](PREVIEW-UI-001.md) · server nằm trong repo: `tool/web/serve_preview.py` (`sync` fetch nhánh preview → `/tmp/preview`, `serve` bind `0.0.0.0:4173`; một lệnh: `serve 4173 --sync`)
 - **Lịch sử:**
   - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | workflow build web → nhánh `preview/*`
   - 2026-11-26 | doing→doing | agent | phát hiện `main_web.dart` không chứa UI sprint 3/4 ⇒ thêm `lib/main_ui_gallery.dart`

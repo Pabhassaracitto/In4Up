@@ -75,7 +75,7 @@ jobs:
         run: flutter pub get
 
       # --base-href / : preview chạy ở gốc domain của sandbox, KHÔNG phải /In4Up/.
-      - name: Build web (entrypoint main_web.dart)
+      - name: Build web lite (entrypoint main_web.dart)
         id: build-web
         continue-on-error: true
         run: |
@@ -86,39 +86,76 @@ jobs:
             --dart-define=IN4UP_ALLOW_DIRECT_CORS=false > build_web.log 2>&1
           code=$?
           if [ "$code" != "0" ]; then
-            echo "### flutter build web — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo "### flutter build web (web lite) — exit $code" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             tail -80 build_web.log >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             grep -E "Error|error:|not available|Unsupported" build_web.log | head -20 \
-              | cut -c1-300 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::error title=build web::$l"; done
+              | cut -c1-300 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::error title=build web lite::$l"; done
             exit 1
           fi
-          echo "::notice title=build web::OK $(du -sh build/web | cut -f1)"
+          echo "::notice title=build web lite::OK $(du -sh build/web | cut -f1)"
+          rm -rf /tmp/web-lite && cp -r build/web /tmp/web-lite
+          test -f /tmp/web-lite/main.dart.js || { echo "::error::web lite thiếu main.dart.js"; exit 1; }
+
+      # Gallery dựng CHÍNH widget thật của sprint 3/4 (xem lib/main_ui_gallery.dart).
+      # Build riêng để lỗi ở một bản không kéo bản kia xuống.
+      - name: Build UI gallery (entrypoint main_ui_gallery.dart)
+        id: build-gallery
+        continue-on-error: true
+        run: |
+          set +e
+          flutter build web --release \
+            --base-href / \
+            -t lib/main_ui_gallery.dart > build_gallery.log 2>&1
+          code=$?
+          if [ "$code" != "0" ]; then
+            echo "### flutter build web (gallery) — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -120 build_gallery.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "Error|error:|not available|Unsupported|\.dart:" build_gallery.log | head -30 \
+              | cut -c1-300 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::error title=build gallery::$l"; done
+            exit 1
+          fi
+          echo "::notice title=build gallery::OK $(du -sh build/web | cut -f1)"
+          rm -rf /tmp/gallery && cp -r build/web /tmp/gallery
+          test -f /tmp/gallery/main.dart.js || { echo "::error::gallery thiếu main.dart.js"; exit 1; }
 
       - name: Dừng nếu build lỗi
-        if: steps.build-web.outcome == 'failure'
+        if: steps.build-web.outcome == 'failure' || steps.build-gallery.outcome == 'failure'
         run: exit 1
 
-      # index.html của Flutter web + client-side routing: mọi route sâu (không
-      # phải file tĩnh) phải trả về index.html ⇒ copy sang 404.html.
+      # Publish: /  → UI gallery (mở lên là thấy giao diện)
+      #          /web-lite/ → app web chính thức (main_web.dart)
       - name: Chuẩn bị bản build tĩnh
         run: |
           set -e
-          cp build/web/index.html build/web/404.html
-          touch build/web/.nojekyll
-          # Ghi dấu để trang preview biết đang xem bản nào (hiển thị ở /BUILD_INFO.txt)
-          cat > build/web/BUILD_INFO.txt <<EOF
+          rm -rf /tmp/out && mkdir -p /tmp/out/web-lite
+          # /           → UI gallery  (/tmp/gallery, build từ main_ui_gallery.dart)
+          # /web-lite/  → app web     (/tmp/web-lite, build từ main_web.dart)
+          cp -r /tmp/gallery/. /tmp/out/
+          cp -r /tmp/web-lite/. /tmp/out/web-lite/
+          for d in /tmp/out /tmp/out/web-lite; do
+            test -f "$d/index.html" || { echo "::error::thiếu index.html trong $d"; exit 1; }
+            test -f "$d/main.dart.js" || { echo "::error::thiếu main.dart.js trong $d"; exit 1; }
+            cp "$d/index.html" "$d/404.html"
+            touch "$d/.nojekyll"
+          done
+          cat > /tmp/out/BUILD_INFO.txt <<EOF2
           In4Up — bản build PREVIEW (không phải bản phát hành)
           nhánh:   ${{ steps.src.outputs.branch }}
           commit:  ${{ steps.src.outputs.sha }}
           pubspec: ${{ steps.src.outputs.version }}
           build:   ${{ github.run_id }} / attempt ${{ github.run_attempt }}
           thời điểm: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-          EOF
-          test -f build/web/main.dart.js || { echo "::error::thiếu build/web/main.dart.js"; exit 1; }
-          echo "::notice::main.dart.js $(du -h build/web/main.dart.js | cut -f1)"
-          ls -1 build/web | head -20 | while IFS= read -r f; do echo "::notice::preview/$f"; done
+
+          /           → UI Gallery (lib/main_ui_gallery.dart)
+          /web-lite/  → app web chính thức (lib/main_web.dart)
+          EOF2
+          cp /tmp/out/BUILD_INFO.txt /tmp/out/web-lite/BUILD_INFO.txt
+          echo "::notice::gallery main.dart.js $(du -h /tmp/out/main.dart.js | cut -f1)"
+          echo "::notice::web-lite main.dart.js $(du -h /tmp/out/web-lite/main.dart.js | cut -f1)"
 
       - name: Push bản build lên nhánh preview
         env:
@@ -128,7 +165,7 @@ jobs:
           set -e
           DEST=${PREVIEW_BRANCH:-preview/arena-395208ef-in4up}
           rm -rf /tmp/preview && mkdir -p /tmp/preview
-          cp -r build/web/. /tmp/preview/
+          cp -r /tmp/out/. /tmp/preview/
           cd /tmp/preview
           cat > .gitattributes <<'EOF'
           * -text

@@ -178,7 +178,11 @@ jobs:
           fi
           python3 -m http.server 8080 --bind 127.0.0.1 --directory /tmp/out > /tmp/http.log 2>&1 &
           sleep 2
-          node "$GITHUB_WORKSPACE/tool/preview_smoke.mjs" http://127.0.0.1:8080 /tmp/smoke-out > run.log 2>&1
+          mkdir -p /tmp/smoke-out
+          # Script phải nằm CẠNH node_modules: ESM resolve package từ thư mục
+          # của file script đi lên, không đọc cwd ⇒ copy rồi mới chạy.
+          cp "$GITHUB_WORKSPACE/tool/preview_smoke.mjs" ./preview_smoke.mjs
+          node preview_smoke.mjs http://127.0.0.1:8080 /tmp/smoke-out > run.log 2>&1
           code=$?
           cat run.log
           echo "### smoke-test (exit $code)" >> "$GITHUB_STEP_SUMMARY"
@@ -186,6 +190,13 @@ jobs:
           head -60 /tmp/smoke-out/report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || tail -20 run.log >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           ls -la /tmp/smoke-out || true
+          if [ -f /tmp/smoke-out/report.txt ]; then
+            grep -E "^(số màn|tổng lỗi|  boot|  lỗi)" /tmp/smoke-out/report.txt | head -20 \
+              | cut -c1-280 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice title=smoke::$l"; done
+          else
+            tail -20 run.log | cut -c1-280 | sed 's/%/%25/g' \
+              | while IFS= read -r l; do echo "::error title=smoke (không có report)::$l"; done
+          fi
           if [ "$code" != "0" ]; then
             echo "::warning title=smoke::một số màn chưa render được (xem smoke/report.txt)"
           fi

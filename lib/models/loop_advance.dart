@@ -49,6 +49,10 @@ const Duration kMinLoopAdvanceSpan = Duration(milliseconds: 400);
 /// nhầm cả bài). Không cắt nhỏ hơn `b - a`, chỉ dùng khi `b - a` vô lý.
 const Duration kMaxLoopAdvanceSpan = Duration(minutes: 10);
 
+/// Sai số cho phép khi so vùng A–B với mốc dòng lời. LRC sinh từ STT có thể
+/// lệch vài ms so với mốc người dùng bấm, nên so tuyệt đối sẽ trượt.
+const Duration kLineMatchTolerance = Duration(milliseconds: 50);
+
 /// PSRC-275 — tính vùng lặp kế tiếp.
 ///
 /// Quy tắc ưu tiên (đúng như PSRC-178 đã chốt, nay làm rõ phần "đã tạo lời"):
@@ -96,28 +100,25 @@ LoopAdvanceResult computeNextLoopRegion({
 
   final span = b - a;
 
-  if (lineStarts.isNotEmpty) {
-    // Dòng CUỐI bắt đầu TRƯỚC B (so sánh NGHIÊM NGẶT `< b`).
-    //
-    // Vì sao nghiêm ngặt: người dùng hay đặt A/B đúng ranh giới câu (bấm vào
-    // dòng lời để lấy mốc). Với lời 10 s / 20 s / 30 s và A = 10, B = 20 thì
-    // vùng đang lặp là câu 10–20 ⇒ câu kế tiếp phải là 20–30. Nếu dùng `<=`
-    // thì dòng 20 s bị coi là "dòng chứa B" và app nhảy tới 30 s — bỏ hẳn câu
-    // 20–30, đúng kiểu "không canh đúng khoảng thời gian" mà owner báo.
-    int idxBeforeB = -1;
-    for (int i = lineStarts.length - 1; i >= 0; i--) {
-      if (lineStarts[i] < b) {
-        idxBeforeB = i;
+  // ── Vế 2: CHỈ dùng mốc dòng khi vùng A–B THẬT SỰ KHỚP mốc thời gian của
+  // một dòng lời (owner: "có lời **và mốc thời gian tương ứng** thì dựa vào
+  // dòng câu"). Không khớp ⇒ rơi xuống vế 1 (dịch theo khoảng thời gian).
+  //
+  // "Khớp" = A hoặc B trùng mốc bắt đầu của một dòng (sai số [kLineMatchTolerance]
+  // để chịu được làm tròn ms khi LRC được tạo từ STT).
+  if (lineStarts.isNotEmpty && loopRegionAlignsWithLines(a, b, lineStarts)) {
+    // Dòng kế tiếp = dòng đầu tiên bắt đầu SAU A (nghiêm ngặt, có sai số).
+    // Với lời 10/20/30 và A–B 10–20 ⇒ dòng sau A=10 là 20 ⇒ vùng 20–30.
+    int nextIdx = -1;
+    for (int i = 0; i < lineStarts.length; i++) {
+      if (lineStarts[i] > a + kLineMatchTolerance) {
+        nextIdx = i;
         break;
       }
     }
 
-    // `idxBeforeB < 0` ⇒ B rơi trước (hoặc đúng) câu đầu ⇒ câu kế tiếp là câu
-    // đầu tiên. Còn lại thì tiến đúng MỘT câu.
-    final int nextIdx = idxBeforeB < 0 ? 0 : idxBeforeB + 1;
-
-    if (nextIdx >= lineStarts.length) {
-      // Đã ở câu cuối của bài — không tiến được nữa.
+    if (nextIdx < 0) {
+      // A đã ở dòng cuối của bài — không còn câu nào để nhảy.
       return LoopAdvanceResult(
         start: a,
         end: b,
@@ -139,7 +140,10 @@ LoopAdvanceResult computeNextLoopRegion({
     );
   }
 
-  // Chưa có lời ⇒ dịch đúng độ dài A–B, bắt đầu tại B.
+  // ── Vế 1: CHƯA có lời (hoặc A–B không khớp mốc dòng nào) ⇒ dịch thuần theo
+  // khoảng thời gian: mốc A mới = B, giữ NGUYÊN độ dài B − A.
+  //   5–8   ⇒ 8–11   ⇒ 11–14
+  //   15–40 ⇒ 40–65  (1:05)
   final advanceSpan = span > kMaxLoopAdvanceSpan ? kMaxLoopAdvanceSpan : span;
   final nextStart = b;
   return LoopAdvanceResult(
@@ -148,6 +152,16 @@ LoopAdvanceResult computeNextLoopRegion({
     usedLyrics: false,
     reachedEnd: false,
   );
+}
+
+/// A hoặc B có trùng mốc bắt đầu của một dòng lời không (trong sai số
+/// [kLineMatchTolerance]). Public để UI chọn nhãn nút cho khớp hành vi.
+bool loopRegionAlignsWithLines(Duration a, Duration b, List<Duration> lineStarts) {
+  for (final line in lineStarts) {
+    if ((line - a).abs() <= kLineMatchTolerance) return true;
+    if ((line - b).abs() <= kLineMatchTolerance) return true;
+  }
+  return false;
 }
 
 /// Bảo đảm vùng mới dài tối thiểu [kMinLoopAdvanceSpan] và không vượt quá độ

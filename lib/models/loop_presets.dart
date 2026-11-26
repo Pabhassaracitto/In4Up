@@ -34,13 +34,24 @@ class LoopPresets {
     return dropdownValues.contains(maxLoopCount) ? maxLoopCount : 0;
   }
 
-  /// PSRC-178 — nhãn của nút "lặp phần tiếp theo" trong popup A–B.
+  /// PSRC-178 / PSRC-275 — nhãn của nút "lặp phần tiếp theo" trong popup A–B.
   ///
-  /// Nút này làm HAI việc khác nhau, tuỳ nguồn đã có lời hay chưa:
-  ///   • có lời (LRC) ⇒ nhảy sang **câu** kế tiếp theo mốc thời gian;
-  ///   • chưa có lời ⇒ dịch vùng lặp sang một **đoạn** cùng độ dài A–B, bắt
-  ///     đầu tại B (vd. A=5s, B=10s ⇒ đoạn mới 10s→15s).
+  /// Nút này làm HAI việc khác nhau:
+  ///   • có lời VÀ vùng A–B khớp mốc thời gian của dòng ⇒ nhảy sang **câu** kế
+  ///     tiếp theo mốc dòng;
+  ///   • chưa có lời (hoặc A–B không khớp mốc dòng nào) ⇒ dịch vùng lặp sang
+  ///     một **đoạn** cùng độ dài B − A, bắt đầu tại B
+  ///     (vd. A=5s, B=8s ⇒ đoạn mới 8s→11s).
   /// Nhãn phải nói đúng việc sắp làm, nếu không người dùng tưởng app nhảy sai.
   static String nextRepeatLabel({required bool hasLyrics}) =>
       hasLyrics ? 'Lặp câu tiếp' : 'Lặp đoạn tiếp';
+
+  /// PSRC-275 — nhãn chính xác khi biết vùng A–B có khớp mốc dòng lời hay
+  /// không. Dùng cái này ở UI để nhãn khớp đúng việc nút sắp làm (vùng A–B
+  /// lệch mốc dòng thì nút lặp theo KHOẢNG THỜI GIAN, không phải theo câu).
+  static String nextRepeatLabelFor({
+    required bool hasLyrics,
+    required bool alignsWithLines,
+  }) =>
+      (hasLyrics && alignsWithLines) ? 'Lặp câu tiếp' : 'Lặp đoạn tiếp';
 }

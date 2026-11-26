@@ -10261,3 +10261,18 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit dòng 1.29.x lên tip GLIB `62d47e87` (0 merge, 0 xung đột) → kiểm lossless KANBAN/PLAN + parity ARB 27/27 → bump `1.30.0+32`; chờ CI
   - 2026-11-24 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 trên `61ae19c7` (analyze **45451069984**) → tag `1.30.0-Beta` → build **45458996963** 🟢 **4/4** (Android · iOS · Windows · Linux) → release prerelease đủ 4 asset, `1.29.2` vẫn Latest. Chờ nghiệm thu máy.
+
+### REL-1.30.1-Beta — (2026-11-26) Beta 1.30.1: tiếp nhận sprint 4 của `arena/59b6e40a-in4up`
+- **Trạng thái:** 🔨 doing — đã tiếp nhận 4 commit mới + bump `1.30.1+33`; chờ CI và build 4 nền tảng
+- **Nguồn:** owner 2026-11-26 — *"Hãy tiếp nhận branch arena/59b6e40a-in4up rebase từ arena/59b6e40a-in4up đảm bảo tuyến tính vì mới có thêm commit. Và chạy release v1.30.1-Beta."*
+- **Commit mới tiếp nhận (cherry-pick theo đúng thứ tự, 0 merge):**
+  * `f406d989` ← `36b5ec2e` sprint 4 toàn repo: sàn chữ **≥11sp**, vùng chạm ≥40pt, SafeArea cho sheet, i18n 8 locale (134 file)
+  * `00389e63` ← `fd980fb9` Shadowing: vừa viewport 3 hàng cho timestamp 11sp
+  * `297cf1c5` ← `8dfd7302` Shadowing: chặn timestamp 11sp bị xuống dòng
+  * `431b881f` ← `4efcab69` Tab Đọc: SafeArea nằm TRONG nội dung `ReadSettingsSheet` (giữ hợp đồng builder)
+- **Vì sao cherry-pick chứ không `rebase --onto`:** lịch sử nhánh này đã bị viết lại ở lượt 1.30.0 (rebase lên GLIB) nên `9d6af01d` **không còn là ancestor** ⇒ `rebase --onto` replay lại toàn bộ 1.763 commit từ gốc (35 xung đột add/add vô nghĩa). Đường tuyến tính đúng: **append** 4 commit mới lên tip hiện tại; mọi commit của 59b6e40a vẫn nằm trong nhánh (theo hậu tố `-x`). Commit 1.30.0 vẫn nguyên vẹn trong tag `1.30.0-Beta` (`61ae19c7`).
+- **Bump:** `1.30.0+32` → **`1.30.1+33`** (`versionCode` 32→33). **PATCH** vì 4 commit đều là sửa UI/i18n/accessibility + polish, không thêm nhóm tính năng mới.
+- **Kiểm trước khi bump:** cây làm việc so với tip `59b6e40a` chỉ khác đúng phần GLIB + tài liệu release + 1 dòng `.gitignore`; ARB parity 26/26 file (659 khoá, 68 key `gl*` đủ 9 locale ưu tiên); `generate_priority_native_pack.py --check` OK (3887 entry); KANBAN/PLAN không mất dòng nào của upstream (chênh chỉ là 14 dòng do đổi số `ADR-0031 → 0036` và `PLAN-049 → PLAN-050` từ lượt trước).
+- **Chưa kiểm (máy thật):** cài đè 1.30.0-Beta → 1.30.1-Beta · sàn chữ 11sp/vùng chạm 40pt trên các màn vừa đổi · Shadowing picker 3 hàng · `ReadSettingsSheet` có SafeArea.
+- **Lịch sử:**
+  - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | tiếp nhận 4 commit sprint 4 tuyến tính (cherry-pick `-x`, 0 merge, 0 xung đột) → bump `1.30.1+33`; chờ CI

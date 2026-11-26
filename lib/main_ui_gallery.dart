@@ -127,6 +127,8 @@ class _GalleryHomeState extends State<GalleryHome> {
         return 1;
       case 'sheet':
       case 'sheets':
+      case 'sheet-pdf':
+      case 'sheet-grammar':
         return 2;
       case 'locale':
       case 'locales':

@@ -1589,3 +1589,16 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit,
     gộp KANBAN/PLAN giữ cả hai phía, bump `1.30.0+32`, thêm pattern tag beta.
+
+### PLAN-052 — Beta 1.30.1: tiếp nhận sprint 4 (59b6e40a) tuyến tính vào nhánh phát hành
+- Nguồn: người sở hữu (2026-11-26, qua agent `arena/395208ef-in4up`).
+- Trạng thái: doing — đã tiếp nhận 4 commit, chờ CI + build 4 nền tảng.
+- Milestone: M2 — ổn định bản phát hành 1.30.1.
+- Chi tiết: card `REL-1.30.1-Beta` trong [`KANBAN.md`](KANBAN.md).
+  - 4 commit sprint 4 (`36b5ec2e`, `fd980fb9`, `8dfd7302`, `4efcab69`) được
+    cherry-pick tuyến tính (0 merge); `pubspec` `1.30.0+32` → `1.30.1+33`.
+  - Vì lịch sử đã viết lại ở 1.30.0, `rebase --onto` sẽ replay từ gốc ⇒ dùng
+    cách append + `cherry-pick -x` để giữ tuyến tính và truy vết nguồn commit.
+- Lịch sử:
+  - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | tiếp nhận 4 commit,
+    bump `1.30.1+33`, giữ nguyên tag/commit của 1.30.0.

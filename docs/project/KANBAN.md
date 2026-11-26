@@ -32,6 +32,7 @@
 | README-REFRESH-001 | README.md **và README.vi.md** khảo sát lại theo nội dung **thực tế** (cả 2 bản đóng băng từ 2026-09-28) | ✅ done (số liệu đo lại + mục tái lập cho cả 2 ngôn ngữ; không đổi code/version) | badge `1.4.1+3` → `1.25.0+25`; 88→**215** card · ADR 8→**38** · PLAN 32→**48** · 600→**750** file/**332.640** dòng · test 81→**278** · 492→**555** key; bỏ blocker Windows/Linux đã hết; thêm khối media/Edge-TTS/SAFE-INSET + Knowledge 6 trục + VieNeu; commit `3df31e92`, `4dce38b3`, `b63e6f0c`, **`b20cbd25`** (bản VI) |
 | REL-1.27.0 | Release **1.27.0** (đủ 4 nền tảng) từ tip 251e — 31 commit sau 1.26.0 (0 merge) | ✅ done (build 🟢 run 42893022019, 4/4 job; chờ nghiệm thu máy) | bump `1.26.0+26 → 1.27.0+27` (`9358a6a5`); Android build đỏ lần 1 do sai tên constant → sửa `6fa1ddf2` → tag lại; APK arm64 199.1 MB `d8643b67…`, IPA 93.8 MB, Linux 50.5 MB, Windows 53.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.27.0 |
 | REL-1.29.1 | Release **1.29.1** (đủ 4 nền tảng) từ tip 251e — 43 commit sau tag 1.29.0 (0 merge) | ✅ done (build 🟢 run 44640183109, 4/4 job; chờ nghiệm thu máy) | bump `1.29.0+29 → 1.29.1+30` (`c4853244`); tag **`1.29.1`** (KHÔNG có `v` — xem lý do trong card); APK 204.6 MB `d6b69211…`, IPA 95.0 MB, Linux 51.5 MB, Windows 54.2 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.29.1 |
+| PREVIEW-UI-001 | Preview giao diện trên trình duyệt sau 2 beta 1.30.0/1.30.1 | ✅ done (gallery dựng widget thật; smoke **11/11** màn · 0 lỗi console) | [PREVIEW-UI-001](PREVIEW-UI-001.md) · run `45849632526` · nhánh `preview/arena-395208ef-in4up` (`/`, `/web-lite/`, `/smoke/`) |
 | REL-1.28.0 | Release **1.28.0** (đủ 4 nền tảng) + **deploy web lên GitHub Pages** — 23 commit sau 1.27.0 (0 merge) | ✅ done (build 🟢 run 43209683845 4/4 · web 🟢 run 43209670485, Pages `built` commit `52114878`; chờ nghiệm thu máy) | bump `1.27.0+27 → 1.28.0+28` (`db51dd38`); APK 199.2 MB `de3770df…`, IPA 93.9 MB, Linux 50.6 MB, Windows 53.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.28.0 · web https://pabhassaracitto.github.io/In4Up/ |
 | BETA-1.29.0 | **Beta hub v1.29.0** — tổng hợp & kiểm thử 9 lane / 30 issue audit 1.28.0 trước khi sang 251e | 🔨 doing (hub mở 2026-11-12; chờ 9 nhánh agent land) | [`BETA-1.29.0.md`](BETA-1.29.0.md) — nền `d23341a` (tip 251e sau `REL-1.28.0`); `pubspec` giữ `1.28.0+28` tới cổng G4 |
 | XLAT-SCR-006 | Bong bóng dịch: khung phải ĐỦ CHỖ cho chữ + không chồng lớp (owner 2026-11-11, có ảnh) | ✅ done (code + 14 test + **CI 42911172140 🟢**; chờ nghiệm thu máy) | đo chữ → nới rộng → nới cao → đẩy khối dưới xuống → thu nhỏ đều (sàn 10sp) → bỏ khối tràn; native sàn 10sp + log `[in4up-xlat-overlay]`; kotlinc compile overlay trong CI |
@@ -10254,6 +10255,25 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit dòng 1.29.x lên tip GLIB `62d47e87` (0 merge, 0 xung đột) → kiểm lossless KANBAN/PLAN + parity ARB 27/27 → bump `1.30.0+32`; chờ CI
   - 2026-11-24 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 trên `61ae19c7` (analyze **45451069984**) → tag `1.30.0-Beta` → build **45458996963** 🟢 **4/4** (Android · iOS · Windows · Linux) → release prerelease đủ 4 asset, `1.29.2` vẫn Latest. Chờ nghiệm thu máy.
+
+### PREVIEW-UI-001 — (2026-11-26) Xem giao diện trên trình duyệt (sau beta 1.30.0 + 1.30.1)
+- **Trạng thái:** ✅ done — gallery dựng từ `a72a8800`; smoke-test Chromium **11/11 màn render, 0 lỗi console**
+- **Nguồn:** owner 2026-11-26 — *"Hãy giúp tôi lập preview live để xem những thay đổi về giao diện nhé. Đặc biệt sau 2 bản beta vừa rồi."*
+- **Vấn đề:** `lib/main_web.dart` là màn "web lite" riêng (4 card web_core) ⇒ **không** chứa UI sprint 3/4. Sandbox agent không có Flutter SDK, bị chặn `storage.googleapis.com` (cài SDK), blob storage (tải artifact) và thiếu `libnspr4`/`libnss3` (Chromium); `gh workflow run` trả 403/404.
+- **Cách làm:** `.github/workflows/web_preview_branch.yml` build **2 bản web** trên runner rồi force-push vào nhánh `preview/arena-395208ef-in4up` (github.com là host duy nhất sandbox fetch được):
+  * `/` → `lib/main_ui_gallery.dart` (mới, **chỉ để xem**) — dựng CHÍNH `AppTheme.dark()`, `AppTypography`, `FSRSRatingBar`, `AssessmentRatingBar`, `ShadowingSentencePicker`, `PhonemeDisplay`, `ElaborativeCard`, `GrammarQuickSettingsSheet`, `PdfReaderThemeSheet`, `ReadSettingsGroup/LinkRow`, `OpenTipitakaCredit`
+  * `/web-lite/` → app web chính thức (`main_web.dart`, `--base-href /web-lite/`)
+  * `/smoke/` → ảnh PNG từng màn + `report.txt`
+  Không đụng `gh-pages`, không đổi `pubspec.yaml`, không tạo release.
+- **Chọn widget bằng đồ thị import:** chỉ nhận widget không kéo `dart:io`/`dart:ffi`/`dart:isolate` (48 file, sạch). Loại và ghi rõ lý do: `ReadSettingsSheet`, `PdfToolbar`, `DictEntryDetailSheet`, `LiveCaptionBubble`, toàn bộ `lib/features/great_library/ui/**`.
+- **Smoke-test (`tool/preview_smoke.mjs`):** mở 11 màn, chờ `flutter-view`/`flt-glass-pane` + `#in4up-loader` biến mất, chụp PNG, gom lỗi console/network. Run **45849632526** → `11/11`, `0` lỗi.
+- **3 lỗi thật do smoke bắt được (đã sửa):** (1) `#sheet-pdf`/`#sheet-grammar` rơi về tab 0 do thiếu `case`; (2) web-lite build `--base-href /` nên nạp `/main.dart.js` của gallery ⇒ sai app; (3) `<canvas>` của Flutter nằm trong **shadow DOM** nên `querySelector('canvas')` rỗng ⇒ báo sai "0/9 màn".
+- **Giới hạn:** không có ghi âm, tải gói GLIB, engine dịch FFI, OCR PDF, Firebase — cần native. Các mục "chưa kiểm (máy thật)" của `REL-1.30.1-Beta` **vẫn nguyên**; nghiệm thu chính thức vẫn là APK/IPA.
+- **Chi tiết + lệnh chạy:** [`PREVIEW-UI-001.md`](PREVIEW-UI-001.md)
+- **Lịch sử:**
+  - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | workflow build web → nhánh `preview/*`
+  - 2026-11-26 | doing→doing | agent | phát hiện `main_web.dart` không chứa UI sprint 3/4 ⇒ thêm `lib/main_ui_gallery.dart`
+  - 2026-11-26 | doing→done | agent | smoke 11/11 màn · 0 lỗi; sửa deep-link + base-href + dò canvas shadow DOM
 
 ### REL-1.30.1-Beta — (2026-11-26) Beta 1.30.1: tiếp nhận sprint 4 của `arena/59b6e40a-in4up`
 - **Trạng thái:** ✅ done — CI **5/5 🟢** + build **4/4 🟢**; **chờ nghiệm thu máy thật**

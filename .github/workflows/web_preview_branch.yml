@@ -80,8 +80,11 @@ jobs:
         continue-on-error: true
         run: |
           set +e
+          # base-href PHẢI là /web-lite/: bản này nằm trong thư mục con của
+          # preview. Nếu để "/" thì index.html nạp /main.dart.js của gallery
+          # (hai app khác nhau) ⇒ trang lite hiển thị nhầm nội dung.
           flutter build web --release \
-            --base-href / \
+            --base-href /web-lite/ \
             -t lib/main_web.dart \
             --dart-define=IN4UP_ALLOW_DIRECT_CORS=false > build_web.log 2>&1
           code=$?

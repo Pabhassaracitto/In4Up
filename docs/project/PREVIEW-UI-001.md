@@ -54,11 +54,33 @@ chạy đều force-push nên nhánh chỉ chứa đúng một bản build.
 
 ### Xem
 
+Dùng script trong repo (`tool/web/serve_preview.py`) — **một lệnh** lo cả hai
+việc fetch và chạy server, và dựng lại được sau khi sandbox mất `/tmp`:
+
 ```bash
-git fetch --depth=1 origin preview/arena-395208ef-in4up:refs/remotes/origin/preview
-mkdir -p /tmp/preview && git archive refs/remotes/origin/preview | tar -x -C /tmp/preview
-python3 -m http.server 4173 --bind 0.0.0.0 --directory /tmp/preview
+# dựng lại /tmp/preview từ nhánh preview rồi chạy server ở cổng 4173
+python3 tool/web/serve_preview.py serve 4173 --sync
+
+# hoặc tách hai bước
+python3 tool/web/serve_preview.py sync                 # → /tmp/preview
+python3 tool/web/serve_preview.py serve 4173           # bind 0.0.0.0
 ```
+
+Mở `https://4173-<sandboxId>.e2b.app` (hoặc panel LIVE PREVIEW).
+
+`http.server` trơn **không đủ**: preview có hai app con và Flutter dùng routing
+client-side, nên route sâu phải trả `index.html` của **đúng** app con
+(`/web-lite/...` → `/web-lite/index.html`, còn lại → `/index.html`), kèm COOP/COEP
+cho CanvasKit. Script làm việc đó.
+
+### Phục hồi khi preview tắt
+
+| Triệu chứng | Xử lý |
+|---|---|
+| Panel LIVE PREVIEW trống, link không vào | `python3 tool/web/serve_preview.py serve 4173 --dest /tmp/preview` |
+| Báo `LỖI: /tmp/preview không tồn tại` | thêm `--sync` (hoặc chạy `sync` trước) — `/tmp` **không** được lưu qua snapshot |
+| Cổng 4173 bị chiếm bởi tiến trình cũ | `pkill -f "serve_preview.py serve 4173"` rồi khởi động lại |
+| Muốn bản giao diện mới hơn | push commit có `[preview-web]`, chờ run xanh, rồi `sync` lại |
 
 ## 3. Nội dung gallery (toàn bộ là widget thật)
 
@@ -121,3 +143,6 @@ Ba lỗi thật do smoke-test bắt được (đã sửa):
   (deep-link, base-href web-lite, dò canvas trong shadow DOM)
 - 2026-11-26 | doing→done | agent | **11/11 màn render · 0 lỗi console**; ảnh +
   report trong `preview/.../smoke/`
+- 2026-11-26 | done→done | agent | đưa server vào repo (`tool/web/serve_preview.py`,
+  có `sync` + `serve`); khởi động lại preview cổng 4173 sau khi tiến trình cũ
+  dừng; kiểm 12 route = 200, SPA fallback đúng từng app con

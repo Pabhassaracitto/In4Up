@@ -77,7 +77,17 @@ class UiGalleryApp extends StatefulWidget {
 }
 
 class _UiGalleryAppState extends State<UiGalleryApp> {
-  Locale _locale = const Locale('vi');
+  /// `?lang=zh` (hoặc `?lang=zh_TW`) mở thẳng gallery ở locale đó — dùng cho
+  /// smoke-test và để gửi link "xem UI tiếng X" cho người khác.
+  static Locale _initialLocale() {
+    final raw = Uri.base.queryParameters['lang'];
+    if (raw == null || raw.isEmpty) return const Locale('vi');
+    final parts = raw.replaceAll('-', '_').split('_');
+    if (parts.length > 1) return Locale(parts.first, parts[1]);
+    return Locale(parts.first);
+  }
+
+  late Locale _locale = _initialLocale();
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +203,7 @@ class _GalleryHomeState extends State<GalleryHome> {
                   0 => const _TypographySection(),
                   1 => const _TouchTargetSection(),
                   2 => const _SheetsSection(),
-                  3 => const _LocalesSection(),
+                  3 => _LocalesSection(onLocaleChanged: widget.onLocaleChanged),
                   4 => const _GreatLibrarySection(),
                   _ => const _AboutSection(),
                 },
@@ -825,17 +835,21 @@ void _noop() {}
 // ===========================================================================
 
 class _LocalesSection extends StatelessWidget {
-  const _LocalesSection();
+  const _LocalesSection({required this.onLocaleChanged});
+
+  final ValueChanged<Locale> onLocaleChanged;
 
   @override
   Widget build(BuildContext context) {
     final current = Localizations.localeOf(context).toLanguageTag();
+    // Các câu dưới đây đều có trong generated_priority_native_pack (đã được
+    // duyệt cho zh/zh_TW/hi/si/my/th/ja), nên bảng 9 dòng bên dưới thật sự
+    // khác nhau giữa các locale — không phải rơi về tiếng Việt.
     const samples = <String>[
-      'Thư viện chung',
-      'Chạm để đọc tiếp',
-      'Chọn ngôn ngữ đích',
-      'Đã lưu từ vựng',
-      'Không phóng dật là con đường bất tử.',
+      'Chế độ Đọc',
+      'Cài đặt hiển thị',
+      'Dịch & đọc song ngữ',
+      'Cài đặt ôn tập',
     ];
 
     return Column(
@@ -848,6 +862,27 @@ class _LocalesSection extends StatelessWidget {
               'Đổi ngôn ngữ ở góc phải AppBar. Chuỗi bên dưới đi qua đúng bộ '
               'dịch của app (AppUITranslations + priority pack) chứ không phải '
               'bản dịch làm sẵn trong gallery.',
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final l in kGalleryLocales)
+              IntrinsicWidth(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 40),
+                  child: ChoiceChip(
+                    label: Text(
+                      l.toLanguageTag(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    selected: l.toLanguageTag() == current,
+                    showCheckmark: false,
+                    onSelected: (_) => onLocaleChanged(l),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         Card(
@@ -933,10 +968,7 @@ class _LocalesSection extends StatelessWidget {
                         ),
                         Expanded(
                           child: Text(
-                            AppUITranslations.translate(
-                              'Chạm để đọc tiếp',
-                              code,
-                            ),
+                            AppUITranslations.translate('Cài đặt hiển thị', code),
                             style: const TextStyle(fontSize: 12.5),
                           ),
                         ),

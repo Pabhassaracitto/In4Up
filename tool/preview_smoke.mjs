@@ -38,6 +38,16 @@ const shots = [
   },
   { file: '06-locales.png', url: `${base}/#locale`, note: '8 locale ưu tiên' },
   { file: '07-library.png', url: `${base}/#thuvien`, note: 'Trạng thái GLIB' },
+  {
+    file: '07b-locale-zh.png',
+    url: `${base}/?lang=zh#locale`,
+    note: 'Toàn bộ UI ở 中文 (zh)',
+  },
+  {
+    file: '07c-locale-si.png',
+    url: `${base}/?lang=si#locale`,
+    note: 'Toàn bộ UI ở සිංහල (si)',
+  },
   { file: '08-web-lite.png', url: `${base}/web-lite/`, note: 'App web chính thức' },
   {
     file: '09-mobile-small.png',

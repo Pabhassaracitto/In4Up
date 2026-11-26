@@ -304,9 +304,33 @@ void main() {
       expect(LoopPresets.nextRepeatLabel(hasLyrics: false), 'Lặp đoạn tiếp');
     });
 
-    test('nút A–B dùng hàm nhãn + đọc trạng thái lời', () {
-      expect(abControlsCode.contains('LoopPresets.nextRepeatLabel('), isTrue);
+    test('PSRC-275 — nhãn chính xác khi biết A–B có khớp mốc dòng hay không',
+        () {
+      // Hợp đồng mới: chỉ gọi là "câu" khi có lời VÀ vùng A–B khớp mốc dòng.
+      expect(
+        LoopPresets.nextRepeatLabelFor(
+            hasLyrics: true, alignsWithLines: true),
+        'Lặp câu tiếp',
+      );
+      expect(
+        LoopPresets.nextRepeatLabelFor(
+            hasLyrics: true, alignsWithLines: false),
+        'Lặp đoạn tiếp',
+      );
+      expect(
+        LoopPresets.nextRepeatLabelFor(
+            hasLyrics: false, alignsWithLines: true),
+        'Lặp đoạn tiếp',
+      );
+    });
+
+    test('nút A–B dùng hàm nhãn + đọc trạng thái lời và mốc khớp', () {
+      expect(
+        abControlsCode.contains('LoopPresets.nextRepeatLabelFor('),
+        isTrue,
+      );
       expect(abControlsCode.contains('lrcLines.isNotEmpty'), isTrue);
+      expect(abControlsCode.contains('loopRegionAlignsWithLines('), isTrue);
       // Hard-code nhãn cũ ⇒ file chưa có lời vẫn ghi "câu" (đúng lỗi PSRC-178).
       expect(abControlsCode.contains("label: 'Lặp câu tiếp'"), isFalse);
     });

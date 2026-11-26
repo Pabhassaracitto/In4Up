@@ -1,0 +1,9 @@
+In4Up — bản build PREVIEW (không phải bản phát hành)
+nhánh:   arena/395208ef-in4up
+commit:  a72a880093bfb6e4a1f12bf84276bae24ef7d587
+pubspec: version: 1.30.1+33
+build:   45849632526 / attempt 1
+thời điểm: 2026-11-26T15:31:27Z
+
+/           → UI Gallery (lib/main_ui_gallery.dart)
+/web-lite/  → app web chính thức (lib/main_web.dart)

@@ -1,0 +1,70 @@
+In4Up · preview smoke-test
+thời điểm: 2026-11-26T15:32:24.166Z
+số màn render được: 11/11
+tổng lỗi console/network: 0
+
+01-typography.png · Sàn chữ ≥11sp
+  url: http://127.0.0.1:8080/#chu
+  boot: 4011 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+02-touch-targets.png · Vùng chạm ≥40pt
+  url: http://127.0.0.1:8080/#cham
+  boot: 3924 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+03-sheets.png · Danh sách sheet
+  url: http://127.0.0.1:8080/#sheet
+  boot: 3664 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+04-sheet-pdf.png · PdfReaderThemeSheet mở thật (SafeArea)
+  url: http://127.0.0.1:8080/#sheet-pdf
+  boot: 3936 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+05-sheet-grammar.png · GrammarQuickSettingsSheet mở thật
+  url: http://127.0.0.1:8080/#sheet-grammar
+  boot: 4579 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+06-locales.png · 8 locale ưu tiên
+  url: http://127.0.0.1:8080/#locale
+  boot: 3639 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+07-library.png · Trạng thái GLIB
+  url: http://127.0.0.1:8080/#thuvien
+  boot: 3561 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+07b-locale-zh.png · Toàn bộ UI ở 中文 (zh)
+  url: http://127.0.0.1:8080/?lang=zh#locale
+  boot: 3756 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+07c-locale-si.png · Toàn bộ UI ở සිංහල (si)
+  url: http://127.0.0.1:8080/?lang=si#locale
+  boot: 3760 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+08-web-lite.png · App web chính thức
+  url: http://127.0.0.1:8080/web-lite/
+  boot: 3821 ms · ok
+  canvas: 860x1864 · scene: 1 · text: (rỗng)
+  lỗi: không có
+
+09-mobile-small.png · Màn hẹp 360×740
+  url: http://127.0.0.1:8080/#cham
+  boot: 3619 ms · ok
+  canvas: 720x1480 · scene: 1 · text: (rỗng)
+  lỗi: không có

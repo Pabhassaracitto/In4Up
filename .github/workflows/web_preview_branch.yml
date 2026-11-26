@@ -157,6 +157,40 @@ jobs:
           echo "::notice::gallery main.dart.js $(du -h /tmp/out/main.dart.js | cut -f1)"
           echo "::notice::web-lite main.dart.js $(du -h /tmp/out/web-lite/main.dart.js | cut -f1)"
 
+      # Smoke-test bản build bằng Chromium headless NGAY TRÊN RUNNER: mở từng
+      # tab, chờ canvas của Flutter, chụp ảnh và gom lỗi console. Lý do: sandbox
+      # của agent không chạy được Chromium (thiếu libnspr4/libnss3, apt chặn),
+      # nên ảnh + report được commit vào nhánh preview để đọc lại từ đó.
+      - name: Smoke-test bằng Chromium headless
+        id: smoke
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          npm init -y > /dev/null 2>&1
+          npm i --silent puppeteer-core @sparticuz/chromium > npm.log 2>&1
+          if [ $? -ne 0 ]; then
+            echo "### smoke: không cài được npm package" >> "$GITHUB_STEP_SUMMARY"
+            tail -20 npm.log >> "$GITHUB_STEP_SUMMARY"
+            mkdir -p /tmp/smoke-out
+            echo "smoke: npm install thất bại" > /tmp/smoke-out/report.txt
+            exit 0
+          fi
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory /tmp/out > /tmp/http.log 2>&1 &
+          sleep 2
+          node "$GITHUB_WORKSPACE/tool/preview_smoke.mjs" http://127.0.0.1:8080 /tmp/smoke-out > run.log 2>&1
+          code=$?
+          cat run.log
+          echo "### smoke-test (exit $code)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          head -60 /tmp/smoke-out/report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || tail -20 run.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -la /tmp/smoke-out || true
+          if [ "$code" != "0" ]; then
+            echo "::warning title=smoke::một số màn chưa render được (xem smoke/report.txt)"
+          fi
+          exit 0
+
       - name: Push bản build lên nhánh preview
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -166,6 +200,10 @@ jobs:
           DEST=${PREVIEW_BRANCH:-preview/arena-395208ef-in4up}
           rm -rf /tmp/preview && mkdir -p /tmp/preview
           cp -r /tmp/out/. /tmp/preview/
+          if [ -d /tmp/smoke-out ]; then
+            mkdir -p /tmp/preview/smoke
+            cp -r /tmp/smoke-out/. /tmp/preview/smoke/
+          fi
           cd /tmp/preview
           cat > .gitattributes <<'EOF'
           * -text

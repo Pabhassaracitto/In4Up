@@ -1,0 +1,131 @@
+name: Web preview (build → nhánh preview/*)
+
+# MỤC ĐÍCH: cho agent/owner xem GIAO DIỆN web của một nhánh mà KHÔNG cần
+# publish lên GitHub Pages (site thật chỉ deploy từ `main`) và KHÔNG cần tải
+# artifact Actions (sandbox bị chặn egress tới blob storage của GitHub).
+#
+# Cách làm: build `flutter build web -t lib/main_web.dart` (đúng entrypoint
+# của deploy-web.yml), rồi **push toàn bộ build/web** lên nhánh
+# `preview/<tên-nhánh>` (mặc định `preview/arena-395208ef-in4up`).
+# Sandbox `git fetch` từ github.com được ⇒ chạy `python3 -m http.server` trên
+# chính thư mục đó là có preview live.
+#
+# Chỉ chạy khi được gọi thủ công (workflow_dispatch) để không tốn phút CI.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Nhánh cần build preview (mặc định: nhánh đang chọn)'
+        required: false
+        type: string
+        default: ''
+      preview_branch:
+        description: 'Nhánh đích chứa bản build'
+        required: false
+        type: string
+        default: 'preview/arena-395208ef-in4up'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-preview-${{ inputs.preview_branch }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout nhánh cần build
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch != '' && inputs.target_branch || github.ref_name }}
+          fetch-depth: 1
+
+      - name: Ghi lại commit đang build
+        id: src
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(grep -m1 '^version:' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # --base-href / : preview chạy ở gốc domain của sandbox, KHÔNG phải /In4Up/.
+      - name: Build web (entrypoint main_web.dart)
+        id: build-web
+        continue-on-error: true
+        run: |
+          set +e
+          flutter build web --release \
+            --base-href / \
+            -t lib/main_web.dart \
+            --dart-define=IN4UP_ALLOW_DIRECT_CORS=false > build_web.log 2>&1
+          code=$?
+          if [ "$code" != "0" ]; then
+            echo "### flutter build web — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -80 build_web.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "Error|error:|not available|Unsupported" build_web.log | head -20 \
+              | cut -c1-300 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::error title=build web::$l"; done
+            exit 1
+          fi
+          echo "::notice title=build web::OK $(du -sh build/web | cut -f1)"
+
+      - name: Dừng nếu build lỗi
+        if: steps.build-web.outcome == 'failure'
+        run: exit 1
+
+      # index.html của Flutter web + client-side routing: mọi route sâu (không
+      # phải file tĩnh) phải trả về index.html ⇒ copy sang 404.html.
+      - name: Chuẩn bị bản build tĩnh
+        run: |
+          set -e
+          cp build/web/index.html build/web/404.html
+          touch build/web/.nojekyll
+          # Ghi dấu để trang preview biết đang xem bản nào (hiển thị ở /BUILD_INFO.txt)
+          cat > build/web/BUILD_INFO.txt <<EOF
+          In4Up — bản build PREVIEW (không phải bản phát hành)
+          nhánh:   ${{ steps.src.outputs.branch }}
+          commit:  ${{ steps.src.outputs.sha }}
+          pubspec: ${{ steps.src.outputs.version }}
+          build:   ${{ github.run_id }} / attempt ${{ github.run_attempt }}
+          thời điểm: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+          test -f build/web/main.dart.js || { echo "::error::thiếu build/web/main.dart.js"; exit 1; }
+          echo "::notice::main.dart.js $(du -h build/web/main.dart.js | cut -f1)"
+          ls -1 build/web | head -20 | while IFS= read -r f; do echo "::notice::preview/$f"; done
+
+      - name: Push bản build lên nhánh preview
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIEW_BRANCH: ${{ inputs.preview_branch }}
+        run: |
+          set -e
+          DEST=${PREVIEW_BRANCH:-preview/arena-395208ef-in4up}
+          rm -rf /tmp/preview && mkdir -p /tmp/preview
+          cp -r build/web/. /tmp/preview/
+          cd /tmp/preview
+          cat > .gitattributes <<'EOF'
+          * -text
+          EOF
+          git init -q -b "$DEST"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Preview build: ${{ steps.src.outputs.branch }} @ ${{ steps.src.outputs.short }} (${{ steps.src.outputs.version }})"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin "$DEST"
+          echo "::notice title=preview branch::$DEST ← ${{ steps.src.outputs.sha }}"

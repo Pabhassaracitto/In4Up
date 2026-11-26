@@ -10256,7 +10256,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-24 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 trên `61ae19c7` (analyze **45451069984**) → tag `1.30.0-Beta` → build **45458996963** 🟢 **4/4** (Android · iOS · Windows · Linux) → release prerelease đủ 4 asset, `1.29.2` vẫn Latest. Chờ nghiệm thu máy.
 
 ### REL-1.30.1-Beta — (2026-11-26) Beta 1.30.1: tiếp nhận sprint 4 của `arena/59b6e40a-in4up`
-- **Trạng thái:** 🔨 doing — đã tiếp nhận 4 commit mới + bump `1.30.1+33`; chờ CI và build 4 nền tảng
+- **Trạng thái:** ✅ done — CI **5/5 🟢** + build **4/4 🟢**; **chờ nghiệm thu máy thật**
+- **Tag/commit:** `1.30.1-Beta` → **`818bd39a`** (bump `1.30.1+33`), prerelease (1.29.2 vẫn Latest; 1.30.0-Beta vẫn nguyên)
 - **Nguồn:** owner 2026-11-26 — *"Hãy tiếp nhận branch arena/59b6e40a-in4up rebase từ arena/59b6e40a-in4up đảm bảo tuyến tính vì mới có thêm commit. Và chạy release v1.30.1-Beta."*
 - **Commit mới tiếp nhận (cherry-pick theo đúng thứ tự, 0 merge):**
   * `f406d989` ← `36b5ec2e` sprint 4 toàn repo: sàn chữ **≥11sp**, vùng chạm ≥40pt, SafeArea cho sheet, i18n 8 locale (134 file)
@@ -10266,6 +10267,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Vì sao cherry-pick chứ không `rebase --onto`:** lịch sử nhánh này đã bị viết lại ở lượt 1.30.0 (rebase lên GLIB) nên `9d6af01d` **không còn là ancestor** ⇒ `rebase --onto` replay lại toàn bộ 1.763 commit từ gốc (35 xung đột add/add vô nghĩa). Đường tuyến tính đúng: **append** 4 commit mới lên tip hiện tại; mọi commit của 59b6e40a vẫn nằm trong nhánh (theo hậu tố `-x`). Commit 1.30.0 vẫn nguyên vẹn trong tag `1.30.0-Beta` (`61ae19c7`).
 - **Bump:** `1.30.0+32` → **`1.30.1+33`** (`versionCode` 32→33). **PATCH** vì 4 commit đều là sửa UI/i18n/accessibility + polish, không thêm nhóm tính năng mới.
 - **Kiểm trước khi bump:** cây làm việc so với tip `59b6e40a` chỉ khác đúng phần GLIB + tài liệu release + 1 dòng `.gitignore`; ARB parity 26/26 file (659 khoá, 68 key `gl*` đủ 9 locale ưu tiên); `generate_priority_native_pack.py --check` OK (3887 entry); KANBAN/PLAN không mất dòng nào của upstream (chênh chỉ là 14 dòng do đổi số `ADR-0031 → 0036` và `PLAN-049 → PLAN-050` từ lượt trước).
+- **CI trên `818bd39a` (5/5 🟢):** `App Analyze + Locale` **45834854991** · `Listen queue` **45834855001** · `Read translation regression` **45834855015** · `Deploy web` **45834855021** · `VieNeu engine build` **45834855050**.
+- **Bằng chứng build:** `build_final_complete.yml` run **45838232325** — **4/4 job success** (Android ✅ · iOS ✅ · Windows ✅ · Linux ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.30.1-Beta
+  - `in4up-Android-arm64-v8a-1.30.1-Beta-818bd.apk` — 204.975.569 B — sha256 `9bf77268308c1525eace6c4520d020208542939df2c76590eafba7030598180a`
+  - `in4up-iOS-1.30.1-Beta.ipa` — 95.327.521 B — sha256 `a0d257551c8ade18a0682d28803daf54b8eef027fb35b8c141ced5c695dab7f0`
+  - `in4up-Linux-1.30.1-Beta.tar.gz` — 51.861.080 B — sha256 `254c8ce15c7f2ff2cdbca066f28f746f03c1fb11974208199f1212d4995bdd71`
+  - `in4up-Windows-1.30.1-Beta.zip` — 54.482.939 B — sha256 `eedd7c435e28abf1b92da5b939a8ca09fd5cae0dcdbf19c431196f2af9d50636`
+- **Lưu ý vận hành:** workflow tạo release **trước** khi đẩy asset và làm **rỗng body** (cả 1.30.0 lẫn 1.30.1) ⇒ sau mỗi build phải `gh release edit --notes-file …` để gắn lại ghi chú. Lần này build chạy **một lượt**, iOS xanh ngay (không lặp sự cố runner macOS như 1.30.0).
 - **Chưa kiểm (máy thật):** cài đè 1.30.0-Beta → 1.30.1-Beta · sàn chữ 11sp/vùng chạm 40pt trên các màn vừa đổi · Shadowing picker 3 hàng · `ReadSettingsSheet` có SafeArea.
 - **Lịch sử:**
   - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | tiếp nhận 4 commit sprint 4 tuyến tính (cherry-pick `-x`, 0 merge, 0 xung đột) → bump `1.30.1+33`; chờ CI
+  - 2026-11-26 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 (analyze **45834854991**) → tag `1.30.1-Beta` → build **45838232325** 🟢 **4/4** → release prerelease đủ 4 asset, gắn lại ghi chú. Chờ nghiệm thu máy.

@@ -11,9 +11,23 @@ import 'widgets/memory_garden_view.dart';
 import 'widgets/memory_top_bar.dart';
 import 'widgets/flashcard_presenter.dart';
 import 'widgets/memory_list_view.dart';
+import 'services/memory_vocab_audio.dart';
 
-class MemoryModeScreen extends StatelessWidget {
+class MemoryModeScreen extends StatefulWidget {
   const MemoryModeScreen({super.key});
+
+  @override
+  State<MemoryModeScreen> createState() => _MemoryModeScreenState();
+}
+
+class _MemoryModeScreenState extends State<MemoryModeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // AUDIT v1.30.1 (mục 8): công tắc «tự đọc từ vựng» sống ngoài controller
+    // (xem MemoryVocabAudio) ⇒ nạp một lần khi mở tab Nhớ.
+    MemoryVocabAudio.instance.ensureLoaded();
+  }
 
   @override
   Widget build(BuildContext context) {

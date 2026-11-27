@@ -55,7 +55,6 @@ import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
 import 'read_mode/sheets/read_settings_sheet.dart';
 import 'read_mode/services/read_text_action_runner.dart';
-import 'read_mode/widgets/read_top_bar.dart';
 import 'read_mode/widgets/read_source_picker.dart';
 import 'read_mode/widgets/read_text_action_hooks.dart';
 import 'read_mode/widgets/library_screen.dart';
@@ -1754,51 +1753,26 @@ class _MainShellState extends State<MainShell> {
             tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
-          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Tùy biến» +
-          // «Cài đặt». Không thêm 2 icon rời rạc (app bar reader đã có 4
-          // icon + tiêu đề ⇒ 320px không đủ chỗ).
-          // PSRC-235: mục đầu từng tên «Hiển thị» — trùng với tab dock, chip
-          // trong tab và tiêu đề sheet (4 tầng cùng tên). Nay một đích đến =
-          // một tên: «Tùy biến» (panel dock) · «Bố cục đọc» (sheet) ·
-          // «Cài đặt» (Cài đặt Text Studio).
-          if (isReader &&
-              _readChromeLayout.useBottomDock &&
-              !_readChromeLayout.displayHidden)
-            PopupMenuButton<String>(
-              padding: EdgeInsets.zero,
-              icon: const Icon(Icons.tune_rounded,
-                  color: Color(0xFF26C6DA), size: 20),
-              tooltip: context.uiText('Tùy biến'),
-              onSelected: (value) {
-                if (value == 'display') {
-                  if (_readChromeLayout.useBottomDock) {
-                    // READ-UI-121: 1 chạm mở đúng panel «Tùy biến» của dock
-                    // (có ReadModeController ⇒ đủ auto-sync + Focus). Vẫn là
-                    // MỘT nguồn sự thật `ReadChromeLayoutStore`.
-                    final store = ReadChromeLayoutStore.instance;
-                    unawaited(store.update(store.layout.value.copyWith(
-                      toolsState: ReadChromeGroupState.expanded,
-                      lastPanel: ReadDockPanel.display,
-                    )));
-                  } else {
-                    // Đường «Công cụ ở trên» đã có ReadTopBar ⇒ dùng sheet.
-                    showReadDisplaySheet(context);
-                  }
-                }
-                if (value == 'settings') ReadSettingsSheet.show(context);
-              },
-              itemBuilder: (menuContext) => [
-                PopupMenuItem<String>(
-                  value: 'display',
-                  child: Text(menuContext.uiText('Tùy biến')),
-                ),
-                PopupMenuItem<String>(
-                  value: 'settings',
-                  child: Text(menuContext.uiText('Cài đặt')),
-                ),
-              ],
+          // AUDIT v1.30.1 (mục 6) — «góc trên phải đang hiện 2 lựa chọn ⇒ nhấn
+          // vào mở THẲNG bảng cài đặt».
+          //
+          // Trước: một `PopupMenuButton` bung ra 2 mục «Tùy biến» + «Cài đặt»
+          // ⇒ 2 chạm mới tới cài đặt, và «Tùy biến» (panel dock) lại CHỨA
+          // thêm 2 chip «Bố cục đọc» + «Cài đặt» (4 tầng cùng đích). Nay:
+          //   • MỘT icon ⚙ mở thẳng `ReadSettingsSheet` (nơi duy nhất chứa
+          //     cài đặt đọc);
+          //   • «Bố cục đọc» (chọn preset, vị trí bản dịch, IPA, một dòng) —
+          //     thứ người dùng đổi LIÊN TỤC — không còn nằm sau menu: nó là
+          //     chip thường trực ngay cạnh, trong vùng đọc.
+          if (isReader) ...[
+            _ShellActionButton(
+              icon: Icons.settings_rounded,
+              color: const Color(0xFF26C6DA),
+              tooltip: context.uiText('Cài đặt'),
+              onTap: () => ReadSettingsSheet.show(context),
             ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
           // Tab Xem đã có 「Thư viện văn bản」 ở bên trái ⇒ bỏ nút phải để
           // không có hai nút cùng mở một thư viện (và để tiết kiệm chỗ).
           if (!isReader && !isWatch)

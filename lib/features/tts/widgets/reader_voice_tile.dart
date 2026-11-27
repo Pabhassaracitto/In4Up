@@ -3,6 +3,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 
 import '../engines/tts_engine.dart';
 import '../tts_service.dart';
+import 'voice_picker_sheet.dart';
 
 /// Uses the same persisted choice in the common settings and reader sheets.
 class ReaderVoiceTile extends StatelessWidget {
@@ -79,26 +80,18 @@ class ReaderVoiceTile extends StatelessWidget {
                       final engine = pref!.engine;
                       final voices = await service.readerVoiceCatalog(engine);
                       if (!context.mounted) return;
-                      final choice = await showDialog<ReaderVoicePreference>(
-                          context: context,
-                          builder: (ctx) => SimpleDialog(
-                                title: Text('$title · ${l.ttsVoice}'),
-                                children: [
-                                  SimpleDialogOption(
-                                      onPressed: () => Navigator.pop(
-                                          ctx, ReaderVoicePreference(engine)),
-                                      child: Text(l.ttsInherit)),
-                                  for (final TtsVoice v in voices)
-                                    SimpleDialogOption(
-                                        onPressed: () => Navigator.pop(
-                                            ctx,
-                                            ReaderVoicePreference(engine,
-                                                voice: v.id,
-                                                locale: v.language)),
-                                        child:
-                                            Text('${v.language} · ${v.name}')),
-                                ],
-                              ));
+                      // AUDIT v1.30.1 (mục 5): 35 giọng Edge / 17 ngôn ngữ
+                      // không còn đổ thành một danh sách phẳng — xem
+                      // `_VoicePickerSheet` (nhóm theo ngôn ngữ, mở sẵn nhóm
+                      // đang chọn).
+                      final choice = await showVoicePickerSheet(
+                        context,
+                        title: '$title · ${l.ttsVoice}',
+                        engineId: engine,
+                        voices: voices,
+                        inheritLabel: l.ttsInherit,
+                        selectedVoiceId: pref.voice,
+                      );
                       if (choice != null)
                         await service.setReaderPreference(reader, choice);
                     },

@@ -10,6 +10,7 @@ import '../models/memory_stage.dart';
 import '../models/memory_stats.dart';
 import '../models/rating_gate.dart';
 import '../models/review_session.dart';
+import '../services/memory_vocab_audio.dart';
 import '../models/garden_rating.dart';
 import '../services/memory_storage_service.dart';
 
@@ -398,6 +399,14 @@ class MemoryController extends ChangeNotifier {
     _isCardFlipped = !_isCardFlipped;
     HapticFeedback.lightImpact();
     notifyListeners();
+    // AUDIT v1.30.1 (mục 8): tự đọc từ vựng khi LẬT thẻ (sang mặt đáp án) —
+    // đây là lúc người ôn cần nghe phát âm để gắn âm với nghĩa.
+    if (_isCardFlipped && MemoryVocabAudio.instance.autoRead.value) {
+      final word = currentCard?.word;
+      if (word != null && word.trim().isNotEmpty) {
+        speakMemoryVocab(word);
+      }
+    }
   }
 
   Future<void> gradeCurrentCard(ReviewGrade grade) async {

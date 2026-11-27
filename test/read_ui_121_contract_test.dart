@@ -74,7 +74,13 @@ void main() {
       expect(dock.contains("Key('read-bottom-dock-display')"), isTrue,
           reason: 'Phải có lối vào 1 chạm, không giấu sau 2 lớp tab');
       expect(shell.contains('ReadChromeLayoutStore.instance'), isTrue);
-      expect(shell.contains('lastPanel: ReadDockPanel.display'), isTrue);
+      // AUDIT v1.30.1 (mục 6): overflow ⚡ không còn menu 2 mục
+      // «Tùy biến / Cài đặt» ⇒ shell không còn ép `lastPanel:
+      // ReadDockPanel.display`. Đường 1 chạm tới panel Hiển thị vẫn còn NGUYÊN
+      // trong dock (`read-bottom-dock-display`, pin ở trên).
+      expect(shell.contains('PopupMenuButton'), isFalse,
+          reason: 'góc trên phải mở thẳng cài đặt');
+      expect(shell.contains('ReadSettingsSheet.show(context)'), isTrue);
       // Bố cục «Trên» lấy lại ReadTopBar cũ cho người quen tay.
       expect(shell.contains('showTopBar: !_readChromeLayout.useBottomDock,'),
           isTrue);

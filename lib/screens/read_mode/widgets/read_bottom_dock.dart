@@ -32,7 +32,6 @@ import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
 import '../services/read_text_action_runner.dart';
 import '../sheets/auto_split_sheet.dart';
-import '../sheets/read_settings_sheet.dart';
 import '../sheets/segments_list_sheet.dart';
 import 'read_display_controls.dart';
 import 'read_text_action_hooks.dart';
@@ -673,6 +672,69 @@ class _ToolsPanel extends StatelessWidget {
   }
 }
 
+// ── Chip «Bố cục đọc» thường trực (AUDIT v1.30.1 mục 6) ──
+
+/// Ba lựa chọn bố cục hay dùng nhất, đưa RA NGOÀI panel thay vì nằm sau
+/// sheet/menu: người đọc đổi qua lại liên tục khi chuyển giữa đọc-hiểu và
+/// luyện nghe, nên mỗi lần đổi không đáng hai lần chạm.
+///
+/// Cùng một nguồn state với sheet «Bố cục đọc» (`TextProvider` +
+/// `ReadModeController`) — không tạo bản sao.
+class _ReadLayoutQuickChips extends StatelessWidget {
+  const _ReadLayoutQuickChips({required this.controller});
+
+  final ReadModeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final tp = context.watch<TextProvider>();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ChoiceChip(
+          avatar: const Icon(Icons.menu_book_rounded,
+              size: 13, color: Colors.white70),
+          label: Text(context.uiText('Đọc song ngữ')),
+          selected: tp.translationDisplayMode ==
+                  TranslationDisplayMode.stackedBelow &&
+              !tp.blurTranslations,
+          onSelected: (_) {
+            tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+            tp.setBlurTranslations(false);
+            controller.setSingleLineMode(false);
+          },
+        ),
+        ChoiceChip(
+          avatar: const Icon(Icons.headphones_rounded,
+              size: 13, color: Colors.white70),
+          label: Text(context.uiText('Luyện nghe')),
+          selected: tp.blurTranslations,
+          onSelected: (_) {
+            tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+            tp.setBlurTranslations(true);
+            if (!controller.autoSyncEnabled) controller.toggleAutoSync();
+          },
+        ),
+        ChoiceChip(
+          avatar: const Icon(Icons.view_agenda_outlined,
+              size: 13, color: Colors.white70),
+          label: Text(context.uiText('Một dòng')),
+          selected: controller.singleLineMode,
+          onSelected: (value) => controller.setSingleLineMode(value),
+        ),
+        ActionChip(
+          avatar: const Icon(Icons.tune, size: 13, color: Colors.white70),
+          label: Text(context.uiText('Bố cục đọc')),
+          onPressed: () =>
+              showReadDisplaySheet(context, controller: controller),
+        ),
+      ],
+    );
+  }
+}
+
 // ── Panel Hiển thị: cấu hình khung đọc (không tác động lên chữ) ──
 
 class _DisplayPanel extends StatelessWidget {
@@ -688,26 +750,16 @@ class _DisplayPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          children: [
-            ActionChip(
-              avatar: const Icon(Icons.view_quilt_outlined,
-                  size: 13, color: Colors.white70),
-              label: Text(context.uiText('Bố cục đọc')),
-              onPressed: () => showReadDisplaySheet(
-                context,
-                controller: controller,
-              ),
-            ),
-            ActionChip(
-              avatar: const Icon(Icons.tune, size: 13, color: Colors.white70),
-              label: Text(context.uiText('Cài đặt')),
-              onPressed: () => ReadSettingsSheet.show(context),
-            ),
-          ],
-        ),
+        // AUDIT v1.30.1 (mục 6) — «bỏ phần cài đặt trong tab Tùy biến
+        // (thống nhất một nơi); bỏ luôn nút bố cục đọc và đưa nội dung bố cục
+        // đọc ra ngoài cho trực quan».
+        //
+        // Trước: 2 ActionChip «Bố cục đọc» + «Cài đặt» nằm trong panel này ⇒
+        // cùng một đích đến có 3–4 lối vào (icon app bar, popup, chip, sheet).
+        // Nay: «Cài đặt» chỉ còn MỘT lối (icon ⚙ trên app bar); «Bố cục đọc»
+        // ra thẳng hàng chip ngay trên panel (xem [_ReadLayoutQuickChips]),
+        // không còn ẩn sau một tab.
+        _ReadLayoutQuickChips(controller: controller),
         const SizedBox(height: 8),
         // READ-UI-121: các nút tùy biến chữ + «?» + Focus + Đồng bộ tự động
         // sống ở đúng nhóm «Thông tin & Tùy biến», cùng một cụm với sheet

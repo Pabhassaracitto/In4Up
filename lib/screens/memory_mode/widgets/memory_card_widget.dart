@@ -4,6 +4,7 @@ import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
+import '../services/memory_vocab_audio.dart';
 
 class MemoryCardWidget extends StatelessWidget {
   final MemoryItem item;
@@ -73,6 +74,10 @@ class MemoryCardWidget extends StatelessWidget {
                         : const Color(0xFFFF9800),
                     size: stage == MemoryStage.seed ? 10 : 6,
                   ),
+                // AUDIT v1.30.1 (mục 8) — loa từ vựng. Chạm: BẬT tự đọc +
+                // đọc ngay từ này; chạm lần nữa: TẮT + dừng audio. Icon đổi
+                // theo trạng thái nên nhìn là biết đang bật hay tắt.
+                _MemoryVocabSpeaker(word: item.word, stage: stage),
               ],
             ),
             if (stage == MemoryStage.seed) const SizedBox(height: 8),
@@ -175,6 +180,55 @@ class _StrengthBar extends StatelessWidget {
         valueColor: AlwaysStoppedAnimation(color.withValues(alpha: 0.6)),
         minHeight: 3,
       ),
+    );
+  }
+}
+
+
+/// Loa phát âm từ vựng của một thẻ nhớ (AUDIT v1.30.1 mục 8).
+///
+/// Đặt trong thẻ chứ không ở thanh dưới: người ôn nhìn một thẻ cụ thể, nên
+/// hành động phải nằm trên đúng thẻ đó (và mỗi thẻ có từ khác nhau).
+class _MemoryVocabSpeaker extends StatelessWidget {
+  final String word;
+  final MemoryStage stage;
+
+  const _MemoryVocabSpeaker({required this.word, required this.stage});
+
+  @override
+  Widget build(BuildContext context) {
+    // Seed = thẻ to nhất, cần loa rõ nhất; các stage sau nhỏ dần.
+    final size = stage == MemoryStage.seed ? 30.0 : 24.0;
+    final iconSize = stage == MemoryStage.seed ? 17.0 : 14.0;
+    return ValueListenableBuilder<bool>(
+      valueListenable: MemoryVocabAudio.instance.autoRead,
+      builder: (context, autoRead, _) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            // Không dừng sự kiện lan lên thẻ: chạm loa KHÔNG được mở chi tiết
+            // thẻ, nên dùng GestureDetector riêng (nó đã thắng trên InkWell
+            // của thẻ vì nằm sâu hơn).
+            MemoryVocabAudio.instance.toggleFor(word: word);
+          },
+          child: Container(
+            width: size,
+            height: size,
+            margin: const EdgeInsets.only(left: 4),
+            decoration: BoxDecoration(
+              color: autoRead
+                  ? const Color(0xFF4CAF50).withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(size / 2),
+            ),
+            child: Icon(
+              autoRead ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              size: iconSize,
+              color: autoRead ? const Color(0xFF66BB6A) : Colors.white54,
+            ),
+          ),
+        );
+      },
     );
   }
 }

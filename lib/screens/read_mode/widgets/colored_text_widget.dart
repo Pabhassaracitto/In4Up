@@ -39,6 +39,9 @@ import 'word_mini_pop.dart';
 class ColoredTextWidget extends StatefulWidget {
   final List<AnalyzedWord> words;
   final double fontSize;
+
+  /// AUDIT v1.30.1 (mục 4) — giãn dòng do người dùng chỉnh (TextStyle.height).
+  final double lineHeight;
   final ColorMode colorMode;
   final int lineIndex;
 
@@ -56,6 +59,7 @@ class ColoredTextWidget extends StatefulWidget {
     super.key,
     required this.words,
     required this.fontSize,
+    this.lineHeight = 1.6,
     required this.colorMode,
     required this.lineIndex,
     this.lineStartOffset,
@@ -196,6 +200,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       word: widget.words[index],
       ipa: widget.wordIpa[index],
       fontSize: widget.fontSize,
+      lineHeight: widget.lineHeight,
       colorMode: widget.colorMode,
       // READ-WORDSTYLE-001: nền màu / chỉ màu chữ / gạch chân.
       colorStyle: colorStyle,
@@ -464,6 +469,7 @@ class _MiniMark extends StatelessWidget {
 class _ColoredWord extends StatelessWidget {
   final AnalyzedWord word;
   final double fontSize;
+  final double lineHeight;
   final ColorMode colorMode;
 
   /// READ-WORDSTYLE-001 — kiểu hiển thị màu của từ.
@@ -484,6 +490,7 @@ class _ColoredWord extends StatelessWidget {
     required this.word,
     this.ipa,
     required this.fontSize,
+    this.lineHeight = 1.6,
     required this.colorMode,
     this.colorStyle = WordColorStyle.textOnly,
     required this.selected,
@@ -615,7 +622,7 @@ class _ColoredWord extends StatelessWidget {
                 decorationColor: decorationColor,
                 decorationThickness:
                     decoration != null ? (underlined ? 1.6 : 2) : null,
-                height: 1.6,
+                height: lineHeight,
               ),
             ),
             if (ipa != null) ReadWordIpa(span: ipa!),

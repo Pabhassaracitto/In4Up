@@ -10,6 +10,7 @@ import '../models/loop_advance.dart';
 import '../models/loop_presets.dart';
 import '../providers/player_provider.dart';
 import '../screens/understand_mode/understand_provider.dart';
+import 'loop_gap_label.dart';
 import 'save_segment_dialog.dart';
 
 class ABLoopControls extends StatelessWidget {
@@ -831,7 +832,7 @@ class _GapDurationSlider extends StatelessWidget {
                 ),
                 child: Text(
                   player.gapDuration > 0
-                      ? '${player.gapDuration.toStringAsFixed(1)}s'
+                      ? formatGapDurationLabel(player.gapDuration)
                       : 'Tắt',
                   style: TextStyle(
                     color: player.gapDuration > 0
@@ -869,7 +870,16 @@ class _GapDurationSlider extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [0.0, 1.0, 2.0, 3.0, 5.0].map((seconds) {
-              final isActive = player.gapDuration == seconds;
+              // AUDIT v1.30.1 (mục 7) — trước đây nhãn là
+              // `'${seconds.toInt()}s'` nên mọi preset đều in số nguyên của
+              // CHÍNH nó, còn slider chia 20 khoảng (0.5s/bước) lại in
+              // `toInt()` ⇒ 1.5s hiện «1s», 2.5s hiện «2s»… Giá trị > 0 nay
+              // đi qua [formatGapDurationLabel] nên chữ, badge và slider luôn khớp nhau.
+              //
+              // So sánh có dung sai: `gapDuration` là double sau khi kéo
+              // slider ⇒ `== 2.0` có thể trượt vì 1.9999, làm preset «2s»
+              // không sáng dù đang đúng 2s.
+              final isActive = (player.gapDuration - seconds).abs() < 0.001;
               return GestureDetector(
                 onTap: () => player.setGapDuration(seconds),
                 child: Container(
@@ -888,7 +898,7 @@ class _GapDurationSlider extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    seconds == 0 ? 'Tắt' : '${seconds.toInt()}s',
+                    seconds == 0 ? 'Tắt' : formatGapDurationLabel(seconds),
                     style: TextStyle(
                       color: isActive ? const Color(0xFFFF9800) : Colors.grey,
                       fontSize: 11,

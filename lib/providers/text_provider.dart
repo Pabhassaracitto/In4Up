@@ -210,6 +210,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ==================== DISPLAY SETTINGS ====================
   double _fontSize = 18.0;
+
+  /// AUDIT v1.30.1 (mục 4): giãn dòng của vùng đọc, chỉnh real-time bằng
+  /// thanh kéo trong bảng cài đặt đọc. 1.6 = mặc định cũ (hard-code).
+  double _readerLineHeight = 1.6;
   // bool _showTranslation = true; // REMOVED
   bool _showWordTypes = false;
   bool _showLineNumbers = true;
@@ -306,6 +310,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextSegment? get currentPlayingSegment => _currentPlayingSegment;
   int get currentRepeatIndex => _currentRepeatIndex;
   double get fontSize => _fontSize;
+
+  /// Giãn dòng vùng đọc (1.2 – 2.6). Dùng cho `TextStyle.height`.
+  double get readerLineHeight => _readerLineHeight;
   bool get showTranslation =>
       translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
@@ -351,6 +358,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     try {
       _fontSize = _storage.getFontSize();
+      _readerLineHeight = _storage.getReaderLineHeight();
       restoreBlurTranslations();
 
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
@@ -1898,6 +1906,16 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _storage.saveFontSize(_fontSize);
 
     notifyListeners();
+  }
+
+  /// AUDIT v1.30.1 (mục 4) — đổi giãn dòng phải thấy NGAY: chỉ gán + notify
+  /// (không await ghi đĩa) để slider mượt; việc lưu chạy nền.
+  void setReaderLineHeight(double height) {
+    final next = height.clamp(1.2, 2.6);
+    if (next == _readerLineHeight) return;
+    _readerLineHeight = next;
+    notifyListeners();
+    unawaited(_storage.saveReaderLineHeight(next));
   }
 
   void toggleTranslation() {

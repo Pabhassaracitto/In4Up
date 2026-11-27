@@ -143,6 +143,20 @@ class StorageService {
     return getSetting<double>('font_size', defaultValue: 18.0) ?? 18.0;
   }
 
+  /// AUDIT v1.30.1 (mục 4) — giãn dòng của vùng đọc (Text Studio).
+  ///
+  /// Mặc định 1.6 = giá trị `height` đang hard-code trong `_ColoredWord`
+  /// (colored_text_widget.dart) ⇒ người dùng chưa đụng slider thấy y nguyên
+  /// bản cũ.
+  Future<void> saveReaderLineHeight(double height) async {
+    await saveSetting('reader_line_height', height);
+  }
+
+  double getReaderLineHeight() {
+    return getSetting<double>('reader_line_height', defaultValue: 1.6) ??
+        1.6;
+  }
+
   Future<void> saveTtsSpeed(double speed) async {
     await saveSetting('tts_speed', speed);
   }

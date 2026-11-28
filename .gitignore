@@ -176,3 +176,5 @@ tool/great_library_seed/dist/
 
 # Ảnh preview UI (sinh tự động từ nhánh preview/*, không cần theo dõi trong Git)
 docs/preview/ui-gallery/*.png
+# Báo cáo smoke do tool/preview_smoke.mjs sinh ra khi chạy tay
+docs/preview/ui-gallery/smoke-report.txt

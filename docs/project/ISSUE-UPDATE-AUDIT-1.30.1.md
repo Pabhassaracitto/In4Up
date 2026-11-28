@@ -166,6 +166,60 @@ nhau** (đây chính là lỗi cũ), NaN/Infinity không vỡ UI.
 ```bash
 for n in 212 213 214 215 216 217 218 219; do
   gh issue close "$n" --reason completed \
-    --comment "Đã sửa trên nhánh arena/395208ef-in4up (a30d6954), CI 5/5 🟢 — chi tiết trong docs/project/ISSUE-UPDATE-AUDIT-1.30.1.md và card AUDIT-1.30.1 trong docs/project/KANBAN.md."
+    --comment "Đã xong trong PR #220 — merge fast-forward vào arena/59b6e40a-in4up (tip 671bf1ae), CI 11/11 🟢 trên 4f474837 — chi tiết trong docs/project/ISSUE-UPDATE-AUDIT-1.30.1.md và card AUDIT-1.30.1 trong docs/project/KANBAN.md."
 done
 ```
+
+---
+
+## ✅ Trạng thái hợp nhất (2026-11-28)
+
+PR **#220** đã **merge fast-forward** vào nhánh base `arena/59b6e40a-in4up`
+(không merge commit ⇒ lịch sử một đường thẳng). Base tip sau merge: **`671bf1ae`**.
+
+### Vì sao trước đó báo «Đang Có xung đột»
+
+Không phải xung đột nội dung và **không phải base bị viết lại lịch sử** như kết luận
+ban đầu. Nguyên nhân thật: **repo làm việc là shallow clone** (`.git/shallow` có 10 mốc
+cắt) ⇒ `git merge-base` trả về **rỗng** ⇒ GitHub kết luận `CONFLICTING`.
+
+Sau `git fetch --deepen 3000`, merge-base thật là **`8ed86e1e`**; rebase 247 commit
+của nhánh lên base chạy sạch (0 xung đột với `-X theirs`, sau đó vá lại 3 tệp).
+
+> **Bài học thao tác:** trong sandbox, thấy `merge-base` rỗng thì **deepen trước**, đừng
+> kết luận base bị rewrite. Mọi phương án «graft / filter-branch / commit rỗng nối lịch sử»
+> đều đã thử và đều **sai hướng** — chúng có thể làm rơi commit hoặc rơi nội dung.
+
+### Kiểm chứng sau rebase (tip `4f474837`)
+
+| Hạng mục | Kết quả |
+|---|---|
+| base tip là tổ tiên của nhánh | ✅ `4efcab69` → `671bf1ae` |
+| merge commit trong khoảng | **0** |
+| GLIB (`lib/features/great_library/**`, `test/great_library/**`, `tool/great_library_seed/**`, `docs/great_library_*.md`) | **62/62 tệp nguyên vẹn** |
+| `App Analyze + Locale Test` (run `46103200445`) | **4/4 job 🟢** (analyze-and-locale-test · knowledge-regressions · vocabulary-tools · web-build-validation) |
+| `Read translation regression tests` (`46103200467`) | 🟢 |
+| `Listen queue regression tests` (`46103200448`) | 🟢 |
+| `Web Core validation` (`46103200497`) | 🟢 |
+| `Deploy Flutter web to GitHub Pages` (`46103198101`) | 🟢 |
+| `VieNeu engine build (Android arm64)` (`46103198062`) | 🟢 |
+| `Seed Thư Viện Chung lên GitHub Release` (`46103198164`) | 🟢 |
+
+### Ba tệp bị `-X theirs` làm rơi — đã khôi phục ở commit `4f474837`
+
+Rebase ưu tiên phía nhánh nên ba tệp **bị ghi đè bằng bản cũ hơn của nhánh**, mất nội dung base:
+
+| Tệp | Mất | Nội dung bị mất |
+|---|---|---|
+| `docs/project/BETA-1.29.0.md` | 443 dòng | bảng 11 lane, cổng G0–G5, map issue→commit |
+| `lib/core/language/generated_priority_native_pack.dart` | 30 dòng | 2 khoá × 8 locale (nhãn lỗi ghi âm / nhận dạng giọng nói) |
+| `lib/features/dictionary/services/dict_mdd_worker.dart` | 4 dòng | chặn khởi chạy tác vụ MDD đã huỷ · kill isolate cả khi `error != null` |
+
+`docs/project/KANBAN.md` thì **giữ bản của nhánh** vì dòng `BETA-1.29.0` ở bản nhánh mới
+hơn (11/11 lane đã land so với «hub mở» của base).
+
+### Còn lại: đóng 8 issue #212–#219
+
+`Closes #N` **không tự kích hoạt** vì PR merge vào **nhánh trung gian**, không phải nhánh
+mặc định `main`. Token agent vẫn bị `403 Resource not accessible by integration` khi đóng
+issue ⇒ **owner chạy lệnh ở mục cuối tài liệu này**.

@@ -191,9 +191,9 @@ void main() {
       expect(dock.contains("label: Text(context.uiText('Bố cục đọc')),"),
           isTrue,
           reason: 'Chip «Bố cục đọc» thường trực (ngoài panel)');
-      expect(
-          dock.contains(
-              "onPressed: () => showReadDisplaySheet(context, controller: controller)"),
+      // Pin theo từng DÒNG (code format xuống dòng sau `=>`), không pin cả
+      // câu — nếu không test đỏ vì xuống dòng, không phải vì hành vi.
+      expect(dock.contains('showReadDisplaySheet(context, controller: controller)'),
           isTrue,
           reason: 'Chip mở sheet bố cục đọc');
     });

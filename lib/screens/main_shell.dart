@@ -13,7 +13,15 @@ import 'package:in4up/l10n/app_localizations.dart';
 
 import '../core/files/incoming_file_classifier.dart';
 import '../core/files/incoming_file_router.dart';
+import '../features/home_widgets/models/widget_action_link.dart';
+import '../features/home_widgets/screens/home_widgets_settings_screen.dart';
+import '../features/home_widgets/services/home_widget_sync_coordinator.dart';
+import '../features/home_widgets/services/widget_action_router.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
+import '../features/ocr/ocr_flow.dart';
+import '../features/screen_translate/screen_translate_channel.dart';
+import '../features/screen_translate/screen_translate_permission.dart';
+import '../features/screen_translate/screen_translate_prefs.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/dictionary/widgets/dictionary_screen.dart';
@@ -43,7 +51,9 @@ import '../services/read_chrome_layout_store.dart';
 import '../services/storage_service.dart';
 import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
+import 'home/quick_capture/quick_capture_sheet.dart';
 import 'listen_mode/listen_mode_screen.dart';
+import 'listen_mode/services/recent_audio_service.dart';
 import 'listen_mode/speak_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
@@ -122,6 +132,9 @@ class _MainShellState extends State<MainShell> {
   Timer? _shellHintTimer;
   late final _MainShellIncomingFileHost _incomingFileHost =
       _MainShellIncomingFileHost(this);
+  late final _MainShellWidgetActionHost _widgetActionHost =
+      _MainShellWidgetActionHost(this);
+  final HomeWidgetSyncCoordinator _homeWidgetSync = HomeWidgetSyncCoordinator();
 
   @override
   void initState() {
@@ -138,6 +151,8 @@ class _MainShellState extends State<MainShell> {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
       unawaited(IncomingFileRouter.instance.attachHost(_incomingFileHost));
+      WidgetActionRouter.instance.attachHost(_widgetActionHost);
+      _homeWidgetSync.attach(context);
       _scheduleShellHintIfNeeded();
       // BATTERY-OPT-001: xin miễn tối ưu pin (models STT/AI chạy ngầm).
       unawaited(BatteryOptimizationService.maybeRequestOnStartup(context));
@@ -150,6 +165,8 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    _homeWidgetSync.dispose();
+    WidgetActionRouter.instance.detachHost(_widgetActionHost);
     IncomingFileRouter.instance.detachHost(_incomingFileHost);
     ReadChromeLayoutStore.instance.layout
         .removeListener(_onReadChromeLayoutChanged);
@@ -591,6 +608,274 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  /// PLAN-050 · ADR-0036: thực thi hành động 1-chạm từ Home Screen Widget,
+  /// App Icon Shortcut hoặc Quick Settings Tile.
+  Future<void> _executeWidgetAction(WidgetActionRequest request) async {
+    if (!mounted) return;
+    switch (request.kind) {
+      case WidgetActionKind.dictSearch:
+        _popOverlaysToShellRoot();
+        await Navigator.of(context).push(
+          DictionaryScreen.route(source: request.source),
+        );
+        return;
+      case WidgetActionKind.voiceCapture:
+        _popOverlaysToShellRoot();
+        await QuickCaptureSheet.show(context);
+        return;
+      case WidgetActionKind.ocrScan:
+        _popOverlaysToShellRoot();
+        _setReadMode(0);
+        await OcrFlow.start(context);
+        return;
+      case WidgetActionKind.screenTranslate:
+        await _handleWidgetScreenTranslate();
+        return;
+      case WidgetActionKind.aiChat:
+        _popOverlaysToShellRoot();
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const AiChatScreen(),
+          ),
+        );
+        return;
+      case WidgetActionKind.reviewDue:
+        _popOverlaysToShellRoot();
+        if (request.reviewMode == WidgetReviewMode.learnByHeart) {
+          await _handleTool('learn_by_heart');
+        } else {
+          await _handleTool('review');
+        }
+        return;
+      case WidgetActionKind.resumeRead:
+        await _handleWidgetResumeRead(resourceId: request.resourceId);
+        return;
+      case WidgetActionKind.resumeListen:
+        await _handleWidgetResumeListen(
+          autoPlay: request.autoPlay,
+          resourceId: request.resourceId,
+        );
+        return;
+      case WidgetActionKind.widgetSettings:
+        _popOverlaysToShellRoot();
+        await Navigator.of(context).push(HomeWidgetsSettingsScreen.route());
+        return;
+      case WidgetActionKind.openStudio:
+        _handleWidgetOpenStudio(request.studioTarget ?? WidgetStudioTarget.home);
+        return;
+      case WidgetActionKind.openTool:
+        final toolId = request.toolId;
+        if (toolId != null && toolId.isNotEmpty) {
+          _popOverlaysToShellRoot();
+          await _handleTool(toolId);
+        }
+        return;
+    }
+  }
+
+  Future<void> _handleWidgetScreenTranslate() async {
+    if (!ScreenTranslateChannel.platformSupported) {
+      _showIncomingSnack('Dịch màn hình hiện chỉ hỗ trợ trên Android');
+      return;
+    }
+    final channel = ScreenTranslateChannel();
+    final status = await channel.status();
+    if (!mounted) return;
+    if (status.running) {
+      await channel.stop();
+      if (!mounted) return;
+      _showIncomingSnack('Đã tắt bong bóng dịch màn hình');
+      return;
+    }
+
+    const resolver = ScreenTranslatePermissionResolver();
+    final permState = resolver.resolve(status);
+    if (permState.state ==
+        ScreenTranslatePermissionState.needsOverlayPermission) {
+      _showIncomingSnack(
+        'Hãy cấp quyền hiển thị trên ứng dụng khác rồi chạm lại nút Dịch màn hình',
+      );
+      await channel.requestOverlayPermission();
+      return;
+    }
+
+    final localeTag =
+        Localizations.maybeLocaleOf(context)?.toLanguageTag() ??
+            WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag();
+    final target = await loadScreenTranslateTarget(
+      fallback: defaultScreenTranslateTargetForLocale(localeTag),
+    );
+    final source = await loadScreenTranslateSource();
+    final selectRegion = await loadScreenTranslateSelectRegion();
+    if (!mounted) return;
+
+    final started = await channel.start(
+      targetLanguage: target,
+      sourceLanguage: source,
+      selectRegion: selectRegion,
+      locale: localeTag,
+    );
+    if (!mounted) return;
+    _showIncomingSnack(
+      started
+          ? 'Đã bật bong bóng dịch màn hình'
+          : 'Không bật được bong bóng. Kiểm tra quyền hiển thị trên ứng dụng khác.',
+    );
+  }
+
+  Future<void> _handleWidgetResumeRead({String? resourceId}) async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    final recents = await RecentFilesService().getAll();
+    if (!mounted) return;
+
+    if (resourceId != null && resourceId.isNotEmpty) {
+      for (final item in recents) {
+        if (item.id != resourceId) continue;
+        final path = item.localPath;
+        if (path != null && path.isNotEmpty && File(path).existsSync()) {
+          if (item.type == RecentFileType.localPdf) {
+            await _openIncomingPdf(path);
+            return;
+          }
+          if (item.type == RecentFileType.localText) {
+            await _openIncomingTextDocument(path, item.title);
+            return;
+          }
+        }
+        break;
+      }
+    }
+
+    if (recents.isNotEmpty) {
+      final latest = recents.first;
+      final latestPath = latest.localPath;
+      if (latest.type == RecentFileType.localPdf &&
+          latestPath != null &&
+          latestPath.isNotEmpty &&
+          File(latestPath).existsSync()) {
+        await _openIncomingPdf(latestPath);
+        return;
+      }
+    }
+
+    final textProvider = context.read<TextProvider>();
+    if (textProvider.lines.isNotEmpty) {
+      _setReadMode(0);
+      return;
+    }
+
+    if (recents.isNotEmpty) {
+      final latest = recents.first;
+      final latestPath = latest.localPath;
+      if (latest.type == RecentFileType.localText &&
+          latestPath != null &&
+          latestPath.isNotEmpty &&
+          File(latestPath).existsSync()) {
+        await _openIncomingTextDocument(latestPath, latest.title);
+        return;
+      }
+    }
+
+    _setReadMode(0);
+  }
+
+  Future<void> _handleWidgetResumeListen({
+    required bool autoPlay,
+    String? resourceId,
+  }) async {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    _setListenMode(0);
+
+    final player = context.read<PlayerProvider>();
+    if (resourceId == null || resourceId.isEmpty) {
+      if (player.currentSongPath != null &&
+          player.currentSongPath!.isNotEmpty) {
+        if (autoPlay && !player.isPlaying) {
+          await player.togglePlayPause();
+        }
+        return;
+      }
+    }
+
+    final recents = await RecentAudioService().getAll();
+    if (!mounted || recents.isEmpty) return;
+
+    var target = recents.first;
+    if (resourceId != null && resourceId.isNotEmpty) {
+      for (final item in recents) {
+        if (item.id == resourceId) {
+          target = item;
+          break;
+        }
+      }
+    }
+
+    final path = target.localPath ?? target.youtubeUrl;
+    if (path == null || path.isEmpty) return;
+    if (player.currentSongPath == path) {
+      if (autoPlay && !player.isPlaying) {
+        await player.togglePlayPause();
+      }
+      return;
+    }
+
+    final isRemote = path.startsWith('http://') || path.startsWith('https://');
+    if (!isRemote && !File(path).existsSync()) {
+      return;
+    }
+
+    await player.loadSong(
+      path: path,
+      title: target.title,
+      artist: target.artist,
+      autoPlay: autoPlay,
+      initialPosition:
+          target.lastPosition > Duration.zero ? target.lastPosition : null,
+    );
+  }
+
+  void _handleWidgetOpenStudio(WidgetStudioTarget target) {
+    if (!mounted) return;
+    _popOverlaysToShellRoot();
+    switch (target) {
+      case WidgetStudioTarget.home:
+        _setPrimaryTab(_PrimaryTab.home);
+        return;
+      case WidgetStudioTarget.read:
+        _setReadMode(0);
+        return;
+      case WidgetStudioTarget.write:
+        _setReadMode(1);
+        return;
+      case WidgetStudioTarget.listen:
+        _setListenMode(0);
+        return;
+      case WidgetStudioTarget.speak:
+        _setListenMode(1);
+        return;
+      case WidgetStudioTarget.watch:
+        _setListenMode(2);
+        return;
+      case WidgetStudioTarget.understand:
+        _setPrimaryTab(_PrimaryTab.understand);
+        return;
+      case WidgetStudioTarget.remember:
+        _setPrimaryTab(_PrimaryTab.remember);
+        return;
+      case WidgetStudioTarget.cabin:
+        unawaited(_handleTool('live_cabin'));
+        return;
+      case WidgetStudioTarget.tipitaka:
+        unawaited(_handleTool('tipitaka'));
+        return;
+      case WidgetStudioTarget.youtube:
+        unawaited(_handleTool('youtube_downloader'));
+        return;
+    }
+  }
+
   void _showIncomingSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -934,6 +1219,13 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.hub_outlined,
         color: const Color(0xFFAB47BC),
       ),
+      'home_widgets': tools.ToolItem(
+        id: 'home_widgets',
+        title: context.uiText('Widget màn hình chính'),
+        subtitle: context.uiText('Thanh lệnh nhanh · Thẻ từ · Ghim 1 chạm'),
+        icon: Icons.widgets_rounded,
+        color: const Color(0xFF6C63FF),
+      ),
     };
 
     List<tools.ToolItem> take(List<String> ids) => [
@@ -943,6 +1235,7 @@ class _MainShellState extends State<MainShell> {
 
     final openContent = switch (_currentTab) {
       _PrimaryTab.home => take([
+          'home_widgets',
           'shell_ui_settings',
           'tipitaka',
           'youtube_downloader',
@@ -1115,6 +1408,7 @@ class _MainShellState extends State<MainShell> {
       'write_mode': 97,
       'understand_tab': 96,
       'tipitaka': 94,
+      'home_widgets': 93,
       'shell_ui_settings': 92,
       'youtube_downloader': 90,
       'web_reader': 88,
@@ -1329,6 +1623,9 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'shell_ui_settings':
         await _openShellUiSettings();
+        return;
+      case 'home_widgets':
+        await nav.push(HomeWidgetsSettingsScreen.route());
         return;
       case 'dict_manager':
         nav.push(
@@ -2889,4 +3186,19 @@ class _MainShellIncomingFileHost implements IncomingFileOpenHost {
   void showOpenError({required String displayName}) {
     _shell._showIncomingSnack('Không mở được tệp: $displayName');
   }
+}
+
+/// PLAN-050 · ADR-0036: triển khai `WidgetActionHost` gắn vào `_MainShellState`
+/// để xử lý mọi hành động 1-chạm từ Widget / App Shortcut / Quick Settings Tile.
+class _MainShellWidgetActionHost implements WidgetActionHost {
+  const _MainShellWidgetActionHost(this._shell);
+
+  final _MainShellState _shell;
+
+  @override
+  bool get isReady => _shell.mounted;
+
+  @override
+  Future<void> dispatchWidgetAction(WidgetActionRequest request) =>
+      _shell._executeWidgetAction(request);
 }

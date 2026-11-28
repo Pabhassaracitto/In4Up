@@ -83,6 +83,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
+            <!-- PLAN-050 · ADR-0040: 4 lối tắt nhấn giữ biểu tượng ứng dụng -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
             <!-- PSRC-222 (lane L7) — "Mở bằng In4Up" & "Chia sẻ tới In4Up" cho
                  tài liệu (.txt, .pdf, .docx, .md, .lrc, .srt), âm thanh (.mp3,
                  .m4a, .wav, .ogg, .opus, .flac) và video (.mp4, .mkv, .webm...).
@@ -137,11 +142,89 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="in4up" android:host="dict" />
                 <data android:scheme="in4up" android:host="open" />
+                <data android:scheme="in4up" android:host="action" />
+                <data android:scheme="in4up" android:host="nav" />
                 <data android:scheme="i4u" android:host="dict" />
                 <data android:scheme="i4u" android:host="open" />
+                <data android:scheme="i4u" android:host="action" />
+                <data android:scheme="i4u" android:host="nav" />
             </intent-filter>
 
         </activity>
+
+        <!-- PLAN-050 · ADR-0040 — Bộ 4 Home Screen Widgets 1–2 chạm -->
+        <receiver
+            android:name="com.in4up.widgets.QuickBarWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_quick_bar_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_bar_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.in4up.widgets.ContinueLearningWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_continue_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_continue_learning_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.in4up.widgets.FlashcardSrsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_flashcard_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.in4up.widgets.ACTION_FLIP_CARD" />
+                <action android:name="com.in4up.widgets.ACTION_NEXT_CARD" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_flashcard_srs_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.in4up.widgets.StreakPulseWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_streak_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_streak_pulse_info" />
+        </receiver>
+
+        <!-- PLAN-050 · ADR-0040 — 2 Ô Cài đặt nhanh (Quick Settings Tiles) -->
+        <service
+            android:name="com.in4up.widgets.ScreenTranslateTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_widget_translate"
+            android:label="@string/tile_screen_translate_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="com.in4up.widgets.VoiceCaptureTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_widget_mic"
+            android:label="@string/tile_voice_capture_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <!-- XLAT-SCR-002 / XLAT-SCR-003 — Dịch màn hình toàn hệ thống (ADR-0011).
              Service giữ bong bóng + MediaProjection + engine Flutter nền;

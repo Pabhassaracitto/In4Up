@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U ඉක්මන් විධාන තීරුව</string>
+    <string name="widget_quick_bar_desc">එක් ස්පර්ශයකින් ශබ්දකෝෂ සෙවුම සහ ඉක්මන් මෙවලම් 3ක්</string>
+    <string name="widget_continue_name">I4U ඉගෙනීම දිගටම</string>
+    <string name="widget_continue_desc">අවසන් PDF, පාඨය හෝ ශ්‍රව්‍ය ගොනුව එක් ස්පර්ශයකින් නැවත අරින්න</string>
+    <string name="widget_flashcard_name">I4U වචන පත් හා මතක උයන</string>
+    <string name="widget_flashcard_desc">මුල් තිරයේම තේරුම පෙරළා නියමිත වචන බලන්න</string>
+    <string name="widget_streak_name">I4U අඛණ්ඩ දින හා රිද්මය</string>
+    <string name="widget_streak_desc">දෛනික අඛණ්ඩතාව සහ දින 7 ක්‍රියාකාරිත්වය බලන්න</string>
+
+    <string name="shortcut_dict_short">ශබ්දකෝෂය</string>
+    <string name="shortcut_dict_long">In4Up ශබ්දකෝෂය සොයන්න</string>
+    <string name="shortcut_voice_short">හඬ සටහන</string>
+    <string name="shortcut_voice_long">ඉක්මන් හඬ සටහන</string>
+    <string name="shortcut_ocr_short">OCR ස්කෑන්</string>
+    <string name="shortcut_ocr_long">පිටුව OCR මගින් ස්කෑන් කරන්න</string>
+    <string name="shortcut_review_short">පුනරීක්ෂණය</string>
+    <string name="shortcut_review_long">නියමිත වචන පුනරීක්ෂණය කරන්න</string>
+
+    <string name="tile_screen_translate_label">I4U තිර පරිවර්තනය</string>
+    <string name="tile_voice_capture_label">I4U හඬ සටහන</string>
+
+    <string name="widget_default_search_hint">In4Up ශබ්දකෝෂයේ සොයන්න...</string>
+    <string name="widget_default_continue_header">ඉගෙනීම දිගටම</string>
+    <string name="widget_default_continue_empty">දැනට අතරමග පාඩමක් නැත — ඇරඹීමට කියවන්න හෝ අසන්න ඔබන්න</string>
+    <string name="widget_default_read">කියවන්න</string>
+    <string name="widget_default_listen">අසන්න</string>
+    <string name="widget_default_garden_header">මතක උයන</string>
+    <string name="widget_default_srs_empty">වචන පත් සමමුහුර්ත කිරීමට In4Up අරින්න</string>
+    <string name="widget_default_flip_show">තේරුම පෙන්වන්න</string>
+    <string name="widget_default_flip_hide">තේරුම සඟවන්න</string>
+    <string name="widget_default_next_card">ඊළඟ</string>
+    <string name="widget_default_review_now">දැන් පුනරීක්ෂණය</string>
+    <string name="widget_default_streak_header">ඉගෙනුම් රිද්මය</string>
+    <string name="widget_default_streak_headline">අඛණ්ඩ දින 0</string>
+    <string name="widget_default_streak_today">අද ඉගෙනීම ඇරඹීමට In4Up අරින්න</string>
+    <string name="widget_default_understand">තේරුම් ගන්න</string>
+    <string name="widget_default_start_learning">ඉගෙනීම අරඹන්න</string>
+</resources>

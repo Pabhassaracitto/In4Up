@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U त्वरित क्रिया पट्टी</string>
+    <string name="widget_quick_bar_desc">1-टैप शब्दकोश खोज और 3 त्वरित उपकरण</string>
+    <string name="widget_continue_name">I4U सीखना जारी रखें</string>
+    <string name="widget_continue_desc">नवीनतम PDF, पाठ या ऑडियो एक टैप में फिर खोलें</string>
+    <string name="widget_flashcard_name">I4U फ़्लैशकार्ड और स्मृति उद्यान</string>
+    <string name="widget_flashcard_desc">होम स्क्रीन पर ही अर्थ पलटें और देय शब्द देखें</string>
+    <string name="widget_streak_name">I4U स्ट्रीक और अध्ययन लय</string>
+    <string name="widget_streak_desc">दैनिक स्ट्रीक और 7-दिन की गतिविधि देखें</string>
+
+    <string name="shortcut_dict_short">शब्दकोश</string>
+    <string name="shortcut_dict_long">In4Up शब्दकोश खोजें</string>
+    <string name="shortcut_voice_short">वॉइस नोट</string>
+    <string name="shortcut_voice_long">त्वरित वॉइस नोट</string>
+    <string name="shortcut_ocr_short">OCR स्कैन</string>
+    <string name="shortcut_ocr_long">पृष्ठ OCR से स्कैन करें</string>
+    <string name="shortcut_review_short">दोहराएँ</string>
+    <string name="shortcut_review_long">देय शब्दों का अभ्यास करें</string>
+
+    <string name="tile_screen_translate_label">I4U स्क्रीन अनुवाद</string>
+    <string name="tile_voice_capture_label">I4U वॉइस नोट</string>
+
+    <string name="widget_default_search_hint">In4Up शब्दकोश खोजें...</string>
+    <string name="widget_default_continue_header">सीखना जारी रखें</string>
+    <string name="widget_default_continue_empty">अभी कुछ अधूरा नहीं है — शुरू करने के लिए पढ़ें या सुनें चुनें</string>
+    <string name="widget_default_read">पढ़ें</string>
+    <string name="widget_default_listen">सुनें</string>
+    <string name="widget_default_garden_header">स्मृति उद्यान</string>
+    <string name="widget_default_srs_empty">शब्द कार्ड सिंक करने के लिए In4Up खोलें</string>
+    <string name="widget_default_flip_show">अर्थ दिखाएँ</string>
+    <string name="widget_default_flip_hide">अर्थ छिपाएँ</string>
+    <string name="widget_default_next_card">अगला</string>
+    <string name="widget_default_review_now">अभी दोहराएँ</string>
+    <string name="widget_default_streak_header">अध्ययन लय</string>
+    <string name="widget_default_streak_headline">0 दिन लगातार</string>
+    <string name="widget_default_streak_today">आज का अध्ययन शुरू करने के लिए In4Up खोलें</string>
+    <string name="widget_default_understand">समझें</string>
+    <string name="widget_default_start_learning">सीखना शुरू करें</string>
+</resources>

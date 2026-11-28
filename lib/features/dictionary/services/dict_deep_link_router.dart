@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 
+import '../../home_widgets/services/widget_action_router.dart';
 import '../widgets/dictionary_screen.dart';
 import 'dict_deep_link.dart';
 
@@ -100,11 +101,15 @@ class DictDeepLinkRouter {
   /// Bóc `argv` của desktop.
   void handleArguments(List<String> arguments) {
     if (arguments.isEmpty) return;
+    if (WidgetActionRouter.instance.tryHandleArguments(arguments)) return;
     enqueue(DictDeepLink.parseArguments(arguments));
   }
 
   /// Bóc một URL thô từ native.
-  void handleRaw(String raw) => enqueue(DictDeepLink.parse(raw));
+  void handleRaw(String raw) {
+    if (WidgetActionRouter.instance.tryHandleRawUri(raw)) return;
+    enqueue(DictDeepLink.parse(raw));
+  }
 
   /// Nhận một yêu cầu đã bóc. `null` (link không liên quan) ⇒ không làm gì.
   void enqueue(DictDeepLinkRequest? request) {

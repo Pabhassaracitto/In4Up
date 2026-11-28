@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_quick_bar_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_card"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingLeft="10dp"
+    android:paddingTop="8dp"
+    android:paddingRight="10dp"
+    android:paddingBottom="8dp">
+
+    <FrameLayout
+        android:id="@+id/btn_brand_home"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/bg_widget_brand_circle">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/launcher_icon" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/btn_search_pill"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_widget_pill"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="12dp"
+        android:paddingRight="10dp">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:contentDescription="@string/shortcut_dict_short"
+            android:src="@drawable/ic_widget_search"
+            android:tint="#FF9FA8DA" />
+
+        <TextView
+            android:id="@+id/txt_search_hint"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/widget_default_search_hint"
+            android:textColor="#CCFFFFFF"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/btn_slot_1"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_widget_circle_btn">
+
+        <ImageView
+            android:id="@+id/img_slot_1"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/shortcut_voice_short"
+            android:src="@drawable/ic_widget_mic" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/btn_slot_2"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginLeft="6dp"
+        android:background="@drawable/bg_widget_circle_btn">
+
+        <ImageView
+            android:id="@+id/img_slot_2"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/shortcut_ocr_short"
+            android:src="@drawable/ic_widget_ocr" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/btn_slot_3"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginLeft="6dp"
+        android:background="@drawable/bg_widget_circle_btn">
+
+        <ImageView
+            android:id="@+id/img_slot_3"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/tile_screen_translate_label"
+            android:src="@drawable/ic_widget_translate" />
+    </FrameLayout>
+</LinearLayout>

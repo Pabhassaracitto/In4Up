@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U クイック操作バー</string>
+    <string name="widget_quick_bar_desc">1タップ辞書検索＋カスタマイズ可能な3つのツール</string>
+    <string name="widget_continue_name">I4U 学習を続ける</string>
+    <string name="widget_continue_desc">前回のPDF・テキスト・音声を1タップで再開</string>
+    <string name="widget_flashcard_name">I4U 単語カード＆記憶の庭</string>
+    <string name="widget_flashcard_desc">ホーム画面で意味をめくって復習対象の単語を確認</string>
+    <string name="widget_streak_name">I4U 連続日数＆学習リズム</string>
+    <string name="widget_streak_desc">連続学習日数と直近7日間のアクティビティを表示</string>
+
+    <string name="shortcut_dict_short">辞書検索</string>
+    <string name="shortcut_dict_long">In4Up 辞書を検索</string>
+    <string name="shortcut_voice_short">音声メモ</string>
+    <string name="shortcut_voice_long">クイック音声キャプチャ</string>
+    <string name="shortcut_ocr_short">OCRスキャン</string>
+    <string name="shortcut_ocr_long">ページをOCRで読み取る</string>
+    <string name="shortcut_review_short">今すぐ復習</string>
+    <string name="shortcut_review_long">期限の単語カードを復習</string>
+
+    <string name="tile_screen_translate_label">I4U 画面翻訳</string>
+    <string name="tile_voice_capture_label">I4U 音声メモ</string>
+
+    <string name="widget_default_search_hint">In4Up 辞書を検索...</string>
+    <string name="widget_default_continue_header">学習を続ける</string>
+    <string name="widget_default_continue_empty">途中の教材はありません — 読む・聴くをタップして開始</string>
+    <string name="widget_default_read">読む</string>
+    <string name="widget_default_listen">聴く</string>
+    <string name="widget_default_garden_header">記憶の庭</string>
+    <string name="widget_default_srs_empty">In4Up を開いて単語カードを同期</string>
+    <string name="widget_default_flip_show">意味を表示</string>
+    <string name="widget_default_flip_hide">意味を隠す</string>
+    <string name="widget_default_next_card">次へ</string>
+    <string name="widget_default_review_now">今すぐ復習</string>
+    <string name="widget_default_streak_header">学習リズム</string>
+    <string name="widget_default_streak_headline">0日連続</string>
+    <string name="widget_default_streak_today">In4Up を開いて今日の学習を始めましょう</string>
+    <string name="widget_default_understand">理解</string>
+    <string name="widget_default_start_learning">学習を開始</string>
+</resources>

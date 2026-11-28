@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U အမြန်လုပ်ဆောင်ချက်ဘား</string>
+    <string name="widget_quick_bar_desc">တစ်ချက်နှိပ် အဘိဓာန်ရှာဖွေမှုနှင့် အမြန်ကိရိယာ ၃ ခု</string>
+    <string name="widget_continue_name">I4U ဆက်လက်လေ့လာရန်</string>
+    <string name="widget_continue_desc">နောက်ဆုံးဖတ်လက်စ PDF၊ စာသား သို့မဟုတ် အသံဖိုင်ကို တစ်ချက်နှိပ်ပြန်ဖွင့်ပါ</string>
+    <string name="widget_flashcard_name">I4U စကားလုံးကတ်နှင့် မှတ်ဉာဏ်ဥယျာဉ်</string>
+    <string name="widget_flashcard_desc">ပင်မစာမျက်နှာပေါ်တွင် အဓိပ္ပာယ်လှန်ကြည့်ပြီး ပြန်နွှေးရန်စကားလုံးများကို ကြည့်ပါ</string>
+    <string name="widget_streak_name">I4U ရက်ဆက်မှတ်တမ်းနှင့် လေ့လာမှုစည်းချက်</string>
+    <string name="widget_streak_desc">နေ့စဉ်ရက်ဆက်မှတ်တမ်းနှင့် ၇ ရက်တာလှုပ်ရှားမှုကို ကြည့်ရှုပါ</string>
+
+    <string name="shortcut_dict_short">အဘိဓာန်</string>
+    <string name="shortcut_dict_long">In4Up အဘိဓာန်ရှာရန်</string>
+    <string name="shortcut_voice_short">အသံမှတ်စု</string>
+    <string name="shortcut_voice_long">အမြန်အသံမှတ်စု</string>
+    <string name="shortcut_ocr_short">OCR စကန်</string>
+    <string name="shortcut_ocr_long">စာမျက်နှာကို OCR ဖြင့်ဖတ်ရန်</string>
+    <string name="shortcut_review_short">ပြန်နွှေးရန်</string>
+    <string name="shortcut_review_long">ပြန်နွှေးရမည့် စကားလုံးများလေ့ကျင့်ရန်</string>
+
+    <string name="tile_screen_translate_label">I4U မျက်နှာပြင်ဘာသာပြန်</string>
+    <string name="tile_voice_capture_label">I4U အသံမှတ်စု</string>
+
+    <string name="widget_default_search_hint">In4Up အဘိဓာန်တွင် ရှာရန်...</string>
+    <string name="widget_default_continue_header">ဆက်လက်လေ့လာရန်</string>
+    <string name="widget_default_continue_empty">လက်စသတ်ရန် မရှိသေးပါ — စတင်ရန် ဖတ်ရန် သို့မဟုတ် နားထောင်ရန်ကို နှိပ်ပါ</string>
+    <string name="widget_default_read">ဖတ်ရန်</string>
+    <string name="widget_default_listen">နားထောင်ရန်</string>
+    <string name="widget_default_garden_header">မှတ်ဉာဏ်ဥယျာဉ်</string>
+    <string name="widget_default_srs_empty">စကားလုံးကတ်များ ချိတ်ဆက်ရန် In4Up ကိုဖွင့်ပါ</string>
+    <string name="widget_default_flip_show">အဓိပ္ပာယ်ပြရန်</string>
+    <string name="widget_default_flip_hide">အဓိပ္ပာယ်ဖျောက်ရန်</string>
+    <string name="widget_default_next_card">နောက်တစ်လုံး</string>
+    <string name="widget_default_review_now">ယခုပြန်နွှေးရန်</string>
+    <string name="widget_default_streak_header">လေ့လာမှုစည်းချက်</string>
+    <string name="widget_default_streak_headline">၀ ရက်ဆက်တိုက်</string>
+    <string name="widget_default_streak_today">ယနေ့လေ့လာမှုစတင်ရန် In4Up ကိုဖွင့်ပါ</string>
+    <string name="widget_default_understand">နားလည်ရန်</string>
+    <string name="widget_default_start_learning">စတင်လေ့လာရန်</string>
+</resources>

@@ -4,6 +4,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/home_widgets/services/home_widget_bridge.dart';
 import '../../../features/media_tools/media_export_actions.dart';
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
@@ -345,6 +346,41 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
                 _openAudio(audio);
               },
             ),
+            if (HomeWidgetBridge.instance.isAndroidHost)
+              ListTile(
+                leading: const Icon(
+                  Icons.add_to_home_screen_rounded,
+                  color: Color(0xFF00E676),
+                ),
+                title: Text(
+                  context.uiText('Đưa ra màn hình chính'),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                subtitle: Text(
+                  context.uiText('Phát tiếp bài nghe này từ màn hình chính'),
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final ok = await HomeWidgetBridge.instance.pinAudioShortcut(
+                    resourceId: audio.id,
+                    title: audio.title,
+                  );
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        context.uiText(
+                          ok
+                              ? 'Hãy xác nhận hộp thoại để thêm lối tắt 1 chạm ra màn hình chính'
+                              : 'Trình khởi chạy hiện tại không hỗ trợ ghim lối tắt trực tiếp',
+                        ),
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
             // AVTOOL-003 (PLAN-047 P2) — chuyển định dạng / lấy âm thanh từ
             // chính file đang có trong "Gần đây" (không cần mở player trước).
             ListTile(

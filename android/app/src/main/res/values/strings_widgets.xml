@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U Quick Action Bar</string>
+    <string name="widget_quick_bar_desc">1-tap Dictionary search plus 3 customizable quick tools</string>
+    <string name="widget_continue_name">I4U Continue Learning</string>
+    <string name="widget_continue_desc">Resume your latest PDF, reading text, or audio with 1 tap</string>
+    <string name="widget_flashcard_name">I4U Flashcard &amp; Memory Garden</string>
+    <string name="widget_flashcard_desc">Flip meanings and browse due SRS words right on your Home Screen</string>
+    <string name="widget_streak_name">I4U Streak &amp; Learning Rhythm</string>
+    <string name="widget_streak_desc">Track your daily streak and 7-day learning activity</string>
+
+    <string name="shortcut_dict_short">Dictionary</string>
+    <string name="shortcut_dict_long">Search In4Up Dictionary</string>
+    <string name="shortcut_voice_short">Voice Note</string>
+    <string name="shortcut_voice_long">Quick Voice Capture</string>
+    <string name="shortcut_ocr_short">Scan OCR</string>
+    <string name="shortcut_ocr_long">Scan book page with OCR</string>
+    <string name="shortcut_review_short">Review SRS</string>
+    <string name="shortcut_review_long">Review due vocabulary cards</string>
+
+    <string name="tile_screen_translate_label">I4U Screen Translate</string>
+    <string name="tile_voice_capture_label">I4U Voice Note</string>
+
+    <string name="widget_default_search_hint">Search In4Up dictionary...</string>
+    <string name="widget_default_continue_header">CONTINUE LEARNING</string>
+    <string name="widget_default_continue_empty">Nothing in progress yet — tap Read or Listen to start</string>
+    <string name="widget_default_read">Read</string>
+    <string name="widget_default_listen">Listen</string>
+    <string name="widget_default_garden_header">MEMORY GARDEN</string>
+    <string name="widget_default_srs_empty">Open In4Up to sync your vocabulary cards</string>
+    <string name="widget_default_flip_show">Show meaning</string>
+    <string name="widget_default_flip_hide">Hide meaning</string>
+    <string name="widget_default_next_card">Next</string>
+    <string name="widget_default_review_now">Review now</string>
+    <string name="widget_default_streak_header">LEARNING RHYTHM</string>
+    <string name="widget_default_streak_headline">0-day streak</string>
+    <string name="widget_default_streak_today">Open In4Up to start learning today</string>
+    <string name="widget_default_understand">Understand</string>
+    <string name="widget_default_start_learning">Start learning</string>
+</resources>

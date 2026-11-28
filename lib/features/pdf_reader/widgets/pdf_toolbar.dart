@@ -453,7 +453,8 @@ class _TranslatePageButton extends StatelessWidget {
                       Text(
                         target.translationCode,
                         style: TextStyle(
-                          fontSize: 10,
+                          // Sàn chữ repo-wide là 11sp (Sprint 4).
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: active
                               ? const Color(0xFF81C784)

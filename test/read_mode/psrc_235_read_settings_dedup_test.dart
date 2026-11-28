@@ -168,7 +168,8 @@ void main() {
     // đọc» ra thành chip thường trực. Vì vậy shell KHÔNG còn chứa nhãn «Tùy
     // biến» — pin cũ được thay bằng pin mới dưới đây.
     test('panel dock vẫn là «Tùy biến» (một nguồn, một tên)', () {
-      expect(dock.contains("ReadDockPanel.display: 'Tùy biến',"), isTrue);
+      expect(dock.contains("ReadDockPanel.display: 'Tùy biến',"), isTrue,
+          reason: 'nhãn tab dock (định nghĩa trong read_bottom_dock.dart)');
       expect(dock.contains("tooltip: context.uiText('Tùy biến'),"), isTrue);
     });
 

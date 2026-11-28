@@ -1756,7 +1756,7 @@ class _MainShellState extends State<MainShell> {
           // AUDIT v1.30.1 (mục 6) — «góc trên phải đang hiện 2 lựa chọn ⇒ nhấn
           // vào mở THẲNG bảng cài đặt».
           //
-          // Trước: một `PopupMenuButton` bung ra 2 mục «Tùy biến» + «Cài đặt»
+          // Trước: một menu popup bung ra 2 mục «Tùy biến» + «Cài đặt»
           // ⇒ 2 chạm mới tới cài đặt, và «Tùy biến» (panel dock) lại CHỨA
           // thêm 2 chip «Bố cục đọc» + «Cài đặt» (4 tầng cùng đích). Nay:
           //   • MỘT icon ⚙ mở thẳng `ReadSettingsSheet` (nơi duy nhất chứa

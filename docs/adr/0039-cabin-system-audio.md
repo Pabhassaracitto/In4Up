@@ -1,4 +1,4 @@
-# ADR-0036 — Live Cabin: nguồn âm thanh hệ thống
+# ADR-0039 — Live Cabin: nguồn âm thanh hệ thống
 
 - Trạng thái: **đang thực hiện, cần code review và nghiệm thu thiết bị**.
 - Ngày: 2026-11-24.

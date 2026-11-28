@@ -48,3 +48,12 @@ Chỉ nhận một số giá trị chính xác của `font-weight`, `font-style`
 `text-decoration` trong thuộc tính style (tối đa 1024 ký tự, 32 khai báo);
 không diễn giải URL, file, màu, font, kích thước, bố cục hay thuộc tính ẩn.
 Không đọc tệp CSS, không chạy JavaScript; không coi đây là renderer nguyên bản.
+
+## Bổ sung hợp nhất luồng PROCESS_TEXT
+
+Trên nhánh Cabin/AI Chat, PROCESS_TEXT chuyển qua kênh riêng và smart split:
+chữ đơn tối đa 64 rune mở Từ điển, cụm/câu chuyển sang bảng dịch. Không gửi
+cùng intent đồng thời qua deep-link; giữ hàng đợi đến khi Dart sẵn, chấp nhận
+CharSequence và giới hạn 32.768 đơn vị UTF-16, lưu yêu cầu chưa xử lý khi
+activity dựng lại. Deep link thông thường vẫn giữ cơ chế chờ listener. Các
+trường hợp cold/warm, xoay và nội dung lớn vẫn cần nghiệm thu Android thật.

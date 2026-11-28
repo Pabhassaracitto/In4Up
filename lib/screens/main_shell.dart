@@ -648,10 +648,13 @@ class _MainShellState extends State<MainShell> {
         }
         return;
       case WidgetActionKind.resumeRead:
-        await _handleWidgetResumeRead();
+        await _handleWidgetResumeRead(resourceId: request.resourceId);
         return;
       case WidgetActionKind.resumeListen:
-        await _handleWidgetResumeListen(autoPlay: request.autoPlay);
+        await _handleWidgetResumeListen(
+          autoPlay: request.autoPlay,
+          resourceId: request.resourceId,
+        );
         return;
       case WidgetActionKind.widgetSettings:
         _popOverlaysToShellRoot();
@@ -659,6 +662,13 @@ class _MainShellState extends State<MainShell> {
         return;
       case WidgetActionKind.openStudio:
         _handleWidgetOpenStudio(request.studioTarget ?? WidgetStudioTarget.home);
+        return;
+      case WidgetActionKind.openTool:
+        final toolId = request.toolId;
+        if (toolId != null && toolId.isNotEmpty) {
+          _popOverlaysToShellRoot();
+          await _handleTool(toolId);
+        }
         return;
     }
   }
@@ -713,11 +723,29 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Future<void> _handleWidgetResumeRead() async {
+  Future<void> _handleWidgetResumeRead({String? resourceId}) async {
     if (!mounted) return;
     _popOverlaysToShellRoot();
     final recents = await RecentFilesService().getAll();
     if (!mounted) return;
+
+    if (resourceId != null && resourceId.isNotEmpty) {
+      for (final item in recents) {
+        if (item.id != resourceId) continue;
+        final path = item.localPath;
+        if (path != null && path.isNotEmpty && File(path).existsSync()) {
+          if (item.type == RecentFileType.localPdf) {
+            await _openIncomingPdf(path);
+            return;
+          }
+          if (item.type == RecentFileType.localText) {
+            await _openIncomingTextDocument(path, item.title);
+            return;
+          }
+        }
+        break;
+      }
+    }
 
     if (recents.isNotEmpty) {
       final latest = recents.first;
@@ -752,25 +780,47 @@ class _MainShellState extends State<MainShell> {
     _setReadMode(0);
   }
 
-  Future<void> _handleWidgetResumeListen({required bool autoPlay}) async {
+  Future<void> _handleWidgetResumeListen({
+    required bool autoPlay,
+    String? resourceId,
+  }) async {
     if (!mounted) return;
     _popOverlaysToShellRoot();
     _setListenMode(0);
 
     final player = context.read<PlayerProvider>();
-    if (player.currentSongPath != null && player.currentSongPath!.isNotEmpty) {
+    if (resourceId == null || resourceId.isEmpty) {
+      if (player.currentSongPath != null &&
+          player.currentSongPath!.isNotEmpty) {
+        if (autoPlay && !player.isPlaying) {
+          await player.togglePlayPause();
+        }
+        return;
+      }
+    }
+
+    final recents = await RecentAudioService().getAll();
+    if (!mounted || recents.isEmpty) return;
+
+    var target = recents.first;
+    if (resourceId != null && resourceId.isNotEmpty) {
+      for (final item in recents) {
+        if (item.id == resourceId) {
+          target = item;
+          break;
+        }
+      }
+    }
+
+    final path = target.localPath ?? target.youtubeUrl;
+    if (path == null || path.isEmpty) return;
+    if (player.currentSongPath == path) {
       if (autoPlay && !player.isPlaying) {
         await player.togglePlayPause();
       }
       return;
     }
 
-    final recents = await RecentAudioService().getAll();
-    if (!mounted || recents.isEmpty) return;
-
-    final latest = recents.first;
-    final path = latest.localPath ?? latest.youtubeUrl;
-    if (path == null || path.isEmpty) return;
     final isRemote = path.startsWith('http://') || path.startsWith('https://');
     if (!isRemote && !File(path).existsSync()) {
       return;
@@ -778,11 +828,11 @@ class _MainShellState extends State<MainShell> {
 
     await player.loadSong(
       path: path,
-      title: latest.title,
-      artist: latest.artist,
+      title: target.title,
+      artist: target.artist,
       autoPlay: autoPlay,
       initialPosition:
-          latest.lastPosition > Duration.zero ? latest.lastPosition : null,
+          target.lastPosition > Duration.zero ? target.lastPosition : null,
     );
   }
 

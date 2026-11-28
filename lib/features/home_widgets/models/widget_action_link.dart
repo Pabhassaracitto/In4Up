@@ -39,6 +39,9 @@ enum WidgetActionKind {
 
   /// Chuyển thẳng tới một phòng Studio hoặc công cụ cốt lõi.
   openStudio,
+
+  /// Mở trực tiếp một công cụ trong danh sách trắng của `ToolsOverlayV2`.
+  openTool,
 }
 
 /// Đích phòng Studio hợp lệ cho `in4up://nav/studio?target=...`.
@@ -92,6 +95,8 @@ class WidgetActionRequest {
   final WidgetActionKind kind;
   final WidgetStudioTarget? studioTarget;
   final WidgetReviewMode reviewMode;
+  final String? resourceId;
+  final String? toolId;
   final bool autoPlay;
   final bool autoFocus;
   final bool autoStart;
@@ -101,6 +106,8 @@ class WidgetActionRequest {
     required this.kind,
     this.studioTarget,
     this.reviewMode = WidgetReviewMode.srs,
+    this.resourceId,
+    this.toolId,
     this.autoPlay = false,
     this.autoFocus = false,
     this.autoStart = false,
@@ -109,7 +116,8 @@ class WidgetActionRequest {
 
   /// Khóa chữ ký để khử trùng lặp intent bắn kép sát nhau (< 900 ms).
   String get dedupSignature =>
-      '${kind.name}|${studioTarget?.wireName ?? ''}|${reviewMode.wireName}|$autoPlay|$source';
+      '${kind.name}|${studioTarget?.wireName ?? ''}|${reviewMode.wireName}|'
+      '${resourceId ?? ''}|${toolId ?? ''}|$autoPlay|$source';
 
   @override
   bool operator ==(Object other) =>
@@ -117,6 +125,8 @@ class WidgetActionRequest {
       other.kind == kind &&
       other.studioTarget == studioTarget &&
       other.reviewMode == reviewMode &&
+      other.resourceId == resourceId &&
+      other.toolId == toolId &&
       other.autoPlay == autoPlay &&
       other.autoFocus == autoFocus &&
       other.autoStart == autoStart &&
@@ -127,6 +137,8 @@ class WidgetActionRequest {
         kind,
         studioTarget,
         reviewMode,
+        resourceId,
+        toolId,
         autoPlay,
         autoFocus,
         autoStart,
@@ -136,7 +148,8 @@ class WidgetActionRequest {
   @override
   String toString() =>
       'WidgetActionRequest($kind, studio=${studioTarget?.wireName}, '
-      'review=${reviewMode.wireName}, autoPlay=$autoPlay, src=$source)';
+      'review=${reviewMode.wireName}, id=$resourceId, tool=$toolId, '
+      'autoPlay=$autoPlay, src=$source)';
 }
 
 class WidgetActionDeepLink {
@@ -146,6 +159,38 @@ class WidgetActionDeepLink {
   static const Set<String> httpsHosts = <String>{
     'in4up.app',
     'www.in4up.app',
+  };
+
+  /// Danh sách trắng các `toolId` được phép mở từ lối tắt ngoài màn hình chính.
+  static const Set<String> allowedToolIds = <String>{
+    'live_cabin',
+    'learn_by_heart',
+    'speak_mode',
+    'write_mode',
+    'understand_tab',
+    'understand_ai_coach',
+    'word_list',
+    'sound_list',
+    'timeline',
+    'wordlist_stats',
+    'web_reader',
+    'youtube_downloader',
+    'pdf_reader',
+    'youglish',
+    'stats',
+    'word_map',
+    'triangle',
+    'venn',
+    'review',
+    'tipitaka',
+    'video_player',
+    'video_library',
+    'media_tools',
+    'dictionary',
+    'shell_ui_settings',
+    'home_widgets',
+    'dict_manager',
+    'dict_packs',
   };
 
   /// Giới hạn chiều dài URI hợp lý để chặn chuỗi rác quá lớn từ bên ngoài.
@@ -333,11 +378,13 @@ class WidgetActionDeepLink {
       case 'resume_read':
         return WidgetActionRequest(
           kind: WidgetActionKind.resumeRead,
+          resourceId: _sanitizeResourceId(uri.queryParameters['id']),
           source: source,
         );
       case 'resume_listen':
         return WidgetActionRequest(
           kind: WidgetActionKind.resumeListen,
+          resourceId: _sanitizeResourceId(uri.queryParameters['id']),
           autoPlay:
               _parseBool(uri.queryParameters['autoplay'], fallback: false),
           source: source,
@@ -348,9 +395,28 @@ class WidgetActionDeepLink {
           kind: WidgetActionKind.widgetSettings,
           source: source,
         );
+      case 'tool':
+        final rawTool = (uri.queryParameters['id'] ?? '').trim().toLowerCase();
+        if (!allowedToolIds.contains(rawTool)) return null;
+        return WidgetActionRequest(
+          kind: WidgetActionKind.openTool,
+          toolId: rawTool,
+          source: source,
+        );
       default:
         return null;
     }
+  }
+
+  static String? _sanitizeResourceId(String? raw) {
+    if (raw == null) return null;
+    final clean = raw.trim();
+    if (clean.isEmpty || clean.length > 128) return null;
+    if (clean.contains('..') || clean.contains('/') || clean.contains('\\')) {
+      return null;
+    }
+    if (!RegExp(r'^[A-Za-z0-9._:-]+$').hasMatch(clean)) return null;
+    return clean;
   }
 
   static bool _hasExplicitQueryWord(Uri uri) {

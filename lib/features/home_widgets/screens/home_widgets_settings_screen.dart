@@ -369,13 +369,15 @@ class _HomeWidgetsSettingsScreenState extends State<HomeWidgetsSettingsScreen> {
                   _buildWidgetCatalogCard(entry),
                   const SizedBox(height: 10),
                 ],
-                const SizedBox(height: 14),
-                _buildSectionHeader(
-                  icon: Icons.push_pin_rounded,
-                  title: 'Ghim biểu tượng 1 chạm riêng',
-                ),
-                const SizedBox(height: 8),
-                _buildShortcutGrid(),
+                if (HomeWidgetBridge.instance.isAndroidHost) ...<Widget>[
+                  const SizedBox(height: 14),
+                  _buildSectionHeader(
+                    icon: Icons.push_pin_rounded,
+                    title: 'Ghim biểu tượng 1 chạm riêng',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildShortcutGrid(),
+                ],
                 const SizedBox(height: 20),
                 _buildTipsCard(),
               ],
@@ -741,7 +743,7 @@ class _HomeWidgetsSettingsScreenState extends State<HomeWidgetsSettingsScreen> {
                         ),
                       ),
                     const Spacer(),
-                    if (_status.isSupportedPlatform)
+                    if (_status.isRequestPinSupported)
                       FilledButton.tonalIcon(
                         onPressed: () => _pinWidget(entry.kind),
                         style: FilledButton.styleFrom(
@@ -751,6 +753,15 @@ class _HomeWidgetsSettingsScreenState extends State<HomeWidgetsSettingsScreen> {
                         ),
                         icon: const Icon(Icons.add_to_home_screen_rounded, size: 16),
                         label: const Text('Ghim ra màn hình chính'),
+                      )
+                    else if (HomeWidgetBridge.instance.isIosHost)
+                      const Text(
+                        'Nhấn giữ màn hình chính → (+)',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                   ],
                 ),
@@ -846,6 +857,16 @@ class _HomeWidgetsSettingsScreenState extends State<HomeWidgetsSettingsScreen> {
           SizedBox(height: 6),
           Text(
             '• Trên Android, kéo thanh thông báo từ trên xuống → bấm Chỉnh sửa → kéo ô «I4U Dịch màn hình» hoặc «I4U Ghi chú nói» lên hàng đầu để bật ngay khi đang đọc báo hoặc lướt web ở ứng dụng khác.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          SizedBox(height: 6),
+          Text(
+            '• Trên iPhone / iPad, nhấn giữ nền Màn hình chính hoặc Màn hình khoá → bấm dấu (+) góc trên → tìm «In4Up» để đặt Widget cỡ Nhỏ, Vừa hoặc Widget Màn hình khoá.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          SizedBox(height: 6),
+          Text(
+            '• Nhấn giữ một tài liệu PDF/Văn bản, bài nghe gần đây hoặc thẻ công cụ trên Android rồi chọn «Đưa ra màn hình chính» để tạo biểu tượng mở thẳng 1 chạm.',
             style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
           ),
         ],

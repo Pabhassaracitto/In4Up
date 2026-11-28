@@ -62,6 +62,12 @@ class HomeWidgetBridge {
   bool get isAndroidHost =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  bool get isIosHost =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// Android (`RemoteViews`) hoặc iOS (`WidgetKit`) đều nhận `WidgetSnapshot`.
+  bool get isNativeWidgetHost => isAndroidHost || isIosHost;
+
   /// Đọc 3 ô nút đã chọn của Thanh Lệnh Nhanh (bù mặc định tự động).
   Future<List<WidgetQuickActionId>> loadQuickBarSlots() async {
     try {
@@ -101,7 +107,7 @@ class HomeWidgetBridge {
 
   /// Đẩy bản chụp `WidgetSnapshot` sang Native và làm mới mọi Widget đang ghim.
   Future<bool> syncSnapshot(WidgetSnapshot snapshot) async {
-    if (!isAndroidHost) return false;
+    if (!isNativeWidgetHost) return false;
     try {
       final ok = await _channel.invokeMethod<bool>(
         'syncSnapshot',
@@ -117,9 +123,9 @@ class HomeWidgetBridge {
     }
   }
 
-  /// Truy vấn số lượng từng loại Widget đang được ghim trên Launcher.
+  /// Truy vấn số lượng từng loại Widget đang được ghim trên Launcher / WidgetKit.
   Future<NativeHomeWidgetStatus> getStatus() async {
-    if (!isAndroidHost) return NativeHomeWidgetStatus.unsupported;
+    if (!isNativeWidgetHost) return NativeHomeWidgetStatus.unsupported;
     try {
       final raw = await _channel
           .invokeMapMethod<String, dynamic>('getStatus');
@@ -186,5 +192,152 @@ class HomeWidgetBridge {
     } on PlatformException {
       return false;
     }
+  }
+
+  /// PLAN-050 P4: Ghim 1-chạm một tài liệu Đọc cụ thể (`RecentFile`) ra màn hình chính.
+  Future<bool> pinDocumentShortcut({
+    required String resourceId,
+    required String title,
+  }) {
+    final safeId = _compactId(resourceId);
+    if (safeId.isEmpty) return Future<bool>.value(false);
+    return requestPinShortcut(
+      id: 'doc_$safeId',
+      shortLabel: _truncateShortcutLabel(title, fallback: 'Read'),
+      deepLinkUri:
+          'in4up://action/resume_read?id=${Uri.encodeQueryComponent(resourceId)}&src=pin_doc',
+      iconKey: 'book',
+    );
+  }
+
+  /// PLAN-050 P4: Ghim 1-chạm một bài Nghe / Pháp thoại (`RecentAudio`) ra màn hình chính.
+  Future<bool> pinAudioShortcut({
+    required String resourceId,
+    required String title,
+  }) {
+    final safeId = _compactId(resourceId);
+    if (safeId.isEmpty) return Future<bool>.value(false);
+    return requestPinShortcut(
+      id: 'audio_$safeId',
+      shortLabel: _truncateShortcutLabel(title, fallback: 'Listen'),
+      deepLinkUri:
+          'in4up://action/resume_listen?id=${Uri.encodeQueryComponent(resourceId)}&autoplay=1&src=pin_audio',
+      iconKey: 'headphones',
+    );
+  }
+
+  /// PLAN-050 P4: Ghim 1-chạm một công cụ trong `ToolsOverlayV2` ra màn hình chính.
+  Future<bool> pinToolShortcut({
+    required String toolId,
+    required String localizedLabel,
+  }) {
+    final spec = shortcutSpecForToolId(toolId);
+    if (spec == null) return Future<bool>.value(false);
+    return requestPinShortcut(
+      id: 'tool_$toolId',
+      shortLabel: _truncateShortcutLabel(localizedLabel, fallback: 'In4Up'),
+      deepLinkUri: spec.deepLink,
+      iconKey: spec.iconKey,
+    );
+  }
+
+  /// Ánh xạ `toolId` của `ToolsOverlayV2` sang `(deepLink, iconKey)` an toàn.
+  static ({String deepLink, String iconKey})? shortcutSpecForToolId(
+    String toolId,
+  ) {
+    final clean = toolId.trim().toLowerCase();
+    switch (clean) {
+      case 'dictionary':
+        return (
+          deepLink: 'in4up://action/dict_search?autofocus=1&src=pin_tool',
+          iconKey: 'search',
+        );
+      case 'live_cabin':
+        return (
+          deepLink: 'in4up://nav/studio?target=cabin&src=pin_tool',
+          iconKey: 'mic',
+        );
+      case 'tipitaka':
+        return (
+          deepLink: 'in4up://nav/studio?target=tipitaka&src=pin_tool',
+          iconKey: 'book',
+        );
+      case 'youtube_downloader':
+        return (
+          deepLink: 'in4up://nav/studio?target=youtube&src=pin_tool',
+          iconKey: 'video',
+        );
+      case 'review':
+        return (
+          deepLink: 'in4up://action/review_due?mode=srs&src=pin_tool',
+          iconKey: 'leaf',
+        );
+      case 'learn_by_heart':
+        return (
+          deepLink: 'in4up://action/review_due?mode=lhb&src=pin_tool',
+          iconKey: 'leaf',
+        );
+      case 'home_widgets':
+        return (
+          deepLink: 'in4up://action/widget_settings?src=pin_tool',
+          iconKey: 'sparkle',
+        );
+      case 'speak_mode':
+      case 'youglish':
+        return (
+          deepLink: 'in4up://action/tool?id=$clean&src=pin_tool',
+          iconKey: 'mic',
+        );
+      case 'sound_list':
+      case 'media_tools':
+      case 'video_player':
+      case 'video_library':
+        return (
+          deepLink: 'in4up://action/tool?id=$clean&src=pin_tool',
+          iconKey: 'headphones',
+        );
+      case 'write_mode':
+      case 'web_reader':
+      case 'pdf_reader':
+      case 'word_list':
+      case 'dict_manager':
+      case 'dict_packs':
+        return (
+          deepLink: 'in4up://action/tool?id=$clean&src=pin_tool',
+          iconKey: 'book',
+        );
+      case 'understand_tab':
+      case 'understand_ai_coach':
+      case 'timeline':
+      case 'wordlist_stats':
+      case 'stats':
+      case 'word_map':
+      case 'triangle':
+      case 'venn':
+      case 'shell_ui_settings':
+        return (
+          deepLink: 'in4up://action/tool?id=$clean&src=pin_tool',
+          iconKey: 'sparkle',
+        );
+      default:
+        return null;
+    }
+  }
+
+  static String _compactId(String raw) {
+    final cleaned = raw.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+    if (cleaned.isEmpty) return '';
+    return cleaned.length <= 40 ? cleaned : cleaned.substring(0, 40);
+  }
+
+  static String _truncateShortcutLabel(
+    String raw, {
+    required String fallback,
+  }) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return fallback;
+    final runes = trimmed.runes.toList(growable: false);
+    if (runes.length <= 24) return trimmed;
+    return '${String.fromCharCodes(runes.take(23))}…';
   }
 }

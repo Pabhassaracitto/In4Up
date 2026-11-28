@@ -14,6 +14,7 @@ import 'package:in4up/features/dictionary/services/dict_deep_link.dart';
 import 'package:in4up/features/home_widgets/models/widget_action_link.dart';
 import 'package:in4up/features/home_widgets/models/widget_quick_action.dart';
 import 'package:in4up/features/home_widgets/models/widget_snapshot.dart';
+import 'package:in4up/features/home_widgets/services/home_widget_bridge.dart';
 import 'package:in4up/features/home_widgets/services/widget_action_router.dart';
 import 'package:in4up/features/home_widgets/services/widget_snapshot_builder.dart';
 import 'package:in4up/models/learning_activity.dart';
@@ -447,6 +448,125 @@ void main() {
 
       final iosDelegate = File('ios/Runner/AppDelegate.swift').readAsStringSync();
       expect(iosDelegate, contains('performActionFor shortcutItem'));
+      expect(iosDelegate, contains('"in4up/home_widget"'));
+      expect(iosDelegate, contains('WidgetCenter.shared.reloadAllTimelines()'));
+    });
+
+    test('P4: resource-level pinning & tool shortcut deep links parse safely and reject path traversal', () {
+      final readPin = WidgetActionDeepLink.parse(
+        'in4up://action/resume_read?id=doc_8f14e45fceea167a&src=pin_doc',
+      );
+      expect(readPin, isNotNull);
+      expect(readPin!.kind, WidgetActionKind.resumeRead);
+      expect(readPin.resourceId, 'doc_8f14e45fceea167a');
+      expect(readPin.source, 'pin_doc');
+
+      final audioPin = WidgetActionDeepLink.parse(
+        'in4up://action/resume_listen?id=audio_098f6bcd4621&autoplay=1&src=pin_audio',
+      );
+      expect(audioPin, isNotNull);
+      expect(audioPin!.kind, WidgetActionKind.resumeListen);
+      expect(audioPin.resourceId, 'audio_098f6bcd4621');
+      expect(audioPin.autoPlay, isTrue);
+
+      // Path traversal or slash injection in `id` must be stripped to null
+      final traversal = WidgetActionDeepLink.parse(
+        'in4up://action/resume_read?id=../../etc/passwd',
+      );
+      expect(traversal, isNotNull);
+      expect(traversal!.resourceId, isNull);
+
+      // Every whitelisted tool in ToolsOverlayV2 maps to a valid 1-tap deep link
+      for (final toolId in WidgetActionDeepLink.allowedToolIds) {
+        final spec = HomeWidgetBridge.shortcutSpecForToolId(toolId);
+        expect(spec, isNotNull, reason: 'Missing shortcut spec for $toolId');
+        final parsed = WidgetActionDeepLink.parse(spec!.deepLink);
+        expect(
+          parsed,
+          isNotNull,
+          reason: 'Tool $toolId produced unparseable deep link ${spec.deepLink}',
+        );
+      }
+
+      // Unknown / injected tool IDs must be rejected
+      expect(
+        WidgetActionDeepLink.parse('in4up://action/tool?id=arbitrary_exec'),
+        isNull,
+      );
+      expect(HomeWidgetBridge.shortcutSpecForToolId('arbitrary_exec'), isNull);
+    });
+
+    test('P4: iOS WidgetKit extension target, pbxproj UUID graph, App Group entitlements & Swift contracts are valid', () {
+      final pbx = File('ios/Runner.xcodeproj/project.pbxproj').readAsStringSync();
+      expect(pbx, contains('In4UpWidgetsExtension.appex'));
+      expect(pbx, contains('PRODUCT_BUNDLE_IDENTIFIER = com.in4up.In4UpWidgets;'));
+      expect(pbx, contains('dstSubfolderSpec = 13;'));
+      expect(pbx, contains('AppIntents.framework in Frameworks'));
+      expect(pbx, contains('ATTRIBUTES = (Weak, );'));
+
+      // Verify zero dangling 24-hex PBX UUID references in project.pbxproj
+      final definedMatches = RegExp(
+        r'^\t\t([0-9A-F]{24})\b(?:\s*/\*.*?\*/)?\s*=\s*\{',
+        multiLine: true,
+      ).allMatches(pbx);
+      final definedIds = definedMatches.map((m) => m.group(1)!).toSet();
+      expect(
+        definedIds.length,
+        definedMatches.length,
+        reason: 'Duplicate 24-hex PBX UUIDs in project.pbxproj',
+      );
+      final referencedIds = RegExp(r'\b([0-9A-F]{24})\b')
+          .allMatches(pbx)
+          .map((m) => m.group(1)!)
+          .toSet();
+      expect(referencedIds.difference(definedIds), isEmpty);
+
+      // Entitlements & WidgetKit Info.plist
+      final runnerEnt = File('ios/Runner/Runner.entitlements').readAsStringSync();
+      final widgetEnt =
+          File('ios/In4UpWidgets/In4UpWidgets.entitlements').readAsStringSync();
+      expect(runnerEnt, contains('group.com.in4up.shared'));
+      expect(widgetEnt, contains('group.com.in4up.shared'));
+
+      final widgetPlist = File('ios/In4UpWidgets/Info.plist').readAsStringSync();
+      expect(widgetPlist, contains('com.apple.widgetkit-extension'));
+      expect(widgetPlist, contains(r'$(FLUTTER_BUILD_NAME)'));
+      expect(widgetPlist, contains(r'$(FLUTTER_BUILD_NUMBER)'));
+
+      // Verify all 8 Swift files of In4UpWidgets exist, preserve 3 separate skills,
+      // guard iOS 16/17 APIs for iOS 15.0 deployment target, and have zero Vietnamese fallback leaks
+      const swiftFiles = <String>[
+        'ios/In4UpWidgets/WidgetModels.swift',
+        'ios/In4UpWidgets/WidgetStore.swift',
+        'ios/In4UpWidgets/WidgetIntents.swift',
+        'ios/In4UpWidgets/QuickBarWidget.swift',
+        'ios/In4UpWidgets/ContinueLearningWidget.swift',
+        'ios/In4UpWidgets/FlashcardSrsWidget.swift',
+        'ios/In4UpWidgets/StreakPulseWidget.swift',
+        'ios/In4UpWidgets/In4UpWidgetsBundle.swift',
+      ];
+      for (final path in swiftFiles) {
+        final file = File(path);
+        expect(file.existsSync(), isTrue, reason: 'Missing $path');
+        final src = file.readAsStringSync();
+        expect(
+          _vietnameseDiacriticRegex.hasMatch(src),
+          isFalse,
+          reason: '$path must keep English fallbacks (Rule #5)',
+        );
+      }
+
+      final flashcardSwift =
+          File('ios/In4UpWidgets/FlashcardSrsWidget.swift').readAsStringSync();
+      expect(flashcardSwift, contains('understandDots'));
+      expect(flashcardSwift, contains('listenDots'));
+      expect(flashcardSwift, contains('readDots'));
+      expect(flashcardSwift, contains('FlipFlashcardIntent'));
+      expect(flashcardSwift, contains('NextFlashcardIntent'));
+      expect(
+        flashcardSwift,
+        contains('#available(iOSApplicationExtension 17.0, *)'),
+      );
     });
   });
 }

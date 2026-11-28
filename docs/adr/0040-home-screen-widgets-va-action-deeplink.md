@@ -1,7 +1,7 @@
 # ADR-0040: Kiến trúc Home Screen Widgets «Snapshot Mirror» & Hợp đồng Điều hướng Hành động `in4up://action|nav`
 
 - **Ngày:** 2026-11-25
-- **Trạng thái:** ĐÃ CHỐT — Đang thi công trên `arena/16761e82-in4up` (`PLAN-050`).
+- **Trạng thái:** ĐÃ HOÀN TẤT (`P0–P4` Android & iOS) trên `arena/16761e82-in4up` (`PLAN-050`).
 - **Liên quan:** `ADR-0001` (chuẩn hoá SM-2 một hàm duy nhất), `ADR-0002` (phân tầng ngôn ngữ & Rule #5), `ADR-0003` (`PdfFileIdentity` & toạ độ đọc), `ADR-0011` (bong bóng dịch màn hình Android), `ADR-0018` (`DictionaryScreen` & kênh `in4up/deeplink`), `ADR-0022` (`DharmaProvider` `episodeKey`).
 
 ## 1. Bối cảnh
@@ -13,9 +13,9 @@ Chủ dự án yêu cầu thiết kế và triển khai hệ thống **Widget & 
 ## 2. Quyết định kiến trúc
 
 ### 2.1. Không khởi tạo Flutter Engine / Hive / SQLite từ Widget (`WidgetSnapshot Mirror`)
-- Native Home Screen Widget (`AppWidgetProvider` trên Android và `WidgetKit` trên iOS ở pha sau) **chỉ đọc đúng 1 chuỗi JSON phẳng có phiên bản (`schemaVersion: 1`, trần kích thước `< 8 KB`)** lưu trong `SharedPreferences` riêng (`in4up_home_widgets_v1`).
+- Native Home Screen Widget (`AppWidgetProvider` trên Android và `WidgetKit` `In4UpWidgetsExtension` trên iOS) **chỉ đọc đúng 1 chuỗi JSON phẳng có phiên bản (`schemaVersion: 1`, trần kích thước `< 8 KB`)** lưu trong `SharedPreferences` riêng (`in4up_home_widgets_v1` trên Android) và `UserDefaults(suiteName: "group.com.in4up.shared")` (trên iOS, có fallback an toàn về `UserDefaults.standard` cho môi trường sideload).
 - Toàn bộ việc tổng hợp dữ liệu thật (`LearningActivityService`, `VocabularyProvider`, `MemoryController`, `LearnByHeartProvider`, `PlayerProvider`, `RecentAudioService`, `TextProvider`, `RecentFilesService`) được thực hiện ở lớp thuần Dart `WidgetSnapshotBuilder` khi ứng dụng đang chạy (debounce `800 ms` + flush khi chuyển sang `AppLifecycleState.inactive`/`paused`).
-- **Lý do:** Tránh tốn RAM/pin ở tiến trình nền Android, tránh xung đột khoá tệp Hive/SQLite đa tiến trình, và sẵn sàng cho giới hạn RAM 30 MB của iOS Widget Extension.
+- **Lý do:** Tránh tốn RAM/pin ở tiến trình nền Android, tránh xung đột khoá tệp Hive/SQLite đa tiến trình, và nằm gọn trong giới hạn RAM 30 MB Jetsam của iOS Widget Extension (`AppIntents` iOS 17+ lật thẻ trực tiếp tại chỗ, kèm Lock Screen `accessoryCircular`/`accessoryRectangular`/`accessoryInline` trên iOS 16+ và guard `#available` tương thích ngược tới `IPHONEOS_DEPLOYMENT_TARGET = 15.0`).
 
 ### 2.2. Zero phụ thuộc ngoài: Cầu nối mỏng `MethodChannel('in4up/home_widget')` + `RemoteViews` XML chuẩn
 - **Không** thêm gói `home_widget` vào `pubspec.yaml` và **không** thêm `androidx.glance` (Jetpack Compose) vào `android/app/build.gradle.kts`.

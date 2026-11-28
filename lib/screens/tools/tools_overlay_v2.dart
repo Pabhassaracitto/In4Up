@@ -11,6 +11,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/responsive/app_responsive.dart';
+import '../../features/home_widgets/services/home_widget_bridge.dart';
 
 class ToolItem {
   final String id;
@@ -313,11 +314,67 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
               child: _ToolCard(
                 tool: tool,
                 onTap: tool.isAvailable ? () => _dismiss(tool.id) : null,
+                onLongPress: tool.isAvailable &&
+                        HomeWidgetBridge.instance.isAndroidHost &&
+                        HomeWidgetBridge.shortcutSpecForToolId(tool.id) != null
+                    ? () => _showPinToolSheet(tool)
+                    : null,
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showPinToolSheet(ToolItem tool) async {
+    HapticFeedback.mediumImpact();
+    final shouldPin = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: const Color(0xFF141D2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: ListTile(
+            leading: Icon(Icons.add_to_home_screen_rounded, color: tool.color),
+            title: const Text(
+              'Đưa ra màn hình chính',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Text(
+              tool.title,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            onTap: () => Navigator.of(sheetCtx).pop(true),
+          ),
+        ),
+      ),
+    );
+    if (shouldPin != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final localizedTitle = context.uiText(tool.title);
+    final okMsg = context.uiText(
+      'Hãy xác nhận hộp thoại để thêm lối tắt 1 chạm ra màn hình chính',
+    );
+    final failMsg = context.uiText(
+      'Trình khởi chạy hiện tại không hỗ trợ ghim lối tắt trực tiếp',
+    );
+    final ok = await HomeWidgetBridge.instance.pinToolShortcut(
+      toolId: tool.id,
+      localizedLabel: localizedTitle,
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(ok ? okMsg : failMsg),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -350,8 +407,9 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
 class _ToolCard extends StatefulWidget {
   final ToolItem tool;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
-  const _ToolCard({required this.tool, this.onTap});
+  const _ToolCard({required this.tool, this.onTap, this.onLongPress});
 
   @override
   State<_ToolCard> createState() => _ToolCardState();
@@ -374,6 +432,12 @@ class _ToolCardState extends State<_ToolCard> {
             }
           : null,
       onTapCancel: isAvailable ? () => setState(() => _pressed = false) : null,
+      onLongPress: isAvailable && widget.onLongPress != null
+          ? () {
+              setState(() => _pressed = false);
+              widget.onLongPress?.call();
+            }
+          : null,
       child: AnimatedScale(
         scale: _pressed ? 0.94 : 1.0,
         duration: const Duration(milliseconds: 100),

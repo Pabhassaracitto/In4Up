@@ -1,6 +1,6 @@
 # PLAN-050 — Hệ sinh thái Widget & Lối tắt Màn hình chính «1–2 Chạm» cho In4Up
 
-> **Trạng thái:** ✅ `implemented (Android P0–P3 + iOS App Shortcuts)` — **Đã thi công và kiểm chứng xanh trên CI (`App Analyze + Locale Test`, `Web Build`, `VieNeu Android arm64 APK Build`)** trên nhánh `arena/16761e82-in4up` (tách từ `74242d4` · `v1.29.2+31`); riêng phần iOS `WidgetKit` SwiftUI Extension (`P4`) để dành cho chặng tiếp theo theo quyết định `Q1`.
+> **Trạng thái:** ✅ `done` — **Đã hoàn tất trọn vẹn cả 5 pha (`P0–P4`: Android `RemoteViews` + Quick Settings Tiles + App Shortcuts + Ghim tài nguyên 1 chạm + iOS `WidgetKit` SwiftUI Extension & Lock Screen)** và kiểm chứng xanh trên CI trên nhánh `arena/16761e82-in4up` (tách từ `74242d4` · `v1.29.2+31`).
 > **Định danh:** `PLAN-050` · **ADR:** [`ADR-0040`](../adr/0040-home-screen-widgets-va-action-deeplink.md).
 > **Ràng buộc bất biến tuân thủ:** 5 Quy tắc vàng trong `AGENTS.md` (không đụng `lib/ffi/` UltraTimeStretch; không gộp 3 kỹ năng SM-2 Hiểu–Nghe–Đọc; bảo toàn mở lại đúng vị trí nguồn PDF/Audio/Dharma; lập ADR trước khi đổi kiến trúc; tuân thủ tuyệt đối Rule #5 i18n chrome).
 

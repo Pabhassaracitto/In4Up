@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 
+import '../../../features/home_widgets/services/home_widget_bridge.dart';
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../features/pdf_reader/services/pdf_open_preflight.dart';
 import '../../../features/pdf_reader/widgets/pdf_open_messages.dart';
@@ -501,6 +502,43 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 _openFile(file);
               },
             ),
+            if (HomeWidgetBridge.instance.isAndroidHost &&
+                file.type != RecentFileType.cloud)
+              ListTile(
+                leading: const Icon(
+                  Icons.add_to_home_screen_rounded,
+                  color: Color(0xFF00E676),
+                ),
+                title: const Text(
+                  'Đưa ra màn hình chính',
+                  style: TextStyle(color: Colors.white),
+                ),
+                subtitle: const Text(
+                  'Mở nhanh đúng tài liệu này chỉ với 1 chạm',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+                onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final okMsg = context.uiText(
+                    'Hãy xác nhận hộp thoại để thêm lối tắt 1 chạm ra màn hình chính',
+                  );
+                  final failMsg = context.uiText(
+                    'Trình khởi chạy hiện tại không hỗ trợ ghim lối tắt trực tiếp',
+                  );
+                  Navigator.pop(context);
+                  final ok = await HomeWidgetBridge.instance.pinDocumentShortcut(
+                    resourceId: file.id,
+                    title: file.title,
+                  );
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(ok ? okMsg : failMsg),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
             ListTile(
               leading: const Icon(
                 Icons.delete_outline,

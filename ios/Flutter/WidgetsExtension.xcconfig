@@ -1,0 +1,6 @@
+// PLAN-050 P4 · ADR-0040 — Cấu hình phiên bản cho In4UpWidgetsExtension.
+// Giữ CFBundleShortVersionString & CFBundleVersion khớp 1:1 với Runner.app
+// mà không kéo Pods-Runner xcconfig vào tiến trình WidgetKit (< 30 MB Jetsam).
+FLUTTER_BUILD_NAME = 1.29.2
+FLUTTER_BUILD_NUMBER = 31
+#include? "Generated.xcconfig"

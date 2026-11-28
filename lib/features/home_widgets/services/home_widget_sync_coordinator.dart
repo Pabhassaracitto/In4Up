@@ -118,7 +118,7 @@ class HomeWidgetSyncCoordinator with WidgetsBindingObserver {
   }
 
   void scheduleSync() {
-    if (_disposed || !HomeWidgetBridge.instance.isAndroidHost) return;
+    if (_disposed || !HomeWidgetBridge.instance.isNativeWidgetHost) return;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(debounceDuration, () {
       unawaited(syncNow(force: false));
@@ -129,7 +129,7 @@ class HomeWidgetSyncCoordinator with WidgetsBindingObserver {
     bool force = false,
     bool refreshRecents = false,
   }) async {
-    if (_disposed || !HomeWidgetBridge.instance.isAndroidHost) return;
+    if (_disposed || !HomeWidgetBridge.instance.isNativeWidgetHost) return;
     final ctx = _context;
     if (ctx == null || !ctx.mounted) return;
 

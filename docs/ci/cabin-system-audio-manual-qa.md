@@ -3,7 +3,7 @@
 CI chỉ kiểm Dart/analyze, Kotlin compile giả lập embedding và Windows DLL
 ABI. Không chứng minh luồng âm thanh, model, overlay hay quyền hoạt động trên
 máy thật. Chạy trên APK và bundle Windows do nhóm build, không dùng test CI
-thay cho nghiệm thu. Cần review mã, xem ADR-0036.
+thay cho nghiệm thu. Cần review mã, xem ADR-0039.
 
 ## Chuẩn bị
 

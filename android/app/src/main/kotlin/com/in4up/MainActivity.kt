@@ -304,7 +304,7 @@ class MainActivity : FlutterActivity() {
         if (incoming?.action != Intent.ACTION_PROCESS_TEXT || incoming.type != "text/plain") return null
         val text = try { incoming.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() }
             catch (_: RuntimeException) { null } ?: return null
-        return text.takeIf { it.isNotBlank() && it.length <= 100000 }
+        return text.takeIf { it.isNotBlank() && it.length <= 32768 }
     }
 
     private fun consumeInitialDeepLink(): String? {

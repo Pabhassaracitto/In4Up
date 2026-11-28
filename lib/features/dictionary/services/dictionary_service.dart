@@ -71,7 +71,31 @@ class DictionaryService {
   /// Signals that previously loaded resource bytes should be discarded.
   ValueListenable<int> get resourceRevision => _resourceRevision;
   void _invalidateResources() => _resourceRevision.value++;
-  bool _initialized = false;
+  Future<void>? _initialization;
+  Future<void> _mutationTail = Future<void>.value();
+
+  // Serializes in-process writers (including manifest updates and index
+  // promotion). Lookups remain independent and can report transient errors.
+  Future<T> _mutate<T>(Future<T> Function() operation) async {
+    final previous = _mutationTail;
+    final released = Completer<void>();
+    _mutationTail = released.future;
+    await previous;
+    try {
+      await ensureInitialized();
+      final hook = mutationStartedForTest;
+      if (hook != null) await hook();
+      return await operation();
+    } finally {
+      released.complete();
+    }
+  }
+
+  @visibleForTesting
+  static Future<void> Function()? mutationStartedForTest;
+
+  @visibleForTesting
+  static Future<void> Function()? initializationStartedForTest;
 
   /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
   /// production luôn dùng path_provider.

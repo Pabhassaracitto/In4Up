@@ -978,7 +978,7 @@ class _MessageBubble extends StatelessWidget {
                     tooltip: context.uiText('Sao chép'),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                     iconSize: 16,
                     icon: const Icon(Icons.copy_rounded,
                         size: 16, color: Colors.white54),

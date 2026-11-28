@@ -290,7 +290,7 @@ class _VoicePickerSheetState extends State<_VoicePickerSheet> {
                 ),
                 child: Text(
                   '${group.count}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ),
               if (hasSelection) ...[
@@ -300,7 +300,7 @@ class _VoicePickerSheetState extends State<_VoicePickerSheet> {
               const Spacer(),
               Text(
                 group.shortLabel,
-                style: const TextStyle(color: Colors.white24, fontSize: 10),
+                style: const TextStyle(color: Colors.white24, fontSize: 11),
               ),
             ],
           ),
@@ -332,7 +332,7 @@ class _VoicePickerSheetState extends State<_VoicePickerSheet> {
                 if (voice.gender.isNotEmpty) voice.gender,
                 if (voice.isNeural) 'neural',
               ].join(' · '),
-              style: const TextStyle(color: Colors.white30, fontSize: 10),
+              style: const TextStyle(color: Colors.white30, fontSize: 11),
             ),
             trailing: voice.id == selected
                 ? const Icon(Icons.check_circle,

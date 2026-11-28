@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U แถบคำสั่งด่วน</string>
+    <string name="widget_quick_bar_desc">แตะครั้งเดียวค้นหาพจนานุกรมพร้อม 3 เครื่องมือด่วน</string>
+    <string name="widget_continue_name">I4U เรียนต่อทันที</string>
+    <string name="widget_continue_desc">เปิด PDF ข้อความ หรือเสียงที่ค้างไว้ต่อในแตะเดียว</string>
+    <string name="widget_flashcard_name">I4U บัตรคำและสวนความจำ</string>
+    <string name="widget_flashcard_desc">พลิกดูความหมายและเลื่อนคำศัพท์ที่ครบกำหนดบนหน้าจอหลัก</string>
+    <string name="widget_streak_name">I4U สตรีคและจังหวะการเรียน</string>
+    <string name="widget_streak_desc">ติดตามจำนวนวันต่อเนื่องและกิจกรรม 7 วันล่าสุด</string>
+
+    <string name="shortcut_dict_short">พจนานุกรม</string>
+    <string name="shortcut_dict_long">ค้นหาพจนานุกรม In4Up</string>
+    <string name="shortcut_voice_short">บันทึกเสียง</string>
+    <string name="shortcut_voice_long">จดบันทึกด้วยเสียงด่วน</string>
+    <string name="shortcut_ocr_short">สแกน OCR</string>
+    <string name="shortcut_ocr_long">ถ่ายและสแกนเอกสาร OCR</string>
+    <string name="shortcut_review_short">ทบทวนคำ</string>
+    <string name="shortcut_review_long">ทบทวนบัตรคำศัพท์ที่ครบกำหนด</string>
+
+    <string name="tile_screen_translate_label">I4U แปลหน้าจอ</string>
+    <string name="tile_voice_capture_label">I4U บันทึกเสียง</string>
+
+    <string name="widget_default_search_hint">ค้นหาพจนานุกรม In4Up...</string>
+    <string name="widget_default_continue_header">เรียนต่อทันที</string>
+    <string name="widget_default_continue_empty">ยังไม่มีรายการค้างไว้ — แตะ อ่าน หรือ ฟัง เพื่อเริ่มต้น</string>
+    <string name="widget_default_read">อ่าน</string>
+    <string name="widget_default_listen">ฟัง</string>
+    <string name="widget_default_garden_header">สวนความจำ</string>
+    <string name="widget_default_srs_empty">เปิด In4Up เพื่อซิงก์คลังบัตรคำศัพท์</string>
+    <string name="widget_default_flip_show">แสดงความหมาย</string>
+    <string name="widget_default_flip_hide">ซ่อนความหมาย</string>
+    <string name="widget_default_next_card">คำถัดไป</string>
+    <string name="widget_default_review_now">ทบทวนเลย</string>
+    <string name="widget_default_streak_header">จังหวะการเรียน</string>
+    <string name="widget_default_streak_headline">ต่อเนื่อง 0 วัน</string>
+    <string name="widget_default_streak_today">เปิด In4Up เพื่อเริ่มเรียนวันนี้</string>
+    <string name="widget_default_understand">เข้าใจ</string>
+    <string name="widget_default_start_learning">เริ่มเรียน</string>
+</resources>

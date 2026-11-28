@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_bar_name">I4U 快捷指令列</string>
+    <string name="widget_quick_bar_desc">一鍵查詞典與 3 個自訂快捷工具</string>
+    <string name="widget_continue_name">I4U 繼續學習</string>
+    <string name="widget_continue_desc">一鍵回到上次閱讀的 PDF、文本或正在收聽的音訊</string>
+    <string name="widget_flashcard_name">I4U 單字卡與記憶花園</string>
+    <string name="widget_flashcard_desc">直接在主畫面翻轉釋義並瀏覽到期 SRS 單字</string>
+    <string name="widget_streak_name">I4U 連續天數與學習節奏</string>
+    <string name="widget_streak_desc">追蹤每日學習連續天數與近 7 天活躍度</string>
+
+    <string name="shortcut_dict_short">查詞典</string>
+    <string name="shortcut_dict_long">搜尋 In4Up 詞典</string>
+    <string name="shortcut_voice_short">語音速記</string>
+    <string name="shortcut_voice_long">快速語音筆記</string>
+    <string name="shortcut_ocr_short">OCR 掃描</string>
+    <string name="shortcut_ocr_long">拍照掃描書頁文字</string>
+    <string name="shortcut_review_short">立即複習</string>
+    <string name="shortcut_review_long">複習到期單字卡片</string>
+
+    <string name="tile_screen_translate_label">I4U 螢幕翻譯</string>
+    <string name="tile_voice_capture_label">I4U 語音速記</string>
+
+    <string name="widget_default_search_hint">搜尋 In4Up 詞典...</string>
+    <string name="widget_default_continue_header">繼續學習</string>
+    <string name="widget_default_continue_empty">尚無進行中內容 — 點擊閱讀或收聽開始學習</string>
+    <string name="widget_default_read">閱讀</string>
+    <string name="widget_default_listen">收聽</string>
+    <string name="widget_default_garden_header">記憶花園</string>
+    <string name="widget_default_srs_empty">開啟 In4Up 以同步詞彙卡片</string>
+    <string name="widget_default_flip_show">顯示釋義</string>
+    <string name="widget_default_flip_hide">隱藏釋義</string>
+    <string name="widget_default_next_card">下一個</string>
+    <string name="widget_default_review_now">立即複習</string>
+    <string name="widget_default_streak_header">學習節奏</string>
+    <string name="widget_default_streak_headline">連續 0 天</string>
+    <string name="widget_default_streak_today">開啟 In4Up 開始今天的學習</string>
+    <string name="widget_default_understand">理解</string>
+    <string name="widget_default_start_learning">開始學習</string>
+</resources>

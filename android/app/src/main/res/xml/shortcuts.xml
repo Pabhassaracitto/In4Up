@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_search"
+        android:shortcutId="static_dict_search"
+        android:shortcutLongLabel="@string/shortcut_dict_long"
+        android:shortcutShortLabel="@string/shortcut_dict_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="in4up://action/dict_search?autofocus=1&amp;src=app_shortcut" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_mic"
+        android:shortcutId="static_voice_capture"
+        android:shortcutLongLabel="@string/shortcut_voice_long"
+        android:shortcutShortLabel="@string/shortcut_voice_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="in4up://action/voice_capture?autostart=1&amp;src=app_shortcut" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_ocr"
+        android:shortcutId="static_ocr_scan"
+        android:shortcutLongLabel="@string/shortcut_ocr_long"
+        android:shortcutShortLabel="@string/shortcut_ocr_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="in4up://action/ocr_scan?src=app_shortcut" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_leaf"
+        android:shortcutId="static_review_due"
+        android:shortcutLongLabel="@string/shortcut_review_long"
+        android:shortcutShortLabel="@string/shortcut_review_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="in4up://action/review_due?mode=srs&amp;src=app_shortcut" />
+    </shortcut>
+</shortcuts>

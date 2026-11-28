@@ -24,6 +24,7 @@ import android.system.OsConstants
 import android.util.Log
 import com.in4up.cabin.CabinSystemAudioPlugin
 import com.in4up.screentranslate.ScreenTranslatePlugin
+import com.in4up.widgets.HomeWidgetPlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -130,6 +131,7 @@ class MainActivity : FlutterActivity() {
     // có activity trong suốt riêng — xem ScreenCaptureRequestActivity).
     private var screenTranslatePlugin: ScreenTranslatePlugin? = null
     private var cabinSystemAudioPlugin: CabinSystemAudioPlugin? = null
+    private var homeWidgetPlugin: HomeWidgetPlugin? = null
 
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
@@ -234,6 +236,8 @@ class MainActivity : FlutterActivity() {
         }
         val link = intent.dataString
         if (link.isNullOrEmpty()) return
+        // Xóa intent đã nhận để xoay màn hình không chạy lại hành động cũ.
+        setIntent(Intent(Intent.ACTION_MAIN))
         val channel = deepLinkChannel
         if (channel == null || !deepLinkListenerReady) {
             // Engine chưa sẵn (rất hiếm) ⇒ để Dart lấy qua getInitialLink.
@@ -315,11 +319,13 @@ class MainActivity : FlutterActivity() {
         val scheme = data.scheme?.lowercase()
         val host = data.host?.lowercase()
         val isAppLink = (scheme == "in4up" || scheme == "i4u") &&
-            (host == "dict" || host == "open")
+            (host == "dict" || host == "open" || host == "action" || host == "nav")
         val isWebLink = (scheme == "https" || scheme == "http") &&
             (host == "in4up.app" || host == "www.in4up.app")
         if (!isAppLink && !isWebLink) return null
-        return data.toString()
+        val consumed = data.toString()
+        setIntent(Intent(Intent.ACTION_MAIN))
+        return consumed
     }
 
     /**
@@ -438,6 +444,10 @@ class MainActivity : FlutterActivity() {
         CabinSystemAudioPlugin(this).also {
             it.attach(flutterEngine.dartExecutor.binaryMessenger)
             cabinSystemAudioPlugin = it
+        }
+        HomeWidgetPlugin(this).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+            homeWidgetPlugin = it
         }
         ocrChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OCR_CHANNEL_NAME)
         ocrChannel?.setMethodCallHandler { call, result ->
@@ -1576,6 +1586,8 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         cabinSystemAudioPlugin?.detach()
         cabinSystemAudioPlugin = null
+        homeWidgetPlugin?.detach()
+        homeWidgetPlugin = null
         screenTranslatePlugin?.detach()
         screenTranslatePlugin = null
         openDictionaryDocuments.keys.toList().forEach(::closeDictionaryDocument)

@@ -124,5 +124,40 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.in4up.shortcut.dict_search</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Search Dictionary</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>magnifyingglass</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.in4up.shortcut.voice_capture</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Voice Note</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>mic.fill</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.in4up.shortcut.ocr_scan</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Scan OCR</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>doc.viewfinder</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.in4up.shortcut.review_due</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Review SRS</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>leaf.fill</string>
+		</dict>
+	</array>
 </dict>
 </plist>

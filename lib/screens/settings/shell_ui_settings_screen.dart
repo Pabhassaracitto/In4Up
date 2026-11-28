@@ -1,5 +1,6 @@
 import 'package:in4up/core/language/localized_material.dart';
 
+import '../../features/home_widgets/screens/home_widgets_settings_screen.dart';
 import '../../features/youtube/services/yt_dlp_sidecar.dart';
 import '../../models/read_chrome_layout.dart';
 import '../../models/read_content_source.dart';
@@ -119,6 +120,52 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+            color: const Color(0xFF141829),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.45),
+              ),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 6,
+              ),
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.widgets_rounded,
+                  color: Color(0xFF6C63FF),
+                ),
+              ),
+              title: const Text(
+                'Widget & Lối tắt màn hình chính',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: const Text(
+                'Tùy chỉnh Thanh Lệnh Nhanh và ghim 1 chạm ra màn hình chính',
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white54,
+              ),
+              onTap: () {
+                Navigator.of(context).push(HomeWidgetsSettingsScreen.route());
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
           _SectionCard(
             title: 'Ưu tiên cho người dùng nâng cao',
             subtitle:

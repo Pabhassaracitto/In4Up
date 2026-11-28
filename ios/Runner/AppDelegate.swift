@@ -80,8 +80,44 @@ import UIKit
       } else {
         pendingDeepLink = url.absoluteString
       }
+    } else if let shortcutItem = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem,
+              let shortcutLink = deepLinkForShortcutType(shortcutItem.type) {
+      pendingDeepLink = shortcutLink
     }
     return launched
+  }
+
+  /// PLAN-050 · ADR-0040: nhận Home Screen Quick Action (nhấn giữ biểu tượng iOS).
+  override func application(
+    _ application: UIApplication,
+    performActionFor shortcutItem: UIApplicationShortcutItem,
+    completionHandler: @escaping (Bool) -> Void
+  ) {
+    guard let link = deepLinkForShortcutType(shortcutItem.type) else {
+      completionHandler(false)
+      return
+    }
+    if let channel = deepLinkChannel {
+      channel.invokeMethod("onLink", arguments: link)
+    } else {
+      pendingDeepLink = link
+    }
+    completionHandler(true)
+  }
+
+  private func deepLinkForShortcutType(_ type: String) -> String? {
+    switch type {
+    case "com.in4up.shortcut.dict_search":
+      return "in4up://action/dict_search?autofocus=1&src=ios_shortcut"
+    case "com.in4up.shortcut.voice_capture":
+      return "in4up://action/voice_capture?autostart=1&src=ios_shortcut"
+    case "com.in4up.shortcut.ocr_scan":
+      return "in4up://action/ocr_scan?src=ios_shortcut"
+    case "com.in4up.shortcut.review_due":
+      return "in4up://action/review_due?mode=srs&src=ios_shortcut"
+    default:
+      return nil
+    }
   }
 
   /// App ĐANG CHẠY và người dùng bấm link (scheme `in4up`) hoặc chọn "Mở bằng In4Up"

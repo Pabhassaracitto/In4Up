@@ -53,6 +53,7 @@ class MddWorkerPool {
   void _drain() {
     while (_active < maxConcurrent && _queue.isNotEmpty) {
       final task = _queue.removeFirst();
+      if (task._finishing) continue;
       _active++;
       task._active = true;
       task._launchFuture = task._launch();
@@ -185,7 +186,10 @@ class MddReadTask {
   Future<void> _finish({List<Uint8List?>? data, Object? error, bool kill = false}) async {
     if (_finishing) return;
     _finishing = true;
-    if (kill) _isolate?.kill(priority: Isolate.immediate);
+    // Remove a cancelled waiter synchronously so _drain cannot start it
+    // while its asynchronous cleanup is still pending.
+    if (!_active) _pool._queue.remove(this);
+    if (kill || error != null) _isolate?.kill(priority: Isolate.immediate);
     // An in-flight open must finish before cleanup so a late SAF handle cannot
     // escape. Do not kill the owning isolate while native I/O is outstanding.
     await _launchFuture;

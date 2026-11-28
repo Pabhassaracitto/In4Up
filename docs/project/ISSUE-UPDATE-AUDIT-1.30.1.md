@@ -166,7 +166,7 @@ nhau** (đây chính là lỗi cũ), NaN/Infinity không vỡ UI.
 ```bash
 for n in 212 213 214 215 216 217 218 219; do
   gh issue close "$n" --reason completed \
-    --comment "Đã xong trong PR #220 — merge fast-forward vào arena/59b6e40a-in4up (tip 671bf1ae), CI 11/11 🟢 trên 4f474837 — chi tiết trong docs/project/ISSUE-UPDATE-AUDIT-1.30.1.md và card AUDIT-1.30.1 trong docs/project/KANBAN.md."
+    --comment "Đã xong trong PR #220 — merge vào arena/59b6e40a-in4up (tip 671bf1ae, cây = 4f474837), CI 11/11 🟢 — chi tiết trong docs/project/ISSUE-UPDATE-AUDIT-1.30.1.md và card AUDIT-1.30.1 trong docs/project/KANBAN.md."
 done
 ```
 

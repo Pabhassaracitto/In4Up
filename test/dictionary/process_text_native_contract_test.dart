@@ -5,7 +5,7 @@ void main() {
   final native = File('android/app/src/main/kotlin/com/in4up/MainActivity.kt').readAsStringSync();
   final manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
   test('one Android PROCESS_TEXT route handles both cold and warm starts', () {
-    expect('android.intent.action.PROCESS_TEXT'.allMatches(manifest).length, 1);
+    expect(RegExp('android\\.intent\\.action\\.PROCESS_TEXT').allMatches(manifest).length, 1);
     expect(native, contains('getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)'));
     expect(native, contains('it.length <= 32768'));
     expect(native, contains('processChannel == null || !processTextListenerReady'));

@@ -547,7 +547,7 @@ class _WordSheetState extends State<_WordSheet> {
                                 Text(
                                   d.label,
                                   style:
-                                      TextStyle(color: d.color, fontSize: 9),
+                                      TextStyle(color: d.color, fontSize: 11),
                                 ),
                               ],
                             ),
@@ -669,7 +669,7 @@ class _OriginChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: _color,
-              fontSize: 9.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1130,7 +1130,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
               child: const Text('+ Thêm ngữ cảnh',
                   style: TextStyle(
                       color: Color(0xFFFFB300),
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600)),
             ),
           ),

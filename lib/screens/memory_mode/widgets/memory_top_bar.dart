@@ -4,8 +4,8 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../widgets/sync_status_badge.dart';
-import '../../tools/word_list/word_list_screen.dart';
 import '../controllers/memory_controller.dart';
+import '../models/review_session.dart';
 
 class MemoryTopBar extends StatelessWidget {
   const MemoryTopBar({super.key});
@@ -16,73 +16,68 @@ class MemoryTopBar extends StatelessWidget {
     final stats = controller.stats;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
           bottom: BorderSide(
-            color: Color(0xFF4CAF50).withValues(alpha: 0.1),
+            color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
           ),
         ),
       ),
       child: Row(
         children: [
-          const Text(
-            '🌱 Vườn Nhớ',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (stats.dueToday > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Color(0xFFFF5252).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                context.uiText('${stats.dueToday} cần ôn'),
-                style: const TextStyle(
-                  color: Color(0xFFFF5252),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          const SizedBox(width: 8),
-          const SyncStatusBadge(),
-          const Spacer(),
           _ViewToggle(
             current: controller.viewMode,
             onChanged: controller.setViewMode,
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const WordListScreen(),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFF42A5F5).withValues(alpha: 0.3),
-                ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _ReviewChip(
+                    icon: Icons.water_drop,
+                    label: 'SRS',
+                    color: const Color(0xFF4CAF50),
+                    count: stats.dueToday,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      controller.startReview(mode: ReviewMode.spaced);
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _ReviewChip(
+                    icon: Icons.local_fire_department,
+                    label: 'Nhồi',
+                    color: const Color(0xFFFF9800),
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      controller.startReview(
+                        mode: ReviewMode.cram,
+                        maxCards: 20,
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _ReviewChip(
+                    icon: Icons.warning_amber,
+                    label: 'Khó',
+                    color: const Color(0xFFF44336),
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      controller.startReview(mode: ReviewMode.difficult);
+                    },
+                  ),
+                ],
               ),
-              child: const Icon(Icons.format_list_bulleted, size: 18, color: Color(0xFF42A5F5)),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          const SyncStatusBadge(),
+          const SizedBox(width: 6),
           GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
@@ -105,12 +100,14 @@ class MemoryTopBar extends StatelessWidget {
   void _showSortMenu(BuildContext context, MemoryController controller) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
+      builder: (_) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -150,6 +147,7 @@ class MemoryTopBar extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -247,6 +245,70 @@ class _ToggleBtn extends StatelessWidget {
           icon,
           size: 16,
           color: isSelected ? const Color(0xFF4CAF50) : Colors.grey,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final int? count;
+  final VoidCallback onTap;
+
+  const _ReviewChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.28)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (count != null && count! > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  context.uiText('$count'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

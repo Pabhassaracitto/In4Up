@@ -17,7 +17,10 @@ class MemoryStatsSheet extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => MemoryStatsSheet(stats: stats),
+      builder: (_) => SafeArea(
+        top: false,
+        child: MemoryStatsSheet(stats: stats),
+      ),
     );
   }
 
@@ -355,7 +358,7 @@ class _CompletionCircle extends StatelessWidget {
                     ),
                     Text(
                       context.uiText('$reviewedToday/$dueToday'),
-                      style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
                     ),
                   ],
                 ),

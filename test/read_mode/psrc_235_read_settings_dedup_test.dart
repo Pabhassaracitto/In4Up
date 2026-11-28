@@ -163,11 +163,23 @@ void main() {
       }
     });
 
-    test('panel dock = «Tùy biến» ở cả 3 lối vào', () {
-      expect(dock.contains("ReadDockPanel.display: 'Tùy biến',"), isTrue);
+    // AUDIT v1.30.1 (mục 6) — popup 2 mục «Tùy biến / Cài đặt» cạnh ⚡ đã bị
+    // BỎ: góc trên phải chỉ còn MỘT icon ⚙ mở thẳng bảng cài đặt, và «Bố cục
+    // đọc» ra thành chip thường trực. Vì vậy shell KHÔNG còn chứa nhãn «Tùy
+    // biến» — pin cũ được thay bằng pin mới dưới đây.
+    test('panel dock vẫn là «Tùy biến» (một nguồn, một tên)', () {
+      expect(dock.contains("ReadDockPanel.display: 'Tùy biến',"), isTrue,
+          reason: 'nhãn tab dock (định nghĩa trong read_bottom_dock.dart)');
       expect(dock.contains("tooltip: context.uiText('Tùy biến'),"), isTrue);
-      expect(shell.contains("tooltip: context.uiText('Tùy biến'),"), isTrue);
-      expect(shell.contains("Text(menuContext.uiText('Tùy biến'))"), isTrue);
+    });
+
+    test('AUDIT v1.30.1 #6 — shell mở THẲNG cài đặt, không còn menu 2 mục', () {
+      expect(shell.contains('PopupMenuButton'), isFalse,
+          reason: 'góc trên phải không còn popup 2 lựa chọn');
+      expect(shell.contains("tooltip: context.uiText('Cài đặt'),"), isTrue);
+      expect(shell.contains('ReadSettingsSheet.show(context)'), isTrue);
+      // Không còn mục «Tùy biến» thứ hai trong shell.
+      expect(shell.contains("menuContext.uiText('Tùy biến')"), isFalse);
     });
 
     test('sheet nhanh = «Bố cục đọc» ở tiêu đề và mọi nút mở nó', () {
@@ -175,9 +187,16 @@ void main() {
           reason: 'Tiêu đề sheet');
       expect(topBar.contains("label: context.uiText('Bố cục đọc'),"), isTrue,
           reason: 'Nút trong ReadTopBar (bố cục «Công cụ ở trên»)');
+      // AUDIT v1.30.1 (mục 6): chip «Bố cục đọc» đã RA KHỎI panel Tùy biến và
+      // thành cụm chip thường trực trong vùng đọc.
       expect(dock.contains("label: Text(context.uiText('Bố cục đọc')),"),
           isTrue,
-          reason: 'Chip trong panel Tùy biến của dock');
+          reason: 'Chip «Bố cục đọc» thường trực (ngoài panel)');
+      // Pin theo từng DÒNG (code format xuống dòng sau `=>`), không pin cả
+      // câu — nếu không test đỏ vì xuống dòng, không phải vì hành vi.
+      expect(dock.contains('showReadDisplaySheet(context, controller: controller)'),
+          isTrue,
+          reason: 'Chip mở sheet bố cục đọc');
     });
 
     test('mục còn lại trong Cài đặt = «Dòng văn bản»', () {

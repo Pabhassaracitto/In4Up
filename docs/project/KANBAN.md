@@ -32,6 +32,16 @@
 | README-REFRESH-001 | README.md **và README.vi.md** khảo sát lại theo nội dung **thực tế** (cả 2 bản đóng băng từ 2026-09-28) | ✅ done (số liệu đo lại + mục tái lập cho cả 2 ngôn ngữ; không đổi code/version) | badge `1.4.1+3` → `1.25.0+25`; 88→**215** card · ADR 8→**38** · PLAN 32→**48** · 600→**750** file/**332.640** dòng · test 81→**278** · 492→**555** key; bỏ blocker Windows/Linux đã hết; thêm khối media/Edge-TTS/SAFE-INSET + Knowledge 6 trục + VieNeu; commit `3df31e92`, `4dce38b3`, `b63e6f0c`, **`b20cbd25`** (bản VI) |
 | REL-1.27.0 | Release **1.27.0** (đủ 4 nền tảng) từ tip 251e — 31 commit sau 1.26.0 (0 merge) | ✅ done (build 🟢 run 42893022019, 4/4 job; chờ nghiệm thu máy) | bump `1.26.0+26 → 1.27.0+27` (`9358a6a5`); Android build đỏ lần 1 do sai tên constant → sửa `6fa1ddf2` → tag lại; APK arm64 199.1 MB `d8643b67…`, IPA 93.8 MB, Linux 50.5 MB, Windows 53.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.27.0 |
 | REL-1.29.1 | Release **1.29.1** (đủ 4 nền tảng) từ tip 251e — 43 commit sau tag 1.29.0 (0 merge) | ✅ done (build 🟢 run 44640183109, 4/4 job; chờ nghiệm thu máy) | bump `1.29.0+29 → 1.29.1+30` (`c4853244`); tag **`1.29.1`** (KHÔNG có `v` — xem lý do trong card); APK 204.6 MB `d6b69211…`, IPA 95.0 MB, Linux 51.5 MB, Windows 54.2 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.29.1 |
+| PSRC-275 | Lặp AB: **lặp câu tiếp** theo mốc câu trong transcript (audit 1.30.1, tiếp nhận từ 251e) | ✅ done (CI **5/5 🟢**; chờ nghiệm thu máy) | cherry-pick từ 251e: `8a79e572` → `b827442c`, `240132f8` → `5e944b80`; auto-merge `lib/widgets/ab_loop_controls.dart`, **0 merge**; nội dung: bước lặp tiến theo mốc câu của transcript thay vì cộng cứng thời lượng |
+| AUDIT-1.30.1-READ-01 | Audit v1.30.1 #1 — tab Đọc/PDF Reader: cài đặt **chỉ có giọng English + Tiếng Việt** | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `lib/features/pdf_reader/services/pdf_tts_language.dart` (normalize + 26 ngôn ngữ theo catalog + bảng chọn có tìm kiếm) · `_TtsLanguageSelector` viết lại · khôi phục prefs không còn nuốt mã lạ · `test/pdf_reader/pdf_tts_language_test.dart` |
+| AUDIT-1.30.1-READ-02 | Audit v1.30.1 #2 — tab Đọc/PDF Reader: **nút dịch chưa chọn được ngôn ngữ đích** | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `_TranslatePageButton` = cụm [cờ + mã] [mũi tên] → `showTranslationLanguagePicker` → lưu bền `saveTranslationTargetLanguage` → `retranslateCurrentPage()` |
+| AUDIT-1.30.1-READ-03 | Audit v1.30.1 #3 — đổi giọng đọc phải chuyển **liền** (không chờ hết câu) | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `setTtsLanguage` restart phiên từ đúng câu đang đọc, debounce 100 ms cùng nhịp thanh tốc độ; không restart khi đang Pause |
+| AUDIT-1.30.1-READ-04 | Audit v1.30.1 #4 — Text Studio: **thanh kéo giãn dòng** trên/dưới, real-time | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `TextProvider.readerLineHeight` (1.2–2.6, lưu `reader_line_height`, mặc định 1.6 = bản cũ) → `TextLineWidget` → `ColoredTextWidget` → `_ColoredWord`; `_LineHeightControl` trong Cài đặt đọc; `test/read_mode/line_height_test.dart` |
+| AUDIT-1.30.1-READ-05 | Audit v1.30.1 #5 — danh sách giọng Microsoft Edge chiếm nhiều chỗ ⇒ **thu gọn/bung** | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `voice_catalog_grouping.dart` (gom theo ngôn ngữ, mở sẵn nhóm đang dùng) + `voice_picker_sheet.dart` (tìm kiếm, nhóm thu gọn/bung, dấu chọn) thay `SimpleDialog` 35 giọng/17 ngôn ngữ; `test/tts/voice_catalog_grouping_test.dart` |
+| AUDIT-1.30.1-READ-06 | Audit v1.30.1 #6 — góc trên phải **2 lựa chọn** ⇒ mở thẳng cài đặt; bỏ cài đặt trong «Tùy biến»; đưa bố cục đọc ra ngoài | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `main_shell` thay popup 2 mục bằng 1 icon ⚙ mở `ReadSettingsSheet` · `_DisplayPanel` bỏ 2 chip trùng · `_ReadLayoutQuickChips` (Đọc song ngữ / Luyện nghe / Một dòng / Bố cục đọc) thường trực; cập nhật `psrc_235_*` + `read_ui_121_*` |
+| AUDIT-1.30.1-AB-07 | Audit v1.30.1 #7 — lặp AB: ô «khoảng lặng» **chữ không đổi theo giá trị** | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | gốc: chip/badge in `toInt()` trong khi slider bước 0.5 s ⇒ 1.5 s hiện «1s». Nay `formatGapDurationLabel` giữ phần lẻ, badge + chip dùng chung, so sánh preset có dung sai; `test/widgets/loop_gap_label_test.dart` |
+| AUDIT-1.30.1-SRS-08 | Audit v1.30.1 #8 — SRS **chưa có âm thanh từ vựng**: loa tự đọc; chạm tắt tự đọc | ✅ done (CI **5/5 🟢** run `46101020098`/`46101020104`/`46101020067`/`46101020045`; chờ nghiệm thu máy) | `MemoryVocabAudio` (ValueNotifier + prefs `memory_vocab_auto_read`) · loa trên thẻ vườn/danh sách (`_MemoryVocabSpeaker`) · tự đọc khi chạm thẻ và khi lật flashcard |
+| PREVIEW-UI-001 | Preview giao diện trên trình duyệt sau 2 beta 1.30.0/1.30.1 | ✅ done (gallery dựng widget thật; smoke **11/11** màn · 0 lỗi console) | [PREVIEW-UI-001](PREVIEW-UI-001.md) · run `45849632526` · nhánh `preview/arena-395208ef-in4up` (`/`, `/web-lite/`, `/smoke/`) |
 | REL-1.28.0 | Release **1.28.0** (đủ 4 nền tảng) + **deploy web lên GitHub Pages** — 23 commit sau 1.27.0 (0 merge) | ✅ done (build 🟢 run 43209683845 4/4 · web 🟢 run 43209670485, Pages `built` commit `52114878`; chờ nghiệm thu máy) | bump `1.27.0+27 → 1.28.0+28` (`db51dd38`); APK 199.2 MB `de3770df…`, IPA 93.9 MB, Linux 50.6 MB, Windows 53.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.28.0 · web https://pabhassaracitto.github.io/In4Up/ |
 | BETA-1.29.0 | **Beta hub v1.29.0** — 11 lane / 35 issue audit 1.28.0, đã land đủ, chờ nghiệm thu máy | 🔨 doing — **11/11 lane land** trên `0f71657b` (43 commit, 0 merge); còn G3 máy thật → G4 tag | [`BETA-1.29.0.md`](BETA-1.29.0.md) §2.4 (map issue→commit) + [`beta-1.29.0/`](beta-1.29.0/README.md); `pubspec` giữ `1.28.0+28` tới G4 |
 | XLAT-SCR-006 | Bong bóng dịch: khung phải ĐỦ CHỖ cho chữ + không chồng lớp (owner 2026-11-11, có ảnh) | ✅ done (code + 14 test + **CI 42911172140 🟢**; chờ nghiệm thu máy) | đo chữ → nới rộng → nới cao → đẩy khối dưới xuống → thu nhỏ đều (sàn 10sp) → bỏ khối tràn; native sàn 10sp + log `[in4up-xlat-overlay]`; kotlinc compile overlay trong CI |
@@ -253,10 +263,18 @@
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
+| GLIB-001 | Thư Viện Chung — Pack core: model `PackManifest` + builder/parser/validator `.i4upack` (P0) | ✅ done (code + 2 file test thuần + **CI 🟢 run 45074714897**; logic thuần — không cần nghiệm thu máy) | [PLAN-049](../plans/PLAN-049-thu-vien-chung-i4u.md), ADR-0036 D1 — `lib/features/great_library/models/pack_manifest.dart` + `services/pack_file.dart` |
+| GLIB-002 | Thư Viện Chung — `PackStorageBackend` pluggable + DownloadManager (resume, checksum) (P0) | ✅ done (code + 11 test thuần + **CI 🟢 run 45074714897**; file store path_provider nối ở GLIB-004/005) | PLAN-049, ADR-0036 D3 — `pack_storage_backend.dart` + `pack_storage_firebase.dart` + `pack_storage_supabase.dart` (stub) + `pack_download_manager.dart` |
+| GLIB-003 | Thư Viện Chung — Catalog service + Firestore schema/rules `gl_*` + cache offline (P0) | ✅ done (code + 13 test thuần + **CI 🟢 run 45079525127**; còn owner deploy rules theo checklist) | PLAN-049, ADR-0036 D2/D5 — `gl_catalog_service.dart` (TTL cache + offline fallback) + `gl_catalog_transport_firestore.dart` (public read, không cần token) + `docs/great_library_firestore_schema.md` (rules để owner dán) |
+| GLIB-004 | Thư Viện Chung — UI browse · preview · tải + entry Home + i18n 26 locale (P0) | ✅ done (code + 14 test + **CI 🟢 run 45114987418**; 004b: preview theo loại + persist cache — **CI 🟢 run 45226505832**) | PLAN-049 §GLIB-004 — `great_library_screen.dart` + `pack_detail_screen.dart` + `great_library_controller.dart` + wiring io/stub + 19 key gl* ARB ×26 locale (T2 hi/zh/zh_TW/si native) + entry home/remember |
+| GLIB-005 | Thư Viện Chung — `PackImportService`: pack → Vườn nhớ / Tab Nghe / flashcard ảnh (P0) | ✅ done (code + 23 test + **CI 🟢 run 45182347010**) | PLAN-049 — `pack_content.dart` + `pack_import_service.dart` (sinks thuần) + `pack_import_sinks_io.dart` + installed store + chip Có bản mới; merge additive không đụng SM-2 |
+| GLIB-006 | Thư Viện Chung — wizard đóng góp (export-as-pack, TTS bulk, AI gợi ý metadata BYOK) (P1) | ✅ done (code + 8 test service/AI + 1 widget smoke + **CI 🟢 run 45251116597**) | PLAN-049, ADR-0036 D6 — `pack_contribution_service.dart` + `contribution_ai_suggest.dart` + wizard 3 bước + màn Đóng góp của tôi + 30 key ARB ×26 locale |
+| GLIB-007 | Thư Viện Chung — màn admin moderation in-app, gate uid owner (P1) | ✅ done (code + 10 test thuần + **CI 🟢 run 45257255992**) | PLAN-049, ADR-0036 D4 — `admin_gate.dart` (uid ∈ gl_config/admins) + `admin_moderation_service.dart` + `AdminModerationScreen` + entry AppBar gate |
+| GLIB-008 | Thư Viện Chung — seed pipeline P0: ~22 pack EN→VI (NGSL/NAWL + LibriVox/Tatoeba + CC0 + pháp thoại app) | ✅ done (pipeline + 22/22 pack pass validator + 3 test schema + **CI 🟢 run 45231501777**; v1 nội dung tự soạn CC0, audio/ảnh placeholder chờ soạn máy chủ — xem README) | PLAN-049, ideation §9.3 (D2 LOCKED) — `tool/great_library_seed/` + `seed_publish.py` |
+
 | CABIN-SYS-001 | Live Cabin: âm thanh hệ thống Android + Windows, bong bóng toàn hệ thống | 🔨 doing — CI xanh, cần review và nghiệm thu thiết bị | [App CI 45683528981](https://github.com/Pabhassaracitto/In4Up/actions/runs/45683528981); [QA thiết bị](../ci/cabin-system-audio-manual-qa.md) |
 | DICT-PROCESS-001 | ACTION_PROCESS_TEXT: chuỗi chọn ngoài app → tách thông minh (1 từ ⇒ Từ điển · cụm/câu ⇒ Dịch) | 🔨 CI xanh, chờ nghiệm thu máy | `e12820f` + fix `a7a57b1` (hide `ProcessTextAction` trùng Flutter services); [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 |
 | AI-CHAT-P1-001 | AI Chat P1: sao chép câu trả lời + chip gợi ý prompt + xác nhận xoá hội thoại (PLAN-049) | 🔨 CI xanh, chờ nghiệm thu máy | `a3859da` + `a7a57b1`; [run 45532454816](https://github.com/Pabhassaracitto/In4Up/actions/runs/45532454816) 🟢 (step `PLAN-049 P1 tests` success) |
-
 
 ## Card chi tiết
 
@@ -9984,6 +10002,194 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-14 | doing→doing | agent `arena/60e35d65-in4up` | owner build thử `1.29.0-Beta` trên tip `d7255451` (run **43628417444**): **4/4 nền tảng đỏ**. Ba lỗi hạ tầng, một lỗi dependency: (a) **Linux** — `media_kit_video` cần `PkgConfig::mpv`, runner thiếu `libmpv-dev`/`libepoxy-dev` (`d3b7c86`); (b) **Android** — bước build SEA-G2P hard-code NDK 28.2 trong khi runner chỉ có 27.3 và bước cài NDK nằm sau ⇒ `cargo-ndk` chết, nay lấy NDK đang có thật (`d3b7c86`); (c) **Windows 2 Errors + iOS BUILD FAILED + analyze đỏ** cùng một gốc: lock `d7255451` nâng `pdfrx 2.4.8`/`pdfrx_engine 0.4.7` nhưng `pdfium_dart` bị ghim 0.1.2 + `pdfium_flutter` là path dep ⇒ `getPdfium(modulePath:)` không tồn tại; ghim `pdfrx: 2.2.24` + trả lock về `2.2.24`/`0.3.9` (`4db1a40`). Cũng đã làm **đọc được lỗi từ xa**: 3 job build `tee` log rồi phát annotation, script `emit_failure_annotation.py` bắt thêm `Error:`/MSVC/Xcode/`Failed to load` (`d3b7c86`, `2bcac0b`) — log Actions nằm ở blob storage mà sandbox bị chặn egress. `app_analyze` trên `4db1a40` = run **43631309682** 🟢 4/4. **Build 4 nền tảng phải chạy lại** (token sandbox 403 ở `workflow_dispatch` nên owner bấm *Run workflow*). **Đã chạy lại trên tip `86f7e35`: run [**43632940769** 🟢 4/4 job](https://github.com/Pabhassaracitto/In4Up/actions/runs/43632940769) — Android · Windows · iOS · Linux đều xanh, bước `Build SEA-G2P (C ABI) cho arm64-v8a` 🟢 (engine phoneme nằm trong APK); asset của prerelease `1.29.0-Beta` được cập nhật đủ 4 tệp (APK 204 MB · IPA 95 MB · ZIP 54 MB · tar.gz 51 MB). Còn nợ G4: `pubspec` vẫn `1.28.0+28` ⇒ version nội bộ của APK/IPA vẫn là 1.28.0 (28), phải bump `1.29.0+29` rồi build lần cuối.
   - 2026-11-15 | doing→doing | agent `arena/60e35d65-in4up` | owner nghiệm thu bản Beta, báo **PSRC-205 vòng 2** (Linear): `.m4a` 7 phút / `.mp3` 17 phút — lặp "Đang chuẩn bị → chunk 1/1", mỗi lượt một dòng, rất lâu, **thiếu đầu câu**, **Hủy không dừng**. Gốc: (1) VAD ngưỡng lặng 100 ms ⇒ cắt giữa TỪ, mỗi mảnh là một lượt `transcribeFile`; (2) `speechPadMs` 30 ms và đường sherpa không pad ⇒ cụt phụ âm đầu; (3) UI chỉ hủy facade trong khi pipeline tự lặp và mỗi lượt reset cờ hủy. Sửa (`04cfdfc`): hàm thuần `mergeSpeechSegments` (gộp cụm khoảng lặng ≤0,45 s, chia đều ≤14 s — không sinh mẩu đuôi), ngưỡng lặng 100→500 ms, pad 30→300 ms cho cả sherpa, pipeline gộp trước khi transcribe, `progressContext` cho UI ("Đoạn 5/23 · …"), hủy cả `_vadIntegration`. Guard test `test/vad/psrc_205_segment_merger_test.dart` + step CI mới ⇒ run **43698277447** 🟢. **Chưa kiểm máy thật** — cần build lại để owner thử đúng 2 tệp đó.
 
+### GLIB-001 — Thư Viện Chung: Pack core (model + builder/parser/validator `.i4upack`) — P0
+
+- **Trạng thái:** done — CI 🟢 run 45074714897 (analyze + test/great_library); logic thuần, không cần nghiệm thu máy.
+- **Nguồn:** owner (2026-11-15) qua agent arena/a04e4405-in4up — PLAN-049, ADR-0036 D1.
+- **Nội dung:** `lib/features/great_library/models/pack_manifest.dart`
+  (`PackManifest`, `PackType {vocab, audio, image}` append-only, validate schema/
+  license/kích thước) + `services/pack_file.dart` (build/đọc ZIP `.i4upack`,
+  `sha256` toàn gói, trích manifest không giải nén media; ZIP qua `archive`
+  pure-Dart — kiểm tra pubspec trước khi thêm).
+- **Đã làm (2026-11-15):** 2 file lib trên (dùng `archive ^4.0.9` + `crypto`
+  sẵn có trong pubspec — KHÔNG thêm dependency); checksum 2 tầng
+  (`payloadSha256` trong manifest, `fileSha256` ở catalog); chống zip-slip,
+  quota 50 MB mặc định / trần cứng 200 MB; test
+  `test/great_library/pack_manifest_test.dart` + `pack_file_test.dart`.
+- **Còn lại:** không — hoàn tất P0 core.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
+  - 2026-11-15 | doing→done | CI 🟢 run 45074714897 (sau 1 vòng sửa 2 analyzer ERROR).
+
+### GLIB-002 — Thư Viện Chung: `PackStorageBackend` + DownloadManager — P0
+
+- **Trạng thái:** done — CI 🟢 run 45074714897; file store thật (path_provider) nối ở GLIB-004/005.
+- **Nguồn:** PLAN-049, ADR-0036 D3/D5.
+- **Nội dung:** interface `PackStorageBackend` (put/get/downloadUrl/byteRange) +
+  impl Firebase (wrap `lib/services/storage_service.dart`) + stub Supabase;
+  `pack_download_manager.dart` (hàng đợi, resume byte-range, retry backoff,
+  verify sha256, index file đã tải). Tải public pack không cần auth (D5).
+- **Đã làm (2026-11-15):** `pack_storage_backend.dart` (interface +
+  `PackStorageErrorCode` retryable), `pack_storage_firebase.dart` (REST thuần
+  `/v0/b/{bucket}/o`, Bearer tuỳ chọn khi download — public D5, bắt buộc khi
+  upload; bucket từ `firebase_options.dart`, inject được cho test),
+  `pack_storage_supabase.dart` (stub khóa interface), `pack_download_manager.dart`
+  (hàng đợi tuần tự, resume byte-range, xử lý server bỏ qua Range, short-body →
+  partial + retry, checksum sai → xoá partial, cancel token); test
+  `test/great_library/pack_download_manager_test.dart` (11 ca fake backend).
+- **Còn lại:** impl file store bằng path_provider nối ở GLIB-004/005.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | owner duyệt; agent code + test thuần.
+  - 2026-11-15 | doing→done | CI 🟢 run 45074714897 (11 ca test fake backend xanh).
+
+### GLIB-003 — Thư Viện Chung: Catalog service + Firestore schema/rules + cache — P0
+
+- **Trạng thái:** done (phần code) — CI 🟢 run 45079525127; còn owner deploy rules theo checklist §4 (không cần code thêm).
+- **Nguồn:** PLAN-049, ADR-0036 D2.
+- **Nội dung:** `gl_catalog_service.dart` trên `FirestoreRestClient` (list/
+  search/filter trên cache TTL, `getPack`, `getVersions`); collections
+  `gl_packs`/`gl_pack_versions`/`gl_contributions`/`gl_config/admins`; block
+  rules `gl_*` (read public khi `published`; create contribution cần auth);
+  `docs/great_library_firestore_schema.md` mô tả schema + rule mẫu.
+- **Đã làm (2026-11-15):** `models/gl_pack_entry.dart` (entry = manifest phẳng
+  + fileSha256/fileBytes/publishedAt); `gl_catalog_service.dart` (interface
+  `GlCatalogTransport`/`GlCatalogCacheStore` tách để test thuần; TTL 6h;
+  **fetch lỗi → dùng cache cũ** đúng offline-first; `GlCatalogQuery` filter
+  type/lang/level/tag/text + sort newest/downloads/rating thuần);
+  `gl_catalog_transport_firestore.dart` (runQuery `status==published` —
+  bắt buộc để rules cho LIST; **không bắt buộc token** — D5; tái dùng
+  `decodeFields` của FirestoreRestClient); schema doc gồm block rules
+  Firestore + Storage + checklist deploy cho owner + lệnh curl test AT3.
+- **Phát hiện quan trọng:** `FirestoreRestClient` bắt buộc idToken cho mọi
+  read → catalog public KHÔNG đi qua client đó; transport riêng chỉ đính token
+  khi sẵn có.
+- **Còn lại:** owner deploy rules theo checklist §4 của schema doc; nối cache
+  file thật ở GLIB-004.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-15 | proposed→doing | agent code + test thuần (parse/filter/sort/TTL/fallback).
+  - 2026-11-15 | doing→done (code) | CI 🟢 run 45079525127 (sau rebase qua tip mới của nhánh); rules chờ owner dán vào Console.
+
+### GLIB-004 — Thư Viện Chung: UI browse · preview · tải — P0
+
+- **Trạng thái:** ✅ done — CI 🟢 run 45114987418 (analyze + GLIB tests + rule
+  #5 locale xanh). Preview theo loại (audio nghe thử/LRC/ảnh) + persist catalog
+  cache ra file (hiện MemoryCache theo session) dời GLIB-004b.
+- **Nguồn:** PLAN-049 §GLIB-004.
+- **Nội dung:** `great_library_screen.dart` (Nổi bật/Mới/Tải nhiều + hàng chủ
+  đề), search/filter (loại · ngôn ngữ · CEFR · tag), `pack_detail_screen.dart`
+  (metadata + license + nút Tải), preview theo loại (Vocab lướt 20 thẻ + nghe
+  thử; Audio nghe 60s + xem LRC; Image lướt ảnh + caption); entry từ Home.
+  i18n đủ 26 locale theo rule vàng #5 (T2 dịch đủ cùng PR); tên/mô tả pack là
+  user content → giữ nguyên nguồn.
+- **AT:** widget test list/detail/empty/error với fake catalog; AT6 của PLAN-049
+  (locale `en` không còn chữ Việt trong chrome).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | proposed→doing | owner duyệt (rules-deploy defer); agent
+    `arena/a04e4405-in4up` | UI browse/search/lọc/sắp xếp + pack detail + tải
+    progress + entry Home/Quick Actions + i18n ARB ×26 (T2 native).
+  - 2026-11-23 | doing — CI 🟢 run 45114987418 | agent `arena/a04e4405-in4up` |
+    analyze + GLIB tests (14) + rule #5 locale xanh. Sửa CI phát hiện:
+    `GlCatalogQuery.apply` sort trên unmodifiable → copy mutable; controller
+    ghi downloadStates khi thiếu storage ref; filter Row→Wrap (tràn 800px);
+    import AppLocalizations từ package:in4up/l10n; workflow annotation gom
+    thêm ::notice quanh EXCEPTION (blob log chặn). GLIB-004 ✅ done.
+  - 2026-11-23 | 004b ✅ — CI 🟢 run 45226505832 | agent
+    `arena/a04e4405-in4up` | preview theo loại sau khi tải (Vocab 20 thẻ +
+    nghe thử TTS; Audio track list + 6 dòng LRC đầu; Image lưới 12 ảnh) +
+    GlCatalogFileCache persist snapshot (tmp+rename) + 3 key i18n × 26 locale.
+
+### GLIB-005 — Thư Viện Chung: `PackImportService` (pack → Studio) — P0
+
+- **Trạng thái:** ✅ done — CI 🟢 run 45182347010 (analyze + GLIB tests + rule
+  #5 locale xanh).
+- **Nguồn:** PLAN-049 §GLIB-005.
+- **Nội dung:** route theo `PackType`: Vocab → tạo WordEntry qua đường vocab
+  hiện có (audio/ảnh vào `vocab_image`); Audio → `audio_import_service.dart` +
+  LRC (`lrc_time_parser.dart`); ImageSet → kho ảnh flashcard. Lưu
+  `installedPack {packId, version}`; version mới → chip "Có bản mới", update
+  additive không ghi đè tiến độ SM-2 (không đụng ADR-0001).
+- **AT:** test thuần mapping manifest→tham số import; update additive trên mock
+  store; AT1/AT2 của PLAN-049 (nghiệm thu thiết bị).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | proposed→doing | owner («Làm tiếp nhé») | agent
+    `arena/a04e4405-in4up` | schema data/ (entries/tracks/items.json) +
+    PackImportService (sinks) + sinks io (vocab/audio/ảnh) + installed store +
+    UI nút Nhập vào Studio + chip Có bản mới + 5 key i18n.
+  - 2026-11-23 | doing — CI 🟢 run 45182347010 | agent `arena/a04e4405-in4up` |
+    analyze + GLIB tests (23) + locale xanh; fix CI: kImportPack thiếu author
+    (author-name-empty). GLIB-005 ✅ done.
+
+### GLIB-006 — Thư Viện Chung: wizard đóng góp (+ AI gợi ý BYOK) — P1
+
+- **Trạng thái:** proposed (chưa code; mở sau P0).
+- **Nguồn:** PLAN-049 §GLIB-006, ADR-0036 D6.
+- **Nội dung:** wizard 3 bước (nguồn: export-as-pack từ vocab/playlist của mình
+  hoặc soạn mới → metadata với nút "Gợi ý bằng AI" opt-in BYOK qua
+  `AiEngineRemote`, mặc định TẮT → cam kết bản quyền + license → build + upload
+  → `gl_contributions` pending). VocabPack chạy TTS bulk on-device trước upload.
+  Màn "Đóng góp của tôi" theo dõi pending/published/rejected + lý do. Quota
+  client: 50 MB/pack, 10 pack/tháng (con số cuối owner duyệt — ideation §6.2).
+- **AT:** AI tắt → không request mạng (fake engine pin); quota counter; build
+  pack từ vocab store giả; AT4 PLAN-049 end-to-end khi P1.
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | ✅ done — CI 🟢 run 45231501777 | agent `arena/a04e4405-in4up` |
+    `tool/great_library_seed/` build 22 pack .i4upack (10 vocab + 8 audio + 4
+    image) đúng manifest GLIB-001 + data/ GLIB-005; validator khắc parser
+    (22/22 pass). Sandbox không network → v1 tự soạn CC0 (118 động từ, 111 bất
+    quy tắc, 60 phrasal, 4×40 NGSL chủ đề, 61 tính/trạng, 50 collocations, 61
+    học thuật; truyện cổ + LRC thật; 24 câu song ngữ); audio/ảnh placeholder
+    chờ TTS bulk/LibriVox/OpenClipart lúc soạn. seed_publish.py = publish nội
+    bộ thay màn admin. Owner vẫn nợ deploy rules §4.
+
+### GLIB-007 — Thư Viện Chung: màn admin moderation in-app — P1
+
+- **Trạng thái:** proposed (chưa code; mở sau P0).
+- **Nguồn:** PLAN-049 §GLIB-007, ADR-0036 D4 (owner chọn in-app, gate tài khoản
+  `be.you8778@gmail.com`).
+- **Nội dung:** gate uid ∈ `gl_config/admins` (owner tạo doc 1 lần) → hiện entry
+  "Duyệt pack"; hàng chờ pending → xem trước (tái dùng preview GLIB-004) →
+  Duyệt/Từ chối kèm lý do/Ẩn; cảnh báo Storage 80%. Rules siết: chỉ admin đổi
+  `status`, đọc contributions, xoá nội dung vi phạm.
+- **AT:** test thuần gate + state machine; AT3 PLAN-049 (tài khoản thường bị
+  chặn cả UI lẫn rules).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | ✅ done — CI 🟢 run 45251116597 | agent `arena/a04e4405-in4up` |
+    wizard 3 bước (nguồn: Vườn nhớ / soạn tay → metadata + AI gợi ý BYOK opt-in
+    → cam kết bản quyền + license → build + upload + gl_contributions pending).
+    Quota 10/tháng + 50 MB/pack. AI tắt → 0 network (test pin). Widget test
+    wizard = smoke navigation; luồng submit pin ở contribution_service_test
+    (Stepper + fake zone bất ổn). TTS bulk on-device: trừ ra (manifest giữ
+    audio ref, TTS thêm lúc build sau — tối ưu v2).
+
+### GLIB-008 — Thư Viện Chung: seed pipeline P0 (~22 pack EN→VI) — P0
+
+- **Trạng thái:** proposed (chưa code).
+- **Nguồn:** PLAN-049 §GLIB-008; ideation §9.3 + D2 LOCKED (trộn 3 nguồn,
+  EN→VI trước).
+- **Nội dung:** `tool/great_library_seed/` — build VocabPack từ NGSL/NAWL +
+  nghĩa VI từ điển bundle + audio TTS bulk (chạy lúc soạn) + ảnh CC0; AudioPack
+  từ LibriVox (public domain) + pháp thoại app ship sẵn; câu ví dụ Tatoeba
+  (CC-BY, ghi credit); script publish nội bộ (thay màn admin ở P0). Danh sách 22
+  pack: ideation §9.3.
+- **AT:** mọi pack seed parse pass validator GLIB-001; license/attribution đầy
+  đủ; mở app P0 thấy ≥ 20 pack (AT1 PLAN-049).
+- **Lịch sử:**
+  - 2026-11-15 | created (proposed) | agent arena/a04e4405-in4up | tách từ PLAN-049.
+  - 2026-11-23 | ✅ done — CI 🟢 run 45257255992 | agent `arena/a04e4405-in4up` |
+    AdminGate (uid ∈ gl_config/admins, cache phiên, lỗi→ẩn entry AT3) +
+    state machine pending→published (ghi gl_packs) / rejected (bắt buộc lý do)
+    / hidden + AdminModerationScreen (hàng chờ card + dialog lý do) + entry
+    AppBar gate FutureBuilder + 10 key ARB. Test thuần: gate theo uid (5) +
+    state machine (5).
+
+
 ### REL-1.29.1 — (2026-11-20) Release 1.29.1 đủ 4 nền tảng
 - **Trạng thái:** ✅ done (build 4/4 🟢) — **chờ nghiệm thu máy thật**
 - **Nguồn:** owner 2026-11-20 — *"Tốt hãy tạo release tag với version v1.29.1 tại nhánh 251e này."*
@@ -10043,6 +10249,116 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | cherry-pick 5 commit từ `arena/60e35d65-in4up` (0 merge) → bump `1.29.2+31` (`d078091b`) → CI 4/5 workflow 🟢, `app_analyze` 🔴 → tag `1.29.2` → build **45106326071** 🟢 4/4 → sửa i18n `71d53978`
   - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **xác nhận CI xanh sau khi sửa i18n:** `App Analyze + Locale` run **45246030183** 🟢 · `Read translation regression` **45246030197** 🟢 · `Deploy web` **45246141130** 🟢 trên tip `88445a49`. Cả 3 workflow đỏ/treo trên `b360f699` nay đã xanh → 1.29.2 đủ điều kiện nghiệm thu máy thật.
 
+### REL-1.30.0-Beta — (2026-11-24) Beta 1.30.0: hợp nhất tuyến tính GLIB (a04e4405) vào dòng 1.29.2
+- **Trạng thái:** ✅ done — build **4/4 nền tảng 🟢** (run 45458996963); **chờ nghiệm thu máy thật**
+- **Tag/commit:** `1.30.0-Beta` → **`61ae19c7`** (bump `1.30.0+32`), prerelease (không chiếm nhãn Latest — `1.29.2` vẫn Latest)
+- **Nguồn:** owner 2026-11-24 — *"Beta 1.30.0 hãy rebase hay làm gì đó, đảm bảo tuyến tính để nhánh này có đầy đủ commit của e4405 tuyến tính, không lỗi, không xung đột và tạo release beta v1.30.0 tại nhánh này."*
+- **Nhánh phát hành:** `arena/395208ef-in4up` (base `9d6af01` = tip `arena/59b6e40a-in4up`); nguồn hợp nhất: `arena/a04e4405-in4up` (GLIB-001…008b, 51 commit).
+- **Cách land — rebase, KHÔNG merge:** `git rebase --onto arena/a04e4405-in4up 8ed86e1e arena/395208ef-in4up` ⇒ **166 commit** dòng 1.29.x (4 sprint UI + 1.29.0/1.29.1/1.29.2) phát lại **trên tip GLIB**; **0 merge commit** phát sinh, **0 xung đột** còn lại.
+- **Ma sát đã xử:**
+  * `KANBAN.md` + `PLAN.md` (append-only, GOVERNANCE §3): gộp **giữ nguyên cả hai phía**; kiểm bằng script — *không mất dòng nào* của cả hai nhánh (0 missing/0 over-dup ngoài tiêu đề mục). Ghép tay vì `merge=union` làm rơi 1 dòng lịch sử MDD sang nhầm card (đã trả về `DICT-MDD-001`).
+  * `lib/l10n/app_*.arb` (27 file): **không khoá nào trùng mà khác giá trị** giữa hai phía ⇒ tự merge sạch; `en`/`vi` **659 khoá**, các locale khác 633, đủ key `gl*` (GLIB) + `tts*` (sprint UI), parity 27/27.
+  * `lib/screens/main_shell.dart`: giữ **cả** entry `great_library` (GLIB-004) và typography ≥11sp (sprint 3).
+  * `.github/workflows/app_analyze.yml`: giữ **cả** step `GLIB tests — Thư Viện Chung` và 222 dòng step mới của sprint UI (101 step, không mất step nào).
+  * **Trùng số ADR-0031** (3 file cùng số sau hợp nhất): ADR Thư Viện Chung đổi **0031 → 0036** + 21 tham chiếu trong code/docs; `0031-mdd-worker-resource-lifecycle` và `0031-doc-tab-doi-vai-van-ban-va-ban-dich` giữ nguyên.
+  * **Trùng số PLAN-049** (2 card): card Beta hub 1.29.0 đổi thành **PLAN-050**; card Thư Viện Chung giữ `PLAN-049`; thêm `PLAN-051` cho đợt này.
+- **Bump:** `1.29.2+31` → **`1.30.0+32`** (`versionCode` 31→32 ⇒ Android cài đè được, dữ liệu giữ nguyên). **MINOR** vì có nhóm tính năng mới: Thư Viện Chung (GLIB-001…008b).
+- **Workflow:** `build_final_complete.yml` khai báo thêm tag `[0-9]*-Beta` / `[0-9]*-beta*`; `prerelease` tự bật khi tên tag chứa `beta`; `build.yml` (legacy, chỉ nghe `v*`) **không** chạy ⇒ không tranh asset.
+- **CI trên `61ae19c7` (5/5 workflow 🟢):** `App Analyze + Locale Test` **45451069984** · `Listen queue` **45451070337** · `Read translation regression` **45451070579** · `Deploy web` **45451070262** · `VieNeu engine build` **45451070022**.
+- **Bằng chứng build:** `build_final_complete.yml` run **45458996963** — **4/4 job success** (Android ✅ · Windows ✅ · Linux ✅ · iOS ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.30.0-Beta
+  - `in4up-Android-arm64-v8a-1.30.0-Beta-61ae1.apk` — 204.961.841 B — sha256 `cfdd2cc11b5810e0b0b96760442daf3e511441a9f77d5b57ee102ccb9bb2935c`
+  - `in4up-iOS-1.30.0-Beta.ipa` — 95.309.770 B — sha256 `2105e6886525e65219dd1e57eea2224fb5535e839c65cac704c8cae153bc7f47`
+  - `in4up-Linux-1.30.0-Beta.tar.gz` — 51.844.025 B — sha256 `d632e9d7d88a1208de701e0935fe36bcf504631d7c6072d831a3063bc399360d`
+  - `in4up-Windows-1.30.0-Beta.zip` — 54.469.523 B — sha256 `885cac2a443351684c824ebc491dd27098ca5d7516e4bf8db248ca892a06b87e`
+- **⚠️ Sự cố build lần 1 (hạ tầng, không phải code):** run **45454736384** — Linux/Windows/Android 🟢 ngay, **iOS bị `cancelled`** với annotation *"The job was not acquired by Runner of type hosted…"* (GitHub hết máy macOS arm64). Token sandbox **không có quyền `rerun`** (`403 Resource not accessible by integration`) ⇒ gỡ tag rồi push lại `1.30.0-Beta` **cùng commit** `61ae19c7` để chạy lại; **lưu ý:** xoá tag làm GitHub **xoá luôn release** cũ, và workflow lần 2 tự tạo lại release với body rỗng ⇒ phải `gh release edit --notes-file` để gắn lại ghi chú. Lần sau: ưu tiên `workflow_dispatch` (có `version_name`) để không phải di chuyển tag.
+- **Chưa kiểm (máy thật):** cài đè 1.29.2 → 1.30.0-Beta · toàn bộ Thư Viện Chung (tải/góp ý/duyệt) · bộ typography ≥11sp của 4 sprint UI.
+- **Lịch sử:**
+  - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit dòng 1.29.x lên tip GLIB `62d47e87` (0 merge, 0 xung đột) → kiểm lossless KANBAN/PLAN + parity ARB 27/27 → bump `1.30.0+32`; chờ CI
+  - 2026-11-24 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 trên `61ae19c7` (analyze **45451069984**) → tag `1.30.0-Beta` → build **45458996963** 🟢 **4/4** (Android · iOS · Windows · Linux) → release prerelease đủ 4 asset, `1.29.2` vẫn Latest. Chờ nghiệm thu máy.
+
+### PREVIEW-UI-001 — (2026-11-26) Xem giao diện trên trình duyệt (sau beta 1.30.0 + 1.30.1)
+- **Trạng thái:** ✅ done — gallery dựng từ `a72a8800`; smoke-test Chromium **11/11 màn render, 0 lỗi console**
+- **Nguồn:** owner 2026-11-26 — *"Hãy giúp tôi lập preview live để xem những thay đổi về giao diện nhé. Đặc biệt sau 2 bản beta vừa rồi."*
+- **Vấn đề:** `lib/main_web.dart` là màn "web lite" riêng (4 card web_core) ⇒ **không** chứa UI sprint 3/4. Sandbox agent không có Flutter SDK, bị chặn `storage.googleapis.com` (cài SDK), blob storage (tải artifact) và thiếu `libnspr4`/`libnss3` (Chromium); `gh workflow run` trả 403/404.
+- **Cách làm:** `.github/workflows/web_preview_branch.yml` build **2 bản web** trên runner rồi force-push vào nhánh `preview/arena-395208ef-in4up` (github.com là host duy nhất sandbox fetch được):
+  * `/` → `lib/main_ui_gallery.dart` (mới, **chỉ để xem**) — dựng CHÍNH `AppTheme.dark()`, `AppTypography`, `FSRSRatingBar`, `AssessmentRatingBar`, `ShadowingSentencePicker`, `PhonemeDisplay`, `ElaborativeCard`, `GrammarQuickSettingsSheet`, `PdfReaderThemeSheet`, `ReadSettingsGroup/LinkRow`, `OpenTipitakaCredit`
+  * `/web-lite/` → app web chính thức (`main_web.dart`, `--base-href /web-lite/`)
+  * `/smoke/` → ảnh PNG từng màn + `report.txt`
+  Không đụng `gh-pages`, không đổi `pubspec.yaml`, không tạo release.
+- **Chọn widget bằng đồ thị import:** chỉ nhận widget không kéo `dart:io`/`dart:ffi`/`dart:isolate` (48 file, sạch). Loại và ghi rõ lý do: `ReadSettingsSheet`, `PdfToolbar`, `DictEntryDetailSheet`, `LiveCaptionBubble`, toàn bộ `lib/features/great_library/ui/**`.
+- **Smoke-test (`tool/preview_smoke.mjs`):** mở 11 màn, chờ `flutter-view`/`flt-glass-pane` + `#in4up-loader` biến mất, chụp PNG, gom lỗi console/network. Run **45849632526** → `11/11`, `0` lỗi.
+- **3 lỗi thật do smoke bắt được (đã sửa):** (1) `#sheet-pdf`/`#sheet-grammar` rơi về tab 0 do thiếu `case`; (2) web-lite build `--base-href /` nên nạp `/main.dart.js` của gallery ⇒ sai app; (3) `<canvas>` của Flutter nằm trong **shadow DOM** nên `querySelector('canvas')` rỗng ⇒ báo sai "0/9 màn".
+- **Giới hạn:** không có ghi âm, tải gói GLIB, engine dịch FFI, OCR PDF, Firebase — cần native. Các mục "chưa kiểm (máy thật)" của `REL-1.30.1-Beta` **vẫn nguyên**; nghiệm thu chính thức vẫn là APK/IPA.
+- **Chi tiết + lệnh chạy:** [`PREVIEW-UI-001.md`](PREVIEW-UI-001.md) · server nằm trong repo: `tool/web/serve_preview.py` (`sync` fetch nhánh preview → `/tmp/preview`, `serve` bind `0.0.0.0:4173`; một lệnh: `serve 4173 --sync`)
+- **Lịch sử:**
+  - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | workflow build web → nhánh `preview/*`
+  - 2026-11-26 | doing→doing | agent | phát hiện `main_web.dart` không chứa UI sprint 3/4 ⇒ thêm `lib/main_ui_gallery.dart`
+  - 2026-11-26 | doing→done | agent | smoke 11/11 màn · 0 lỗi; sửa deep-link + base-href + dò canvas shadow DOM
+
+### REL-1.30.1-Beta — (2026-11-26) Beta 1.30.1: tiếp nhận sprint 4 của `arena/59b6e40a-in4up`
+- **Trạng thái:** ✅ done — CI **5/5 🟢** + build **4/4 🟢**; **chờ nghiệm thu máy thật**
+- **Tag/commit:** `1.30.1-Beta` → **`818bd39a`** (bump `1.30.1+33`), prerelease (1.29.2 vẫn Latest; 1.30.0-Beta vẫn nguyên)
+- **Nguồn:** owner 2026-11-26 — *"Hãy tiếp nhận branch arena/59b6e40a-in4up rebase từ arena/59b6e40a-in4up đảm bảo tuyến tính vì mới có thêm commit. Và chạy release v1.30.1-Beta."*
+- **Commit mới tiếp nhận (cherry-pick theo đúng thứ tự, 0 merge):**
+  * `f406d989` ← `36b5ec2e` sprint 4 toàn repo: sàn chữ **≥11sp**, vùng chạm ≥40pt, SafeArea cho sheet, i18n 8 locale (134 file)
+  * `00389e63` ← `fd980fb9` Shadowing: vừa viewport 3 hàng cho timestamp 11sp
+  * `297cf1c5` ← `8dfd7302` Shadowing: chặn timestamp 11sp bị xuống dòng
+  * `431b881f` ← `4efcab69` Tab Đọc: SafeArea nằm TRONG nội dung `ReadSettingsSheet` (giữ hợp đồng builder)
+- **Vì sao cherry-pick chứ không `rebase --onto`:** lịch sử nhánh này đã bị viết lại ở lượt 1.30.0 (rebase lên GLIB) nên `9d6af01d` **không còn là ancestor** ⇒ `rebase --onto` replay lại toàn bộ 1.763 commit từ gốc (35 xung đột add/add vô nghĩa). Đường tuyến tính đúng: **append** 4 commit mới lên tip hiện tại; mọi commit của 59b6e40a vẫn nằm trong nhánh (theo hậu tố `-x`). Commit 1.30.0 vẫn nguyên vẹn trong tag `1.30.0-Beta` (`61ae19c7`).
+- **Bump:** `1.30.0+32` → **`1.30.1+33`** (`versionCode` 32→33). **PATCH** vì 4 commit đều là sửa UI/i18n/accessibility + polish, không thêm nhóm tính năng mới.
+- **Kiểm trước khi bump:** cây làm việc so với tip `59b6e40a` chỉ khác đúng phần GLIB + tài liệu release + 1 dòng `.gitignore`; ARB parity 26/26 file (659 khoá, 68 key `gl*` đủ 9 locale ưu tiên); `generate_priority_native_pack.py --check` OK (3887 entry); KANBAN/PLAN không mất dòng nào của upstream (chênh chỉ là 14 dòng do đổi số `ADR-0031 → 0036` và `PLAN-049 → PLAN-050` từ lượt trước).
+- **CI trên `818bd39a` (5/5 🟢):** `App Analyze + Locale` **45834854991** · `Listen queue` **45834855001** · `Read translation regression` **45834855015** · `Deploy web` **45834855021** · `VieNeu engine build` **45834855050**.
+- **Bằng chứng build:** `build_final_complete.yml` run **45838232325** — **4/4 job success** (Android ✅ · iOS ✅ · Windows ✅ · Linux ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.30.1-Beta
+  - `in4up-Android-arm64-v8a-1.30.1-Beta-818bd.apk` — 204.975.569 B — sha256 `9bf77268308c1525eace6c4520d020208542939df2c76590eafba7030598180a`
+  - `in4up-iOS-1.30.1-Beta.ipa` — 95.327.521 B — sha256 `a0d257551c8ade18a0682d28803daf54b8eef027fb35b8c141ced5c695dab7f0`
+  - `in4up-Linux-1.30.1-Beta.tar.gz` — 51.861.080 B — sha256 `254c8ce15c7f2ff2cdbca066f28f746f03c1fb11974208199f1212d4995bdd71`
+  - `in4up-Windows-1.30.1-Beta.zip` — 54.482.939 B — sha256 `eedd7c435e28abf1b92da5b939a8ca09fd5cae0dcdbf19c431196f2af9d50636`
+- **Lưu ý vận hành:** workflow tạo release **trước** khi đẩy asset và làm **rỗng body** (cả 1.30.0 lẫn 1.30.1) ⇒ sau mỗi build phải `gh release edit --notes-file …` để gắn lại ghi chú. Lần này build chạy **một lượt**, iOS xanh ngay (không lặp sự cố runner macOS như 1.30.0).
+- **Chưa kiểm (máy thật):** cài đè 1.30.0-Beta → 1.30.1-Beta · sàn chữ 11sp/vùng chạm 40pt trên các màn vừa đổi · Shadowing picker 3 hàng · `ReadSettingsSheet` có SafeArea.
+- **Lịch sử:**
+  - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | tiếp nhận 4 commit sprint 4 tuyến tính (cherry-pick `-x`, 0 merge, 0 xung đột) → bump `1.30.1+33`; chờ CI
+  - 2026-11-26 | doing→done | agent `arena/395208ef-in4up` | CI 5/5 🟢 (analyze **45834854991**) → tag `1.30.1-Beta` → build **45838232325** 🟢 **4/4** → release prerelease đủ 4 asset, gắn lại ghi chú. Chờ nghiệm thu máy.
+
+### AUDIT-1.30.1 — (2026-11-27) Audit v1.30.1: 8 issue về tab Đọc / lặp AB / SRS
+- **Trạng thái:** ✅ done — CI **5/5 🟢** (analyze, listen queue, read translation, deploy web, web-build); **chờ nghiệm thu máy thật**
+- **Nguồn:** owner 2026-11-27, 8 mục audit v1.30.1 (kèm yêu cầu "update issue"):
+  1. Tab đọc – PDF reader: phần cài đặt **chỉ có giọng đọc English và Tiếng Việt** → phải có thêm ngôn ngữ khác.
+  2. Tab đọc – PDF reader: **nút dịch chưa chọn được ngôn ngữ đích**.
+  3. Tab đọc – PDF reader: đổi giọng đọc phải chuyển **liền** (không chờ hết câu) để thử nhanh.
+  4. Tab đọc: Text Studio thêm **thanh kéo chỉnh khoảng cách dòng** trên/dưới, real-time.
+  5. Tab đọc: danh sách **giọng Microsoft Edge chiếm nhiều chỗ** → cho thu gọn/bung.
+  6. Tab đọc: góc trên phải đang hiện **2 lựa chọn** → nhấn mở thẳng bảng cài đặt; bỏ phần cài đặt trong tab "Tùy biến"; bỏ nút bố cục đọc, đưa nội dung ra ngoài.
+  7. Chi tiết lặp AB — ô **"khoảng lặng"**: chọn xong chỉ tô vàng, chữ/biểu tượng **không đổi theo giá trị**.
+  8. **SRS chưa có âm thanh từ vựng**: icon loa tự đọc từ vựng; chạm vào nó thì tắt tự động đọc.
+- **Nguyên nhân gốc (đọc code, không đoán):**
+  1. `_TtsLanguageSelector` khai báo cứng `[('auto','Tự động'), ('en-US','🇺🇸 English'), ('vi-VN','🇻🇳 Tiếng Việt')]` + tuỳ chọn "Song ngữ" khoá sau `isBilingualTtsAvailable => false`; `_init()` chỉ khôi phục nếu `saved == 'en-US' || saved == 'vi-VN'` ⇒ mọi mã khác bị nuốt. Engine thì đã có sẵn 35 giọng/17 ngôn ngữ.
+  2. `_TranslatePageButton` chỉ `togglePageTranslatePanel()`; ngôn ngữ đích luôn là `TranslationService.targetLang` (mặc định VI) và không có lối đổi tại chỗ.
+  3. `setTtsLanguage` chỉ gán field + ghi SharedPreferences — không `stop/cancel/restart`, nên phiên TTS đang chạy giữ voice cũ tới hết câu.
+  4. `height` hard-code 1.6 ở hai chỗ (`TextLineWidget._buildTextContent`, `_ColoredWord`); không có control nào.
+  5. `ReaderVoiceTile` đổ toàn bộ `readerVoiceCatalog` vào một `SimpleDialog` phẳng (Edge: 35 giọng/17 ngôn ngữ).
+  6. `main_shell` dùng `PopupMenuButton` 2 mục "Tùy biến/Cài đặt"; panel Tùy biến của dock lại có thêm 2 `ActionChip` "Bố cục đọc"/"Cài đặt" ⇒ 4 tầng cùng đích.
+  7. Chip preset và badge in `toInt()` trong khi slider chia 20 bước trên 0–10 s (bước 0,5 s) ⇒ 1,5 s hiện "1s", 0,5 s hiện "0s"/"Tắt" ⇒ chữ trùng nhau nên "không đổi".
+  8. `screens/memory_mode/**` không import `TtsService` ở đâu cả (grep = 0) ⇒ SRS im lặng hoàn toàn.
+- **Sửa (file → nội dung):**
+  1. `lib/features/pdf_reader/services/pdf_tts_language.dart` (MỚI, thuần Dart): `normalizePdfTtsLanguage`, `pdfTtsLanguageLabel`, `pdfTtsLanguageOptions()` — 26 ngôn ngữ theo `AppLanguageCatalog`, xếp theo mức phổ biến; `_TtsLanguageSelector` viết lại (chip Tự động + chip ngôn ngữ đang dùng + "Ngôn ngữ khác…") mở `_TtsLanguageSheet` có tìm kiếm và **đếm số giọng thật** của engine; `PdfReaderController._init` dùng `normalizePdfTtsLanguage` thay whitelist 2 mã.
+  2. `_TranslatePageButton` = cụm `[cờ + mã đích] [mũi tên]`; mũi tên → `showTranslationLanguagePicker` (bảng dùng chung của tab Đọc) → `configure(targetLang:)` + `StorageService.saveTranslationTargetLanguage` (lưu bền) → `PdfReaderController.retranslateCurrentPage()` xoá cache trang + dịch lại nếu panel đang mở.
+  3. `setTtsLanguage` chuẩn hoá rồi, nếu giá trị ĐỔI và `_ttsMachine.isPlaying` → `_speedRestart` Timer 100 ms → `_restartAtCurrentRate()` (đúng đường của thanh tốc độ). Đang Pause thì không restart (giữ trạng thái dừng).
+  4. `TextProvider.readerLineHeight` (1,2–2,6; `StorageService` khoá `reader_line_height`; mặc định **1,6 = giá trị cũ**) chảy `TextLineWidget (_LineData) → ColoredTextWidget → _ColoredWord` (thay cả `baseStyle.height` lẫn `TextStyle.height` của từ); `_LineHeightControl` trong nhóm "Chữ & bố cục" của `ReadSettingsSheet` có **khung chữ mẫu** để thấy ngay độ giãn; `setReaderLineHeight` notify ngay, ghi đĩa chạy nền.
+  5. `lib/features/tts/voice_catalog_grouping.dart` (MỚI, thuần Dart) + `lib/features/tts/widgets/voice_picker_sheet.dart` (MỚI): bottom sheet có tìm kiếm, nhóm theo ngôn ngữ **thu gọn/bung**, mở sẵn nhóm đang dùng + tối đa 2 nhóm nhỏ, dấu chọn ở cả nhóm lẫn giọng, dòng "kế thừa"; `ReaderVoiceTile` gọi `showVoicePickerSheet`.
+  6. `main_shell`: bỏ `PopupMenuButton`, thay bằng MỘT `_ShellActionButton(⚙ → ReadSettingsSheet.show)`; `read_bottom_dock._DisplayPanel` bỏ 2 chip trùng, thay bằng `_ReadLayoutQuickChips` (Đọc song ngữ / Luyện nghe / Một dòng / Bố cục đọc) đặt **ngoài** panel cho trực quan.
+  7. `lib/widgets/loop_gap_label.dart` (MỚI): `formatGapDurationLabel` giữ phần lẻ (0,5 s → "0.5s"), `formatGapDurationBadge`; chip preset + badge dùng chung; so sánh preset bằng dung sai 0,001 thay `==` double.
+  8. `lib/screens/memory_mode/services/memory_vocab_audio.dart` (MỚI): `MemoryVocabAudio` (ValueNotifier + prefs `memory_vocab_auto_read`), `speakMemoryVocab` qua `TtsService().speak(language: 'auto', matchVoiceLanguage: true)`; `_MemoryVocabSpeaker` trên thẻ vườn/danh sách (chạm = bật + đọc ngay; chạm lần nữa = tắt + `TtsService().stop()`); tự đọc khi chạm thẻ và khi `MemoryController.flipCard()` lật sang mặt đáp án.
+- **Test (mới):** `test/pdf_reader/pdf_tts_language_test.dart` (chuẩn hoá 26 mã + idempotent + thứ tự ưu tiên phủ đúng catalog) · `test/tts/voice_catalog_grouping_test.dart` (gom nhóm, không mất giọng, nhóm mở sẵn) · `test/read_mode/line_height_test.dart` (mặc định 1,6 · clamp · notify ngay · không notify khi trùng) · `test/widgets/loop_gap_label_test.dart` (21 bước slider ra 21 nhãn khác nhau — chính là lỗi cũ).
+- **Test (cập nhật pin theo hành vi mới của #6):** `test/read_mode/psrc_235_read_settings_dedup_test.dart` (bỏ pin popup "Tùy biến" trong shell; pin "shell mở THẲNG cài đặt, không còn menu 2 mục") · `test/read_ui_121_contract_test.dart` (thay pin `lastPanel: ReadDockPanel.display` bằng pin "không còn `PopupMenuButton`, có `ReadSettingsSheet.show`").
+- **i18n (rule #5):** 10 key mới trong `tool/priority_native_pack.json` (`Ngôn ngữ khác…`, `Ngôn ngữ đọc`, `Theo ngôn ngữ của tài liệu`, `Tìm ngôn ngữ…`, `Tìm giọng hoặc ngôn ngữ…`, `Không tìm thấy giọng phù hợp`, `giọng`, `ngôn ngữ`, `Giãn dòng`, khung chữ mẫu 3 dòng) với đủ `en + zh/zh_TW/hi/si/my/th/ja`; regenerate `generated_priority_native_pack.dart` (3.897 entry × 8 locale, `--check` OK).
+- **Ghi chú:** `tool/generate_legacy_ui_fallbacks.py` **vốn đã đỏ ở HEAD** (977 override không còn khớp nguồn — đã kiểm bằng cách stash thay đổi của tôi: 977 so với 978) ⇒ không phải hồi quy của lượt này; cần một lượt dọn riêng.
+- **Chưa kiểm (máy thật):** nghe 2 giọng liền nhau khi đang đọc dở câu (#3) · ngôn ngữ đích Nhật/Hàn ở nút dịch (#2) · slider giãn dòng trên máy 320 px (#4) · bảng giọng Edge thu gọn/bung (#5) · loa SRS + tắt tự đọc (#8).
+- **Lịch sử:**
+  - 2026-11-27 | created→doing | agent `arena/395208ef-in4up` | code + 4 test mới + 2 test pin cập nhật trong `ccc3b96b`; chờ CI
+  - 2026-11-27 | doing→doing | agent `arena/395208ef-in4up` | CI đỏ 3 job: sàn chữ 11sp (`voice_picker_sheet` 3 chỗ + `pdf_toolbar` mã đích) và fake `TextProvider` thiếu `readerLineHeight` ⇒ sửa ở `33d64dbd` (+ fake `_IpaDocument`)
+  - 2026-11-27 | doing→doing | agent `arena/395208ef-in4up` | CI đỏ tiếp 2 pin source-scan: pin cả câu `onPressed: () => showReadDisplaySheet(...)` (code xuống dòng) và chữ `PopupMenuButton` còn trong chú thích ⇒ `a5f3b8cc` + `a30d6954` (pin theo dòng, chú thích đổi thành «menu popup»); mô phỏng lại 34 assert của 5 file pin bằng script: 0 lỗi
+  - 2026-11-27 | doing→done | agent `arena/395208ef-in4up` | CI trên `a30d6954` **5/5 🟢** — analyze `46101020098` (4/4 job con), read translation `46101020104`, listen queue `46101020067`, deploy web `46101020045`; còn nghiệm thu máy thật cho 5 mục cảm nhận (#3 nghe liền, #2 ngôn ngữ đích, #4 slider 320px, #5 bảng giọng, #8 loa SRS)
+
 ### PSRC-275 — (2026-11-23) "Lặp câu tiếp" canh đúng mốc câu / đúng độ dài A–B
 - **Trạng thái:** ✅ done (CI 🟢) — **chờ nghiệm thu máy thật**
 - **Nguồn:** owner 2026-11-23 — *"khi chọn lặp AB thì nhấn lặp câu tiếp theo thì nó đã không canh đúng khoảng thời gian đúng… Ví dụ AB ở giây 10 - 20 thì khi nhấn lặp câu tiếp theo thì phải chuyển tới đoạn 20 - 30."*
@@ -10062,6 +10378,16 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-23 | created→done | agent `arena/01a0251e-in4up` | `8a79e572` → CI 🟢 **45874527320**
   - 2026-11-23 | done→done | agent `arena/01a0251e-in4up` | **owner làm rõ hợp đồng (lần 2) và bản `8a79e572` hoá ra SAI vế 2** ⇒ sửa lại `240132f8`. Hợp đồng đúng: ① chưa có lời (hoặc A–B **không khớp** mốc dòng) ⇒ trượt theo khoảng thời gian, giữ nguyên `B − A` (5–8 → 8–11 → 11–14 · 15–40 → 40–65); ② có lời **và** mốc thời gian mỗi dòng **khớp** với vùng A–B ⇒ nhảy xuống đúng dòng câu kế tiếp. Bản trước hễ có lời là **luôn** nhảy theo dòng, nên A–B 13–18 (lệch mốc 0/10/20) nhảy về 20–30 thay vì 18–23. Thêm `kLineMatchTolerance = 50 ms` cho LRC sinh từ STT, và nhãn nút đổi sang `nextRepeatLabelFor(hasLyrics, alignsWithLines)` — "Lặp câu tiếp" chỉ khi có lời **và** khớp mốc. Test viết lại theo đúng 4 ví dụ owner nêu. CI `App Analyze` **45877390470** 🟢.
+
+### PSRC-275 — (2026-11-27) Lặp AB: bước "lặp câu tiếp" theo mốc câu transcript
+- **Trạng thái:** ✅ done (CI **5/5 🟢** trên `a30d6954`); **chờ nghiệm thu máy thật**
+- **Nguồn:** owner 2026-11-27 — *"251e đang có commit hãy pick/cherry hay làm gì đó, đảm bảo tuyến tính"*; 2 commit `8a79e572` + `240132f8` trên `arena/01a0251e-in4up`.
+- **Cách tiếp nhận:** so **patch-id** giữa HEAD (300 commit) và 251e (200 commit) — 192 trùng nội dung; 8 ứng viên, 6 đã có trong HEAD (MDD/ADR 0031·0033·0034/BETA-1.29.0 — `git diff --stat` rỗng), 2 commit KANBAN của 251e **cố ý bỏ**. Chỉ cherry-pick `-x` đúng 2 commit code ⇒ `b827442c`, `5e944b80`; auto-merge `lib/widgets/ab_loop_controls.dart`; **0 merge commit**.
+- **Vì sao không rebase:** lịch sử đã bị viết lại (merge-base rỗng) ⇒ patch-id là cách duy nhất chắc chắn không nhân đôi commit.
+- **Nội dung:** bước lặp tiến theo mốc câu của transcript thay vì cộng cứng thời lượng — bản sửa của 251e cho cảm giác "lặp xong câu mà tiếng còn lệch".
+- **Lịch sử:**
+  - 2026-11-27 | created→doing | agent `arena/395208ef-in4up` | cherry-pick `-x` 2 commit từ 251e, auto-merge `ab_loop_controls.dart`, 0 xung đột; chờ CI
+  - 2026-11-27 | doing→done | agent `arena/395208ef-in4up` | CI **5/5 🟢** (analyze `46101020098`); nhánh vẫn **0 merge commit** sau khi tiếp nhận
 
 ### DICT-PROCESS-001 — (2026-11-24) ACTION_PROCESS_TEXT: chọn chữ ngoài app → Từ điển hoặc Dịch
 - **Trạng thái:** 🔨 code + test thuần (21 test), chờ CI 🟢 + nghiệm thu máy.

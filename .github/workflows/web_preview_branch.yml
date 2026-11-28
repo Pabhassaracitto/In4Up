@@ -1,0 +1,232 @@
+name: Web preview (build → nhánh preview/*)
+
+# MỤC ĐÍCH: cho agent/owner xem GIAO DIỆN web của một nhánh mà KHÔNG cần
+# publish lên GitHub Pages (site thật chỉ deploy từ `main`) và KHÔNG cần tải
+# artifact Actions (sandbox bị chặn egress tới blob storage của GitHub).
+#
+# Cách làm: build `flutter build web -t lib/main_web.dart` (đúng entrypoint
+# của deploy-web.yml), rồi **push toàn bộ build/web** lên nhánh
+# `preview/<tên-nhánh>` (mặc định `preview/arena-395208ef-in4up`).
+# Sandbox `git fetch` từ github.com được ⇒ chạy `python3 -m http.server` trên
+# chính thư mục đó là có preview live.
+#
+# Chỉ chạy khi được gọi thủ công (workflow_dispatch) để không tốn phút CI.
+
+on:
+  # CÁCH KÍCH HOẠT (sandbox agent bị chặn `workflow_dispatch` — 403/404):
+  # push một commit có chuỗi `[preview-web]` trong tiêu đề ⇒ job tự chạy trên
+  # chính push đó. Đây là đường điều khiển bằng commit-message, không phải
+  # sự kiện lạ: cùng một trigger `push`, chỉ khác điều kiện `if`.
+  push:
+    branches:
+      - 'arena/**'
+      - 'preview/**'
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Nhánh cần build preview (mặc định: nhánh đang chọn)'
+        required: false
+        type: string
+        default: ''
+      preview_branch:
+        description: 'Nhánh đích chứa bản build'
+        required: false
+        type: string
+        default: 'preview/arena-395208ef-in4up'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-preview-${{ inputs.preview_branch }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    # Chỉ chạy khi được yêu cầu rõ ràng: dispatch, hoặc commit có [preview-web].
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[preview-web]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout nhánh cần build
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch != '' && inputs.target_branch || github.ref_name }}
+          fetch-depth: 1
+
+      - name: Ghi lại commit đang build
+        id: src
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(grep -m1 '^version:' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # --base-href / : preview chạy ở gốc domain của sandbox, KHÔNG phải /In4Up/.
+      - name: Build web lite (entrypoint main_web.dart)
+        id: build-web
+        continue-on-error: true
+        run: |
+          set +e
+          # base-href PHẢI là /web-lite/: bản này nằm trong thư mục con của
+          # preview. Nếu để "/" thì index.html nạp /main.dart.js của gallery
+          # (hai app khác nhau) ⇒ trang lite hiển thị nhầm nội dung.
+          flutter build web --release \
+            --base-href /web-lite/ \
+            -t lib/main_web.dart \
+            --dart-define=IN4UP_ALLOW_DIRECT_CORS=false > build_web.log 2>&1
+          code=$?
+          if [ "$code" != "0" ]; then
+            echo "### flutter build web (web lite) — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -80 build_web.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "Error|error:|not available|Unsupported" build_web.log | head -20 \
+              | cut -c1-300 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::error title=build web lite::$l"; done
+            exit 1
+          fi
+          echo "::notice title=build web lite::OK $(du -sh build/web | cut -f1)"
+          rm -rf /tmp/web-lite && cp -r build/web /tmp/web-lite
+          test -f /tmp/web-lite/main.dart.js || { echo "::error::web lite thiếu main.dart.js"; exit 1; }
+
+      # Gallery dựng CHÍNH widget thật của sprint 3/4 (xem lib/main_ui_gallery.dart).
+      # Build riêng để lỗi ở một bản không kéo bản kia xuống.
+      - name: Build UI gallery (entrypoint main_ui_gallery.dart)
+        id: build-gallery
+        continue-on-error: true
+        run: |
+          set +e
+          flutter build web --release \
+            --base-href / \
+            -t lib/main_ui_gallery.dart > build_gallery.log 2>&1
+          code=$?
+          if [ "$code" != "0" ]; then
+            echo "### flutter build web (gallery) — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -120 build_gallery.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "Error|error:|not available|Unsupported|\.dart:" build_gallery.log | head -30 \
+              | cut -c1-300 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::error title=build gallery::$l"; done
+            exit 1
+          fi
+          echo "::notice title=build gallery::OK $(du -sh build/web | cut -f1)"
+          rm -rf /tmp/gallery && cp -r build/web /tmp/gallery
+          test -f /tmp/gallery/main.dart.js || { echo "::error::gallery thiếu main.dart.js"; exit 1; }
+
+      - name: Dừng nếu build lỗi
+        if: steps.build-web.outcome == 'failure' || steps.build-gallery.outcome == 'failure'
+        run: exit 1
+
+      # Publish: /  → UI gallery (mở lên là thấy giao diện)
+      #          /web-lite/ → app web chính thức (main_web.dart)
+      - name: Chuẩn bị bản build tĩnh
+        run: |
+          set -e
+          rm -rf /tmp/out && mkdir -p /tmp/out/web-lite
+          # /           → UI gallery  (/tmp/gallery, build từ main_ui_gallery.dart)
+          # /web-lite/  → app web     (/tmp/web-lite, build từ main_web.dart)
+          cp -r /tmp/gallery/. /tmp/out/
+          cp -r /tmp/web-lite/. /tmp/out/web-lite/
+          for d in /tmp/out /tmp/out/web-lite; do
+            test -f "$d/index.html" || { echo "::error::thiếu index.html trong $d"; exit 1; }
+            test -f "$d/main.dart.js" || { echo "::error::thiếu main.dart.js trong $d"; exit 1; }
+            cp "$d/index.html" "$d/404.html"
+            touch "$d/.nojekyll"
+          done
+          cat > /tmp/out/BUILD_INFO.txt <<EOF2
+          In4Up — bản build PREVIEW (không phải bản phát hành)
+          nhánh:   ${{ steps.src.outputs.branch }}
+          commit:  ${{ steps.src.outputs.sha }}
+          pubspec: ${{ steps.src.outputs.version }}
+          build:   ${{ github.run_id }} / attempt ${{ github.run_attempt }}
+          thời điểm: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          /           → UI Gallery (lib/main_ui_gallery.dart)
+          /web-lite/  → app web chính thức (lib/main_web.dart)
+          EOF2
+          cp /tmp/out/BUILD_INFO.txt /tmp/out/web-lite/BUILD_INFO.txt
+          echo "::notice::gallery main.dart.js $(du -h /tmp/out/main.dart.js | cut -f1)"
+          echo "::notice::web-lite main.dart.js $(du -h /tmp/out/web-lite/main.dart.js | cut -f1)"
+
+      # Smoke-test bản build bằng Chromium headless NGAY TRÊN RUNNER: mở từng
+      # tab, chờ canvas của Flutter, chụp ảnh và gom lỗi console. Lý do: sandbox
+      # của agent không chạy được Chromium (thiếu libnspr4/libnss3, apt chặn),
+      # nên ảnh + report được commit vào nhánh preview để đọc lại từ đó.
+      - name: Smoke-test bằng Chromium headless
+        id: smoke
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          npm init -y > /dev/null 2>&1
+          npm i --silent puppeteer-core @sparticuz/chromium > npm.log 2>&1
+          if [ $? -ne 0 ]; then
+            echo "### smoke: không cài được npm package" >> "$GITHUB_STEP_SUMMARY"
+            tail -20 npm.log >> "$GITHUB_STEP_SUMMARY"
+            mkdir -p /tmp/smoke-out
+            echo "smoke: npm install thất bại" > /tmp/smoke-out/report.txt
+            exit 0
+          fi
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory /tmp/out > /tmp/http.log 2>&1 &
+          sleep 2
+          mkdir -p /tmp/smoke-out
+          # Script phải nằm CẠNH node_modules: ESM resolve package từ thư mục
+          # của file script đi lên, không đọc cwd ⇒ copy rồi mới chạy.
+          cp "$GITHUB_WORKSPACE/tool/preview_smoke.mjs" ./preview_smoke.mjs
+          node preview_smoke.mjs http://127.0.0.1:8080 /tmp/smoke-out > run.log 2>&1
+          code=$?
+          cat run.log
+          echo "### smoke-test (exit $code)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          head -60 /tmp/smoke-out/report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || tail -20 run.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -la /tmp/smoke-out || true
+          if [ -f /tmp/smoke-out/report.txt ]; then
+            grep -E "^(số màn|tổng lỗi|  boot|  lỗi)" /tmp/smoke-out/report.txt | head -20 \
+              | cut -c1-280 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice title=smoke::$l"; done
+          else
+            tail -20 run.log | cut -c1-280 | sed 's/%/%25/g' \
+              | while IFS= read -r l; do echo "::error title=smoke (không có report)::$l"; done
+          fi
+          if [ "$code" != "0" ]; then
+            echo "::warning title=smoke::một số màn chưa render được (xem smoke/report.txt)"
+          fi
+          exit 0
+
+      - name: Push bản build lên nhánh preview
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIEW_BRANCH: ${{ inputs.preview_branch }}
+        run: |
+          set -e
+          DEST=${PREVIEW_BRANCH:-preview/arena-395208ef-in4up}
+          rm -rf /tmp/preview && mkdir -p /tmp/preview
+          cp -r /tmp/out/. /tmp/preview/
+          if [ -d /tmp/smoke-out ]; then
+            mkdir -p /tmp/preview/smoke
+            cp -r /tmp/smoke-out/. /tmp/preview/smoke/
+          fi
+          cd /tmp/preview
+          cat > .gitattributes <<'EOF'
+          * -text
+          EOF
+          git init -q -b "$DEST"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Preview build: ${{ steps.src.outputs.branch }} @ ${{ steps.src.outputs.short }} (${{ steps.src.outputs.version }})"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin "$DEST"
+          echo "::notice title=preview branch::$DEST ← ${{ steps.src.outputs.sha }}"

@@ -443,7 +443,7 @@ class _QuickFileRow extends StatelessWidget {
                           file.typeLabel,
                           style: TextStyle(
                             color: _typeColor,
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -512,8 +512,8 @@ class _CircularProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 28,
-      height: 28,
+      width: 34,
+      height: 34,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -523,12 +523,18 @@ class _CircularProgress extends StatelessWidget {
             backgroundColor: Colors.white.withValues(alpha: 0.08),
             valueColor: AlwaysStoppedAnimation<Color>(_progressColor),
           ),
-          Text(
-            context.uiText('${(value * 100).round()}%'),
-            style: TextStyle(
-              color: _progressColor,
-              fontSize: 7,
-              fontWeight: FontWeight.bold,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Text(
+                context.uiText('${(value * 100).round()}%'),
+                style: TextStyle(
+                  color: _progressColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],

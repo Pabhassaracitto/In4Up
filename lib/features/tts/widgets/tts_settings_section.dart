@@ -258,7 +258,7 @@ class _PrioritySelector extends StatelessWidget {
                     Text(
                       p.description,
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: Colors.grey[600],
                       ),
                     ),
@@ -308,7 +308,7 @@ class _EngineOrderSection extends StatelessWidget {
             const Spacer(),
             Text(
               'Kéo để sắp xếp',
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -374,7 +374,7 @@ class _EngineOrderSection extends StatelessWidget {
                     Text(
                       engine.description,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: Colors.grey[600],
                       ),
                     ),
@@ -498,7 +498,7 @@ class ServerApiSyncSection extends StatelessWidget {
                         Text(
                           summary,
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 11,
                             color: hasTtsApi
                                 ? Colors.green[200]
                                 : Colors.grey[500],
@@ -572,7 +572,7 @@ class _EngineStatusSection extends StatelessWidget {
                     Text(
                       e.key,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: e.value ? Colors.green[200] : Colors.red[200],
                       ),
                     ),
@@ -604,7 +604,7 @@ class _EngineStatusSection extends StatelessWidget {
                       'Piper × : chưa có giọng HOẶC thiếu phonemizer '
                       '(espeak-ng-data) — cài tại TTS → Quản lý model',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: Colors.orange[200],
                       ),
                     ),
@@ -814,7 +814,7 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
               context.uiText(
                 'Mỗi ngôn ngữ chọn 1 giọng đã import. Tự động ưu tiên phát khi dùng Sherpa TTS.',
               ),
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             for (final entry in byLang.entries)
@@ -1100,7 +1100,7 @@ class _EdgeVoicePickerState extends State<EdgeVoicePicker> {
             'Mỗi ngôn ngữ chọn 1 giọng Edge. Tự động áp dụng khi phát bằng '
             'engine Microsoft Edge TTS (không ảnh hưởng Piper/giọng máy).',
           ),
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
         const SizedBox(height: 4),
         // TTS-EDGE-VOICE-003 (nghiệm thu 1.g trên máy thật): tài liệu tiếng
@@ -1130,7 +1130,7 @@ class _EdgeVoicePickerState extends State<EdgeVoicePicker> {
               'bằng giọng ghim. Giọng riêng của từng ngôn ngữ vẫn được ưu '
               'tiên.',
             ),
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
           ),
         ),
         if (_pinAll)
@@ -1171,7 +1171,7 @@ class _EdgeVoicePickerState extends State<EdgeVoicePicker> {
                     child: Text(
                       '${context.uiText('Đang ghim')}: ${_pinnedVoice!}',
                       style:
-                          const TextStyle(fontSize: 10, color: Colors.white54),
+                          const TextStyle(fontSize: 11, color: Colors.white54),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1327,7 +1327,7 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
             ),
             Text(
               context.uiText('${voices.length}'),
-              style: const TextStyle(fontSize: 10, color: Colors.white30),
+              style: const TextStyle(fontSize: 11, color: Colors.white30),
             ),
           ],
         ),
@@ -1634,7 +1634,7 @@ class _VieneuModelImportSectionState
                           .uiText('Đã có từ điển ({value0})')
                           .replaceAll('{value0}', sizeLabel)
                       : context.uiText('Chưa có từ điển phát âm'),
-                  style: TextStyle(fontSize: 9.5, color: accent[200]),
+                  style: TextStyle(fontSize: 11, color: accent[200]),
                 ),
             ],
           ),
@@ -1644,7 +1644,7 @@ class _VieneuModelImportSectionState
               'Model chỉ nhận phiên âm, không nhận chữ thô — thiếu từ điển '
               'này VieNeu chưa đọc được.',
             ),
-            style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+            style: TextStyle(fontSize: 11, color: Colors.grey[400]),
           ),
           const SizedBox(height: 8),
           if (_g2pBusy) ...[
@@ -1660,7 +1660,7 @@ class _VieneuModelImportSectionState
                     '{value0}',
                     (_g2pProgress * 100).round().toString(),
                   ),
-              style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
             ),
           ] else
             Row(
@@ -1671,7 +1671,7 @@ class _VieneuModelImportSectionState
                     icon: const Icon(Icons.download, size: 14),
                     label: Text(
                       context.uiText('Tải từ điển (~60 MB)'),
-                      style: const TextStyle(fontSize: 10),
+                      style: const TextStyle(fontSize: 11),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
@@ -1687,7 +1687,7 @@ class _VieneuModelImportSectionState
                     icon: const Icon(Icons.file_open, size: 14),
                     label: Text(
                       context.uiText('Chọn tệp sea_g2p.bin'),
-                      style: const TextStyle(fontSize: 10),
+                      style: const TextStyle(fontSize: 11),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white70,
@@ -2089,7 +2089,7 @@ class _VieneuModelImportSectionState
                         ? 'Đã có model'
                         : 'Chưa có model — import để kích hoạt',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       color: anyModel ? Colors.green[200] : Colors.orange[200],
                     ),
                   ),
@@ -2144,7 +2144,7 @@ class _VieneuModelImportSectionState
                   context.uiText(_engineReady
                       ? 'Engine đã sẵn sàng'
                       : 'Model đã có · engine nạp khi bắt đầu đọc'),
-                  style: TextStyle(fontSize: 9.5, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               ),
             ],
@@ -2196,7 +2196,7 @@ class _VieneuModelImportSectionState
                         'Đã import · ${_variantModelPaths[variant]!.split('/').last}')
                     : 'Chưa import',
                 style: TextStyle(
-                  fontSize: 9.5,
+                  fontSize: 11,
                   color: imported ? Colors.green[300] : Colors.grey[600],
                 ),
               ),
@@ -2222,7 +2222,7 @@ class _VieneuModelImportSectionState
                       onPressed: () => _pickModelAndImport(variant),
                       icon: const Icon(Icons.file_upload, size: 14),
                       label: const Text('Import',
-                          style: TextStyle(fontSize: 9.5)),
+                          style: TextStyle(fontSize: 11)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
                         side: BorderSide(color: Colors.grey[600]!),
@@ -2255,7 +2255,7 @@ class _VieneuModelImportSectionState
             'Q8_0 (~170 MB) là mặc định, cân bằng chất lượng và dung lượng; '
             'bf16 (~292 MB) chất lượng cao hơn, file lớn hơn.',
           ),
-          style: TextStyle(fontSize: 9.5, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
         const SizedBox(height: 8),
         Row(
@@ -2326,7 +2326,7 @@ class _VieneuModelImportSectionState
                   child: Text(
                     _status!.localize(context),
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       color: _statusIsError ? Colors.red[200] : Colors.green[200],
                     ),
                   ),
@@ -2339,7 +2339,7 @@ class _VieneuModelImportSectionState
           const SizedBox(height: 8),
           Text(
             context.uiText('Đường dẫn: $selectedPath'),
-            style: TextStyle(fontSize: 9, color: Colors.white38),
+            style: TextStyle(fontSize: 11, color: Colors.white38),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -2387,7 +2387,7 @@ class _VieneuModelImportSectionState
             'voices/ cạnh file .gguf được tự động import; nếu thiết bị chỉ cho chọn file, '
             'dùng "Import trọn bộ từ thư mục" hoặc chọn nhiều file dữ liệu giọng.',
           ),
-          style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
       ],
     );
@@ -2552,7 +2552,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         content: SingleChildScrollView(
           child: SelectableText(
             lines.join('\n'),
-            style: const TextStyle(fontSize: 10.5, height: 1.35),
+            style: const TextStyle(fontSize: 11, height: 1.35),
           ),
         ),
         actions: [
@@ -2638,7 +2638,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                 Expanded(
                   child: Text(
                     context.uiText(_error!),
-                    style: TextStyle(fontSize: 10, color: Colors.red[200]),
+                    style: TextStyle(fontSize: 11, color: Colors.red[200]),
                   ),
                 ),
               ],
@@ -2675,7 +2675,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                   size: 14, color: Colors.white38),
               label: Text(
                 context.uiText('Không thấy giọng vừa import?'),
-                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
               ),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -2712,7 +2712,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                 ),
                 child: Text(
                   _loadedVariant!.label,
-                  style: TextStyle(fontSize: 9, color: Colors.grey[400]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
               ),
             IconButton(
@@ -2732,14 +2732,14 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         if (_loadedVariant != null)
           Text(
             context.uiText('Đang dùng model ${_loadedVariant!.label}'),
-            style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
           ),
         if (_modelMissing)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               context.uiText('Chưa import model .gguf — giọng mẫu vẫn hiển thị, cần model để đọc'),
-              style: TextStyle(fontSize: 9, color: Colors.orange[200]),
+              style: TextStyle(fontSize: 11, color: Colors.orange[200]),
             ),
           ),
         const SizedBox(height: 8),
@@ -2781,7 +2781,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                                 ? 'Mặc định'
                                 : 'Giọng mẫu'),
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 11,
                           color: v.origin == 'cloned'
                               ? Colors.purple[200]
                               : Colors.green,
@@ -2804,7 +2804,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                 size: 14, color: Colors.white38),
             label: Text(
               context.uiText('Không thấy giọng vừa import?'),
-              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -2874,7 +2874,7 @@ class _LicenseTile extends StatelessWidget {
       title: Text(title, style: const TextStyle(fontSize: 12)),
       subtitle: Text(
         '${context.uiText(subtitle)} · $license',
-        style: const TextStyle(fontSize: 10, color: Colors.white60),
+        style: const TextStyle(fontSize: 11, color: Colors.white60),
       ),
     );
   }

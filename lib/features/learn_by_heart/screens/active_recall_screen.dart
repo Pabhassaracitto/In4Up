@@ -182,7 +182,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           // Voice Recall Button
           IconButton(
             icon: const Icon(Icons.mic_rounded, color: Color(0xFF6C63FF)),
-            tooltip: 'Đọc bằng giọng nói (Voice Recall)',
+            tooltip: context.uiText('Đọc bằng giọng nói (Voice Recall)'),
             onPressed: _openVoiceRecitation,
           ),
           if (item.isReadyForAssessment)

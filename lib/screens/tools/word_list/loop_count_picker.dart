@@ -246,7 +246,7 @@ class _PresetItem extends StatelessWidget {
                       color: selected
                           ? Colors.white.withValues(alpha: 0.8)
                           : Colors.grey[600],
-                      fontSize: 9)),
+                      fontSize: 11)),
             ],
           ),
         ),

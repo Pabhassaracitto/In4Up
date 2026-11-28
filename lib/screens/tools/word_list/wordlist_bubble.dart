@@ -1,13 +1,20 @@
 // lib/screens/tools/word_list/wordlist_bubble.dart
-// Floating round bubble that shows wordlist TTS status across tabs
-// Features: draggable, auto-hide after seconds, tap to mute, hide when back to wordlist
+// Floating round bubble that shows wordlist TTS status across tabs.
+// Non-destructive tap: expands/collapses readout; explicit 44pt stop button stops TTS.
 
-import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:in4up/core/theme/app_colors.dart';
+import 'package:in4up/core/theme/app_spacing.dart';
+import 'package:in4up/core/theme/app_typography.dart';
 
+import 'word_list_screen.dart';
 import 'wordlist_playback_service.dart';
+
+const Key wordlistBubbleStopButtonKey = Key('wordlist_bubble_stop_button');
 
 class WordlistBubble extends StatefulWidget {
   const WordlistBubble({super.key});
@@ -48,11 +55,9 @@ class _WordlistBubbleState extends State<WordlistBubble>
   void _onServiceChanged() {
     if (!mounted) return;
     setState(() {});
-    // Reset auto-hide on word change
     if (_service.isPlaying) {
       _scheduleAutoHide();
       if (!_isExpanded) {
-        // Briefly expand on new word
         setState(() => _isExpanded = true);
       }
     }
@@ -61,7 +66,7 @@ class _WordlistBubbleState extends State<WordlistBubble>
   void _scheduleAutoHide() {
     _autoHideTimer?.cancel();
     if (!_service.isPlaying) return;
-    _autoHideTimer = Timer(const Duration(seconds: 4), () {
+    _autoHideTimer = Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
       if (_isDragging) {
         _scheduleAutoHide();
@@ -71,20 +76,26 @@ class _WordlistBubbleState extends State<WordlistBubble>
     });
   }
 
-  void _handleTap() {
-    HapticFeedback.mediumImpact();
-    // Tap to mute
-    _service.stopPlayback();
-  }
-
-  void _handleLongPress() {
-    HapticFeedback.heavyImpact();
+  void _handleBodyTap() {
+    HapticFeedback.selectionClick();
     setState(() => _isExpanded = !_isExpanded);
     if (_isExpanded) {
       _scheduleAutoHide();
     } else {
       _autoHideTimer?.cancel();
     }
+  }
+
+  void _handleStopTap() {
+    HapticFeedback.mediumImpact();
+    _service.stopPlayback();
+  }
+
+  void _handleOpenWordlist() {
+    HapticFeedback.heavyImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const WordListScreen()),
+    );
   }
 
   @override
@@ -103,10 +114,10 @@ class _WordlistBubbleState extends State<WordlistBubble>
         ? ' · ${_service.listRepeatCurrent}/${_service.listRepeatCount == 0 ? '∞' : _service.listRepeatCount}'
         : '';
 
-    // Keep within screen bounds
     final screenSize = MediaQuery.of(context).size;
-    final maxX = screenSize.width - 72;
-    final maxY = screenSize.height - 160;
+    final bubbleWidth = _isExpanded ? 228.0 : 58.0;
+    final maxX = (screenSize.width - bubbleWidth - 12).clamp(12.0, double.infinity);
+    final maxY = (screenSize.height - 160).clamp(80.0, double.infinity);
     final pos = Offset(
       _position.dx.clamp(12.0, maxX),
       _position.dy.clamp(80.0, maxY),
@@ -129,23 +140,25 @@ class _WordlistBubbleState extends State<WordlistBubble>
           setState(() => _isDragging = false);
           _scheduleAutoHide();
         },
-        onTap: _handleTap,
-        onLongPress: _handleLongPress,
+        onTap: _handleBodyTap,
+        onLongPress: _handleOpenWordlist,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          width: _isExpanded ? 196 : 58,
+          width: bubbleWidth,
           height: 58,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A2235).withValues(alpha: _isExpanded ? 0.96 : 0.88),
+            color: AppColors.surfaceModal.withValues(
+              alpha: _isExpanded ? 0.96 : 0.9,
+            ),
             borderRadius: BorderRadius.circular(_isExpanded ? 16 : 29),
             border: Border.all(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.45),
+              color: AppColors.accentPrimary.withValues(alpha: 0.45),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                color: AppColors.accentPrimary.withValues(alpha: 0.32),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -175,12 +188,15 @@ class _WordlistBubbleState extends State<WordlistBubble>
             height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+              color: AppColors.accentPrimary.withValues(alpha: 0.18),
             ),
           ),
         ),
-        const Icon(Icons.volume_up_rounded,
-            color: Color(0xFF9C8FFF), size: 22),
+        const Icon(
+          Icons.volume_up_rounded,
+          color: Color(0xFF9C8FFF),
+          size: 22,
+        ),
         Positioned(
           bottom: 6,
           right: 8,
@@ -188,9 +204,9 @@ class _WordlistBubbleState extends State<WordlistBubble>
             width: 10,
             height: 10,
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50),
+              color: AppColors.accentRemember,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF1A2235), width: 1.5),
+              border: Border.all(color: AppColors.surfaceModal, width: 1.5),
             ),
           ),
         ),
@@ -199,25 +215,27 @@ class _WordlistBubbleState extends State<WordlistBubble>
   }
 
   Widget _buildExpanded(
-    current,
+    dynamic current,
     String progressText,
     String repeatText,
     String listRepeat,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.only(left: 10, right: 4, top: 4, bottom: 4),
       child: Row(
         children: [
-          // Icon circle
           Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+              color: AppColors.accentPrimary.withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.volume_up_rounded,
-                color: Color(0xFF9C8FFF), size: 18),
+            child: const Icon(
+              Icons.volume_up_rounded,
+              color: Color(0xFF9C8FFF),
+              size: 18,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -226,44 +244,58 @@ class _WordlistBubbleState extends State<WordlistBubble>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  // PLAN-043 mục 2 — bubble hiện đúng nội dung đang nghe
-                  // (đang đọc phía nghĩa thì hiện nghĩa, không chỉ từ).
                   _service.currentStepText ?? current?.word ?? '...',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.subheadSize,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  context.uiText('$progressText$repeatText$listRepeat'),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                  '$progressText$repeatText$listRepeat',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: AppTypography.captionSize,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          // Mute button
-          GestureDetector(
-            onTap: _handleTap,
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: Colors.red.withValues(alpha: 0.25), width: 1),
+          Tooltip(
+            message: context.uiText('Dừng đọc từ vựng'),
+            child: GestureDetector(
+              key: wordlistBubbleStopButtonKey,
+              behavior: HitTestBehavior.opaque,
+              onTap: _handleStopTap,
+              child: SizedBox(
+                width: AppSpacing.minTouchTarget,
+                height: AppSpacing.minTouchTarget,
+                child: Center(
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.danger.withValues(alpha: 0.32),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.stop_rounded,
+                      color: Colors.redAccent,
+                      size: 16,
+                    ),
+                  ),
+                ),
               ),
-              child: const Icon(Icons.stop_rounded,
-                  color: Colors.redAccent, size: 16),
             ),
           ),
         ],

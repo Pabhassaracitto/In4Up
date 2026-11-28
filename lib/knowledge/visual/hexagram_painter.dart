@@ -216,7 +216,7 @@ class HexagramPainter extends CustomPainter {
           text: labels[i],
           style: TextStyle(
             color: colors[dim],
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.bold,
           ),
         ),

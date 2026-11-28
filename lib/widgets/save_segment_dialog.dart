@@ -238,7 +238,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                               color: isSelected
                                   ? Colors.white.withValues(alpha: 0.8)
                                   : Colors.grey,
-                              fontSize: 10,
+                              fontSize: 11,
                             ),
                           ),
                         ],

@@ -46,6 +46,9 @@ class _IpaDocument extends TranslationTestDocument implements TextProvider {
   TextAlign get textAlign => TextAlign.left;
   @override
   double get fontSize => 18;
+  // AUDIT v1.30.1 (mục 4): TextLineWidget đọc giãn dòng từ TextProvider.
+  @override
+  double get readerLineHeight => 1.6;
   @override
   bool isLineBeingSpoken(int index) => false;
   @override

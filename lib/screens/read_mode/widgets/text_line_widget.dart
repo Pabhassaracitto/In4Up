@@ -99,6 +99,8 @@ class TextLineWidget extends StatelessWidget {
                   showLineNumbers: tp.showLineNumbers,
                   textAlign: tp.textAlign,
                   fontSize: tp.fontSize,
+                  // AUDIT v1.30.1 (mục 4): giãn dòng chỉnh real-time.
+                  lineHeight: tp.readerLineHeight,
                   displayMode: tp.translationDisplayMode,
                   // AUDIT-2026-10-20 (mục 6): dùng isLineBeingSpoken ⇒
                   // dòng đang đọc được highlight kể cả khi đọc THỬ 1 dòng
@@ -442,7 +444,7 @@ class TextLineWidget extends StatelessWidget {
     final baseStyle = TextStyle(
       fontSize: data.fontSize,
       color: Colors.white,
-      height: 1.6,
+      height: data.lineHeight,
     );
 
     final wordIpa = _wordIpaSpans(data);
@@ -455,6 +457,7 @@ class TextLineWidget extends StatelessWidget {
           words: data.analyzedWords,
           wordIpa: wordIpa,
           fontSize: data.fontSize,
+          lineHeight: data.lineHeight,
           colorMode: data.colorMode,
           lineIndex: index,
           // IN4: truyền căn lề để Wrap canh TỪNG hàng (hàng rớt khi dòng
@@ -613,7 +616,7 @@ class _LineHeader extends StatelessWidget {
                 color: data.isCurrentLine
                     ? const Color(0xFF2196F3)
                     : Colors.grey[600],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'monospace',
               ),
@@ -631,7 +634,7 @@ class _LineHeader extends StatelessWidget {
           Text(
             _formatDuration(data.startTime!),
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 11,
               color:
                   data.isPlaying ? const Color(0xFF4CAF50) : Colors.grey[600],
               fontFamily: 'monospace',
@@ -670,6 +673,9 @@ class _LineData {
   final bool showLineNumbers;
   final TextAlign textAlign;
   final double fontSize;
+
+  /// AUDIT v1.30.1 (mục 4) — giãn dòng (TextStyle.height) của vùng đọc.
+  final double lineHeight;
   final TranslationDisplayMode displayMode;
   final bool isSpeaking;
   final List<AnalyzedWord> analyzedWords;
@@ -701,6 +707,7 @@ class _LineData {
     required this.showLineNumbers,
     required this.textAlign,
     required this.fontSize,
+    this.lineHeight = 1.6,
     required this.displayMode,
     required this.isSpeaking,
     required this.analyzedWords,
@@ -729,6 +736,7 @@ class _LineData {
         // READ-ALIGN-001: mặc định căn GIỮA (trước đây trái).
         textAlign = TextAlign.center,
         fontSize = 18,
+        lineHeight = 1.6,
         displayMode = TranslationDisplayMode.hidden,
         isSpeaking = false,
         analyzedWords = const [],
@@ -761,6 +769,7 @@ class _LineData {
         showLineNumbers == other.showLineNumbers &&
         textAlign == other.textAlign &&
         fontSize == other.fontSize &&
+        lineHeight == other.lineHeight &&
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking &&
         lineIpaSegments == other.lineIpaSegments &&
@@ -797,6 +806,7 @@ class _LineData {
           showLineNumbers,
           textAlign,
           fontSize,
+          lineHeight,
           displayMode,
           isSpeaking,
           lineIpaSegments == null ? null : Object.hashAll(lineIpaSegments!),

@@ -246,7 +246,7 @@ class _MediaExportProgressDialogState
                         _error!.detail!,
                         style: const TextStyle(
                           color: Colors.white38,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontFamily: 'monospace',
                         ),
                       ),

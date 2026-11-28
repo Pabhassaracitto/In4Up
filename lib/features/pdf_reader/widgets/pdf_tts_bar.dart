@@ -379,12 +379,15 @@ class TtsSpeedPickerSheet {
   static Future<void> show(BuildContext context, PdfReaderController controller) =>
       showModalBottomSheet<void>(
         context: context,
-        backgroundColor: const Color(0xFF1A1A2E),
+        useSafeArea: true,
+        backgroundColor: const Color(0xFF1C2436),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        builder: (_) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        builder: (_) => SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -437,5 +440,6 @@ class TtsSpeedPickerSheet {
             ],
           ),
         ),
-      );
+      ),
+    );
 }

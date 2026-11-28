@@ -3,10 +3,17 @@ import 'package:in4up/features/tts/reader_voice_preference.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../models/color_mode.dart';
 import '../../ocr/ocr_service.dart';
+import '../../translation/translation_language_picker.dart';
+import '../../translation/translation_service.dart';
+import '../../tts/engines/tts_engine.dart' show TtsVoice;
+import '../../tts/tts_service.dart';
 import '../pdf_reader_controller.dart';
+import '../../../services/storage_service.dart';
 import '../services/pdf_reader_theme.dart';
+import '../services/pdf_tts_language.dart';
 
 class PdfToolbar extends StatelessWidget {
   final PdfReaderController controller;
@@ -206,7 +213,7 @@ class PdfToolbar extends StatelessWidget {
                   const Expanded(
                     child: Text(
                       'Nguồn cho Viết · chọn một đoạn để viết lại hoặc dùng toàn bộ PDF để tóm tắt.',
-                      style: TextStyle(color: Colors.white70, fontSize: 10.5),
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -284,7 +291,7 @@ class _ColorModeButton extends StatelessWidget {
             Text(
               context.uiText(controller.colorMode.label),
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: isActive ? const Color(0xFF2196F3) : Colors.grey,
                 fontWeight: FontWeight.w500,
               ),
@@ -301,7 +308,7 @@ class _ColorModeButton extends StatelessWidget {
                   controller.activeGrammarPreset.name,
                   style: const TextStyle(
                     color: Color(0xFFB8B5FF),
-                    fontSize: 9.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -383,40 +390,147 @@ class _TranslatePageButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = controller.pageTranslatePanelVisible;
-    return GestureDetector(
-      onTap: () {
-        onUserInteraction?.call();
-        HapticFeedback.selectionClick();
-        controller.togglePageTranslatePanel();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(7),
-        decoration: BoxDecoration(
-          color: active
-              ? const Color(0xFF66BB6A).withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(8),
-          border: active
-              ? Border.all(
-                  color: const Color(0xFF66BB6A).withValues(alpha: 0.4))
-              : null,
-        ),
-        child: controller.isTranslatingPage
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.8,
-                  valueColor: AlwaysStoppedAnimation(Color(0xFF66BB6A)),
-                ),
-              )
-            : Icon(
-                Icons.translate,
-                size: 16,
-                color: active ? const Color(0xFF81C784) : Colors.white70,
+    final target = TranslationService().targetLanguage;
+    final busy = controller.isTranslatingPage;
+
+    // AUDIT v1.30.1 (mục 2) — «nút dịch chưa chọn được ngôn ngữ đích».
+    //
+    // Trước đây chỉ có một ô vuông: chạm = bật/tắt panel, và ngôn ngữ đích
+    // luôn là `TranslationService.targetLang` (mặc định VI, không có lối đổi
+    // ngay tại chỗ đọc). Nay nút là MỘT CỤM: [cờ + mã đích] [mũi tên đổi].
+    //   • Chạm ô mã  → bật/tắt panel như cũ (không phá thói quen).
+    //   • Chạm mũi tên → `showTranslationLanguagePicker` (bảng chọn đích dùng
+    //     chung của tab Đọc, có tìm kiếm); đổi xong thì dịch lại trang hiện tại
+    //     ngay để bản dịch khớp ngôn ngữ vừa chọn.
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () {
+            onUserInteraction?.call();
+            HapticFeedback.selectionClick();
+            controller.togglePageTranslatePanel();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: active
+                  ? const Color(0xFF66BB6A).withValues(alpha: 0.18)
+                  : Colors.white.withValues(alpha: 0.07),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(8),
               ),
-      ),
+              border: active
+                  ? Border.all(
+                      color: const Color(0xFF66BB6A).withValues(alpha: 0.4))
+                  : null,
+            ),
+            child: busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.8,
+                      valueColor: AlwaysStoppedAnimation(Color(0xFF66BB6A)),
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.translate,
+                        size: 16,
+                        color: active
+                            ? const Color(0xFF81C784)
+                            : Colors.white70,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        target.flag,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        target.translationCode,
+                        style: TextStyle(
+                          // Sàn chữ repo-wide là 11sp (Sprint 4).
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: active
+                              ? const Color(0xFF81C784)
+                              : Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => _pickTargetLanguage(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 5),
+            decoration: BoxDecoration(
+              color: active
+                  ? const Color(0xFF66BB6A).withValues(alpha: 0.18)
+                  : Colors.white.withValues(alpha: 0.07),
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(8),
+              ),
+              border: active
+                  ? Border.all(
+                      color: const Color(0xFF66BB6A).withValues(alpha: 0.4))
+                  : null,
+            ),
+            // Chạm vùng nhỏ 3px vẫn khó ⇒ đệm trong suốt 8px để tổng bề rộng
+            // chạm ≥ 24px, vẫn giữ cụm nút gọn trên máy 320px.
+            child: const SizedBox(
+              width: 14,
+              height: 16,
+              child: Center(
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  size: 18,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  /// Mở bảng chọn ngôn ngữ ĐÍCH dùng chung của tab Đọc.
+  ///
+  /// Nguồn: `TranslationService` đang nhận diện gì trên trang hiện tại —
+  /// nhưng đây chỉ là NHÃN hiển thị trong bảng; engine vẫn tự nhận diện từng
+  /// câu (`sourceLang: 'AUTO'`), nên đoán sai cũng không làm hỏng bản dịch.
+  Future<void> _pickTargetLanguage(BuildContext context) async {
+    onUserInteraction?.call();
+    HapticFeedback.selectionClick();
+    final service = TranslationService();
+    final sourceText = controller.selectedText?.trim() ?? '';
+    final source = sourceText.isEmpty
+        ? AppLanguageCatalog.english
+        : service.detectSourceLanguage(sourceText);
+    final picked = await showTranslationLanguagePicker(
+      context,
+      sourceLanguage: source,
+      currentTarget: service.targetLanguage,
+      accentColor: const Color(0xFF66BB6A),
+    );
+    if (picked == null) return;
+    service.configure(targetLang: picked.translationCode);
+    // Lưu bền: `configure()` chỉ đổi RAM (trước đây tab Đọc lưu riêng ở
+    // `saveTranslationTargetLanguage`). Không lưu ⇒ mở lại app là quay về VI
+    // dù người dùng vừa chọn Nhật cho cả tài liệu.
+    final storage = StorageService();
+    if (storage.isInitialized) {
+      await storage.saveTranslationTargetLanguage(picked.translationCode);
+    }
+    // Đổi đích ⇒ bản dịch cũ của trang không còn đúng: xoá + dịch lại ngay
+    // (nếu panel đang mở) để người dùng thấy kết quả mới, không phải bấm lại.
+    await controller.retranslateCurrentPage();
   }
 }
 
@@ -787,44 +901,302 @@ class _PdfOptionsSheet extends StatelessWidget {
   }
 }
 
+/// AUDIT v1.30.1 (mục 1) — chọn NGÔN NGỮ ĐỌC trong bảng cài đặt PDF Reader.
+///
+/// Trước đây khai báo cứng 3 dòng ('auto' + English + Tiếng Việt), cộng thêm
+/// một tuỳ chọn «Song ngữ» bị khoá sau `isBilingualTtsAvailable == false` ⇒
+/// người đọc tiếng Nhật/Hàn/Trung/Pháp… không có giọng nào để chọn dù
+/// `EdgeTtsEngine` đã có sẵn 35 giọng / 17 ngôn ngữ.
+///
+/// Nay: chip «Tự động» + chip cho NGÔN NGỮ ĐANG DÙNG (nếu khác mặc định) + nút
+/// mở bảng chọn đầy đủ theo `AppLanguageCatalog` (26 ngôn ngữ, có tìm kiếm).
+/// Bảng chỉ liệt kê ngôn ngữ mà engine hiện có GIỌNG thật — không mời chọn
+/// thứ sẽ im lặng.
 class _TtsLanguageSelector extends StatelessWidget {
   final PdfReaderController controller;
   const _TtsLanguageSelector({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final options = <(String, String)>[
-      ('auto', context.uiText('Tự động')),
-      ('en-US', '🇺🇸 English'),
-      ('vi-VN', '🇻🇳 Tiếng Việt'),
-      if (controller.isBilingualTtsAvailable) ('bilingual', '🔀 Song ngữ'),
-    ];
-
+    final currentLabel = pdfTtsLanguageLabel(controller.ttsLanguage);
+    final isAuto = currentLabel == null;
     return Wrap(
       spacing: 8,
-      children: options.map((opt) {
-        final isSelected = controller.ttsLanguage == opt.$1;
-        return GestureDetector(
-          onTap: () => controller.setTtsLanguage(opt.$1),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF2196F3)
-                  : Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              opt.$2,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _TtsLanguageChip(
+          label: context.uiText('Tự động'),
+          selected: isAuto,
+          onTap: () => controller.setTtsLanguage(kPdfTtsAutoCode),
+        ),
+        if (currentLabel != null)
+          _TtsLanguageChip(
+            label: currentLabel,
+            selected: true,
+            onTap: () => _openLanguageSheet(context),
+          ),
+        _TtsLanguageChip(
+          label: context.uiText('Ngôn ngữ khác…'),
+          selected: false,
+          trailingIcon: Icons.expand_more_rounded,
+          onTap: () => _openLanguageSheet(context),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openLanguageSheet(BuildContext context) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _TtsLanguageSheet(controller: controller),
+    );
+    if (picked == null) return;
+    await controller.setTtsLanguage(picked);
+  }
+}
+
+class _TtsLanguageChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final IconData? trailingIcon;
+  final VoidCallback onTap;
+
+  const _TtsLanguageChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.trailingIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF2196F3)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey,
+                color: selected ? Colors.white : Colors.grey,
                 fontSize: 12,
               ),
             ),
+            if (trailingIcon != null) ...[
+              const SizedBox(width: 2),
+              Icon(
+                trailingIcon,
+                size: 15,
+                color: selected ? Colors.white : Colors.grey,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bảng chọn ngôn ngữ đọc đầy đủ (26 ngôn ngữ, có tìm kiếm).
+///
+/// Chỉ hiện ngôn ngữ có ít nhất một giọng trong engine đang chọn, để mỗi dòng
+/// bấm vào là NGHE ĐƯỢC. Danh sách giọng lấy từ `readerVoiceCatalog` (đã hợp
+/// nhất preset + danh sách live của Edge) nên không cần mạng để vẽ bảng.
+class _TtsLanguageSheet extends StatefulWidget {
+  final PdfReaderController controller;
+  const _TtsLanguageSheet({required this.controller});
+
+  @override
+  State<_TtsLanguageSheet> createState() => _TtsLanguageSheetState();
+}
+
+class _TtsLanguageSheetState extends State<_TtsLanguageSheet> {
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+  Map<String, int>? _voiceCounts;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVoiceCounts();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Đếm số giọng theo `ttsLocale`. Lỗi/không có engine ⇒ `{}` và bảng hiện
+  /// đủ 26 ngôn ngữ (chọn vẫn hợp lệ: engine có thể tự tải giọng sau).
+  Future<void> _loadVoiceCounts() async {
+    Map<String, int> counts = const {};
+    try {
+      final prefs = TtsService().preferenceFor(TtsReader.pdf);
+      final engineId = prefs?.engine ?? '';
+      final voices = engineId.isEmpty
+          ? const <TtsVoice>[]
+          : await TtsService().readerVoiceCatalog(engineId);
+      final local = <String, int>{};
+      for (final voice in voices) {
+        final key = normalizePdfTtsLanguage(voice.language);
+        local[key] = (local[key] ?? 0) + 1;
+      }
+      counts = local;
+    } catch (_) {
+      counts = const {};
+    }
+    if (!mounted) return;
+    setState(() => _voiceCounts = counts);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _query.trim().toLowerCase();
+    final counts = _voiceCounts;
+    final options = pdfTtsLanguageOptions().where((language) {
+      if (query.isEmpty) return true;
+      return language.nativeName.toLowerCase().contains(query) ||
+          language.englishName.toLowerCase().contains(query) ||
+          language.vietnameseName.toLowerCase().contains(query) ||
+          language.translationCode.toLowerCase().contains(query) ||
+          language.ttsLocale.toLowerCase().contains(query);
+    }).toList();
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.78,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
-        );
-      }).toList(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+            child: Text(
+              context.uiText('Ngôn ngữ đọc'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: TextField(
+              controller: _search,
+              onChanged: (value) => setState(() => _query = value),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: context.uiText('Tìm ngôn ngữ…'),
+                hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, size: 18,
+                    color: Colors.white38),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.06),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+              children: [
+                _TtsLanguageRow(
+                  label: context.uiText('Tự động'),
+                  subtitle: context.uiText('Theo ngôn ngữ của tài liệu'),
+                  selected: normalizePdfTtsLanguage(widget.controller.ttsLanguage) ==
+                      kPdfTtsAutoCode,
+                  onTap: () => Navigator.of(context).pop(kPdfTtsAutoCode),
+                ),
+                for (final language in options)
+                  _TtsLanguageRow(
+                    label: '${language.flag} ${language.nativeName}',
+                    subtitle: counts == null
+                        ? language.ttsLocale
+                        : '${language.ttsLocale} · '
+                            '${counts[language.ttsLocale] ?? 0} '
+                            '${context.uiText('giọng')}',
+                    selected: normalizePdfTtsLanguage(widget.controller.ttsLanguage) ==
+                        language.ttsLocale,
+                    onTap: () =>
+                        Navigator.of(context).pop(language.ttsLocale),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TtsLanguageRow extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TtsLanguageRow({
+    required this.label,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      onTap: onTap,
+      selected: selected,
+      selectedTileColor: const Color(0xFF2196F3).withValues(alpha: 0.12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: selected ? const Color(0xFF90CAF9) : Colors.white,
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: Colors.white38, fontSize: 11),
+      ),
+      trailing: selected
+          ? const Icon(Icons.check_circle, size: 18, color: Color(0xFF2196F3))
+          : null,
     );
   }
 }

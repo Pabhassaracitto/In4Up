@@ -579,7 +579,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
                 Text(
                   context.uiText('Kéo lên để xem đầy đủ'),
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.55),
                   ),
                 ),
@@ -795,7 +795,7 @@ class _MiniBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10.5,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
           color: color,
         ),

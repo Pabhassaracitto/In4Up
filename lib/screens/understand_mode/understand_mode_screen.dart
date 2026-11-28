@@ -4,6 +4,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 
@@ -423,7 +424,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: AppColors.surfaceElevated,
         border: Border(
           bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
@@ -472,7 +473,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     Text(
                       _formatDuration(player.state.position),
                       style:
-                          const TextStyle(fontSize: 10, color: Colors.white70),
+                          const TextStyle(fontSize: 11, color: Colors.white70),
                     ),
                     Expanded(
                       child: Slider(
@@ -491,7 +492,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     Text(
                       _formatDuration(player.state.duration),
                       style:
-                          const TextStyle(fontSize: 10, color: Colors.white70),
+                          const TextStyle(fontSize: 11, color: Colors.white70),
                     ),
                   ],
                 ),
@@ -561,7 +562,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: AppColors.surfaceElevated,
         border: Border(
           top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
@@ -1142,12 +1143,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void _showSetLoopGuide(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
+      builder: (context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1196,6 +1199,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -1731,7 +1731,7 @@ class _SelectionIconButton extends StatelessWidget {
       icon: Icon(icon, color: color, size: size),
       onPressed: onTap,
       tooltip: context.uiText(tooltip),
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
       padding: EdgeInsets.zero,
     );
   }
@@ -1970,7 +1970,7 @@ class _RecallTag extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -2200,7 +2200,7 @@ class _RecallLegendSwatch extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );

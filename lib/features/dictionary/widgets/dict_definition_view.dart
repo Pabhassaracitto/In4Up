@@ -176,7 +176,7 @@ class DictDefinitionView extends StatelessWidget {
               context.uiText('Nguồn: ${sourceLabel!.trim()}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: _mutedText, fontSize: 10.5),
+              style: TextStyle(color: _mutedText, fontSize: 11),
             ),
           ),
       ],
@@ -216,7 +216,7 @@ class DictDefinitionView extends StatelessWidget {
                   // Template `{value0} nghĩa` (không ghép chuỗi đã dịch) để
                   // locale ≠ vi ra đúng "3 senses".
                   context.uiText('$count nghĩa'),
-                  style: TextStyle(color: _mutedText, fontSize: 10.5),
+                  style: TextStyle(color: _mutedText, fontSize: 11),
                 ),
               ],
               const SizedBox(width: 8),

@@ -137,7 +137,7 @@ class _RatingButton extends StatelessWidget {
               intervalText,
               style: TextStyle(
                 color: Colors.grey[400],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -1,10 +1,17 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:in4up/core/language/localized_material.dart';
+
 import 'package:flutter/services.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:flutter/material.dart';
+import 'package:in4up/core/theme/app_colors.dart';
+import 'package:in4up/core/theme/app_spacing.dart';
+import 'package:in4up/core/theme/app_typography.dart';
 
 import '../screens/live_cabin_screen.dart';
 import '../services/stts_cabin_service.dart';
+
+const Key liveCaptionBubbleCloseKey = Key('live_caption_bubble_close');
 
 /// Bong bóng nổi phụ đề Live Cabin (theo WP1 / PLAN-008).
 /// Hiển thị trực tiếp bản dịch cabin trên toàn bộ các màn hình của In4Up.
@@ -70,6 +77,11 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
 
   void _handleTap() {
     HapticFeedback.selectionClick();
+    if (!_isExpanded) {
+      setState(() => _isExpanded = true);
+      _scheduleAutoHide();
+      return;
+    }
     _service.togglePause();
   }
 
@@ -89,10 +101,11 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
     final active = _service.activeCaption;
     final textToShow = active?.translatedText.isNotEmpty == true
         ? active!.translatedText
-        : (active?.sourceText ?? 'Đang nghe cabin...');
+        : (active?.sourceText ?? context.uiText('Đang nghe cabin...'));
 
     final screenSize = MediaQuery.of(context).size;
-    final maxX = math.max(10.0, screenSize.width - 90);
+    final bubbleWidth = _isExpanded ? 240.0 : 56.0;
+    final maxX = math.max(10.0, screenSize.width - bubbleWidth - 10);
     final maxY = math.max(80.0, screenSize.height - 180);
     final pos = Offset(
       _position.dx.clamp(10.0, maxX),
@@ -121,18 +134,20 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          width: _isExpanded ? 220 : 54,
-          height: 54,
+          width: bubbleWidth,
+          height: 56,
           decoration: BoxDecoration(
-            color: const Color(0xFF101B2B).withValues(alpha: _isExpanded ? 0.95 : 0.88),
-            borderRadius: BorderRadius.circular(_isExpanded ? 16 : 27),
+            color: AppColors.surfaceModal.withValues(
+              alpha: _isExpanded ? 0.96 : 0.9,
+            ),
+            borderRadius: BorderRadius.circular(_isExpanded ? 16 : 28),
             border: Border.all(
               color: const Color(0xFF00E676).withValues(alpha: 0.5),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00E676).withValues(alpha: 0.3),
+                color: const Color(0xFF00E676).withValues(alpha: 0.28),
                 blurRadius: 14,
                 offset: const Offset(0, 4),
               ),
@@ -143,9 +158,7 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
               ),
             ],
           ),
-          child: _isExpanded
-              ? _buildExpanded(textToShow)
-              : _buildCollapsed(),
+          child: _isExpanded ? _buildExpanded(textToShow) : _buildCollapsed(),
         ),
       ),
     );
@@ -159,8 +172,8 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
           FadeTransition(
             opacity: Tween(begin: 0.4, end: 1.0).animate(_pulseController),
             child: Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: const Color(0xFF00E676).withValues(alpha: 0.2),
@@ -168,7 +181,9 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
             ),
           ),
         Icon(
-          _service.isPaused ? Icons.pause_rounded : Icons.interpreter_mode_rounded,
+          _service.isPaused
+              ? Icons.pause_rounded
+              : Icons.interpreter_mode_rounded,
           color: const Color(0xFF00E676),
           size: 24,
         ),
@@ -178,7 +193,7 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
 
   Widget _buildExpanded(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.only(left: 10, right: 4, top: 4, bottom: 4),
       child: Row(
         children: [
           Container(
@@ -189,7 +204,9 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
               shape: BoxShape.circle,
             ),
             child: Icon(
-              _service.isPaused ? Icons.pause_rounded : Icons.interpreter_mode_rounded,
+              _service.isPaused
+                  ? Icons.pause_rounded
+                  : Icons.interpreter_mode_rounded,
               color: const Color(0xFF00E676),
               size: 18,
             ),
@@ -202,17 +219,25 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
               children: [
                 Row(
                   children: [
-                    Text(
-                      context.uiText('${_service.sourceLanguage.toUpperCase()} ➔ ${_service.targetLanguage.toUpperCase()}'),
-                      style: const TextStyle(
-                        color: Color(0xFF00E676),
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Text(
+                        '${_service.sourceLanguage.toUpperCase()} → ${_service.targetLanguage.toUpperCase()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF00E676),
+                          fontSize: AppTypography.captionSize,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     if (_service.isDubbingEnabled) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.volume_up_rounded, color: Color(0xFF00E676), size: 10),
+                      const Icon(
+                        Icons.volume_up_rounded,
+                        color: Color(0xFF00E676),
+                        size: 12,
+                      ),
                     ],
                   ],
                 ),
@@ -222,30 +247,45 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.footnoteSize,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 4),
-          // Stop icon
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              _service.stopCabin();
-            },
-            child: Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+          Tooltip(
+            message: context.uiText('Đóng cabin'),
+            child: GestureDetector(
+              key: liveCaptionBubbleCloseKey,
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _service.stopCabin();
+              },
+              child: SizedBox(
+                width: AppSpacing.minTouchTarget,
+                height: AppSpacing.minTouchTarget,
+                child: Center(
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.danger.withValues(alpha: 0.32),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.redAccent,
+                      size: 15,
+                    ),
+                  ),
+                ),
               ),
-              child: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 14),
             ),
           ),
         ],

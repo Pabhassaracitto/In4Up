@@ -1362,7 +1362,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
                 onPressed: _openMediaLibrary,
               ),
               IconButton(
-                tooltip: 'Học trong tab Nghe',
+                tooltip: context.uiText('Học trong tab Nghe'),
                 icon: Icon(
                   Icons.headphones,
                   color: widget.audioPath == null
@@ -1714,7 +1714,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
         context.uiText(
           'Ngôn ngữ dịch trùng với phụ đề gốc — đang tạm dùng tiếng Việt.',
         ),
-        style: const TextStyle(color: Colors.amber, fontSize: 10, height: 1.3),
+        style: const TextStyle(color: Colors.amber, fontSize: 11, height: 1.3),
       ),
     );
   }
@@ -1755,7 +1755,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
           Text(
             context.uiText(
                 'Màu này áp cho cả hệ (Đọc / Web / Từ vựng) — đổi ở đâu cũng đổi chung'),
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -1853,7 +1853,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
             _translationRevealed
                 ? context.uiText('Bấm để làm mờ bản dịch.')
                 : context.uiText('Bấm để hiện bản dịch.'),
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ],
       ),
@@ -2660,7 +2660,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
         Text(
           context.uiText(
               'App bỏ qua phần đã có trên máy — không tải lại thứ đã tải rồi.'),
-          style: TextStyle(color: Colors.grey[600], fontSize: 10.5, height: 1.35),
+          style: TextStyle(color: Colors.grey[600], fontSize: 11, height: 1.35),
         ),
         const SizedBox(height: 8),
         _prepareSwitch(
@@ -2880,7 +2880,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
               child: Text(
                 context.uiText('Xem trong Thư viện đã tải'),
                 style: const TextStyle(
-                    fontSize: 10.5, color: Color(0xFF53D6BD)),
+                    fontSize: 11, color: Color(0xFF53D6BD)),
               ),
             ),
           ],
@@ -2901,7 +2901,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
           Text(
             label,
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: 11,
               color: ok ? Colors.white70 : Colors.grey[600],
             ),
           ),
@@ -2925,7 +2925,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
       title: Text(label,
           style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
       subtitle: Text(hint,
-          style: TextStyle(fontSize: 10, color: Colors.grey[600], height: 1.3)),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.3)),
     );
   }
 
@@ -2986,7 +2986,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
                     child: Text(
                       context.uiText(labels[code] ?? code),
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         height: 1.3,
                         color: code.endsWith('_ok')
                             ? Colors.white70
@@ -3003,7 +3003,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
               child: Text(
                 context.uiText(
                     'Đăng nhập trong Cài đặt để lưu phụ đề lên Thư viện đọc đám mây.'),
-                style: TextStyle(fontSize: 10, color: Colors.grey[600], height: 1.3),
+                style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.3),
               ),
             ),
         ],
@@ -3040,7 +3040,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
           v.channel,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white38, fontSize: 10),
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
         ),
         onTap: () {
           Navigator.pop(context);
@@ -3264,7 +3264,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
                 _tsPaintState == null
                     ? context.uiText('Chọn màu, rồi bấm vào từ ở bất kỳ dòng nào')
                     : context.uiText('Đang tô — bấm vào từ để tô màu này'),
-                style: TextStyle(color: Colors.grey[400], fontSize: 10.5),
+                style: TextStyle(color: Colors.grey[400], fontSize: 11),
               ),
             ),
             GestureDetector(
@@ -3279,7 +3279,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
           Text(
             context.uiText(
                 'Màu này áp cho cả hệ (Đọc / Web / Từ vựng) — đổi ở đâu cũng đổi chung'),
-            style: const TextStyle(color: Colors.white38, fontSize: 9.5),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
           const SizedBox(height: 6),
           Wrap(
@@ -3566,7 +3566,7 @@ class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
                     child: Text(context.uiText('${e.key}'),
                         style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 8),

@@ -259,7 +259,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                       child: Text(
                         'Nhấn Enter trong ô để tách thành nhiều dòng. '
                         'Bản dịch sẽ ghép theo thứ tự dòng tương ứng.',
-                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                       ),
                     ),
                   ],
@@ -433,7 +433,7 @@ class _FieldLabel extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           hint,
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
       ],
     );

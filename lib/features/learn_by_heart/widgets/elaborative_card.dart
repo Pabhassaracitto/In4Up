@@ -72,7 +72,7 @@ class ElaborativeCard extends StatelessWidget {
               l10n.coreMeaning,
               style: TextStyle(
                 color: Colors.grey[400],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
               ),

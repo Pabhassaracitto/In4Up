@@ -21,6 +21,9 @@
 // khối đen GPU Mali/Adreno) — chỉ đổi cây widget, không animation.
 import 'package:flutter/material.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:in4up/core/theme/app_colors.dart';
+import 'package:in4up/core/theme/app_radius.dart';
+import 'package:in4up/core/theme/app_spacing.dart';
 
 import 'workspace_navigation/workspace_action_button.dart';
 
@@ -208,21 +211,21 @@ class _ToggleButton extends StatelessWidget {
     return Tooltip(
       message: tip,
       child: Material(
-        color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(9),
+        color: AppColors.accentPrimary.withValues(alpha: 0.18),
+        borderRadius: AppRadius.controlBorder,
         child: InkWell(
           key: collapsibleActionBarToggleKey,
           onTap: onTap,
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: AppRadius.controlBorder,
           child: SizedBox(
-            width: 34,
-            height: 38,
+            width: AppSpacing.minTouchTarget,
+            height: AppSpacing.minTouchTarget,
             child: Icon(
               expanded
                   ? Icons.keyboard_arrow_down_rounded
                   : Icons.keyboard_arrow_up_rounded,
-              size: 19,
-              color: const Color(0xFF6C63FF),
+              size: 20,
+              color: AppColors.accentPrimary,
             ),
           ),
         ),

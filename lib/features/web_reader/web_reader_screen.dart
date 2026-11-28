@@ -550,11 +550,11 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
       return;
     }
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
-    _showSnack('⏳ Đang chuẩn bị chế độ nghe...', duration: 1);
+    _showSnack('Đang chuẩn bị chế độ nghe...', duration: 1);
     final text = await _extractMainArticleText();
     if (!mounted) return;
     if (text == null || text.isEmpty) {
-      _showSnack('❌ Không tìm thấy nội dung bài để đọc');
+      _showSnack('Không tìm thấy nội dung bài để đọc');
       return;
     }
     await _controller.speakArticle(text, startOffset: fromSelection
@@ -564,10 +564,10 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
   Future<void> _extractTextToStudio() async {
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
 
-    _showSnack('⏳ Đang trích xuất văn bản...', duration: 1);
+    _showSnack('Đang trích xuất văn bản...', duration: 1);
     final text = await _extractMainArticleText();
     if (text == null || text.isEmpty) {
-      _showSnack('❌ Không thể extract text từ trang này');
+      _showSnack('Không thể extract text từ trang này');
       return;
     }
 
@@ -577,7 +577,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
             title: _controller.pageTitle,
           );
       _showSnack(
-        '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng',
+        'Đã load vào Text Studio — ${text.split('\n').length} dòng',
       );
     }
   }
@@ -585,11 +585,11 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
   Future<void> _sendArticleToWriting() async {
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
 
-    _showSnack('⏳ Đang chuẩn bị nguồn luyện viết...', duration: 1);
+    _showSnack('Đang chuẩn bị nguồn luyện viết...', duration: 1);
     final text = await _extractMainArticleText();
     if (!mounted) return;
     if (text == null || text.isEmpty) {
-      _showSnack('❌ Không thể trích xuất nội dung từ trang này');
+      _showSnack('Không thể trích xuất nội dung từ trang này');
       return;
     }
 
@@ -626,11 +626,11 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
 
   Future<void> _openBatchFromCurrentPage() async {
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
-    _showSnack('⏳ Đang chuẩn bị batch từ bài hiện tại...', duration: 1);
+    _showSnack('Đang chuẩn bị batch từ bài hiện tại...', duration: 1);
     final text = await _extractMainArticleText();
     if (!mounted) return;
     if (text == null || text.isEmpty) {
-      _showSnack('❌ Không thể lấy nội dung bài để tạo batch');
+      _showSnack('Không thể lấy nội dung bài để tạo batch');
       return;
     }
     await WebExtractionBatchSheet.show(
@@ -702,7 +702,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
       final added = await _controller.addCurrentPageToUserCollection(newCollectionId);
       _showSnack(
         added
-            ? '✅ Đã tạo nhóm và lưu trang hiện tại'
+            ? 'Đã tạo nhóm và lưu trang hiện tại'
             : 'Trang này đã có sẵn trong nhóm vừa tạo',
       );
       return;
@@ -775,7 +775,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
                           Navigator.pop(sheetContext);
                           _showSnack(
                             added
-                                ? '✅ Đã tạo nhóm mới và lưu trang hiện tại'
+                                ? 'Đã tạo nhóm mới và lưu trang hiện tại'
                                 : 'Trang này đã có sẵn trong nhóm đó rồi',
                           );
                         },
@@ -818,7 +818,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
                         Navigator.pop(sheetContext);
                         _showSnack(
                           added
-                              ? '✅ Đã lưu vào nhóm "${collection.title}"'
+                              ? 'Đã lưu vào nhóm "${collection.title}"'
                               : 'Trang này đã có sẵn trong nhóm "${collection.title}"',
                         );
                       },
@@ -1104,7 +1104,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
     final saved = _controller.saveSelectionToMemory(selection);
     _showSnack(
       saved
-          ? '🧠 Đã lưu đoạn chọn vào Vườn Nhớ'
+          ? 'Đã lưu đoạn chọn vào Vườn Nhớ'
           : 'Đoạn chọn này chưa thể lưu vào Vườn Nhớ',
     );
   }
@@ -1129,11 +1129,11 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
   /// rồi có thể mở trong tab Nghe để học với tốc độ chậm / A-B loop.
   Future<void> _saveArticleAsAudio() async {
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
-    _showSnack(context.uiText('⏳ Đang tạo file âm thanh…'), duration: 1);
+    _showSnack(context.uiText('Đang tạo file âm thanh…'), duration: 1);
     final text = await _extractMainArticleText();
     if (!mounted) return;
     if (text == null || text.isEmpty) {
-      _showSnack(context.uiText('❌ Không thể lấy nội dung bài để tạo âm thanh'));
+      _showSnack(context.uiText('Không thể lấy nội dung bài để tạo âm thanh'));
       return;
     }
     final dir = Directory(
@@ -1150,12 +1150,12 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
     );
     if (!mounted) return;
     if (path == null) {
-      _showSnack(context.uiText('❌ Không lưu được file âm thanh'));
+      _showSnack(context.uiText('Không lưu được file âm thanh'));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(context.uiText('✅ Đã lưu âm thanh bài đọc')),
+        content: Text(context.uiText('Đã lưu âm thanh bài đọc')),
         action: SnackBarAction(
           label: context.uiText('Mở trong tab Nghe'),
           onPressed: () {
@@ -1444,7 +1444,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
-            tooltip: 'Tốc độ đọc',
+            tooltip: context.uiText('Tốc độ đọc'),
             icon: const Icon(Icons.speed, color: Colors.white70, size: 19),
             onPressed: () {
               final next = nextReaderSpeed(_controller.ttsSpeed);
@@ -1453,7 +1453,7 @@ class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
-            tooltip: 'Dừng đọc',
+            tooltip: context.uiText('Dừng đọc'),
             icon: const Icon(Icons.stop, color: Colors.redAccent, size: 20),
             onPressed: _controller.stopTts,
             visualDensity: VisualDensity.compact,
@@ -1659,7 +1659,7 @@ class _RecallLegendDot extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );

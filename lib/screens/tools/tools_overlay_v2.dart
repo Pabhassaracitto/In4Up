@@ -1,11 +1,12 @@
 // lib/screens/tools/tools_overlay_v2.dart
 //
-// ★ FIX SCROLL: bọc GridView trong SingleChildScrollView thay vì Column.Expanded
-// ★ FIX BOX HEIGHT: childAspectRatio tăng từ 1.55 → 2.2 (box thấp hơn)
-// ★ FIX: physics cuộn bình thường cho grid
+// Quick Actions / Tools Overlay:
+// - Mở mượt trong 220ms, đóng tức thì (≤ 100ms khi đóng thường, 0ms khi chọn tool)
+//   thay vì chờ reverse tuần tự ~800ms.
+// - Dùng PopScope chuẩn mới.
+// - Tích hợp ô tìm kiếm tức thời để lọc nhanh danh sách công cụ.
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
@@ -59,61 +60,38 @@ class _ToolsOverlayScreenV2 extends StatefulWidget {
 }
 
 class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
-    with TickerProviderStateMixin {
-  late final AnimationController _masterCtrl;
-  late final List<AnimationController> _cardCtrls;
-
-  final List<Timer> _timers = [];
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
   bool _isDismissing = false;
 
   @override
   void initState() {
     super.initState();
-
-    _masterCtrl = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    _cardCtrls = List.generate(
-      widget.tools.length,
-      (_) => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 550),
-      ),
-    );
-
-    _masterCtrl.forward();
-
-    for (int i = 0; i < _cardCtrls.length; i++) {
-      _timers.add(
-        Timer(Duration(milliseconds: 120 + i * 55), () {
-          if (!mounted || _isDismissing) return;
-          _cardCtrls[i].forward();
-        }),
-      );
-    }
+      duration: const Duration(milliseconds: 220),
+      reverseDuration: const Duration(milliseconds: 100),
+    )..forward();
   }
 
   @override
   void dispose() {
-    for (final t in _timers) {
-      t.cancel();
-    }
-    _masterCtrl.stop();
-    _masterCtrl.dispose();
-    for (final c in _cardCtrls) {
-      c.stop();
-      c.dispose();
-    }
+    _searchCtrl.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
-  double _backdropT() => const Interval(0.0, 0.5, curve: Curves.easeOut)
-      .transform(_masterCtrl.value);
-
-  double _headerT() => const Interval(0.1, 0.6, curve: Curves.easeOutBack)
-      .transform(_masterCtrl.value);
+  List<ToolItem> get _filteredTools {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.tools;
+    return widget.tools.where((t) {
+      return t.title.toLowerCase().contains(q) ||
+          t.subtitle.toLowerCase().contains(q) ||
+          t.id.toLowerCase().contains(q);
+    }).toList();
+  }
 
   Future<void> _dismiss([String? toolId]) async {
     if (_isDismissing) return;
@@ -121,26 +99,28 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
 
     HapticFeedback.lightImpact();
 
-    for (final t in _timers) {
-      t.cancel();
+    // Khi người dùng đã chọn công cụ, thoát ngay để mở màn hình đích không trễ.
+    if (toolId == null && mounted) {
+      await _ctrl.reverse();
     }
-
-    for (int i = _cardCtrls.length - 1; i >= 0; i--) {
-      _cardCtrls[i].reverse();
-      await Future.delayed(const Duration(milliseconds: 20));
-    }
-    await _masterCtrl.reverse();
-
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pop(toolId);
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        await _dismiss(null);
-        return false;
+    final curved = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          unawaited(_dismiss(null));
+        }
       },
       child: Material(
         type: MaterialType.transparency,
@@ -150,39 +130,32 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
             children: [
               // Backdrop
               AnimatedBuilder(
-                animation: _masterCtrl,
+                animation: curved,
                 builder: (_, __) => Container(
                   color: const Color(0xFF080B1A)
-                      .withValues(alpha: _backdropT() * 0.88),
+                      .withValues(alpha: curved.value * 0.90),
                 ),
               ),
 
-              // Noise texture
-              AnimatedBuilder(
-                animation: _masterCtrl,
-                builder: (_, __) => Opacity(
-                  opacity: _backdropT() * 0.03,
-                  child: const _NoiseTexture(),
-                ),
-              ),
-
-              // Content — scrollable
+              // Content
               SafeArea(
                 child: GestureDetector(
                   onTap: () {}, // block tap xuyên qua
-                  child: Column(
-                    children: [
-                      _buildHeader(),
-                      // ★ FIX: Expanded + SingleChildScrollView thay vì Expanded + GridView(NeverScroll)
-                      Expanded(
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                          child: _buildToolsGrid(),
+                  child: FadeTransition(
+                    opacity: curved,
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        _buildSearchBar(),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                            child: _buildToolsGrid(),
+                          ),
                         ),
-                      ),
-                      _buildFooter(),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -194,73 +167,123 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
   }
 
   Widget _buildHeader() {
-    return AnimatedBuilder(
-      animation: _masterCtrl,
-      builder: (_, child) {
-        final h = _headerT();
-        return Transform.translate(
-          offset: Offset(0, -24 * (1 - h)),
-          child: Opacity(opacity: h.clamp(0.0, 1.0), child: child),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 8),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF7C4DFF), Color(0xFFE040FB)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7C4DFF), Color(0xFFE040FB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: const Icon(Icons.extension, color: Colors.white, size: 22),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 14),
-            Column(
+            child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Công Cụ',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.4,
                   ),
                 ),
                 Text(
-                  context.uiText('${widget.tools.where((t) => t.isAvailable).length} tính năng'),
+                  context.uiText(
+                    '${widget.tools.where((t) => t.isAvailable).length} tính năng',
+                  ),
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ],
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => _dismiss(null),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Icon(Icons.close, color: Colors.grey[400], size: 18),
+          ),
+          IconButton(
+            tooltip: context.uiText('Đóng'),
+            onPressed: () => _dismiss(null),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-          ],
+            icon: Icon(Icons.close, color: Colors.grey[300], size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: SizedBox(
+        height: 40,
+        child: TextField(
+          controller: _searchCtrl,
+          onChanged: (val) => setState(() => _query = val),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: context.uiText('Tìm kiếm...'),
+            hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+            prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    icon: Icon(Icons.clear, size: 16, color: Colors.grey[400]),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() => _query = '');
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.06),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF7C4DFF)),
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildToolsGrid() {
+    final items = _filteredTools;
+    if (items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Text(
+            context.uiText('Không tìm thấy kết quả'),
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+          ),
+        ),
+      );
+    }
+
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = AppResponsive.adaptiveGridColumns(
       width,
@@ -286,67 +309,18 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
       ),
-      itemCount: widget.tools.length,
-      itemBuilder: (_, i) => _buildToolCard(widget.tools[i], i),
-    );
-  }
-
-  Widget _buildToolCard(ToolItem tool, int index) {
-    final ctrl = index < _cardCtrls.length
-        ? _cardCtrls[index]
-        : AnimationController(vsync: this);
-
-    return AnimatedBuilder(
-      animation: ctrl,
-      builder: (_, __) {
-        final t = ctrl.value;
-        final scale = 0.6 + 0.4 * Curves.easeOutBack.transform(t);
-        final slideY = 30.0 * (1.0 - Curves.easeOutCubic.transform(t));
-        final fade = Curves.easeOut.transform((t / 0.6).clamp(0.0, 1.0));
-
-        return Transform.translate(
-          offset: Offset(0, slideY),
-          child: Transform.scale(
-            scale: scale,
-            child: Opacity(
-              opacity: fade.clamp(0.0, 1.0),
-              child: _ToolCard(
-                tool: tool,
-                onTap: tool.isAvailable ? () => _dismiss(tool.id) : null,
-              ),
-            ),
-          ),
+      itemCount: items.length,
+      itemBuilder: (_, i) {
+        final tool = items[i];
+        return _ToolCard(
+          tool: tool,
+          onTap: tool.isAvailable ? () => _dismiss(tool.id) : null,
         );
       },
     );
   }
-
-  Widget _buildFooter() {
-    return AnimatedBuilder(
-      animation: _masterCtrl,
-      builder: (_, child) => Opacity(
-        opacity: ((_masterCtrl.value - 0.5) * 2).clamp(0.0, 1.0),
-        child: child,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 12, 28, 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.extension, size: 12, color: Colors.grey[700]),
-            const SizedBox(width: 6),
-            Text(
-              'Tính năng sẽ tiếp tục được thêm vào',
-              style: TextStyle(color: Colors.grey[700], fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// ─── Tool Card ───────────────────────────────────────────
 class _ToolCard extends StatefulWidget {
   final ToolItem tool;
   final VoidCallback? onTap;
@@ -375,15 +349,15 @@ class _ToolCardState extends State<_ToolCard> {
           : null,
       onTapCancel: isAvailable ? () => setState(() => _pressed = false) : null,
       child: AnimatedScale(
-        scale: _pressed ? 0.94 : 1.0,
-        duration: const Duration(milliseconds: 100),
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 90),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: isAvailable
                   ? [
-                      tool.color.withValues(alpha: 0.18),
-                      tool.color.withValues(alpha: 0.08),
+                      tool.color.withValues(alpha: 0.16),
+                      tool.color.withValues(alpha: 0.06),
                     ]
                   : [
                       Colors.white.withValues(alpha: 0.04),
@@ -392,32 +366,21 @@ class _ToolCardState extends State<_ToolCard> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isAvailable
-                  ? tool.color.withValues(alpha: _pressed ? 0.6 : 0.25)
+                  ? tool.color.withValues(alpha: _pressed ? 0.55 : 0.24)
                   : Colors.white.withValues(alpha: 0.06),
-              width: 1.2,
             ),
-            boxShadow: isAvailable && _pressed
-                ? [
-                    BoxShadow(
-                      color: tool.color.withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              // Icon box — nhỏ gọn
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   color: isAvailable
-                      ? tool.color.withValues(alpha: 0.2)
+                      ? tool.color.withValues(alpha: 0.18)
                       : Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -428,7 +391,6 @@ class _ToolCardState extends State<_ToolCard> {
                 ),
               ),
               const SizedBox(width: 10),
-              // Text
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +400,7 @@ class _ToolCardState extends State<_ToolCard> {
                       tool.title,
                       style: TextStyle(
                         color: isAvailable ? Colors.white : Colors.grey[600],
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
                       ),
@@ -450,9 +412,9 @@ class _ToolCardState extends State<_ToolCard> {
                       isAvailable ? tool.subtitle : 'Sắp có',
                       style: TextStyle(
                         color: isAvailable
-                            ? tool.color.withValues(alpha: 0.7)
+                            ? tool.color.withValues(alpha: 0.78)
                             : Colors.grey[700],
-                        fontSize: 10,
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -466,36 +428,4 @@ class _ToolCardState extends State<_ToolCard> {
       ),
     );
   }
-}
-
-// ─── Noise Texture ───────────────────────────────────────
-class _NoiseTexture extends StatelessWidget {
-  const _NoiseTexture();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _NoisePainter(),
-      size: Size.infinite,
-    );
-  }
-}
-
-class _NoisePainter extends CustomPainter {
-  static final _rng = math.Random(42);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white;
-    for (int i = 0; i < 3000; i++) {
-      canvas.drawCircle(
-        Offset(_rng.nextDouble() * size.width, _rng.nextDouble() * size.height),
-        0.6,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

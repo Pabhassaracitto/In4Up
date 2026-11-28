@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
+import '../services/memory_vocab_audio.dart';
 
 class MemoryListView extends StatelessWidget {
   const MemoryListView({super.key});
@@ -25,6 +26,11 @@ class MemoryListView extends StatelessWidget {
               item: item,
               onTap: () {
                 HapticFeedback.selectionClick();
+                // AUDIT v1.30.1 (mục 8): tự đọc khi chọn dòng (cùng công tắc
+                // với vườn nhớ).
+                if (MemoryVocabAudio.instance.autoRead.value) {
+                  speakMemoryVocab(item.word);
+                }
               },
               onDismissed: () => controller.removeItem(item.id),
             );
@@ -126,7 +132,7 @@ class _MemoryListTile extends StatelessWidget {
                     const Text(
                       'Cần ôn',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: Color(0xFFFF5252),
                         fontWeight: FontWeight.bold,
                       ),
@@ -134,7 +140,7 @@ class _MemoryListTile extends StatelessWidget {
                   else if (item.nextReviewAt != null)
                     Text(
                       _formatNextReview(item.nextReviewAt!),
-                      style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                 ],
               ),

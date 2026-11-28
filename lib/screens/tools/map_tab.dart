@@ -195,7 +195,7 @@ class _MapTabState extends State<MapTab> {
 
   Widget _mini(String label, double value, Color color) => Text(
         '$label ${(value * 100).round()}%',
-        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
       );
 }
 
@@ -221,7 +221,7 @@ class _MapAxesPainter extends CustomPainter {
     }
     void label(String value, Offset offset, Color color, {bool right = false}) {
       final painter = TextPainter(
-        text: TextSpan(text: value, style: TextStyle(fontSize: 10, color: color)),
+        text: TextSpan(text: value, style: TextStyle(fontSize: 11, color: color)),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: size.width / 2);
       painter.paint(canvas, right ? Offset(size.width - painter.width - 8, offset.dy) : offset);

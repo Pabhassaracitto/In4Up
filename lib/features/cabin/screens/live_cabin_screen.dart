@@ -1298,7 +1298,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                       stageLabel,
                       style: TextStyle(
                         color: stageColor,
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

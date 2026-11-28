@@ -1,4 +1,6 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
+import 'dart:ui' show FontFeature;
+
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -25,7 +27,7 @@ class ReadSettingsSheet {
     context.read<TextProvider>().refreshGrammarPresetLibrary();
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C2436),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -114,9 +116,11 @@ class _SettingsContentState extends State<_SettingsContent> {
             final alignLabel = context.uiText(
               tp.textAlign == TextAlign.center ? 'Giữa' : 'Trái',
             );
-            return SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(20),
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -177,6 +181,15 @@ class _SettingsContentState extends State<_SettingsContent> {
                           title: 'Cỡ chữ', icon: Icons.text_fields),
                       const SizedBox(height: 12),
                       _FontSizeControl(tp: tp),
+                      const SizedBox(height: 20),
+                      // AUDIT v1.30.1 (mục 4) — giãn dòng chỉnh real-time:
+                      // kéo tới đâu vùng đọc sau sheet đổi tới đó (TextProvider
+                      // notify ngay, chỉ ghi đĩa ở nền).
+                      const _SectionTitle(
+                          title: 'Giãn dòng',
+                          icon: Icons.format_line_spacing),
+                      const SizedBox(height: 12),
+                      _LineHeightControl(tp: tp),
                       const SizedBox(height: 20),
                       const _SectionTitle(
                           title: 'Căn lề văn bản',
@@ -287,6 +300,7 @@ class _SettingsContentState extends State<_SettingsContent> {
                   const SizedBox(height: 24),
                 ],
               ),
+              ),
             );
           },
         );
@@ -370,6 +384,77 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// AUDIT v1.30.1 (mục 4) — thanh kéo giãn dòng trên/dưới trong vùng đọc.
+///
+/// Trước đây `height` bị hard-code 1.6 ở 2 chỗ (`_ColoredWord` +
+/// `TextLineWidget._buildTextContent`) nên người đọc không có cách nào chỉnh
+/// khoảng cách dòng — chữ dày/xít với người đọc chậm, quá thưa với người đọc
+/// nhanh. Nay một `double` duy nhất trong `TextProvider` chảy xuống cả 2 chỗ.
+class _LineHeightControl extends StatelessWidget {
+  final TextProvider tp;
+  const _LineHeightControl({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    // Mẫu chữ thu nhỏ để thấy ngay độ giãn — phản hồi thị giác tại chỗ, không
+    // bắt người dùng đóng sheet rồi soi lại vùng đọc.
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              context.uiText('Đọc chậm, đọc kỹ\nNghe lại từng câu\nRồi tự kể lại'),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.86),
+                fontSize: 13,
+                height: tp.readerLineHeight,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.compress, size: 16, color: Colors.white38),
+              Expanded(
+                child: Slider(
+                  value: tp.readerLineHeight,
+                  min: 1.2,
+                  max: 2.6,
+                  divisions: 14,
+                  activeColor: const Color(0xFF2196F3),
+                  label: tp.readerLineHeight.toStringAsFixed(1),
+                  onChanged: tp.setReaderLineHeight,
+                ),
+              ),
+              const Icon(Icons.expand, size: 16, color: Colors.white38),
+              const SizedBox(width: 8),
+              Text(
+                tp.readerLineHeight.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -675,7 +760,7 @@ class _WordColorStyleSelector extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             context.uiText(current.description),
-            style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
           ),
         ],
       ),
@@ -743,7 +828,7 @@ class _WordColorStyleChip extends StatelessWidget {
               context.uiText(style.label),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 11,
                 color: selected ? Colors.white : Colors.grey[500],
                 fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -854,7 +939,7 @@ class _IpaSaveSourceSectionState extends State<_IpaSaveSourceSection> {
         Text(
           'Tự điền IPA cho từ lưu mới — không hỏi lại từng lần.',
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             color: Colors.grey[600],
             fontStyle: FontStyle.italic,
           ),
@@ -1072,7 +1157,7 @@ class _IpaToggleChip extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: on ? color : Colors.grey[500],
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1186,7 +1271,7 @@ class _Chip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1828,7 +1913,7 @@ class _PresetChoiceCard extends StatelessWidget {
                     preset.audienceLabel,
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1941,7 +2026,7 @@ class _PaletteChoiceCard extends StatelessWidget {
                     palette.isDark ? 'Dark' : 'Light',
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2074,7 +2159,7 @@ class _ChoiceChipButton extends StatelessWidget {
                 subtitle!,
                 style: TextStyle(
                   color: Colors.grey[400],
-                  fontSize: 10.5,
+                  fontSize: 11,
                   height: 1.35,
                 ),
               ),

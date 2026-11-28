@@ -6,12 +6,14 @@ import 'package:in4up/providers/player_provider.dart';
 void showLoopControlSheet(BuildContext context, PlayerProvider player) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: const Color(0xFF1A1A2E),
+    backgroundColor: const Color(0xFF1C2436),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (context) => Padding(
-      padding: const EdgeInsets.all(20),
+    builder: (context) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -85,6 +87,7 @@ void showLoopControlSheet(BuildContext context, PlayerProvider player) {
           ),
         ],
       ),
+    ),
     ),
   );
 }

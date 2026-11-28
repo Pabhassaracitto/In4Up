@@ -90,7 +90,7 @@ class OpenTipitakaCredit extends StatelessWidget {
                 ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.hintColor,
-                  fontSize: 10,
+                  fontSize: 11,
                 ),
               ),
             ),

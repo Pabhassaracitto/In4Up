@@ -168,6 +168,40 @@ jobs:
           path: dharma_test.log
           if-no-files-found: ignore
 
+      - name: "GLIB tests — Thư Viện Chung: pack core + download manager (logic thuần)"
+        id: glib-tests
+        timeout-minutes: 5
+        run: |
+          set +e
+          if [ ! -d test/great_library ]; then
+            echo "Không có test/great_library trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/great_library/ -r expanded > glib_test.log 2>&1
+          code=$?
+          cat glib_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 glib_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\\n/%0A/g')
+            echo "::error title=GLIB test exit $code::${tailmsg:-No test output}"
+            # Annotation chỉ gom vài dòng cuối → thêm "tail" dạng grep để thấy
+            # cả tên test fail (dòng "... [E]") + EXPECTED/ACTUAL trong stack.
+            grep -E "\[E\]|Expected|Actual|Which:|EXCEPTION" glib_test.log | tail -n 12 | while IFS= read -r line; do
+              echo "::error title=GLIB::$(echo "$line" | head -c 300)"
+            done
+            # In full log dạng annotation (mỗi dòng 1 notice) để đọc khi blob
+            # artifact/log bị chặn. Giới hạn 300 dòng quanh lỗi đầu.
+            awk '/EXCEPTION CAUGHT|\[E\]/{c=8} c&&c--{print "::notice ::GLIB:: " $0}' glib_test.log | head -n 300
+          fi
+          exit $code
+
+      - name: Upload great_library test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-great-library-test-log
+          path: glib_test.log
+          if-no-files-found: ignore
+
       - name: "I4U18 tests — Video/Listen Library (logic thuần)"
         id: i4u18-lib-tests
         run: |

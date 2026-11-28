@@ -82,7 +82,7 @@ class HeavyTaskWarningBanner extends StatelessWidget {
                 icon: Icon(Icons.close, size: 16, color: fg),
                 onPressed: onDismiss,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               ),
           ],
         ),

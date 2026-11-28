@@ -37,117 +37,71 @@ class UnderstandWorkspaceHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
         border: Border(
           bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.uiText('Công cụ hiểu'),
-                  style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+          if (expanded)
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _WorkspaceChip(
+                      icon: Icons.record_voice_over,
+                      label: 'YouGlish',
+                      color: const Color(0xFF00BCD4),
+                      onTap: onOpenYouGlish,
+                    ),
+                    const SizedBox(width: 8),
+                    _WorkspaceChip(
+                      icon: Icons.school,
+                      label: 'Ôn tập',
+                      color: const Color(0xFF66BB6A),
+                      onTap: onOpenReview,
+                    ),
+                    const SizedBox(width: 8),
+                    // AI Coach — action theo ngữ cảnh, không phải mode thứ ba.
+                    _WorkspaceChip(
+                      icon: Icons.psychology_outlined,
+                      label: 'Hỏi AI',
+                      color: const Color(0xFF7DD3FC),
+                      onTap: onOpenAiCoach,
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                tooltip: context.uiText(expanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
-                visualDensity: VisualDensity.compact,
-                onPressed: onToggleExpanded,
-                icon: Icon(expanded ? Icons.expand_less : Icons.expand_more, color: Colors.white70),
-              ),
-            ],
-          ),
-          if (expanded) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFFFB300).withValues(alpha: 0.16),
-                  const Color(0xFFFFB300).withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFFFB300).withValues(alpha: 0.24),
+            )
+          else
+            Expanded(
+              child: Text(
+                context.uiText('Công cụ hiểu'),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hiểu · Comprehension Workspace',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Đây là nơi ghép audio với text, đồng bộ dòng, phân tích ngữ cảnh và nối sang luyện nói hoặc ôn nhớ.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          if (onToggleExpanded != null)
+            IconButton(
+              tooltip:
+                  context.uiText(expanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              onPressed: onToggleExpanded,
+              icon: Icon(
+                expanded ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+                color: Colors.white70,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _WorkspaceChip(
-                  icon: Icons.mic_rounded,
-                  label: 'Qua Nói',
-                  color: const Color(0xFFB388FF),
-                  onTap: onOpenSpeakMode,
-                ),
-                const SizedBox(width: 8),
-                _WorkspaceChip(
-                  icon: Icons.record_voice_over,
-                  label: 'YouGlish',
-                  color: const Color(0xFF00BCD4),
-                  onTap: onOpenYouGlish,
-                ),
-                const SizedBox(width: 8),
-                _WorkspaceChip(
-                  icon: Icons.school,
-                  label: 'Ôn tập',
-                  color: const Color(0xFF66BB6A),
-                  onTap: onOpenReview,
-                ),
-                const SizedBox(width: 8),
-                _WorkspaceChip(
-                  icon: Icons.auto_awesome,
-                  label: 'Công cụ nhanh',
-                  color: const Color(0xFFFFB300),
-                  onTap: onOpenQuickActions,
-                ),
-                const SizedBox(width: 8),
-                // AI Coach — action theo ngữ cảnh, không phải mode thứ ba.
-                _WorkspaceChip(
-                  icon: Icons.psychology_outlined,
-                  label: 'Hỏi AI',
-                  color: const Color(0xFF7DD3FC),
-                  onTap: onOpenAiCoach,
-                ),
-              ],
-            ),
-          ),
-          ],
         ],
       ),
     );

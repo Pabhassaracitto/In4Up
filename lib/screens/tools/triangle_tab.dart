@@ -181,18 +181,25 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
 
   List<Widget> _buildLabels(List<Offset> vertices) {
     final labels = [
-      ('🔵 HIỂU', const Color(0xFF42A5F5), const Offset(0, -29)),
-      ('🟢 NGHE', const Color(0xFF66BB6A), const Offset(-20, 15)),
-      ('🔴 ĐỌC', const Color(0xFFEF5350), const Offset(20, 15)),
+      ('HIỂU', Icons.lightbulb_outline, const Color(0xFF42A5F5), const Offset(0, -29)),
+      ('NGHE', Icons.headphones_rounded, const Color(0xFF66BB6A), const Offset(-20, 15)),
+      ('ĐỌC', Icons.menu_book_rounded, const Color(0xFFEF5350), const Offset(20, 15)),
     ];
     return List.generate(3, (i) => Positioned(
-      left: vertices[i].dx + labels[i].$3.dx - 30,
-      top: vertices[i].dy + labels[i].$3.dy - 10,
+      left: vertices[i].dx + labels[i].$4.dx - 32,
+      top: vertices[i].dy + labels[i].$4.dy - 10,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: labels[i].$2, borderRadius: BorderRadius.circular(12)),
-        child: Text(context.uiText(labels[i].$1),
-            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 10)),
+        decoration: BoxDecoration(color: labels[i].$3, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(labels[i].$2, size: 11, color: Colors.black87),
+            const SizedBox(width: 4),
+            Text(context.uiText(labels[i].$1),
+                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 11)),
+          ],
+        ),
       ),
     ));
   }

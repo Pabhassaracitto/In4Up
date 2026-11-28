@@ -58,16 +58,17 @@ class ShadowingSentencePicker extends StatelessWidget {
                 onPressed: onUseCurrent,
                 child: Text(
                   context.uiText('Dùng câu đang phát'),
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 132,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 164),
             child: Scrollbar(
               child: ListView.builder(
+                shrinkWrap: true,
                 itemCount: suggestions.length,
                 itemBuilder: (context, i) {
                   final s = suggestions[i];
@@ -87,12 +88,14 @@ class ShadowingSentencePicker extends StatelessWidget {
                       child: Row(
                         children: [
                           SizedBox(
-                            width: 42,
+                            width: 48,
                             child: Text(
                               _formatDuration(s.start),
+                              maxLines: 1,
+                              softWrap: false,
                               style: TextStyle(
                                 color: selected ? const Color(0xFF64B5F6) : Colors.grey[500],
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
                               ),
                             ),

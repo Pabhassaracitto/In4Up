@@ -246,12 +246,12 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                   children: [
                     CircleAvatar(radius: 4, backgroundColor: type.color),
                     const SizedBox(width: 4),
-                    Text(type.label(context), style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                    Text(type.label(context), style: const TextStyle(color: Colors.white70, fontSize: 11)),
                   ],
                 ),
               )),
           Text(context.uiText('Liên kết hiện trong trang'),
-              style: const TextStyle(color: Colors.white54, fontSize: 10)),
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
         ],
       ),
     );
@@ -680,7 +680,7 @@ class _WordDetailSheet extends StatelessWidget {
                                 : c.pageOrPosition,
                           )}',
                           style:
-                              TextStyle(color: Colors.grey[600], fontSize: 10),
+                              TextStyle(color: Colors.grey[600], fontSize: 11),
                         ),
                       ],
                     ],
@@ -849,7 +849,7 @@ class _RelatedNodeChip extends StatelessWidget {
                 '$prefix ',
                 style: TextStyle(
                   color: word.vocabType.color,
-                  fontSize: 10,
+                  fontSize: 11,
                 ),
               ),
               Text(

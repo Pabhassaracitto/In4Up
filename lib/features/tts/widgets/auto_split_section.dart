@@ -113,7 +113,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                     Text(
                       mode.description,
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: Colors.grey[600],
                       ),
                     ),
@@ -181,7 +181,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                     const Spacer(),
                     Text(
                       context.uiText('${_preview!.originalLineCount} dòng → ${_preview!.totalLines} dòng (~${_preview!.avgWordsPerLine.toStringAsFixed(1)} từ/dòng)'),
-                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                     ),
                   ],
                 ),
@@ -202,7 +202,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                               child: Text(
                                 context.uiText('${i + 1}'),
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   color: widget.primaryColor
                                       .withValues(alpha: 0.6),
                                 ),
@@ -230,7 +230,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                     child: Text(
                       context.uiText('... và ${_preview!.lines.length - 20} dòng nữa'),
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: Colors.grey[600],
                         fontStyle: FontStyle.italic,
                       ),

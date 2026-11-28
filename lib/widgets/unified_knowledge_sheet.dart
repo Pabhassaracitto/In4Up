@@ -673,7 +673,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Color(0xFF90CAF9),
-                                  fontSize: 10.8,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

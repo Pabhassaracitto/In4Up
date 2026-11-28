@@ -9,12 +9,25 @@ import 'controllers/memory_controller.dart';
 import 'memory_provider.dart';
 import 'widgets/memory_garden_view.dart';
 import 'widgets/memory_top_bar.dart';
-import 'widgets/memory_bottom_bar.dart';
 import 'widgets/flashcard_presenter.dart';
 import 'widgets/memory_list_view.dart';
+import 'services/memory_vocab_audio.dart';
 
-class MemoryModeScreen extends StatelessWidget {
+class MemoryModeScreen extends StatefulWidget {
   const MemoryModeScreen({super.key});
+
+  @override
+  State<MemoryModeScreen> createState() => _MemoryModeScreenState();
+}
+
+class _MemoryModeScreenState extends State<MemoryModeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // AUDIT v1.30.1 (mục 8): công tắc «tự đọc từ vựng» sống ngoài controller
+    // (xem MemoryVocabAudio) ⇒ nạp một lần khi mở tab Nhớ.
+    MemoryVocabAudio.instance.ensureLoaded();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,12 +63,12 @@ class MemoryModeScreen extends StatelessWidget {
             return _buildEmptyState(context, controller);
           }
 
-          // Giao diện chính
+          // Giao diện chính — thanh công cụ gọn phía trên, KHÔNG xếp thêm
+          // thanh đáy thứ hai đè lên BottomNav của MainShell.
           return Column(
             children: [
               const MemoryTopBar(),
               Expanded(child: _buildContent(controller)),
-              const MemoryBottomBar(),
             ],
           );
         },

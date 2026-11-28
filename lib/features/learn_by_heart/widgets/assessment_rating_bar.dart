@@ -126,7 +126,7 @@ class _AssessmentButton extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey[400],
-                fontSize: 9.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -31,6 +31,7 @@ import 'services/pdf_annotation_sidecar.dart' show mergeSidecarAnnotations;
 import 'services/pdf_file_identity.dart';
 import 'services/pdf_page_ocr.dart';
 import 'services/pdf_page_translate.dart';
+import 'services/pdf_tts_language.dart';
 import 'services/pdf_text_extractor.dart';
 import 'services/pdf_text_layer_probe.dart';
 import 'services/pdf_tts_machine.dart';
@@ -276,6 +277,11 @@ class PdfReaderController extends ChangeNotifier {
 
   /// Bản dịch từng câu cho chế độ song ngữ chưa được nối trong reader, nên
   /// không mời người dùng chọn nó (xem docs/pdf_reader_readera_upgrade.md P0-4).
+  ///
+  /// AUDIT v1.30.1 (mục 1): giá trị vẫn là `false` — nhưng nay KHÔNG còn là
+  /// lý do duy nhất để bảng chỉ có 2 ngôn ngữ. Danh sách ngôn ngữ đọc lấy từ
+  /// `AppLanguageCatalog` (26 ngôn ngữ + «Tự động») — xem
+  /// `services/pdf_tts_language.dart` và `_TtsLanguageSelector`.
   bool get isBilingualTtsAvailable => false;
 
   double _ttsSpeed = 0.9;
@@ -334,8 +340,13 @@ class PdfReaderController extends ChangeNotifier {
   Future<void> _init() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('pdf_tts_locale');
-      if (saved == 'en-US' || saved == 'vi-VN') _ttsLanguage = saved!;
+      final saved = prefs.getString(kPdfTtsLocalePrefKey);
+      if (saved != null && saved.trim().isNotEmpty) {
+        // AUDIT v1.30.1 (mục 1): trước đây chỉ nhận đúng 'en-US'/'vi-VN' nên
+        // mọi lựa chọn khác bị nuốt khi mở lại file. Nay nhận mọi mã trong
+        // catalog ngôn ngữ dùng chung (26 ngôn ngữ) + 'auto'.
+        _ttsLanguage = normalizePdfTtsLanguage(saved);
+      }
     } catch (e) {
       debugPrint('PDF TTS locale: $e');
     }
@@ -1077,11 +1088,32 @@ class PdfReaderController extends ChangeNotifier {
 
   Future<void> stopTts() => stopReading();
 
+  /// AUDIT v1.30.1 (mục 1 + 3): đổi ngôn ngữ/giọng đọc phải NGHE ĐƯỢC NGAY.
+  ///
+  /// Trước đây hàm này chỉ gán field + ghi SharedPreferences; phiên TTS đang
+  /// chạy vẫn giữ voice cũ tới hết CÂU hiện tại (có khi vài chục giây với câu
+  /// dài) ⇒ thử nhanh nhiều giọng gần như không làm được. Nay dùng đúng
+  /// đường của đổi tốc độ (`_restartAtCurrentRate`): dừng phiên, mở lại từ
+  /// đúng câu đang đọc với voice mới.
+  ///
+  /// Không restart khi đang PAUSE: người dùng đang dừng để nghe lại; phát lại
+  /// ngay sẽ cướp trạng thái dừng. Lần Play kế tiếp dùng voice mới.
   Future<void> setTtsLanguage(String lang) async {
-    _ttsLanguage = lang;
+    final normalized = normalizePdfTtsLanguage(lang);
+    final changed = normalized != _ttsLanguage;
+    _ttsLanguage = normalized;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pdf_tts_locale', lang);
+    await prefs.setString(kPdfTtsLocalePrefKey, normalized);
+    if (!changed) return;
+    if (_ttsMachine.isPlaying) {
+      // Cùng nhịp debounce với thanh tốc độ: kéo/ bấm liên tiếp nhiều giọng
+      // chỉ tạo đúng một lượt phát lại (tránh nhấp nháy âm thanh).
+      _speedRestart?.cancel();
+      _speedRestart = Timer(const Duration(milliseconds: 100), () {
+        if (_ttsMachine.isPlaying) unawaited(_restartAtCurrentRate());
+      });
+    }
   }
 
   Timer? _speedRestart;
@@ -1171,6 +1203,21 @@ class PdfReaderController extends ChangeNotifier {
     notifyListeners();
     if (_pageTranslations[_currentPage] == null) {
       unawaited(translateCurrentPage());
+    }
+  }
+
+  /// AUDIT v1.30.1 (mục 2): ngôn ngữ ĐÍCH vừa đổi ⇒ bản dịch của trang đang
+  /// hiện là của ngôn ngữ cũ. Xoá cache của trang đó và dịch lại NGAY (chỉ khi
+  /// panel đang mở — đóng panel thì lần mở sau `showPageTranslatePanel` tự dịch
+  /// bằng ngôn ngữ mới).
+  Future<void> retranslateCurrentPage() async {
+    final doc = _document;
+    if (doc == null) return;
+    if (_currentPage < 0 || _currentPage >= doc.pages.length) return;
+    _pageTranslations.remove(_currentPage);
+    notifyListeners();
+    if (_pageTranslatePanelVisible) {
+      await translateCurrentPage(force: true);
     }
   }
 

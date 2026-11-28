@@ -10,6 +10,7 @@ import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
 import '../models/garden_rating.dart';
 import '../models/memory_stage.dart';
+import '../services/memory_vocab_audio.dart';
 import 'memory_card_widget.dart';
 import 'memory_garden_background.dart';
 import 'stage_progress_bar.dart';
@@ -171,6 +172,11 @@ class _MemoryGardenViewState extends State<MemoryGardenView> {
                 onLongPress: () => _showRatingSheet(context, item),
                 onTap: () {
                   HapticFeedback.selectionClick();
+                  // AUDIT v1.30.1 (mục 8): tự đọc khi chọn thẻ — đúng từ của
+                  // thẻ vừa chạm, không đọc cả lưới.
+                  if (MemoryVocabAudio.instance.autoRead.value) {
+                    speakMemoryVocab(item.word);
+                  }
                 },
               ),
             ),

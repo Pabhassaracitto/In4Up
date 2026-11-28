@@ -45,7 +45,7 @@ class IpaSourceChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 9,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
         ),

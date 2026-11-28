@@ -505,8 +505,9 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
               controller: _meaningCtrl,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Nghĩa / dịch (tuỳ chọn)',
-                hintText: isPhrase ? 'Nhập nghĩa cụm/câu...' : 'Nhập nghĩa từ...',
+                labelText: context.uiText('Nghĩa / dịch (tuỳ chọn)'),
+                hintText: context.uiText(
+                    isPhrase ? 'Nhập nghĩa cụm/câu...' : 'Nhập nghĩa từ...'),
                 labelStyle: TextStyle(color: Colors.grey[400]),
                 hintStyle: TextStyle(color: Colors.grey[600]),
                 filled: true,
@@ -528,8 +529,8 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
               controller: _noteCtrl,
               style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: InputDecoration(
-                labelText: 'Ghi chú cá nhân',
-                hintText: 'Ví dụ, ngữ cảnh, mẹo nhớ...',
+                labelText: context.uiText('Ghi chú cá nhân'),
+                hintText: context.uiText('Ví dụ, ngữ cảnh, mẹo nhớ...'),
                 labelStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
                 hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                 filled: true,
@@ -620,7 +621,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
               controller: _newTopicCtrl,
               style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Tạo chủ đề mới… (Enter để chọn)',
+                hintText: context.uiText('Tạo chủ đề mới… (Enter để chọn)'),
                 hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
                 isDense: true,
                 contentPadding:
@@ -814,7 +815,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                                 maxLines: 1,
                                 style: TextStyle(
                                   color: Colors.grey[400],
-                                  fontSize: 10,
+                                  fontSize: 11,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),

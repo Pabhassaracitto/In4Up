@@ -312,7 +312,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                     child: Text(context.uiText('$mm:$ss'),
                         style: const TextStyle(
                             color: Color(0xFFFF9800),
-                            fontSize: 10,
+                            fontSize: 11,
                             fontFamily: 'monospace')),
                   ),
                   const SizedBox(width: 6),
@@ -355,7 +355,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                       .read<TextProvider>()
                       .loadText(plain, title: widget.video!.title);
                   Navigator.pop(context);
-                  _snack('✅ Loaded vào Text Studio');
+                  _snack('Loaded vào Text Studio');
                 },
               ),
             ),
@@ -468,10 +468,10 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
             const SizedBox(width: 8),
             Expanded(
               child: YtActionBtn(
-                icon: Icons.link,
-                label: widget.downloadedAudioPath != null
-                    ? 'Link + Phát ✅'
-                    : 'Link + Phát',
+                icon: widget.downloadedAudioPath != null
+                    ? Icons.check_circle_outline
+                    : Icons.link,
+                label: 'Link + Phát',
                 color: const Color(0xFFFF9800),
                 onTap: () async {
                   if (widget.downloadedAudioPath == null) {
@@ -490,7 +490,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                   }
                   if (context.mounted) {
                     Navigator.pop(context);
-                    _snack('🎵 Audio + Lyrics đã link!');
+                    _snack('Audio + Lyrics đã link!');
                   }
                 },
               ),

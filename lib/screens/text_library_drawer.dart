@@ -1190,7 +1190,7 @@ class _CloudEntryCard extends StatelessWidget {
                                 entry.category!,
                                 style: const TextStyle(
                                   color: Color(0xFF9C8FFF),
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

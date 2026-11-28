@@ -7,6 +7,8 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:in4up/core/theme/app_spacing.dart';
+import 'package:in4up/core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/vocab_context.dart';
@@ -332,7 +334,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 : Icons.visibility_outlined,
             _settings.showShortDefinition ? 'Ẩn nghĩa' : 'Hiện nghĩa'),
         const PopupMenuDivider(height: 1),
-        _menuItem('settings', Icons.tune, 'Options'),
+        _menuItem('settings', Icons.tune, 'Tùy chọn'),
       ],
     );
   }
@@ -425,23 +427,32 @@ class _WordListScreenState extends State<WordListScreen> {
                             ),
                     ),
                     const SizedBox(width: 6),
-                    // Clear all button
+                    // Clear all button (44×36 hit area)
                     if (hasActiveFilter)
                       GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () {
                           p.setFilterType(null);
                           p.setFilterLearningStatus(null);
                           p.setFilterLanguage(null);
                           p.setFilterTopic(null);
                         },
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(4),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: AppSpacing.minTouchTarget,
+                            minHeight: 36,
                           ),
-                          child: Icon(Icons.close,
-                              size: 12, color: Colors.grey[500]),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(Icons.close,
+                                  size: 14, color: Colors.grey[400]),
+                            ),
+                          ),
                         ),
                       ),
                     const SizedBox(width: 4),
@@ -890,8 +901,8 @@ class _WordListScreenState extends State<WordListScreen> {
           const SizedBox(width: 8),
           Text(context.uiText('${(p.progress * 100).toInt()}%'),
               style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 10,
+                  color: Colors.grey[500],
+                  fontSize: AppTypography.captionSize,
                   fontWeight: FontWeight.w600)),
         ],
       ),
@@ -2061,8 +2072,8 @@ class _CompactListItem extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(entry.phonetic!,
                             style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 10,
+                                color: Colors.grey[400],
+                                fontSize: AppTypography.captionSize,
                                 fontStyle: FontStyle.italic)),
                       ],
                     ]),
@@ -2091,10 +2102,11 @@ class _CompactListItem extends StatelessWidget {
                                       valueColor: AlwaysStoppedAnimation(entry
                                           .zone.color
                                           .withValues(alpha: 0.7))))),
-                          const SizedBox(width: 3),
+                          const SizedBox(width: 4),
                           Text(context.uiText('${(entry.mastery * 100).toInt()}%'),
                               style: TextStyle(
-                                  color: Colors.grey[600], fontSize: 9)),
+                                  color: Colors.grey[500],
+                                  fontSize: AppTypography.captionSize)),
                         ]),
                       ),
                   ])),
@@ -2104,12 +2116,29 @@ class _CompactListItem extends StatelessWidget {
                 Container(
                     margin: const EdgeInsets.only(right: 4),
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
-                        color: Color(0xFFFFB300).withValues(alpha: 0.15),
+                        color: const Color(0xFFFFB300).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4)),
-                    child: Text(context.uiText('📌${entry.encounterCount}'),
-                        style: const TextStyle(fontSize: 9))),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.push_pin_rounded,
+                          size: 11,
+                          color: Color(0xFFFFB300),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${entry.encounterCount}',
+                          style: const TextStyle(
+                            fontSize: AppTypography.captionSize,
+                            color: Color(0xFFFFB300),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )),
 
               // Per-word repeat
               _PerWordRepeatBtn(
@@ -2299,7 +2328,8 @@ class _CompactListItem extends StatelessWidget {
                                   : c.pageOrPosition,
                             )}',
                             style: TextStyle(
-                                color: Colors.grey[600], fontSize: 10))
+                                color: Colors.grey[500],
+                                fontSize: AppTypography.captionSize))
                       ],
                     ]),
               )),
@@ -2481,14 +2511,18 @@ class _ActiveFilterBadge extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 10.5,
+              fontSize: AppTypography.captionSize,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 4),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: onRemove,
-            child: Icon(Icons.close, size: 10, color: color),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.close, size: 12, color: color),
+            ),
           ),
         ],
       ),
@@ -3000,7 +3034,9 @@ class _VocabSyncDiagnosticRowState extends State<_VocabSyncDiagnosticRow> {
             style: TextStyle(
                 color: color, fontSize: 16, fontWeight: FontWeight.w800)),
         Text(context.uiText(label),
-            style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+            style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: AppTypography.captionSize)),
       ],
     );
   }
@@ -3304,39 +3340,46 @@ class _PerWordRepeatBtn extends StatelessWidget {
       required this.onChanged});
   @override
   Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => _showRepeatCountMenu(
           context,
           current: count,
           onChanged: (v) => onChanged(v.clamp(1, 999)),
         ),
-        child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-            decoration: BoxDecoration(
-                color: count > 1
-                    ? Color(0xFFFFB300).withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          child: Center(
+            child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
                     color: count > 1
-                        ? Color(0xFFFFB300).withValues(alpha: 0.4)
-                        : Colors.white.withValues(alpha: 0.08))),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.repeat,
-                  size: 10,
-                  color:
-                      count > 1 ? const Color(0xFFFFB300) : Colors.grey[600]),
-              const SizedBox(width: 2),
-              Text(
-                  isPlaying && currentRepeat > 0
-                      ? '$currentRepeat/$count'
-                      : '$count×',
-                  style: TextStyle(
+                        ? const Color(0xFFFFB300).withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                        color: count > 1
+                            ? const Color(0xFFFFB300).withValues(alpha: 0.4)
+                            : Colors.white.withValues(alpha: 0.08))),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.repeat,
+                      size: 11,
                       color: count > 1
                           ? const Color(0xFFFFB300)
-                          : Colors.grey[600],
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700)),
-            ])),
+                          : Colors.grey[500]),
+                  const SizedBox(width: 2),
+                  Text(
+                      isPlaying && currentRepeat > 0
+                          ? '$currentRepeat/$count'
+                          : '$count×',
+                      style: TextStyle(
+                          color: count > 1
+                              ? const Color(0xFFFFB300)
+                              : Colors.grey[500],
+                          fontSize: AppTypography.captionSize,
+                          fontWeight: FontWeight.w700)),
+                ])),
+          ),
+        ),
       );
 }
 
@@ -3373,7 +3416,7 @@ class _RelatedChip extends StatelessWidget {
           Text('$prefix ',
               style: TextStyle(
                   color: entry.vocabType.color,
-                  fontSize: 10,
+                  fontSize: AppTypography.captionSize,
                   fontWeight: FontWeight.w600)),
           Text(entry.word,
               style: TextStyle(
@@ -3395,10 +3438,15 @@ class _SkillBar extends StatelessWidget {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 9)),
+          Text(label,
+              style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: AppTypography.captionSize)),
           const Spacer(),
           Text('${(value * 100).toInt()}%',
-              style: TextStyle(color: Colors.grey[600], fontSize: 9)),
+              style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: AppTypography.captionSize)),
         ]),
         const SizedBox(height: 2),
         ClipRRect(
@@ -3506,10 +3554,11 @@ class _FilterSegmentChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final chipColor = color ?? const Color(0xFF42A5F5);
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? chipColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(6),
@@ -3525,15 +3574,19 @@ class _FilterSegmentChip extends StatelessWidget {
               label,
               style: TextStyle(
                 color: isSelected ? chipColor : Colors.grey[400],
-                fontSize: 10.5,
+                fontSize: AppTypography.captionSize,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
             if (onDelete != null) ...[
               const SizedBox(width: 4),
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: onDelete,
-                child: Icon(Icons.close, size: 12, color: Colors.grey[500]),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 12, color: Colors.grey[400]),
+                ),
               ),
             ],
           ],

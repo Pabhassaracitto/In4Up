@@ -698,7 +698,7 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
                               context.uiText('Đã phân loại $_classifiedCount / ${_candidates.length}'),
                               style: const TextStyle(
                                 color: Colors.white38,
-                                fontSize: 10.5,
+                                fontSize: 11,
                               ),
                             ),
                           ],
@@ -900,7 +900,7 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
                         context.uiText('Độ khó'),
                         style: const TextStyle(
                           color: Colors.white54,
-                          fontSize: 10.5,
+                          fontSize: 11,
                         ),
                       ),
                     ),
@@ -942,7 +942,7 @@ class _MiniBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.w700),
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }

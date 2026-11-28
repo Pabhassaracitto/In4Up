@@ -281,7 +281,7 @@ class _WeekChart extends StatelessWidget {
                   context.uiText('${day.dayOfMonth}'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: day.dayKey == todayKey
                         ? const Color(0xFFFF6B35)
                         : Colors.grey,

@@ -1499,7 +1499,68 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-09 | 20:26 UTC | doing→doing | agent session `arena/afaff427-in4up` | nối follow-up export sang `PlayerProvider.loadSong` và Tab Nghe; title giữ video + timestamp clip; thêm wiring test, Flutter CI pending.
   - 2026-11-09 | 20:36 UTC | doing→doing | agent session `arena/afaff427-in4up` | Flutter analyze/locale + video/A-B/media tests xanh tại run `42693444830`; QA Android/iOS vẫn pending.
 
-### PLAN-049 — Beta 1.29.0: hub tổng hợp & kiểm thử 9 lane audit v1.28.0
+### PLAN-049 — Thư Viện Chung I4U (Great Library): thư viện cộng đồng audio · hình ảnh · từ vựng (GLIB-001..008)
+- Nguồn: người sở hữu (2026-11-15, qua agent `arena/a04e4405-in4up`) — ideation
+  [`docs/great_library_ideation_v1.md`](../great_library_ideation_v1.md) v1.2,
+  **6/6 quyết định D1–D6 LOCKED**.
+- Trạng thái: 🔨 **doing** (owner duyệt 2026-11-15; GLIB-001/002 code + test thuần, chờ CI).
+- Milestone đề xuất: nhánh milestone mới «Cộng đồng / Thư Viện Chung» — owner xếp khi duyệt.
+- Chi tiết: [`plans/PLAN-049-thu-vien-chung-i4u.md`](../plans/PLAN-049-thu-vien-chung-i4u.md);
+  kiến trúc: [ADR-0036](../adr/0036-thu-vien-chung-pack-storage-moderation.md)
+  (gói `.i4upack`, catalog Firestore REST, `PackStorageBackend` pluggable
+  Firebase→Supabase, moderation pending-first, admin in-app gate uid owner).
+- Tóm tắt: màn **Thư Viện Chung I4U** — duyệt/xem trước/tải pack **không cần
+  đăng nhập**, import thẳng vào Studio (Vocab→Vườn nhớ, Audio→Tab Nghe, Ảnh→
+  flashcard); P0 = khung pack + catalog + UI + import + **~22 pack seed EN→VI
+  do team soạn** (NGSL/NAWL + TTS bulk + LibriVox/Tatoeba/CC0); P1 = wizard
+  đóng góp (AI gợi ý metadata opt-in BYOK) + màn admin moderation.
+- Lịch sử:
+  - 2026-11-15 | created (proposed) | agent `arena/a04e4405-in4up` | PLAN-049 +
+    ADR-0036 + 8 card GLIB-001..008; chưa code, chờ owner duyệt.
+  - 2026-11-15 | proposed→doing | owner duyệt («Duyệt, hãy tiến hành»); agent
+    `arena/a04e4405-in4up` | GLIB-001 (pack_manifest + pack_file) + GLIB-002
+    (backend interface + Firebase REST + DownloadManager) code + 3 file test
+    thuần + bước CI `GLIB tests` trong app_analyze.yml. Chờ CI.
+  - 2026-11-15 | doing — CI 🟢 | agent `arena/a04e4405-in4up` | run
+    45074714897: analyze + GLIB tests xanh (run đầu 45073927840 đỏ 2 analyzer
+    ERROR: `storageBucket` String? + const-interpolation → sửa, verify() bắt
+    thêm ArchiveException khi giải nén vùng hỏng). GLIB-001/002 ✅ done.
+  - 2026-11-15 | doing — CI 🟢 run 45079525127 | agent `arena/a04e4405-in4up` |
+    GLIB-003 ✅ (code): catalog service (TTL cache + offline fallback) +
+    transport public (không cần token — D5) + schema/rules doc; owner deploy
+    rules theo `docs/great_library_firestore_schema.md` §4.
+  - 2026-11-23 | doing — CI 🟢 run 45182347010 | agent `arena/a04e4405-in4up` |
+    GLIB-005 ✅: PackImportService pack→Studio — schema data/ (vocab entries,
+    audio tracks+LRC, image items) + sinks thuần (route theo loại, chặn import
+    lặp cùng version, update additive giữ SM-2) + sinks production (Vocab→
+    VocabularyProvider fill-empty, Audio→audio_imports+LRC bind, Image→kho
+    vocabulary_images) + installed store (prefs) + nút Nhập vào Studio + chip
+    Có bản mới. Owner vẫn nợ deploy rules (§4 schema doc).
+  - 2026-11-23 | doing — CI 🟢 run 45226505832 | agent `arena/a04e4405-in4up` |
+    GLIB-004b ✅: preview nội dung theo loại (Vocab 20 thẻ + nghe thử TTS;
+    Audio tracks + LRC; Image grid) + GlCatalogFileCache persist catalog
+    snapshot ra đĩa (offline mở app vẫn có catalog cũ).
+  - 2026-11-23 | done — CI 🟢 run 45257255992 | agent `arena/a04e4405-in4up` |
+    GLIB-007 ✅ (P1): màn admin moderation — gate uid ∈ gl_config/admins,
+    state machine pending→published/rejected/hidden (reject/hide bắt buộc lý
+    do), màn hàng chờ + entry AppBar gate. 10 test thuần.
+  - 2026-11-23 | done — CI 🟢 run 45251116597 | agent `arena/a04e4405-in4up` |
+    GLIB-006 ✅ (P1): wizard đóng góp 3 bước + AI gợi ý metadata BYOK opt-in +
+    quota 10/tháng + màn Đóng góp của tôi (pending/published/rejected + lý do).
+    Luồng submit pin bằng service test (fake backend/transport).
+  - 2026-11-23 | done — CI 🟢 run 45231501777 | agent `arena/a04e4405-in4up` |
+    GLIB-008 ✅: seed pipeline `tool/great_library_seed/` — 22 pack .i4upack
+    theo ideation §9.3, đúng schema GLIB-001/005, validator 22/22 pass; v1
+    nội dung tự soạn CC0 + audio/ảnh placeholder (TTS bulk/LibriVox/ảnh CC0
+    thật thay lúc soạn máy chủ); seed_publish.py publish nội bộ. Chặn: owner
+    deploy rules §4 mới đọc catalog được.
+  - 2026-11-23 | doing — CI 🟢 run 45114987418 | agent `arena/a04e4405-in4up` |
+    GLIB-004 ✅: UI browse/search/lọc/sắp xếp + chi tiết pack + tải với
+    progress + entry Home/Quick Actions; i18n 19 key gl* qua ARB ×26 locale
+    (T2 hi/zh/zh_TW/si dịch native cùng PR); download store file (native) /
+    memory (web) pluggable; 14 test (controller + widget). Preview theo loại +
+    persist cache = GLIB-004b. Owner vẫn nợ deploy rules (§4 schema doc).
+### PLAN-050 — Beta 1.29.0: hub tổng hợp & kiểm thử 9 lane audit v1.28.0
 - Nguồn: người sở hữu (2026-11-12, qua agent `arena/60e35d65-in4up`).
 - Trạng thái: doing — hub mở, chờ 9 nhánh agent land.
 - Milestone đề xuất: M2 — ổn định bản phát hành 1.29.0.
@@ -1515,3 +1576,29 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-12 | created→doing | agent `arena/60e35d65-in4up` | dựng hợp đồng land cho
     9 agent, sửa `deploy-web.yml` (không auto-publish beta) + `build_final_complete.yml`
     (tag beta ⇒ prerelease), thêm `scripts/beta/beta_board.sh`.
+
+### PLAN-051 — Beta 1.30.0: hợp nhất GLIB (Thư Viện Chung) vào dòng 1.29.2 và phát hành beta
+- Nguồn: người sở hữu (2026-11-24, qua agent `arena/395208ef-in4up`).
+- Trạng thái: doing — rebase tuyến tính xong, chờ CI + build 4 nền tảng.
+- Milestone: M2 — ổn định bản phát hành 1.30.0.
+- Chi tiết: card `REL-1.30.0-Beta` trong [`KANBAN.md`](KANBAN.md).
+  - Nhánh `arena/a04e4405-in4up` (GLIB-001…008b) được rebase **tuyến tính**
+    (0 merge commit) lên dòng 1.29.x; `pubspec` `1.29.2+31` → `1.30.0+32`.
+  - Trùng số tài liệu sau hợp nhất đã xử: ADR Thư Viện Chung `0031` → `0036`,
+    card Beta 1.29.0 `PLAN-049` → `PLAN-050` (card Thư Viện Chung giữ `PLAN-049`).
+- Lịch sử:
+  - 2026-11-24 | created→doing | agent `arena/395208ef-in4up` | rebase 166 commit,
+    gộp KANBAN/PLAN giữ cả hai phía, bump `1.30.0+32`, thêm pattern tag beta.
+
+### PLAN-052 — Beta 1.30.1: tiếp nhận sprint 4 (59b6e40a) tuyến tính vào nhánh phát hành
+- Nguồn: người sở hữu (2026-11-26, qua agent `arena/395208ef-in4up`).
+- Trạng thái: doing — đã tiếp nhận 4 commit, chờ CI + build 4 nền tảng.
+- Milestone: M2 — ổn định bản phát hành 1.30.1.
+- Chi tiết: card `REL-1.30.1-Beta` trong [`KANBAN.md`](KANBAN.md).
+  - 4 commit sprint 4 (`36b5ec2e`, `fd980fb9`, `8dfd7302`, `4efcab69`) được
+    cherry-pick tuyến tính (0 merge); `pubspec` `1.30.0+32` → `1.30.1+33`.
+  - Vì lịch sử đã viết lại ở 1.30.0, `rebase --onto` sẽ replay từ gốc ⇒ dùng
+    cách append + `cherry-pick -x` để giữ tuyến tính và truy vết nguồn commit.
+- Lịch sử:
+  - 2026-11-26 | created→doing | agent `arena/395208ef-in4up` | tiếp nhận 4 commit,
+    bump `1.30.1+33`, giữ nguyên tag/commit của 1.30.0.

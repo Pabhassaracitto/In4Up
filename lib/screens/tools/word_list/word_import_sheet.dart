@@ -1295,7 +1295,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                             child: Text(
                               'đã có',
                               style: TextStyle(
-                                  color: Colors.orange[300], fontSize: 8.5),
+                                  color: Colors.orange[300], fontSize: 11),
                             ),
                           ),
                         ],
@@ -1304,7 +1304,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                           Text(
                             context.uiText('×${w.frequency}'),
                             style:
-                                TextStyle(color: Colors.grey[600], fontSize: 9),
+                                TextStyle(color: Colors.grey[600], fontSize: 11),
                           ),
                         ],
                       ],
@@ -1328,7 +1328,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Colors.grey[500],
-                            fontSize: 10.5,
+                            fontSize: 11,
                           ),
                         ),
                       ),
@@ -1492,7 +1492,7 @@ class _OptionChip extends StatelessWidget {
               context.uiText(label),
               style: TextStyle(
                 color: isActive ? const Color(0xFF9C8FFF) : Colors.grey[600],
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),

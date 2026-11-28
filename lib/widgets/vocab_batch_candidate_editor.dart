@@ -125,7 +125,7 @@ class VocabBatchCandidateEditor {
                               color: selectedLanguage == language
                                   ? Colors.white
                                   : Colors.white60,
-                              fontSize: 10.5,
+                              fontSize: 11,
                             ),
                           ),
                           selectedColor: const Color(0xFF42A5F5),

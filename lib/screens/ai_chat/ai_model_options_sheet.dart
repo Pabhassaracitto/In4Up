@@ -240,7 +240,7 @@ class _ProfileTile extends StatelessWidget {
             Text(
               context.uiText('Khuyến nghị theo RAM'),
               style: const TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: Color(0xFF81C784),
                 fontWeight: FontWeight.w700,
               ),

@@ -1,30 +1,19 @@
 import 'dart:math' as math;
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
+import '../../core/theme/app_colors.dart';
 import '../settings/stt_model_settings_screen.dart';
-import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 import 'quick_capture/quick_capture_sheet.dart';
 import 'quick_capture/quick_suggestion_sheet.dart';
 import 'widgets/continue_learning_card.dart';
 import 'widgets/focus_streak_card.dart';
-import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
 import 'widgets/memory_garden_card.dart';
-
-/// Chiều cao card Phòng Studio.
-///
-/// Cố định theo `mainAxisExtent` (thay vì `childAspectRatio`) để card không
-/// tràn khi 7 thẻ bị ép xuống 2 cột: icon 26 + tiêu đề 1 dòng + phụ đề 2 dòng
-/// ở cỡ chữ tối đa app cho phép (text scale bị kẹp ≤ 1.15 trong `main.dart`).
-const double _studioCardExtent = 108;
 
 class HomeScreen extends StatefulWidget {
   /// Phòng Studio: 7 mode riêng — mỗi card mở đúng một sub-mode của shell.
@@ -60,15 +49,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF080B1A),
+      color: AppColors.bgBase,
       child: Stack(
         children: [
           const _AnimatedBackground(),
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {},
-              backgroundColor: const Color(0xFF1A1A2E),
-              color: const Color(0xFF6C63FF),
+              backgroundColor: AppColors.surfaceElevated,
+              color: AppColors.accentPrimary,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final horizontalPadding =
@@ -79,13 +68,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       physics: const BouncingScrollPhysics(),
                       slivers: [
                         SliverToBoxAdapter(child: _buildGlassHeader(context)),
-                        // HOME-CONTINUE-001: "Tiếp tục học" đứng đầu dashboard
-                        // — đưa người học quay lại đúng hoạt động đang dở
-                        // (bài nghe, văn bản, từ đến hạn) từ dữ liệu thật.
+                        // 1. HERO: "Tiếp tục học" đứng đầu dashboard — đưa người
+                        // học quay lại đúng hoạt động đang dở từ dữ liệu thật.
                         SliverPadding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: horizontalPadding,
-                            vertical: 12,
+                          padding: EdgeInsets.fromLTRB(
+                            horizontalPadding,
+                            8,
+                            horizontalPadding,
+                            8,
                           ),
                           sliver: SliverToBoxAdapter(
                             child: ContinueLearningCard(
@@ -95,78 +85,54 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
+                        // 2. BENTO AI + Gợi ý nhanh (gộp I4U AI Chat & Gợi ý từ vựng,
+                        // bỏ HebbianInputCard lặp lại nút Mic với FAB).
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,
-                            vertical: 12,
+                            vertical: 8,
                           ),
                           sliver: SliverToBoxAdapter(
-                            child: _buildAiChatCard(context),
+                            child: _buildAiAndQuickSuggestionRow(context),
                           ),
                         ),
+                        // 3. Lối tắt Studio chuyên biệt (chỉ giữ các sub-mode
+                        // phụ Viết · Nói · Xem không nằm trực tiếp trên BottomNav).
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,
-                            vertical: 12,
-                          ),
-                          sliver: const SliverToBoxAdapter(
-                            child: FocusStreakCard(),
-                          ),
-                        ),
-                        SliverPadding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: horizontalPadding,
-                            vertical: 12,
+                            vertical: 8,
                           ),
                           sliver: SliverToBoxAdapter(
-                            child: MemoryGardenCard(
-                              onStartReview: widget.onNavigateToMemory,
-                            ),
+                            child: _buildStudioSubmodesStrip(context),
                           ),
                         ),
+                        // 4. BENTO Tiến độ (2 cột trên tablet/desktop, dọc gọn trên phone).
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,
-                            vertical: 12,
+                            vertical: 8,
                           ),
                           sliver: SliverToBoxAdapter(
-                            child: HebbianInputCard(
-                              onStartVoiceCapture: _openQuickCapture,
-                              onShowSuggestion: _openSuggestion,
-                            ),
+                            child: _buildProgressBento(context),
                           ),
                         ),
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,
-                            vertical: 12,
-                          ),
-                          sliver: SliverToBoxAdapter(
-                            child: _buildBentoModesGrid(context),
-                          ),
-                        ),
-                        SliverPadding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: horizontalPadding,
-                            vertical: 12,
+                            vertical: 8,
                           ),
                           sliver: const SliverToBoxAdapter(
                             child: KnowledgeGraphPreview(),
                           ),
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 96)),
                       ],
                     ),
                   );
                 },
               ),
             ),
-          ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _GlobalMiniPlayer(),
           ),
           Positioned(
             right: 16,
@@ -178,48 +144,110 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAiChatCard(BuildContext context) {
-    return InkWell(
+  Widget _buildAiAndQuickSuggestionRow(BuildContext context) {
+    final aiCard = InkWell(
       onTap: widget.onOpenAiChat,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: Ink(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF312E81), Color(0xFF172554)],
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
           ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.auto_awesome, color: Color(0xFFE9D5FF), size: 30),
-            const SizedBox(width: 14),
+            const Icon(Icons.auto_awesome, color: Color(0xFFE9D5FF), size: 24),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     context.uiText('I4U AI Chat'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     context.uiText('Hỏi đáp về từ vựng và ngữ pháp'),
-                    style: const TextStyle(color: Colors.white70),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+            const Icon(Icons.chevron_right, size: 18, color: Colors.white70),
           ],
         ),
       ),
+    );
+
+    final suggestionBtn = InkWell(
+      onTap: _openSuggestion,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00D1FF).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFF00D1FF).withValues(alpha: 0.28),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tips_and_updates_outlined,
+              color: Color(0xFF00D1FF),
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              context.uiText('Gợi ý'),
+              style: const TextStyle(
+                color: Color(0xFF00D1FF),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              aiCard,
+              const SizedBox(height: 8),
+              suggestionBtn,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: aiCard),
+            const SizedBox(width: 10),
+            suggestionBtn,
+          ],
+        );
+      },
     );
   }
 
@@ -254,169 +282,115 @@ class _HomeScreenState extends State<HomeScreen> {
         final horizontal = isCompact ? 16.0 : 24.0;
 
         return Padding(
-          padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 8),
-          child: isCompact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeaderTextBlock(context, l10n),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: headerActions,
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildHeaderTextBlock(context, l10n)),
-                    const SizedBox(width: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: headerActions,
-                    ),
-                  ],
-                ),
+          padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 4),
+          child: Row(
+            children: [
+              Expanded(child: _buildHeaderTextBlock(context, l10n)),
+              const SizedBox(width: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: headerActions,
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
   Widget _buildHeaderTextBlock(BuildContext context, AppLocalizations l10n) {
+    return Text(
+      l10n.knowledgeOS,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w800,
+        color: Colors.white,
+        letterSpacing: -0.5,
+      ),
+    );
+  }
+
+  Widget _buildStudioSubmodesStrip(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final items = [
+      (
+        icon: Icons.edit_note_rounded,
+        title: context.uiText('Viết'),
+        color: const Color(0xFF26C6DA),
+        onTap: widget.onNavigateToWrite,
+      ),
+      (
+        icon: Icons.mic_rounded,
+        title: context.uiText('Nói'),
+        color: const Color(0xFFB388FF),
+        onTap: widget.onNavigateToSpeak,
+      ),
+      (
+        icon: Icons.smart_display_rounded,
+        title: context.uiText('Xem'),
+        color: const Color(0xFFFFB300),
+        onTap: widget.onNavigateToWatch,
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.commandCenter,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            color: Colors.blue[400],
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.knowledgeOS,
+          l10n.studioRoom,
           style: const TextStyle(
-            fontSize: 24,
+            fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
-            letterSpacing: -0.5,
+            color: Colors.grey,
+            letterSpacing: 1.0,
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          context.uiText(
-            'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
-          ),
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 12,
-            height: 1.4,
-          ),
+        Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: _StudioPillTile(
+                  icon: items[i].icon,
+                  title: items[i].title,
+                  color: items[i].color,
+                  onTap: items[i].onTap,
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildBentoModesGrid(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
+  Widget _buildProgressBento(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        // 7 card (NGHE · NÓI · XEM · ĐỌC · VIẾT · HIỂU · NHỚ): 2 cột trên phone
-        // (2+2+2+1), 3–5 cột khi rộng (4+3 …). Chiều cao card cố định theo
-        // `mainAxisExtent` để không phụ thuộc tỉ lệ chữ → không overflow.
-        final crossAxisCount = AppResponsive.adaptiveGridColumns(
-          width,
-          compact: width < 380 ? 1 : 2,
-          medium: 3,
-          expanded: 4,
-          large: 5,
-        );
-
+        final twoCols = constraints.maxWidth >= 720;
+        if (twoCols) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: FocusStreakCard()),
+              const SizedBox(width: 12),
+              Expanded(
+                child: MemoryGardenCard(
+                  onStartReview: widget.onNavigateToMemory,
+                ),
+              ),
+            ],
+          );
+        }
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.studioRoom,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Colors.grey,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            GridView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                mainAxisExtent: _studioCardExtent,
-              ),
-              // Thứ tự card = thứ tự tab dưới đáy (owner 2026-10-25: Đọc
-              // trước Nghe). Đổi tab mà không đổi Studio là hai nơi nói hai
-              // hướng khác nhau ⇒ người học phải nhớ 2 bản đồ.
-              children: [
-                _BentoCard(
-                  icon: Icons.menu_book,
-                  title: l10n.read,
-                  subtitle: l10n.readLibrary,
-                  color: const Color(0xFF2196F3),
-                  onTap: widget.onNavigateToRead,
-                ),
-                _BentoCard(
-                  icon: Icons.edit_note,
-                  title: context.uiText('VIẾT'),
-                  subtitle: l10n.readTextStudio,
-                  color: const Color(0xFF26C6DA),
-                  onTap: widget.onNavigateToWrite,
-                ),
-                _BentoCard(
-                  icon: Icons.headphones,
-                  title: l10n.listen,
-                  subtitle: l10n.listenLibrary,
-                  color: const Color(0xFF6C63FF),
-                  onTap: widget.onNavigateToListen,
-                ),
-                _BentoCard(
-                  icon: Icons.mic,
-                  title: context.uiText('NÓI'),
-                  subtitle: l10n.shadowingSubtitle,
-                  color: const Color(0xFFB388FF),
-                  onTap: widget.onNavigateToSpeak,
-                ),
-                _BentoCard(
-                  icon: Icons.smart_display,
-                  title: context.uiText('XEM'),
-                  subtitle: context.uiText('Thư viện video'),
-                  color: const Color(0xFFFFB300),
-                  onTap: widget.onNavigateToWatch,
-                ),
-                _BentoCard(
-                  icon: Icons.lightbulb,
-                  title: l10n.understand,
-                  subtitle: context.uiText('Đồng bộ · Hiểu sâu'),
-                  color: const Color(0xFFFFB300),
-                  onTap: widget.onNavigateToUnderstand,
-                ),
-                _BentoCard(
-                  icon: Icons.psychology,
-                  title: l10n.remember,
-                  subtitle: context.uiText('Ôn tập · SRS'),
-                  color: const Color(0xFF4CAF50),
-                  onTap: widget.onNavigateToMemory,
-                ),
-              ],
+            const FocusStreakCard(),
+            const SizedBox(height: 12),
+            MemoryGardenCard(
+              onStartReview: widget.onNavigateToMemory,
             ),
           ],
         );
@@ -450,17 +424,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _BentoCard extends StatelessWidget {
+class _StudioPillTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String subtitle;
   final Color color;
   final VoidCallback onTap;
 
-  const _BentoCard({
+  const _StudioPillTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.color,
     required this.onTap,
   });
@@ -469,146 +441,38 @@ class _BentoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        HapticFeedback.mediumImpact();
+        HapticFeedback.selectionClick();
         onTap();
       },
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.24)),
         ),
-        child: Stack(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Positioned(
-              right: -10,
-              top: -10,
-              child: Icon(
-                icon,
-                size: 60,
-                color: color.withValues(alpha: 0.05),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, color: color, size: 26),
-                    const SizedBox(height: 8),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: color.withValues(alpha: 0.82),
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w500,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _GlobalMiniPlayer extends StatelessWidget {
-  const _GlobalMiniPlayer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        if (player.currentSongTitle == null) return const SizedBox.shrink();
-
-        return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E).withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.music_note,
-                  color: Color(0xFF6C63FF),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      player.currentSongTitle ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      AppLocalizations.of(context).nowPlaying,
-                      style: const TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  player.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                ),
-                onPressed: player.togglePlayPause,
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
@@ -677,7 +541,7 @@ class _FirebaseAuthButton extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return IconButton(
-            tooltip: 'Đăng nhập',
+            tooltip: context.uiText('Đăng nhập'),
             icon: const Icon(Icons.account_circle_outlined,
                 color: Colors.white, size: 28),
             onPressed: () => _handleSignIn(context),
